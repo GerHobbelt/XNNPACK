@@ -3,13 +3,13 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <algorithm>
-#include <array>
-#include <cstdint>
-#include <cstddef>
-#include <limits>
-#include <memory>
-#include <random>
+#include <algorithm>   // For std::generate, std::shuffle.
+#include <array>       // For std::array.
+#include <cstddef>     // For size_t.
+#include <functional>  // For std::multiplies.
+#include <memory>      // For std::unique_ptr.
+#include <random>      // For std::random_device, std::mt19937, std::uniform_real_distribution.
+#include <vector>      // For std::vector.
 
 #include <xnnpack.h>
 #include <xnnpack/node-type.h>
@@ -19,20 +19,16 @@
 #include "subgraph-unary-tester.h"
 #include <gtest/gtest.h>
 
-using ClampTestQS8 = UnaryTest<int8_t>;
-using ClampTestQU8 = UnaryTest<uint8_t>;
-using ClampTestF32 = UnaryTest<float>;
+using StaticReshapeTestX8Int8 = UnaryTest<int8_t>;
+using StaticReshapeTestX8Uint8 = UnaryTest<uint8_t>;
+using StaticReshapeTestX32= UnaryTest<float>;
 
-TEST_F(ClampTestQS8, define)
+TEST_F(StaticReshapeTestX8Int8, define)
 {
   const int32_t input_zero_point = i8dist(rng);
   const float input_scale = scale_dist(rng);
   const int32_t output_zero_point = input_zero_point;
   const float output_scale = input_scale;
-  const int8_t quantized_output_min = std::uniform_int_distribution<int32_t>(-128, 0)(rng);
-  const int8_t quantized_output_max = std::uniform_int_distribution<int32_t>(1, 127)(rng);
-  const float output_min = (quantized_output_min - input_zero_point) * input_scale;
-  const float output_max = (quantized_output_max - input_zero_point) * input_scale;
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -54,11 +50,11 @@ TEST_F(ClampTestQS8, define)
                           nullptr, 1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_clamp(subgraph, output_min, output_max, input_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_static_reshape(subgraph, dims.size(), dims.data(), input_id, output_id, /*flags=*/0));
 
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
-  ASSERT_EQ(node->type, xnn_node_type_clamp);
+  ASSERT_EQ(node->type, xnn_node_type_static_reshape);
   ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
@@ -67,16 +63,12 @@ TEST_F(ClampTestQS8, define)
   ASSERT_EQ(node->flags, 0);
 }
 
-TEST_F(ClampTestQU8, define)
+TEST_F(StaticReshapeTestX8Uint8, define)
 {
   const int32_t input_zero_point = u8dist(rng);
   const float input_scale = scale_dist(rng);
   const int32_t output_zero_point = input_zero_point;
   const float output_scale = input_scale;
-  const uint8_t quantized_output_min = std::uniform_int_distribution<uint32_t>(0, 127)(rng);
-  const uint8_t quantized_output_max = std::uniform_int_distribution<uint32_t>(128, 255)(rng);
-  const float output_min = (quantized_output_min - input_zero_point) * input_scale;
-  const float output_max = (quantized_output_max - input_zero_point) * input_scale;
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -98,11 +90,11 @@ TEST_F(ClampTestQU8, define)
                           nullptr, 1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_clamp(subgraph, output_min, output_max, input_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_static_reshape(subgraph, dims.size(), dims.data(), input_id, output_id, /*flags=*/0));
 
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
-  ASSERT_EQ(node->type, xnn_node_type_clamp);
+  ASSERT_EQ(node->type, xnn_node_type_static_reshape);
   ASSERT_EQ(node->compute_type, xnn_compute_type_qu8);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
@@ -111,36 +103,32 @@ TEST_F(ClampTestQU8, define)
   ASSERT_EQ(node->flags, 0);
 }
 
-TEST_F(ClampTestF32, define)
+TEST_F(StaticReshapeTestX32, define)
 {
-  const float output_min = std::uniform_real_distribution<float>(-128.0f, 0.0f)(rng);
-  const float output_max = std::uniform_real_distribution<float>(1.0f, 127.0f)(rng);
-
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
   xnn_subgraph_t subgraph = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_subgraph(/*external_value_ids=*/2, /*flags=*/0, &subgraph));
+  ASSERT_EQ(xnn_status_success, xnn_create_subgraph(0, /*flags=*/0, &subgraph));
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
-
-  input_id = XNN_INVALID_NODE_ID;
+  uint32_t input_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
-    xnn_status_success, xnn_define_tensor_value(
-                          subgraph, xnn_datatype_fp32, dims.size(), dims.data(), nullptr, 0,
-                          /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
+    xnn_status_success,
+    xnn_define_tensor_value(
+      subgraph, xnn_datatype_fp32, dims.size(), dims.data(), nullptr, XNN_INVALID_VALUE_ID, /*flags=*/0, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
-  output_id = XNN_INVALID_NODE_ID;
+  uint32_t output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
-    xnn_status_success, xnn_define_tensor_value(
-                          subgraph, xnn_datatype_fp32, dims.size(), dims.data(), nullptr, 1,
-                          /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
+    xnn_status_success,
+    xnn_define_tensor_value(
+      subgraph, xnn_datatype_fp32, dims.size(), dims.data(), nullptr, XNN_INVALID_VALUE_ID, /*flags=*/0, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_clamp(subgraph, output_min, output_max, input_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_static_reshape(subgraph, dims.size(), dims.data(), input_id, output_id, 0));
 
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
-  ASSERT_EQ(node->type, xnn_node_type_clamp);
+  ASSERT_EQ(node->type, xnn_node_type_static_reshape);
   ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
@@ -149,26 +137,25 @@ TEST_F(ClampTestF32, define)
   ASSERT_EQ(node->flags, 0);
 }
 
-TEST_F(ClampTestQS8, matches_operator_api)
+TEST_F(StaticReshapeTestX8Int8, matches_operator_api)
 {
   const int32_t input_zero_point = i8dist(rng);
   const float input_scale = scale_dist(rng);
   const int32_t output_zero_point = input_zero_point;
   const float output_scale = input_scale;
-  const int8_t quantized_output_min = std::uniform_int_distribution<int32_t>(-128, 0)(rng);
-  const int8_t quantized_output_max = std::uniform_int_distribution<int32_t>(1, 127)(rng);
-  const float output_min = (quantized_output_min - input_zero_point) * input_scale;
-  const float output_max = (quantized_output_max - input_zero_point) * input_scale;
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
   std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
   std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
+
+  std::vector<size_t> output_dims = dims;
+  std::shuffle(output_dims.begin(), output_dims.end(), rng);
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
   // Call operator API.
   xnn_operator_t op = nullptr;
   const xnn_status status =
-    xnn_create_clamp_nc_s8(channels, channels, channels, quantized_output_min, quantized_output_max, /*flags=*/0, &op);
+    xnn_create_copy_nc_x8(1, 1, 1, /*flags=*/0, &op);
   if (status == xnn_status_unsupported_hardware) {
     GTEST_SKIP();
   }
@@ -176,9 +163,10 @@ TEST_F(ClampTestQS8, matches_operator_api)
   ASSERT_NE(nullptr, op);
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
+  size_t batch_size = NumElements(dims);
   ASSERT_EQ(
     xnn_status_success,
-    xnn_setup_clamp_nc_s8(op, batch_size, input.data(), operator_output.data(), /*threadpool=*/nullptr));
+    xnn_setup_copy_nc_x8(op, batch_size, input.data(), operator_output.data(), /*threadpool=*/nullptr));
   ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
   // Call subgraph API.
@@ -195,11 +183,11 @@ TEST_F(ClampTestQS8, matches_operator_api)
   output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_quantized_tensor_value(
-                          subgraph, xnn_datatype_qint8, output_zero_point, output_scale, dims.size(), dims.data(),
+                          subgraph, xnn_datatype_qint8, output_zero_point, output_scale, output_dims.size(), output_dims.data(),
                           nullptr, /*external_id=*/1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_clamp(subgraph, output_min, output_max, input_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_static_reshape(subgraph, output_dims.size(), output_dims.data(), input_id, output_id, /*flags=*/0));
 
   xnn_runtime_t runtime = nullptr;
   ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
@@ -214,26 +202,25 @@ TEST_F(ClampTestQS8, matches_operator_api)
   ASSERT_EQ(subgraph_output, operator_output);
 }
 
-TEST_F(ClampTestQU8, matches_operator_api)
+TEST_F(StaticReshapeTestX8Uint8, matches_operator_api)
 {
   const int32_t input_zero_point = u8dist(rng);
   const float input_scale = scale_dist(rng);
   const int32_t output_zero_point = input_zero_point;
   const float output_scale = input_scale;
-  const uint8_t quantized_output_min = std::uniform_int_distribution<uint32_t>(0, 127)(rng);
-  const uint8_t quantized_output_max = std::uniform_int_distribution<uint32_t>(128, 255)(rng);
-  const float output_min = (quantized_output_min - input_zero_point) * input_scale;
-  const float output_max = (quantized_output_max - input_zero_point) * input_scale;
   std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
   std::fill(operator_output.begin(), operator_output.end(), UINT8_C(0xA5));
   std::fill(subgraph_output.begin(), subgraph_output.end(), UINT8_C(0xA5));
+
+  std::vector<size_t> output_dims = dims;
+  std::shuffle(output_dims.begin(), output_dims.end(), rng);
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
   // Call operator API.
   xnn_operator_t op = nullptr;
   const xnn_status status =
-    xnn_create_clamp_nc_u8(channels, channels, channels, quantized_output_min, quantized_output_max, /*flags=*/0, &op);
+    xnn_create_copy_nc_x8(1, 1, 1, /*flags=*/0, &op);
   if (status == xnn_status_unsupported_hardware) {
     GTEST_SKIP();
   }
@@ -241,9 +228,10 @@ TEST_F(ClampTestQU8, matches_operator_api)
   ASSERT_NE(nullptr, op);
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
+  size_t batch_size = NumElements(dims);
   ASSERT_EQ(
     xnn_status_success,
-    xnn_setup_clamp_nc_u8(op, batch_size, input.data(), operator_output.data(), /*threadpool=*/nullptr));
+    xnn_setup_copy_nc_x8(op, batch_size, input.data(), operator_output.data(), /*threadpool=*/nullptr));
   ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
   // Call subgraph API.
@@ -260,11 +248,11 @@ TEST_F(ClampTestQU8, matches_operator_api)
   output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_quantized_tensor_value(
-                          subgraph, xnn_datatype_quint8, output_zero_point, output_scale, dims.size(), dims.data(),
+                          subgraph, xnn_datatype_quint8, output_zero_point, output_scale, output_dims.size(), output_dims.data(),
                           nullptr, /*external_id=*/1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
-  ASSERT_EQ(xnn_status_success, xnn_define_clamp(subgraph, output_min, output_max, input_id, output_id, /*flags=*/0));
+  ASSERT_EQ(xnn_status_success, xnn_define_static_reshape(subgraph, output_dims.size(), output_dims.data(), input_id, output_id, /*flags=*/0));
 
   xnn_runtime_t runtime = nullptr;
   ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
@@ -279,55 +267,54 @@ TEST_F(ClampTestQU8, matches_operator_api)
   ASSERT_EQ(subgraph_output, operator_output);
 }
 
-TEST_F(ClampTestF32, matches_operator_api)
+TEST_F(StaticReshapeTestX32, matches_operator_api)
 {
-  const float output_min = std::uniform_real_distribution<float>(-128.0f, 0.0f)(rng);
-  const float output_max = std::uniform_real_distribution<float>(1.0f, 127.0f)(rng);
-  std::uniform_real_distribution<float> f32dist(-255.0f, 255.0f);
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
   std::fill(operator_output.begin(), operator_output.end(), nanf(""));
   std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
+
+  std::vector<size_t> output_dims = dims;
+  std::shuffle(output_dims.begin(), output_dims.end(), rng);
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
   // Call operator API.
   xnn_operator_t op = nullptr;
-  const xnn_status status =
-    xnn_create_clamp_nc_f32(channels, channels, channels, output_min, output_max, /*flags=*/0, &op);
+  xnn_status status = xnn_create_copy_nc_x32(1, 1, 1, /*flags=*/0, &op);
   if (status == xnn_status_unsupported_hardware) {
     GTEST_SKIP();
   }
-
   ASSERT_EQ(xnn_status_success, status);
   ASSERT_NE(nullptr, op);
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
-
+  size_t batch_size = NumElements(dims);
   ASSERT_EQ(
     xnn_status_success,
-    xnn_setup_clamp_nc_f32(op, batch_size, input.data(), operator_output.data(), /*threadpool=*/nullptr));
-
+    xnn_setup_copy_nc_x32(op, batch_size, input.data(), operator_output.data(), /*threadpool=*/nullptr));
   ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
   // Call subgraph API.
   xnn_subgraph_t subgraph = nullptr;
   ASSERT_EQ(xnn_status_success, xnn_create_subgraph(/*external_value_ids=*/2, /*flags=*/0, &subgraph));
+  ASSERT_NE(nullptr, subgraph);
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
-  input_id = XNN_INVALID_NODE_ID;
+  uint32_t input_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_tensor_value(
                           subgraph, xnn_datatype_fp32, dims.size(), dims.data(), nullptr, /*external_id=*/0,
-                          /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
+                          XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
+  uint32_t output_id = XNN_INVALID_NODE_ID;
 
-  output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_tensor_value(
-                          subgraph, xnn_datatype_fp32, dims.size(), dims.data(), nullptr, /*external_id=*/1,
-                          /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
+                          subgraph, xnn_datatype_fp32, output_dims.size(), output_dims.data(), nullptr,
+                          /*external_id=*/1, XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
-
+  ASSERT_EQ(
+    xnn_status_success,
+    xnn_define_static_reshape(subgraph, output_dims.size(), output_dims.data(), input_id, output_id, /*flags=*/0));
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_define_clamp(subgraph, output_min, output_max, input_id, output_id, /*flags=*/0));
   ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);

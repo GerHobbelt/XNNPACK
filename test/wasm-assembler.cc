@@ -738,7 +738,7 @@ TEST(WasmAssemblerTest, InvalidCode) {
   InvalidCodeGenerator generator(&b);
   generator.Emit();
   EXPECT_THAT(generator.finalize(), NotNull());
-  EXPECT_THAT(b.first_function_index, XNN_INVALID_FUNCTION_INDEX);
+  EXPECT_THAT(xnn_first_function_ptr(&b), XNN_INVALID_FUNCTION_INDEX);
 }
 
 namespace {
@@ -768,6 +768,11 @@ class WasmOpsTest : public internal::V128WasmOps<WasmOpsTest>,
   void EmitEncodedU32ExpectCall(uint32_t value) {
     EXPECT_CALL(*this, EmitEncodedU32(value)).Times(1).InSequence(sequence_);
   }
+
+  void EmitEncodedS32ExpectCall(uint32_t value) {
+    EXPECT_CALL(*this, EmitEncodedS32(value)).Times(1).InSequence(sequence_);
+  }
+
   void ExpectEmitSIMDOpcode(uint32_t opcode) {
     Emit8ExpectCall(0xFD);
     EmitEncodedU32ExpectCall(opcode);
@@ -853,6 +858,18 @@ TEST_F(WasmOpsTest, Tee) {
   Emit8ExpectCall(0x22);
   EmitEncodedU32ExpectCall(i32_local_index);
   local_tee(i32_local_);
+}
+
+TEST_F(WasmOpsTest, Select) {
+  Emit8ExpectCall(0x1B);
+  Select(i32_value_, i32_value_, i32_value_);
+}
+
+TEST_F(WasmOpsTest, I32NeZ) {
+  Emit8ExpectCall(0x41);
+  EmitEncodedS32ExpectCall(0);
+  Emit8ExpectCall(0x47);
+  I32NeZ(i32_value_);
 }
 
 using ::xnnpack::internal::LocalsManager;

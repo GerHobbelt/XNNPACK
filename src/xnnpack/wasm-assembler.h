@@ -21,7 +21,6 @@
 #include <numeric>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 namespace xnnpack {
 
@@ -39,19 +38,15 @@ inline bool operator==(const ValType& lhs, const ValType& rhs) {
 
 namespace internal {
 
-template <>
-static constexpr ValType kDefault<ValType>{0};
+static constexpr ValType kPlaceholderValType(0);
 
 struct ValTypeToInt {
   template <typename Int>
   constexpr ValTypeToInt(ValType type, Int value) : type(type), value(value) {}
-  ValTypeToInt() = default;
+  constexpr ValTypeToInt() : ValTypeToInt(kPlaceholderValType, 0) {}
   ValType type;
   uint32_t value;
 };
-
-template <>
-static constexpr ValTypeToInt kDefault<ValTypeToInt>{kDefault<ValType>, 0};
 
 }  // namespace internal
 
@@ -63,7 +58,7 @@ class ValTypesToInt
     : public internal::ArrayPrefix<internal::ValTypeToInt, kMaxNumTypes> {
  public:
   using ArrayPrefix::ArrayPrefix;
-  ValTypesToInt() : ArrayPrefix(0, {ValType(0), 0}) {}
+  constexpr ValTypesToInt() : ArrayPrefix(0, {ValType(0), 0}) {}
 };
 
 namespace internal {
@@ -79,8 +74,8 @@ static uint32_t VectorEncodingLength(
 }
 
 struct ResultType {
-  constexpr ResultType(std::initializer_list<ValType> codes)
-      : type(kNoTypeCode) {
+  constexpr ResultType() : type(kNoTypeCode) {}
+  constexpr ResultType(std::initializer_list<ValType> codes) : ResultType() {
     switch (codes.size()) {
       case 0:
         break;
@@ -100,9 +95,6 @@ struct ResultType {
   static constexpr byte kNoTypeCode = 0;
 };
 
-template <>
-static constexpr ResultType kDefault<ResultType>{};
-
 inline bool operator==(const ResultType& lhs, const ResultType& rhs) {
   return lhs.type == rhs.type;
 }
@@ -110,21 +102,16 @@ inline bool operator==(const ResultType& lhs, const ResultType& rhs) {
 static constexpr size_t kMaxParamsCount = 16;
 struct Params : ArrayPrefix<ValType, kMaxParamsCount> {
   using ArrayPrefix::ArrayPrefix;
+  constexpr Params() : Params(0, kPlaceholderValType){};
 };
 
-template <>
-static constexpr Params kDefault<Params>{0, kDefault<ValType>};
-
 struct FuncType {
+  constexpr FuncType() = default;
   constexpr FuncType(const Params& params, ResultType result)
       : params(params), result(result) {}
   Params params;
   ResultType result;
 };
-
-template <>
-static constexpr FuncType kDefault<FuncType>{kDefault<Params>,
-                                             kDefault<ResultType>};
 
 inline bool operator==(const FuncType& lhs, const FuncType& rhs) {
   return lhs.result == rhs.result &&
@@ -132,24 +119,39 @@ inline bool operator==(const FuncType& lhs, const FuncType& rhs) {
                     rhs.params.end());
 }
 
-struct Function {
-  Function(uint32_t type_index, ValTypesToInt locals_declaration,
-           std::vector<byte> body)
-      : type_index(type_index),
-        locals_declaration(std::move(locals_declaration)),
-        body(std::move(body)) {}
-  uint32_t type_index;
-  ValTypesToInt locals_declaration;
-  std::vector<byte> body;
+struct Code {
+  constexpr explicit Code(byte* begin) : begin(begin), end(begin) {}
+
+  void store(byte b) { *end++ = b; }
+
+  size_t size() const { return end - begin; }
+
+  byte* begin;
+  byte* end;
 };
 
-struct Export {
-  Export(const char* name, size_t function_index)
-      : name(name), name_length(strlen(name)), function_index(function_index) {}
-
+struct Function {
+  constexpr Function() : Function(nullptr, 0, 0, 0, {}, Code(nullptr)) {}
+  constexpr Function(const char* name, size_t function_index,
+                     uint32_t type_index,
+                     const ValTypesToInt& locals_declaration, Code body)
+      : Function(name, strlen(name), function_index, type_index,
+                 locals_declaration, body) {}
+  constexpr Function(const char* name, size_t name_length,
+                     size_t function_index, uint32_t type_index,
+                     const ValTypesToInt& locals_declaration, Code body)
+      : name(name),
+        name_length(name_length),
+        function_index(function_index),
+        type_index(type_index),
+        locals_declaration(locals_declaration),
+        body(body) {}
   const char* name;
   size_t name_length;
   size_t function_index;
+  uint32_t type_index;
+  ValTypesToInt locals_declaration;
+  Code body;
 };
 
 template <typename Derived, typename Intermediate>
@@ -218,6 +220,12 @@ class V128WasmOps : public WasmOpsBase<Derived, V128WasmOps<Derived>> {
     for (auto lane : lanes) {
       assert(lane < 32);
       this->Emit8(lane);
+    }
+  }
+  void v128_const(const std::array<byte, 16>& values) const {
+    EmitVectorOpcode(0x0C);
+    for (byte v : values) {
+      this->Emit8(v);
     }
   }
 
@@ -372,7 +380,7 @@ class LocalsManager {
   };
 
   std::array<ValTypeIndices, kMaxNumTypes> indices_ =
-      MakeArray<kMaxNumTypes>(ValTypeIndices{kDefault<ValType>, 0, 0});
+      MakeArray<kMaxNumTypes>(ValTypeIndices{kPlaceholderValType, 0, 0});
 };
 
 std::array<uint8_t, 16> MakeLanesForI8x16Shuffle(const uint8_t* lanes,
@@ -394,7 +402,7 @@ class LocalWasmOps : public LocalsManager {
 
   class Local {
    public:
-    Local() = default;
+    constexpr Local() = default;
 
     Local(const ValType& type, uint32_t index, bool is_managed, Derived* ops)
         : type_(type), index_(index), ops_(ops), is_managed_(is_managed) {}
@@ -593,6 +601,17 @@ class LocalWasmOps : public LocalsManager {
     return BinaryOp(a, b, &Derived::f32x4_mul);
   }
 
+  ValueOnStack V128Const(float value) {
+    const uint8_t* value_int = reinterpret_cast<uint8_t*>(&value);
+    std::array<byte, 16> values;
+    for (size_t offset = 0; offset < 16 / sizeof(float); offset++) {
+      std::copy(value_int, value_int + sizeof(float),
+                values.data() + offset * sizeof(float));
+    }
+    GetDerived()->v128_const(values);
+    return MakeValueOnStack(v128);
+  }
+
   ValueOnStack V128Load(const ValueOnStack& address, uint32_t offset = 0,
                         uint32_t alignment = kV128DefaultAlignment) {
     return LoadOp(v128, offset, alignment, &Derived::v128_load);
@@ -682,6 +701,10 @@ class LocalWasmOps : public LocalsManager {
   }
 };
 
+inline static auto MakeStoreToCode(Code& out) {
+  return [&out](uint8_t b) { out.store(b); };
+}
+
 class WasmOps : public LocalWasmOps<WasmOps>,
                 public I32WasmOps<WasmOps>,
                 public F32WasmOps<WasmOps>,
@@ -690,45 +713,51 @@ class WasmOps : public LocalWasmOps<WasmOps>,
                 public ControlFlowWasmOps<WasmOps> {
  public:
   WasmOps() = default;
-  void SetOut(std::vector<byte>* out) { out_ = out; }
-  void Emit8(byte b) const { out_->push_back(b); }
+  void SetOut(Code* out) { out_ = out; }
+  void Emit8(byte b) const { out_->store(b); }
   void EmitEncodedS32(int32_t value) const {
-    internal::AppendEncodedS32(value, *out_);
+    StoreEncodedS32(value, MakeStoreToCode(*out_));
   }
   void EmitEncodedU32(uint32_t value) const {
-    internal::AppendEncodedU32(value, *out_);
+    StoreEncodedU32(value, MakeStoreToCode(*out_));
   }
 
  private:
-  std::vector<byte>* out_ = nullptr;
+  Code* out_ = nullptr;
 };
 }  // namespace internal
 
 class WasmAssembler : public AssemblerBase, public internal::WasmOps {
  private:
-  using Export = internal::Export;
   using Function = internal::Function;
   using Params = internal::Params;
   using FuncType = internal::FuncType;
   using LocalsManager = internal::LocalsManager;
   using ResultType = internal::ResultType;
+  using Code = internal::Code;
 
  public:
-  explicit WasmAssembler(xnn_code_buffer* buf) : AssemblerBase(buf) {}
+  explicit WasmAssembler(xnn_code_buffer* buf)
+      : AssemblerBase(buf),
+        next_func_body_begin_(cursor_ + kInitialCodeOffset) {}
 
   template <size_t InSize, typename Body>
   void AddFunc(const ResultType& result, const char* name,
                ValTypesToInt locals_declaration_count, Body&& body) {
     const auto params = internal::MakeArray<InSize>(i32);
-    AddFunc<InSize>(result, name, params, std::move(locals_declaration_count),
+    AddFunc<InSize>(result, name, params, locals_declaration_count,
                     std::forward<Body>(body));
   }
 
   template <size_t InSize, typename Body>
   void AddFunc(const ResultType& result, const char* name,
                const std::array<ValType, InSize>& params,
-               ValTypesToInt locals_declaration_count, Body&& body) {
-    std::vector<byte> code;
+               const ValTypesToInt& locals_declaration_count, Body&& body) {
+    if (functions_.size() == kMaxNumFuncs) {
+      error_ = Error::kMaxNumberOfFunctionsExceeded;
+      return;
+    }
+    Code code(next_func_body_begin_);
     SetOut(&code);
     ResetLocalsManager(InSize, locals_declaration_count);
     std::array<Local, InSize> input_locals{};
@@ -738,8 +767,10 @@ class WasmAssembler : public AssemblerBase, public internal::WasmOps {
     }
     internal::ArrayApply(std::move(input_locals), std::forward<Body>(body));
     end();
-    RegisterFunction(result, name, Params(params),
-                     std::move(locals_declaration_count), std::move(code));
+    RegisterFunction(result, name,
+                     Params(params, internal::kPlaceholderValType),
+                     locals_declaration_count, code);
+    next_func_body_begin_ = code.end;
   }
 
   void Emit() {
@@ -748,6 +779,8 @@ class WasmAssembler : public AssemblerBase, public internal::WasmOps {
     EmitImportSection();
     EmitFunctionSection();
     EmitExportsSection();
+    assert(code_size_in_bytes() < kInitialCodeOffset &&
+           "Initial code offset is insufficient");
     EmitCodeSection();
   }
 
@@ -766,9 +799,9 @@ class WasmAssembler : public AssemblerBase, public internal::WasmOps {
 
   void RegisterFunction(const ResultType& result, const char* name,
                         const Params& params,
-                        ValTypesToInt&& locals_declaration_count,
-                        std::vector<byte> code);
-  uint32_t FindOrAddFuncType(FuncType&& type);
+                        const ValTypesToInt& locals_declaration_count,
+                        Code code);
+  uint32_t FindOrAddFuncType(const FuncType& type);
 
   template <typename Array>
   void EmitByteArray(Array&& array) {
@@ -800,7 +833,7 @@ class WasmAssembler : public AssemblerBase, public internal::WasmOps {
   void EmitFunctionSection();
 
   void EmitExportsSection();
-  void EmitExport(const Export& exp);
+  void EmitExport(const Function& func);
 
   void EmitCodeSection();
   void EmitFunction(const Function& func);
@@ -810,11 +843,12 @@ class WasmAssembler : public AssemblerBase, public internal::WasmOps {
   }
 
   static constexpr size_t kMaxNumFuncTypes = 16;
+  static constexpr size_t kInitialCodeOffset = 1024;
+  static constexpr size_t kMaxNumFuncs = 16;
 
-  std::vector<Function> functions_;
-  std::vector<Export> exports_;
-  internal::ArrayPrefix<FuncType, kMaxNumFuncTypes> func_types_{
-      0, internal::kDefault<FuncType>};
+  internal::ArrayPrefix<Function, kMaxNumFuncs> functions_{0};
+  internal::ArrayPrefix<FuncType, kMaxNumFuncTypes> func_types_{0};
+  byte* next_func_body_begin_;
 };
 
 }  // namespace xnnpack

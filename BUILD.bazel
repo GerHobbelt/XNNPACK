@@ -9,7 +9,7 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load(":build_defs.bzl", "xnnpack_aggregate_library", "xnnpack_benchmark", "xnnpack_binary", "xnnpack_cc_library", "xnnpack_gcc_std_copts", "xnnpack_min_size_copts", "xnnpack_msvc_std_copts", "xnnpack_optional_dnnl_copts", "xnnpack_optional_dnnl_deps", "xnnpack_optional_gemmlowp_copts", "xnnpack_optional_gemmlowp_deps", "xnnpack_optional_ruy_copts", "xnnpack_optional_ruy_deps", "xnnpack_optional_tflite_copts", "xnnpack_optional_tflite_deps", "xnnpack_std_cxxopts", "xnnpack_unit_test", "xnnpack_visibility")
-load(":microkernels.bzl", "AARCH32_ASM_MICROKERNEL_SRCS", "AARCH64_ASM_MICROKERNEL_SRCS", "ALL_ARMSIMD32_MICROKERNEL_SRCS", "ALL_AVX2_MICROKERNEL_SRCS", "ALL_AVX512F_MICROKERNEL_SRCS", "ALL_AVX512SKX_MICROKERNEL_SRCS", "ALL_AVX512VBMI_MICROKERNEL_SRCS", "ALL_AVX_MICROKERNEL_SRCS", "ALL_F16C_MICROKERNEL_SRCS", "ALL_FMA3_MICROKERNEL_SRCS", "ALL_FMA_MICROKERNEL_SRCS", "ALL_FP16ARITH_MICROKERNEL_SRCS", "ALL_HEXAGON_MICROKERNEL_SRCS", "ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS", "ALL_NEONBF16_MICROKERNEL_SRCS", "ALL_NEONDOT_MICROKERNEL_SRCS", "ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFMA_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_MICROKERNEL_SRCS", "ALL_NEONFP16_MICROKERNEL_SRCS", "ALL_NEONV8_MICROKERNEL_SRCS", "ALL_NEON_AARCH64_MICROKERNEL_SRCS", "ALL_NEON_MICROKERNEL_SRCS", "ALL_RVV_MICROKERNEL_SRCS", "ALL_SCALAR_MICROKERNEL_SRCS", "ALL_SSE2_MICROKERNEL_SRCS", "ALL_SSE41_MICROKERNEL_SRCS", "ALL_SSE_MICROKERNEL_SRCS", "ALL_SSSE3_MICROKERNEL_SRCS", "ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS", "ALL_WASMSIMD_MICROKERNEL_SRCS", "ALL_WASM_MICROKERNEL_SRCS", "ALL_XOP_MICROKERNEL_SRCS", "WASM32_ASM_MICROKERNEL_SRCS")
+load(":microkernels.bzl", "AARCH32_ASM_MICROKERNEL_SRCS", "AARCH32_JIT_MICROKERNEL_SRCS", "AARCH64_ASM_MICROKERNEL_SRCS", "AARCH64_JIT_MICROKERNEL_SRCS", "ALL_ARMSIMD32_MICROKERNEL_SRCS", "ALL_AVX2_MICROKERNEL_SRCS", "ALL_AVX512F_MICROKERNEL_SRCS", "ALL_AVX512SKX_MICROKERNEL_SRCS", "ALL_AVX512VBMI_MICROKERNEL_SRCS", "ALL_AVX_MICROKERNEL_SRCS", "ALL_F16C_MICROKERNEL_SRCS", "ALL_FMA3_MICROKERNEL_SRCS", "ALL_FMA_MICROKERNEL_SRCS", "ALL_FP16ARITH_MICROKERNEL_SRCS", "ALL_HEXAGON_MICROKERNEL_SRCS", "ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS", "ALL_NEONBF16_MICROKERNEL_SRCS", "ALL_NEONDOT_MICROKERNEL_SRCS", "ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFMA_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_MICROKERNEL_SRCS", "ALL_NEONFP16_MICROKERNEL_SRCS", "ALL_NEONV8_MICROKERNEL_SRCS", "ALL_NEON_AARCH64_MICROKERNEL_SRCS", "ALL_NEON_MICROKERNEL_SRCS", "ALL_RVV_MICROKERNEL_SRCS", "ALL_SCALAR_MICROKERNEL_SRCS", "ALL_SSE2_MICROKERNEL_SRCS", "ALL_SSE41_MICROKERNEL_SRCS", "ALL_SSE_MICROKERNEL_SRCS", "ALL_SSSE3_MICROKERNEL_SRCS", "ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS", "ALL_WASMSIMD_MICROKERNEL_SRCS", "ALL_WASM_MICROKERNEL_SRCS", "ALL_XOP_MICROKERNEL_SRCS", "WASM32_ASM_MICROKERNEL_SRCS", "WASM32_JIT_MICROKERNEL_SRCS", "WASMRELAXEDSIMD32_JIT_MICROKERNEL_SRCS", "WASMSIMD32_JIT_MICROKERNEL_SRCS")
 
 licenses(["notice"])
 
@@ -63,6 +63,7 @@ MICROKERNEL_TEST_DEPS = [
     ":microparams_init",
     ":memory",
     ":params",
+    ":quantization",
     ":requantization",
     ":test_microkernels",
     ":xnnpack_h",
@@ -74,6 +75,7 @@ OPERATOR_TEST_DEPS = [
     ":cache",
     ":common",
     ":params",
+    ":quantization",
     ":XNNPACK_test_mode",
     ":jit_test_mode",
     ":normalization_test_mode",
@@ -134,6 +136,7 @@ SUBGRAPH_SRCS = [
     "src/subgraph/elu.c",
     "src/subgraph/even-split.c",
     "src/subgraph/floor.c",
+    "src/subgraph/fully-connected-sparse.c",
     "src/subgraph/fully-connected.c",
     "src/subgraph/global-average-pooling.c",
     "src/subgraph/global-sum-pooling.c",
@@ -242,6 +245,7 @@ PROD_SCALAR_AARCH32_MICROKERNEL_SRCS = [
     "src/f32-qu8-vcvt/gen/f32-qu8-vcvt-scalar-imagic-x4.c",
     "src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-scalar-rr2-p5-x4-acc2.c",
     "src/f32-rmax/f32-rmax-scalar.c",
+    "src/f32-rminmax/gen/f32-rminmax-scalar-x4-acc4.c",
     "src/f32-rsum/gen/f32-rsum-scalar-x4-acc4.c",
     "src/f32-spmm/gen/f32-spmm-8x1-minmax-scalar.c",
     "src/f32-spmm/gen/f32-spmm-8x2-minmax-scalar.c",
@@ -392,6 +396,7 @@ PROD_SCALAR_WASM_MICROKERNEL_SRCS = [
     "src/f32-qu8-vcvt/gen/f32-qu8-vcvt-scalar-imagic-x1.c",
     "src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-scalar-rr2-p5-x4-acc2.c",
     "src/f32-rmax/f32-rmax-scalar.c",
+    "src/f32-rminmax/gen/f32-rminmax-scalar-x4-acc4.c",
     "src/f32-rsum/gen/f32-rsum-scalar-x4-acc4.c",
     "src/f32-spmm/gen/f32-spmm-8x1-minmax-scalar.c",
     "src/f32-spmm/gen/f32-spmm-8x2-minmax-scalar.c",
@@ -556,6 +561,7 @@ PROD_SCALAR_RISCV_MICROKERNEL_SRCS = [
     "src/f32-qu8-vcvt/gen/f32-qu8-vcvt-scalar-lrintf-x4.c",
     "src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-scalar-rr2-p5-x4-acc2.c",
     "src/f32-rmax/f32-rmax-scalar.c",
+    "src/f32-rminmax/gen/f32-rminmax-scalar-x4-acc4.c",
     "src/f32-rsum/gen/f32-rsum-scalar-x4-acc4.c",
     "src/f32-spmm/gen/f32-spmm-8x1-minmax-scalar.c",
     "src/f32-spmm/gen/f32-spmm-8x2-minmax-scalar.c",
@@ -727,6 +733,7 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/f32-qu8-vcvt/gen/f32-qu8-vcvt-neon-x32.c",
     "src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-neon-rr2-lut64-p2-x8.c",
     "src/f32-rmax/f32-rmax-neon.c",
+    "src/f32-rminmax/gen/f32-rminmax-neon-x16-acc4.c",
     "src/f32-rsum/gen/f32-rsum-neon-x16-acc4.c",
     "src/f32-spmm/gen/f32-spmm-32x1-minmax-neon.c",
     "src/f32-vbinary/gen/f32-vadd-minmax-neon-x8.c",
@@ -1073,6 +1080,7 @@ PROD_SSE_MICROKERNEL_SRCS = [
     "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x4-minmax-scalar.c",
     "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-4x4-minmax-scalar.c",
     "src/f32-rmax/f32-rmax-sse.c",
+    "src/f32-rminmax/gen/f32-rminmax-sse-x16-acc4.c",
     "src/f32-rsum/gen/f32-rsum-sse-x16-acc4.c",
     "src/f32-spmm/gen/f32-spmm-32x1-minmax-sse.c",
     "src/f32-vbinary/gen/f32-vadd-minmax-sse-x8.c",
@@ -1725,6 +1733,7 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-wasmsimd-rr2-p5-x16-acc2.c",
     "src/f32-rmax/f32-rmax-wasmsimd-arm.c",
     "src/f32-rmax/f32-rmax-wasmsimd-x86.c",
+    "src/f32-rminmax/gen/f32-rminmax-wasmsimd-minmax-x16-acc4.c",
     "src/f32-rsum/gen/f32-rsum-wasmsimd-x16-acc4.c",
     "src/f32-spmm/gen/f32-spmm-32x1-minmax-wasmsimd-arm.c",
     "src/f32-spmm/gen/f32-spmm-32x1-minmax-wasmsimd-x86.c",
@@ -1918,65 +1927,6 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/x8-lut/gen/x8-lut-wasmpshufb-x32.c",
 ]
 
-JIT_AARCH32_SRCS = [
-    "src/f32-gemm/gen/f32-gemm-1x8-aarch32-neon-cortex-a53.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a7.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a53.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a55.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a75.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-ld64.cc",
-    "src/f32-igemm/gen/f32-igemm-1x8-aarch32-neon-cortex-a53.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a7.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a53.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a55.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a75.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-ld64.cc",
-    "src/qs8-gemm/gen/qs8-gemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc",
-    "src/qs8-gemm/gen/qs8-gemm-4x8c4-rndnu-aarch32-neondot-ld64.cc",
-    "src/qs8-igemm/gen/qs8-igemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc",
-    "src/qs8-igemm/gen/qs8-igemm-4x8c4-rndnu-aarch32-neondot-ld64.cc",
-    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc",
-    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc",
-    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc",
-    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc",
-]
-
-JIT_AARCH64_SRCS = [
-    "src/f16-gemm/gen/f16-gemm-1x16-aarch64-neonfp16arith-ld64.cc",
-    "src/f16-gemm/gen/f16-gemm-4x16-aarch64-neonfp16arith-ld64.cc",
-    "src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-cortex-a55.cc",
-    "src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-cortex-a55r0.cc",
-    "src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-cortex-a75.cc",
-    "src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-ld64.cc",
-    "src/f16-igemm/gen/f16-igemm-1x16-aarch64-neonfp16arith-ld64.cc",
-    "src/f16-igemm/gen/f16-igemm-4x16-aarch64-neonfp16arith-ld64.cc",
-    "src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-cortex-a55.cc",
-    "src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-cortex-a55r0.cc",
-    "src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-cortex-a75.cc",
-    "src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-ld64.cc",
-    "src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a53.cc",
-    "src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a75.cc",
-    "src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-ld64.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a53.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a55.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a75.cc",
-    "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-ld128.cc",
-    "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a53.cc",
-    "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a55.cc",
-    "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a75.cc",
-    "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-ld128.cc",
-    "src/f32-igemm/gen/f32-igemm-1x8-aarch64-neonfma-cortex-a53.cc",
-    "src/f32-igemm/gen/f32-igemm-1x8-aarch64-neonfma-cortex-a75.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a53.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a55.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a75.cc",
-    "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-ld128.cc",
-    "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a53.cc",
-    "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a55.cc",
-    "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a75.cc",
-    "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-ld128.cc",
-]
-
 MICROKERNEL_HDRS = [
     "src/xnnpack/argmaxpool.h",
     "src/xnnpack/avgpool.h",
@@ -1998,6 +1948,7 @@ MICROKERNEL_HDRS = [
     "src/xnnpack/pavgpool.h",
     "src/xnnpack/ppmm.h",
     "src/xnnpack/prelu.h",
+    "src/xnnpack/quantization.h",
     "src/xnnpack/raddexpminusmax.h",
     "src/xnnpack/raddextexp.h",
     "src/xnnpack/raddstoreexpminusmax.h",
@@ -2037,15 +1988,17 @@ WASM_JIT_LINKOPTS = [
     "-sALLOW_TABLE_GROWTH=1",
 ]
 
-JIT_WASM32_SRCS = [
-    "src/f32-vrelu/f32-vrelu-ukernel-jit-wasm32-shr.cc",
+JIT_WASMSIMD32_COMMONS_SRCS = [
+    "src/xnnpack/wasmsimd-gemm-igemm-loadsplat-commons.h",
 ]
 
-JIT_WASMSIMD32_SRCS = JIT_WASM32_SRCS + [
-    "src/f32-gemm/MRx8-wasmsimd-x86-loadsplat.cc",
-]
+JIT_WASMRELAXEDSIMD32_COMMONS_SRCS = []
 
-JIT_WASMRELAXEDSIMD32_SRCS = JIT_WASMSIMD32_SRCS
+JIT_WASM32_SRCS = WASM32_JIT_MICROKERNEL_SRCS
+
+JIT_WASMSIMD32_SRCS = JIT_WASM32_SRCS + JIT_WASMSIMD32_COMMONS_SRCS + WASMSIMD32_JIT_MICROKERNEL_SRCS
+
+JIT_WASMRELAXEDSIMD32_SRCS = JIT_WASMSIMD32_SRCS + JIT_WASMRELAXEDSIMD32_COMMONS_SRCS + WASMRELAXEDSIMD32_JIT_MICROKERNEL_SRCS
 
 filegroup(
     name = "microkernel_source_files",
@@ -2399,6 +2352,17 @@ xnnpack_cc_library(
         ":logging",
         ":math",
         ":xnnpack_h",
+    ],
+)
+
+xnnpack_cc_library(
+    name = "quantization",
+    hdrs = ["src/xnnpack/quantization.h"],
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+        ":microparams",
     ],
 )
 
@@ -5205,8 +5169,8 @@ xnnpack_cc_library(
         "src/xnnpack/leb128.h",
         "src/xnnpack/wasm-assembler.h",
     ],
-    aarch32_srcs = JIT_AARCH32_SRCS,
-    aarch64_srcs = JIT_AARCH64_SRCS,
+    aarch32_srcs = AARCH32_JIT_MICROKERNEL_SRCS,
+    aarch64_srcs = AARCH64_JIT_MICROKERNEL_SRCS,
     linkopts = select({
         "xnn_enable_jit_explicit_true_on_emscripten": WASM_JIT_LINKOPTS,
         "//conditions:default": [],
@@ -5243,8 +5207,8 @@ xnnpack_cc_library(
         "src/xnnpack/leb128.h",
         "src/xnnpack/wasm-assembler.h",
     ],
-    aarch32_srcs = JIT_AARCH32_SRCS,
-    aarch64_srcs = JIT_AARCH64_SRCS,
+    aarch32_srcs = AARCH32_JIT_MICROKERNEL_SRCS,
+    aarch64_srcs = AARCH64_JIT_MICROKERNEL_SRCS,
     copts = [
         "-UNDEBUG",
         "-DXNN_TEST_MODE=1",

@@ -259,6 +259,7 @@ SET(SUBGRAPH_SRCS
   src/subgraph/square.c
   src/subgraph/squared-difference.c
   src/subgraph/static-constant-pad.c
+  src/subgraph/static-mean.c
   src/subgraph/static-reshape.c
   src/subgraph/static-resize-bilinear-2d.c
   src/subgraph/static-slice.c
@@ -1613,6 +1614,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(static-constant-pad-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
     ADD_TEST(NAME static-constant-pad-test COMMAND static-constant-pad-test)
 
+    ADD_EXECUTABLE(static-mean-test test/static-mean.cc)
+    TARGET_INCLUDE_DIRECTORIES(static-mean-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(static-mean-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
+    ADD_TEST(NAME static-mean-test COMMAND static-mean-test)
+
     ADD_EXECUTABLE(static-reshape-test test/static-reshape.cc)
     TARGET_INCLUDE_DIRECTORIES(static-reshape-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(static-reshape-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
@@ -1784,6 +1790,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f16-rmax-test PRIVATE fp16 pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(f16-rmax-test PRIVATE hardware-config logging microkernels-all)
   ADD_TEST(NAME f16-rmax-test COMMAND f16-rmax-test)
+
+  ADD_EXECUTABLE(f16-rsum-test test/f16-rsum.cc)
+  TARGET_INCLUDE_DIRECTORIES(f16-rsum-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(f16-rsum-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(f16-rsum-test PRIVATE hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME f16-rsum-test COMMAND f16-rsum-test)
 
   ADD_EXECUTABLE(f16-vabs-test test/f16-vabs.cc)
   TARGET_INCLUDE_DIRECTORIES(f16-vabs-test PRIVATE include src test)
@@ -3468,6 +3480,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(f16-raddstoreexpminusmax-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f16-raddstoreexpminusmax-bench PRIVATE benchmark fp16 pthreadpool)
   TARGET_LINK_LIBRARIES(f16-raddstoreexpminusmax-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f16-rsum-bench bench/f16-rsum.cc)
+  TARGET_INCLUDE_DIRECTORIES(f16-rsum-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f16-rsum-bench PRIVATE benchmark fp16 pthreadpool)
+  TARGET_LINK_LIBRARIES(f16-rsum-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
   ADD_EXECUTABLE(f16-spmm-bench bench/f16-spmm.cc)
   TARGET_INCLUDE_DIRECTORIES(f16-spmm-bench PRIVATE . include src)

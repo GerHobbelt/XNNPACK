@@ -1573,6 +1573,11 @@ SET(ALL_F16C_MICROKERNEL_SRCS
   src/f16-prelu/gen/f16-prelu-f16c-2x8.c
   src/f16-prelu/gen/f16-prelu-f16c-2x16.c
   src/f16-rmax/f16-rmax-f16c.c
+  src/f16-rsum/gen/f16-rsum-f16c-x8.c
+  src/f16-rsum/gen/f16-rsum-f16c-x16-acc2.c
+  src/f16-rsum/gen/f16-rsum-f16c-x24-acc3.c
+  src/f16-rsum/gen/f16-rsum-f16c-x32-acc2.c
+  src/f16-rsum/gen/f16-rsum-f16c-x32-acc4.c
   src/f16-vbinary/gen/f16-vadd-minmax-f16c-x8.c
   src/f16-vbinary/gen/f16-vadd-minmax-f16c-x16.c
   src/f16-vbinary/gen/f16-vaddc-minmax-f16c-x8.c
@@ -3301,6 +3306,10 @@ SET(ALL_NEON_MICROKERNEL_SRCS
   src/x32-packw/gen/x32-packw-x12-neon-ld4lane-prfm-x8.c
   src/x32-packw/gen/x32-packw-x12-neon-ld4lane-x4.c
   src/x32-packw/gen/x32-packw-x12-neon-ld4lane-x8.c
+  src/x32-packw/gen/x32-packw-x16-neon-ld4lane-prfm-x4.c
+  src/x32-packw/gen/x32-packw-x16-neon-ld4lane-prfm-x8.c
+  src/x32-packw/gen/x32-packw-x16-neon-ld4lane-x4.c
+  src/x32-packw/gen/x32-packw-x16-neon-ld4lane-x8.c
   src/x32-packx/gen/x32-packx-4x-neon-st4-prfm-x4.c
   src/x32-packx/gen/x32-packx-4x-neon-st4-prfm-x8.c
   src/x32-packx/gen/x32-packx-4x-neon-st4-x4.c
@@ -3536,10 +3545,6 @@ SET(ALL_NEONFMA_MICROKERNEL_SRCS
   src/f32-igemm/gen/f32-igemm-6x8-minmax-neonfma-dup-ld128.c
   src/f32-igemm/gen/f32-igemm-6x8s4-minmax-neonfma.c
   src/f32-igemm/gen/f32-igemm-8x8s4-minmax-neonfma.c
-  src/f32-ppmm/gen/f32-ppmm-4x8-minmax-neonfma-prfm.c
-  src/f32-ppmm/gen/f32-ppmm-4x8-minmax-neonfma.c
-  src/f32-ppmm/gen/f32-ppmm-8x8-minmax-neonfma-prfm.c
-  src/f32-ppmm/gen/f32-ppmm-8x8-minmax-neonfma.c
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-neonfma-rr1-lut64-p2-x4.c
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-neonfma-rr1-lut64-p2-x8-acc2.c
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-neonfma-rr1-lut64-p2-x8.c
@@ -3804,6 +3809,10 @@ SET(ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS
   src/f32-igemm/gen/f32-igemm-6x2-minmax-aarch64-neonfma-lane-ld64.c
   src/f32-igemm/gen/f32-igemm-6x8-minmax-aarch64-neonfma-lane-ld64.c
   src/f32-igemm/gen/f32-igemm-6x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-ppmm/gen/f32-ppmm-4x8-minmax-aarch64-neonfma-prfm.c
+  src/f32-ppmm/gen/f32-ppmm-4x8-minmax-aarch64-neonfma.c
+  src/f32-ppmm/gen/f32-ppmm-8x8-minmax-aarch64-neonfma-prfm.c
+  src/f32-ppmm/gen/f32-ppmm-8x8-minmax-aarch64-neonfma.c
   src/f32-spmm/gen/f32-spmm-4x2-minmax-aarch64-neonfma.c
   src/f32-spmm/gen/f32-spmm-4x4-minmax-aarch64-neonfma.c
   src/f32-spmm/gen/f32-spmm-8x2-minmax-aarch64-neonfma.c
@@ -4009,6 +4018,11 @@ SET(ALL_NEONFP16ARITH_MICROKERNEL_SRCS
   src/f16-raddstoreexpminusmax/gen/f16-raddstoreexpminusmax-neonfp16arith-rr2-p2-x96-acc6.c
   src/f16-raddstoreexpminusmax/gen/f16-raddstoreexpminusmax-neonfp16arith-rr2-p2-x96.c
   src/f16-rmax/f16-rmax-neonfp16arith.c
+  src/f16-rsum/gen/f16-rsum-neonfp16arith-x8.c
+  src/f16-rsum/gen/f16-rsum-neonfp16arith-x16-acc2.c
+  src/f16-rsum/gen/f16-rsum-neonfp16arith-x24-acc3.c
+  src/f16-rsum/gen/f16-rsum-neonfp16arith-x32-acc2.c
+  src/f16-rsum/gen/f16-rsum-neonfp16arith-x32-acc4.c
   src/f16-spmm/gen/f16-spmm-8x1-minmax-neonfp16arith-pipelined.c
   src/f16-spmm/gen/f16-spmm-8x1-minmax-neonfp16arith-x2.c
   src/f16-spmm/gen/f16-spmm-8x1-minmax-neonfp16arith.c
@@ -8802,6 +8816,8 @@ SET(AARCH64_ASM_MICROKERNEL_SRCS
   src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-cortex-a53.S
   src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-cortex-a75.S
   src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-ld64.S
+  src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-ld128-prfm.S
+  src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-ld128.S
   src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-prfm-cortex-a53.S
   src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-prfm-cortex-a75.S
   src/f32-gemm/gen/f32-gemm-1x12-minmax-asm-aarch64-neonfma-cortex-a53.S

@@ -148,6 +148,7 @@ SUBGRAPH_SRCS = [
     "src/subgraph/square.c",
     "src/subgraph/squared-difference.c",
     "src/subgraph/static-constant-pad.c",
+    "src/subgraph/static-mean.c",
     "src/subgraph/static-reshape.c",
     "src/subgraph/static-resize-bilinear-2d.c",
     "src/subgraph/static-slice.c",
@@ -5711,6 +5712,14 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
+    name = "f16_rsum_bench",
+    srcs = [
+        "bench/f16-rsum.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
     name = "f16_spmm_bench",
     srcs = [
         "bench/f16-spmm.cc",
@@ -7551,6 +7560,15 @@ xnnpack_unit_test(
     srcs = [
         "test/f16-rmax.cc",
         "test/rmax-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "f16_rsum_test",
+    srcs = [
+        "test/f16-rsum.cc",
+        "test/rsum-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
 )
@@ -10724,6 +10742,19 @@ xnnpack_unit_test(
         ":subgraph_test_mode",
         ":subgraph_unary_tester",
         "@FP16",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "static_mean_test",
+    srcs = [
+        "test/static-mean.cc",
+    ],
+    deps = [
+        ":XNNPACK_test_mode",
+        ":node_type",
+        ":operators_test_mode",
+        ":subgraph_test_mode",
     ],
 )
 

@@ -303,6 +303,10 @@ struct xnn_node {
     struct {
       uint32_t block_size;
     } space_to_depth_2d;
+    struct {
+      size_t num_reduction_axes;
+      size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+    } reduce;
   } params;
   struct {
     float output_min;
@@ -351,6 +355,8 @@ struct xnn_operator_data {
   size_t output_channels;
   struct xnn_shape shape1;
   struct xnn_shape shape2;
+  size_t num_reduction_axes;
+  size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
   size_t pre_paddings[XNN_MAX_TENSOR_DIMS];
   size_t post_paddings[XNN_MAX_TENSOR_DIMS];
   // TODO(zhin): merge this with pre_paddings/post_paddings to reduce size of this struct.
@@ -401,6 +407,10 @@ struct xnn_runtime {
   bool profiling;
   // The start timestamp of the first operator in the subgraph. This is set when profiling is true.
   xnn_timestamp start_ts;
+
+  // True if runtime has ever been setup. If it has been setup, the pointers inside of opdata need to be updated if
+  // workspace changes.
+  bool has_been_setup;
 };
 
 struct xnn_value* xnn_subgraph_new_internal_value(xnn_subgraph_t subgraph);
@@ -450,6 +460,8 @@ struct xnn_workspace {
   // Workspace will be destroyed in xnn_delete_runtime or xnn_delete_workspace if num_users reaches 0.
   size_t ref_count;
   size_t persistent_size;
+  // Set to true if workspace has moved and all users should be updated.
+  bool update_users;
 };
 
 void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph);

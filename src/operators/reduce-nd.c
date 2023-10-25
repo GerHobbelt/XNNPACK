@@ -8,13 +8,17 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <fp16.h>
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
+#include <xnnpack/common.h>
+#include <xnnpack/compute.h>
 #include <xnnpack/config.h>
 #include <xnnpack/log.h>
+#include <xnnpack/microparams.h>
 #include <xnnpack/microparams-init.h>
 #include <xnnpack/normalization.h>
 #include <xnnpack/operator.h>
@@ -100,10 +104,10 @@ enum xnn_status xnn_create_mean_nd_f32(
 
 static enum xnn_status setup_mean_nd(
     xnn_operator_t mean_op,
-    size_t num_input_dims,
-    const size_t* input_shape,
     size_t num_reduction_axes,
     const size_t* reduction_axes,
+    size_t num_input_dims,
+    const size_t* input_shape,
     const float* input,
     float* output,
     size_t log2_data_element_size,
@@ -167,8 +171,8 @@ static enum xnn_status setup_mean_nd(
   memcpy(normalized_reduction_axes, reduction_axes, num_reduction_axes * sizeof(size_t));
 
   xnn_normalize_reduction(
-    &num_input_dims, normalized_input_shape,
-    &num_reduction_axes, normalized_reduction_axes);
+    &num_reduction_axes, normalized_reduction_axes,
+    &num_input_dims, normalized_input_shape);
 
   if (num_reduction_axes != 1) {
     xnn_log_error(
@@ -218,15 +222,15 @@ static enum xnn_status setup_mean_nd(
 
     if (mean_op->channels != channel_like_dim) {
       const size_t zero_size = (channel_like_dim << log2_data_element_size) + XNN_EXTRA_BYTES;
-      void* zero_buffer = xnn_reallocate_memory(mean_op->zero_buffer, zero_size);
-      if (zero_buffer == NULL) {
+      // Note: zero buffer must be SIMD-aligned, so we can't use xnn_reallocate_memory
+      xnn_release_simd_memory(mean_op->zero_buffer);
+      mean_op->zero_buffer = xnn_allocate_zero_simd_memory(zero_size);
+      if (mean_op->zero_buffer == NULL) {
         xnn_log_error(
           "failed to allocate %zu bytes for %s operator zero padding",
           zero_size, xnn_operator_type_to_string(mean_op->type));
         return xnn_status_out_of_memory;
       }
-      memset(zero_buffer, 0, zero_size);
-      mean_op->zero_buffer = zero_buffer;
       mean_op->channels = channel_like_dim;
     }
 
@@ -270,18 +274,18 @@ static void update_params_mean_f32(
 
 enum xnn_status xnn_setup_mean_nd_f32(
     xnn_operator_t mean_op,
-    size_t num_input_dims,
-    const size_t* input_shape,
     size_t num_reduction_axes,
     const size_t* reduction_axes,
+    size_t num_input_dims,
+    const size_t* input_shape,
     const float* input,
     float* output,
     pthreadpool_t threadpool)
 {
   return setup_mean_nd(
     mean_op,
-    num_input_dims, input_shape,
     num_reduction_axes, reduction_axes,
+    num_input_dims, input_shape,
     input, output,
     /*log2_data_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_FLOAT,

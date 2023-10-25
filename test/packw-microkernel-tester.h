@@ -12,6 +12,7 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdlib>
+#include <numeric>
 #include <random>
 #include <vector>
 
@@ -31,6 +32,24 @@ class PackWMicrokernelTester {
 
   inline size_t nr() const {
     return this->nr_;
+  }
+
+  inline PackWMicrokernelTester& kr(size_t kr) {
+    this->kr_ = kr;
+    return *this;
+  }
+
+  inline size_t kr() const {
+    return this->kr_;
+  }
+
+  inline PackWMicrokernelTester& sr(size_t sr) {
+    this->sr_ = sr;
+    return *this;
+  }
+
+  inline size_t sr() const {
+    return this->sr_;
   }
 
   inline PackWMicrokernelTester& n(size_t n) {
@@ -75,10 +94,6 @@ class PackWMicrokernelTester {
   }
 
   void Test(xnn_x32_packw_gemm_goi_ukernel_fn packw) const {
-    std::random_device random_device;
-    auto rng = std::mt19937(random_device());
-    auto u32rng = std::bind(std::uniform_int_distribution<uint32_t>(), rng);
-
     std::vector<uint32_t> weights(n() * k());
     std::vector<uint32_t> bias(n());
     std::vector<uint32_t, AlignedAllocator<uint32_t, 64>> packed_w(packed_n() * k() + packed_n());
@@ -86,25 +101,25 @@ class PackWMicrokernelTester {
 
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(weights.begin(), weights.end(), std::ref(u32rng));
-      std::generate(bias.begin(), bias.end(), std::ref(u32rng));
+      std::iota(weights.begin(), weights.end(), 0);
+      std::iota(bias.begin(), bias.end(), UINT32_C(0x80000000));
       std::fill(packed_w.begin(), packed_w.end(), UINT32_C(0x12345678));
       std::fill(packed_w_ref.begin(), packed_w_ref.end(), UINT32_C(0xDEADBEEF));
 
       const uint32_t* bias_data = nullbias() ? nullptr : bias.data();
 
       // Compute reference results.
-      xnn_pack_f32_gemm_goi_w(1, n(), k(), nr(), 1 /* kr */, 1 /* sr */,
+      xnn_pack_f32_gemm_goi_w(1, n(), k(), nr(), kr(), sr(),
         reinterpret_cast<const float *>(weights.data()), reinterpret_cast<const float *>(bias_data), reinterpret_cast<float *>(packed_w_ref.data()), 0, nullptr);
 
       // Call optimized micro-kernel.
-      packw(1, n(), k(), nr(), 1 /* kr */, 1 /* sr */, weights.data(), bias_data, packed_w.data(), 0, nullptr);
+      packw(1, n(), k(), nr(), kr(), sr(), weights.data(), bias_data, packed_w.data(), 0, nullptr);
 
       // Verify results.
       for (size_t i = 0; i < (packed_n() * k() + packed_n()); i++) {
         if (packed_w_ref[i] !=  UINT32_C(0xDEADBEEF)) {  // Allow pad to differ
           EXPECT_EQ(packed_w[i], packed_w_ref[i])
-              << "at n " << i << n();
+              << "at n " << i << " of " << (packed_n() * k() + packed_n());
         }
       }
     }
@@ -113,6 +128,8 @@ class PackWMicrokernelTester {
  private:
   size_t n_{1};
   size_t nr_{1};
+  size_t kr_{1};
+  size_t sr_{1};
   size_t k_{100};
   bool nullbias_{false};
   size_t iterations_{15};

@@ -5,12 +5,13 @@
 
 #pragma once
 
-#include <xnnpack/array-apply.h>
+#include <xnnpack/array-helpers.h>
 #include <xnnpack/assembler.h>
 #include <xnnpack/leb128.h>
 
 #include <algorithm>
 #include <array>
+#include <bitset>
 #include <cassert>
 #include <cmath>
 #include <cstdint>
@@ -21,7 +22,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
 
 namespace xnnpack {
 
@@ -38,6 +38,9 @@ inline bool operator==(const ValType& lhs, const ValType& rhs) {
 }
 
 using ValTypesToInt = std::vector<std::pair<ValType, uint32_t>>;
+
+static constexpr uint32_t kI32DefaultAlignment = 1;
+static constexpr uint32_t kV128DefaultAlignment = 1;
 
 namespace internal {
 template <typename Array, typename ElementEncodingLength>
@@ -85,15 +88,6 @@ struct FuncType {
 
 inline bool operator==(const FuncType& lhs, const FuncType& rhs) {
   return lhs.param == rhs.param && lhs.result == rhs.result;
-}
-
-inline uint32_t& At(ValTypesToInt& map, ValType type) {
-  const auto it =
-      std::find_if(map.begin(), map.end(), [type](const auto& type_to_int) {
-        return type_to_int.first.code == type.code;
-      });
-  assert((it != map.end()) && "Unknown ValType");
-  return it->second;
 }
 
 struct Function {
@@ -154,10 +148,29 @@ class I32WasmOps : public WasmOpsBase<Derived, I32WasmOps<Derived>> {
 };
 
 template <typename Derived>
+class F32WasmOps : public WasmOpsBase<Derived, F32WasmOps<Derived>> {
+ public:
+  void f32_const(float value) const {
+    this->Emit8(0x43);
+    this->EmitEncodedF32(value);
+  }
+
+ private:
+  void EmitEncodedF32(float value) const {
+    std::array<byte, sizeof(float)> encoding;
+    memcpy(encoding.data(), &value, sizeof(float));
+    for (byte b : encoding) this->Emit8(b);
+  }
+};
+
+template <typename Derived>
 class V128WasmOps : public WasmOpsBase<Derived, V128WasmOps<Derived>> {
  public:
+  void f32x4_splat() const { EmitVectorOpcode(0x13); }
   void f32x4_mul() const { EmitVectorOpcode(0xE6); }
   void f32x4_add() const { EmitVectorOpcode(0xE4); }
+  void f32x4_pmax() const { EmitVectorOpcode(0xEB); }
+  void f32x4_pmin() const { EmitVectorOpcode(0xEA); }
   void i8x16_shuffle(const std::array<uint8_t, 16>& lanes) const {
     EmitVectorOpcode(0x0D);
     for (auto lane : lanes) {
@@ -216,6 +229,7 @@ class ControlFlowWasmOps
   }
 
   void end() const { this->Emit8(0x0B); }
+  void Return() const { this->Emit8(0x0F); }
 
  private:
   static constexpr byte kIfCode = 0x04;
@@ -228,33 +242,43 @@ class ControlFlowWasmOps
 template <typename Derived>
 class MemoryWasmOps : public WasmOpsBase<Derived, MemoryWasmOps<Derived>> {
  public:
-  void i32_load(uint32_t offset = 0, uint32_t alignment = 4) const {
+  void i32_load(uint32_t offset = 0,
+                uint32_t alignment = kI32DefaultAlignment) const {
     load_or_store(0x28, offset, alignment);
   }
 
-  void i32_store(uint32_t offset = 0, uint32_t alignment = 4) const {
+  void i32_store(uint32_t offset = 0,
+                 uint32_t alignment = kI32DefaultAlignment) const {
     load_or_store(0x36, offset, alignment);
   }
 
-  void v128_load(uint32_t offset = 0, uint32_t alignment = 4) const {
+  void v128_load(uint32_t offset = 0,
+                 uint32_t alignment = kV128DefaultAlignment) const {
     vector_load_or_store(0x00, offset, alignment);
   }
 
-  void v128_load32_splat(uint32_t offset = 0, uint32_t alignment = 4) const {
+  void v128_load32_splat(uint32_t offset = 0,
+                         uint32_t alignment = kV128DefaultAlignment) const {
     vector_load_or_store(0x09, offset, alignment);
   }
 
-  void v128_store(uint32_t offset = 0, uint32_t alignment = 4) const {
+  void v128_load64_splat(uint32_t offset = 0,
+                         uint32_t alignment = kV128DefaultAlignment) const {
+    vector_load_or_store(0x0A, offset, alignment);
+  }
+
+  void v128_store(uint32_t offset = 0,
+                  uint32_t alignment = kV128DefaultAlignment) const {
     vector_load_or_store(0x0B, offset, alignment);
   }
 
   void v128_store64_lane(uint8_t lane, uint32_t offset = 0,
-                         uint32_t alignment = 4) const {
+                         uint32_t alignment = kV128DefaultAlignment) const {
     v128_store_lane(0x5B, lane, /*max_lane=*/4, offset, alignment);
   }
 
   void v128_store32_lane(uint8_t lane, uint32_t offset = 0,
-                         uint32_t alignment = 4) const {
+                         uint32_t alignment = kV128DefaultAlignment) const {
     v128_store_lane(0x5A, lane, /*max_lane=*/8, offset, alignment);
   }
 
@@ -272,7 +296,7 @@ class MemoryWasmOps : public WasmOpsBase<Derived, MemoryWasmOps<Derived>> {
   }
 
   void v128_store_lane(byte opcode, uint8_t lane, uint8_t max_lane,
-                       uint32_t offset = 0, uint32_t alignment = 4) const {
+                       uint32_t offset, uint32_t alignment) const {
     assert(lane < max_lane);
     vector_load_or_store(opcode, offset, alignment);
     this->Emit8(lane);
@@ -282,30 +306,32 @@ class MemoryWasmOps : public WasmOpsBase<Derived, MemoryWasmOps<Derived>> {
 class LocalsManager {
  public:
   void ResetLocalsManager(uint32_t parameters_count,
-                          const ValTypesToInt& locals_declaration_count) {
-    next_index_ = locals_declaration_count;
-    max_index_ = locals_declaration_count;
-    uint32_t curr = parameters_count;
-    for (const auto type_to_count : locals_declaration_count) {
-      const ValType type = type_to_count.first;
-      At(next_index_, type) = curr;
-      curr += type_to_count.second;
-      At(max_index_, type) = curr - 1;
-    }
-  }
+                          const ValTypesToInt& locals_declaration_count);
 
-  uint32_t GetNewLocalIndex(ValType type) {
-    uint32_t& next = At(next_index_, type);
-    assert((At(max_index_, type) >= next) &&
-           "The number of local variables is exceeded");
-    return next++;
-  }
+  uint32_t GetNewLocalIndex(ValType type);
 
-  void DestructLocal(ValType type) { At(next_index_, type)--; }
+  void DestructLocal(ValType type, uint32_t index);
 
  private:
-  ValTypesToInt next_index_;
-  ValTypesToInt max_index_;
+  struct ValTypeIndices {
+    static constexpr size_t kMaxLocalsOfSameType = 512;
+
+    ValTypeIndices() : type(0), first_index(0), size(0) {}
+    explicit ValTypeIndices(ValType type, uint32_t first_index, uint32_t size)
+        : type(type), first_index(first_index), size(size) {}
+
+    uint32_t GetNewIndex();
+    void DestroyLocal(uint32_t index);
+
+    ValType type;
+    std::bitset<kMaxLocalsOfSameType> bitset;
+    uint32_t first_index;
+    uint32_t size;
+  };
+
+  static constexpr size_t kMaxNumTypes = 5;
+  std::array<ValTypeIndices, kMaxNumTypes> indices_ =
+      internal::MakeArray<kMaxNumTypes>(ValTypeIndices{ValType(0), 0, 0});
 };
 
 std::array<uint8_t, 16> MakeLanesForI8x16Shuffle(const uint8_t* lanes,
@@ -373,7 +399,8 @@ class LocalWasmOps : public LocalsManager {
     }
 
     ~Local() {
-      if (is_managed_ && index_ != kInvalidIndex) ops_->DestructLocal(type_);
+      if (is_managed_ && index_ != kInvalidIndex)
+        ops_->DestructLocal(type_, index_);
     }
 
     ValType type_{0};
@@ -383,6 +410,37 @@ class LocalWasmOps : public LocalsManager {
    private:
     bool is_managed_ = false;
     static constexpr uint32_t kInvalidIndex = -1;
+  };
+
+  constexpr static size_t kMaxLocalsSize = 32;
+
+  struct LocalsArray {
+    explicit LocalsArray(size_t size) : size(size) {
+      assert(size <= kMaxLocalsSize);
+    }
+    auto begin() { return arr.begin(); }
+    auto begin() const { return arr.cbegin(); }
+    auto end() {
+      auto result = arr.begin();
+      std::advance(result, size);
+      return result;
+    }
+    auto end() const {
+      auto result = arr.cbegin();
+      std::advance(result, size);
+      return result;
+    }
+    auto& operator[](size_t index) {
+      assert(index < size);
+      return arr[index];
+    }
+    const auto& operator[](size_t index) const {
+      assert(index < size);
+      return arr[index];
+    }
+
+    size_t size;
+    std::array<Local, kMaxLocalsSize> arr;
   };
 
   Local MakeLocal(ValType type) {
@@ -396,19 +454,23 @@ class LocalWasmOps : public LocalsManager {
     return result;
   }
 
-  void local_get(uint32_t index) const {
-    GetDerived()->Emit8(0x20);
-    GetDerived()->EmitEncodedU32(index);
+  LocalsArray MakeLocalsArray(size_t size, ValType type) {
+    LocalsArray locals(size);
+    for (auto& local : locals) local = MakeLocal(type);
+    return locals;
   }
 
-  void local_set(uint32_t index) const {
-    GetDerived()->Emit8(0x21);
-    GetDerived()->EmitEncodedU32(index);
-  }
+  void local_get(uint32_t index) const { Emit8AndU32(0x20, index); }
+
+  void local_set(uint32_t index) const { Emit8AndU32(0x21, index); }
+
+  void local_tee(uint32_t index) const { Emit8AndU32(0x22, index); }
 
   void local_get(const Local& local) const { local_get(local.index_); }
 
   void local_set(const Local& local) const { local_set(local.index_); }
+
+  void local_tee(const Local& local) const { local_tee(local.index_); }
 
   ValueOnStack I32Add(const ValueOnStack& a, const ValueOnStack& b) {
     return BinaryOp(a, b, &Derived::i32_add);
@@ -452,32 +514,47 @@ class LocalWasmOps : public LocalsManager {
     return MakeValueOnStack(i32);
   }
 
+  ValueOnStack F32Const(float value) {
+    GetDerived()->f32_const(value);
+    return MakeValueOnStack(f32);
+  }
+
   ValueOnStack I32Load(const ValueOnStack& address, uint32_t offset = 0,
-                       uint32_t alignment = 4) {
+                       uint32_t alignment = kI32DefaultAlignment) {
     return LoadOp(i32, offset, alignment, &Derived::i32_load);
   }
 
   ValueOnStack I32Load(const ValueOnStack& base,
                        const ValueOnStack& dynamic_offset,
-                       uint32_t static_offset = 0, uint32_t alignment = 4) {
+                       uint32_t static_offset = 0,
+                       uint32_t alignment = kI32DefaultAlignment) {
     return I32Load(I32Add(base, I32Shl(dynamic_offset, I32Const(2))),
                    static_offset, alignment);
   }
 
   void I32Store(const ValueOnStack& address, const ValueOnStack& value,
-                uint32_t offset = 0, uint32_t alignment = 4) {
+                uint32_t offset = 0,
+                uint32_t alignment = kI32DefaultAlignment) {
     GetDerived()->i32_store(offset, alignment);
   }
 
   void I32Store(const ValueOnStack& base, const ValueOnStack& dynamic_offset,
                 const Local& value, uint32_t static_offset = 0,
-                uint32_t alignment = 4) {
+                uint32_t alignment = kI32DefaultAlignment) {
     I32Store(I32Add(base, I32Shl(dynamic_offset, I32Const(2))), value,
              static_offset, alignment);
   }
 
   ValueOnStack F32x4Add(const ValueOnStack& a, const ValueOnStack& b) {
     return BinaryOp(a, b, &Derived::f32x4_add);
+  }
+
+  ValueOnStack F32x4Pmax(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::f32x4_pmax);
+  }
+
+  ValueOnStack F32x4Pmin(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::f32x4_pmin);
   }
 
   ValueOnStack I64x2Shuffle(const ValueOnStack& a, const ValueOnStack& b,
@@ -488,39 +565,51 @@ class LocalWasmOps : public LocalsManager {
     });
   }
 
+  ValueOnStack F32x4Splat(const ValueOnStack& a) {
+    assert(a.type == f32);
+    GetDerived()->f32x4_splat();
+    return MakeValueOnStack(v128);
+  }
+
   ValueOnStack F32x4Mul(const ValueOnStack& a, const ValueOnStack& b) {
     return BinaryOp(a, b, &Derived::f32x4_mul);
   }
 
   ValueOnStack V128Load(const ValueOnStack& address, uint32_t offset = 0,
-                        uint32_t alignment = 4) {
+                        uint32_t alignment = kV128DefaultAlignment) {
     return LoadOp(v128, offset, alignment, &Derived::v128_load);
   }
 
   ValueOnStack V128Load32Splat(const ValueOnStack& address, uint32_t offset = 0,
-                               uint32_t alignment = 4) {
+                               uint32_t alignment = kV128DefaultAlignment) {
     return LoadOp(v128, offset, alignment, &Derived::v128_load32_splat);
   }
 
+  ValueOnStack V128Load64Splat(const ValueOnStack& address, uint32_t offset = 0,
+                               uint32_t alignment = kV128DefaultAlignment) {
+    return LoadOp(v128, offset, alignment, &Derived::v128_load64_splat);
+  }
+
   void V128Store(const ValueOnStack& address, const ValueOnStack& value,
-                 uint32_t offset = 0, uint32_t alignment = 4) {
+                 uint32_t offset = 0,
+                 uint32_t alignment = kV128DefaultAlignment) {
     GetDerived()->v128_store(offset, alignment);
   }
 
   void V128Store64Lane(const ValueOnStack& address, const ValueOnStack& value,
                        uint8_t lane, uint32_t offset = 0,
-                       uint32_t alignment = 4) {
+                       uint32_t alignment = kV128DefaultAlignment) {
     GetDerived()->v128_store64_lane(lane, offset, alignment);
   }
 
   void V128Store32Lane(const ValueOnStack& address, const ValueOnStack& value,
                        uint8_t lane, uint32_t offset = 0,
-                       uint32_t alignment = 4) {
+                       uint32_t alignment = kV128DefaultAlignment) {
     GetDerived()->v128_store32_lane(lane, offset, alignment);
   }
 
- protected:
   static constexpr ValType i32{0x7F};
+  static constexpr ValType f32{0x7D};
   static constexpr ValType v128{0x7B};
 
  private:
@@ -553,6 +642,11 @@ class LocalWasmOps : public LocalsManager {
     return MakeValueOnStack(type);
   }
 
+  void Emit8AndU32(byte b, uint32_t value) const {
+    GetDerived()->Emit8(b);
+    GetDerived()->EmitEncodedU32(value);
+  }
+
   const Derived* GetDerived() const {
     return static_cast<const Derived*>(this);
   }
@@ -566,6 +660,7 @@ class LocalWasmOps : public LocalsManager {
 
 class WasmOps : public LocalWasmOps<WasmOps>,
                 public I32WasmOps<WasmOps>,
+                public F32WasmOps<WasmOps>,
                 public V128WasmOps<WasmOps>,
                 public MemoryWasmOps<WasmOps>,
                 public ControlFlowWasmOps<WasmOps> {
@@ -585,7 +680,7 @@ class WasmOps : public LocalWasmOps<WasmOps>,
 };
 }  // namespace internal
 
-class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
+class WasmAssembler : public AssemblerBase, public internal::WasmOps {
  private:
   using Export = internal::Export;
   using Function = internal::Function;
@@ -595,6 +690,14 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
 
  public:
   explicit WasmAssembler(xnn_code_buffer* buf) : AssemblerBase(buf) {}
+
+  template <size_t InSize, typename Body>
+  void AddFunc(const ResultType& result, const char* name,
+               ValTypesToInt locals_declaration_count, Body&& body) {
+    const auto params = internal::MakeArray<InSize>(i32);
+    AddFunc(result, name, params, std::move(locals_declaration_count),
+            std::forward<Body>(body));
+  }
 
   template <size_t InSize, typename Body>
   void AddFunc(const ResultType& result, const char* name,

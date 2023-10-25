@@ -214,6 +214,7 @@ SET(OPERATOR_SRCS
   src/operators/reduce-nd.c
   src/operators/resize-bilinear-nchw.c
   src/operators/resize-bilinear-nhwc.c
+  src/operators/rope-nthc.c
   src/operators/slice-nd.c
   src/operators/softmax-nc.c
   src/operators/transpose-nd.c
@@ -283,6 +284,7 @@ SET(XNNPACK_SRCS
   src/argmaxpool-config.c
   src/avgpool-config.c
   src/binary-elementwise-config.c
+  src/cmul-config.c
   src/conv-hwc2chw-config.c
   src/dwconv-config.c
   src/dwconv2d-chw-config.c
@@ -1264,6 +1266,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(resize-bilinear-nchw-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME resize-bilinear-nchw-test COMMAND resize-bilinear-nchw-test)
 
+    ADD_EXECUTABLE(rope-nthc-test test/rope-nthc.cc)
+    TARGET_INCLUDE_DIRECTORIES(rope-nthc-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(rope-nthc-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    ADD_TEST(NAME rope-nthc-test COMMAND rope-nthc-test)
+
     ADD_EXECUTABLE(sigmoid-nc-test test/sigmoid-nc.cc)
     TARGET_INCLUDE_DIRECTORIES(sigmoid-nc-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(sigmoid-nc-test PRIVATE XNNPACK fp16 gtest gtest_main)
@@ -2145,7 +2152,7 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f32-gemm-jit-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME f32-gemm-jit-test COMMAND f32-gemm-jit-test)
 
-  ADD_EXECUTABLE(f32-gemminc-minmax-test test/f32-gemminc-minmax.cc test/f32-gemm-minmax-2.cc)
+  ADD_EXECUTABLE(f32-gemminc-minmax-test test/f32-gemminc-minmax.cc test/f32-gemminc-minmax-2.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-gemminc-minmax-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(f32-gemminc-minmax-test PRIVATE pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(f32-gemminc-minmax-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)

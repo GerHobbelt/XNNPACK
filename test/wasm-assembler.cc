@@ -21,6 +21,7 @@ using ::testing::NotNull;
 using ::testing::Sequence;
 using ::testing::Test;
 using GetIntPtr = int (*)();
+using GetPiPtr = float (*)();
 using Add5Ptr = int (*)(int);
 using AddPtr = int (*)(int, int);
 using MaxPtr = AddPtr;
@@ -49,11 +50,12 @@ constexpr uint32_t kLargeNumberOfFunctions = 235;
 constexpr size_t kArraySize = 5;
 constexpr std::array<int, kArraySize> kArray = {1, 2, 3, 45, 6};
 const int kExpectedArraySum = std::accumulate(kArray.begin(), kArray.end(), 0);
+constexpr float kPi = 3.14;
 
 struct Get5Generator : WasmAssembler {
   explicit Get5Generator(xnn_code_buffer* buf) : WasmAssembler(buf) {
     ValTypesToInt no_locals;
-    AddFunc<0>({i32}, "get5", {}, no_locals, [this]() { i32_const(5); });
+    AddFunc<0>({i32}, "get5", no_locals, [this]() { i32_const(5); });
   }
 };
 
@@ -63,11 +65,14 @@ struct GeneratorTestSuite {
   using Func = F;
 };
 
-struct Get5TestSuite : GeneratorTestSuite<Get5Generator, GetIntPtr> {
-  static void ExpectFuncCorrect(GetIntPtr get5) {
-    EXPECT_EQ(get5(), kExpectedGet5ReturnValue);
-  }
+template <typename ValueType, const ValueType& expected_value, typename G,
+          typename F>
+struct GetValueTestSuite : GeneratorTestSuite<G, F> {
+  static void ExpectFuncCorrect(F f) { EXPECT_EQ(f(), expected_value); }
 };
+
+struct Get5TestSuite : GetValueTestSuite<int32_t, kExpectedGet5ReturnValue,
+                                         Get5Generator, GetIntPtr> {};
 
 struct AddGenerator : WasmAssembler {
   explicit AddGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
@@ -137,7 +142,7 @@ struct Get5AndAddTestSuite
 struct AddWithLocalGenerator : WasmAssembler {
   explicit AddWithLocalGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
     ValTypesToInt single_local_int = {{i32, 1}};
-    AddFunc<2>({i32}, "add_with_local", {i32, i32}, single_local_int,
+    AddFunc<2>({i32}, "add_with_local", single_local_int,
                [this](Local a, Local b) {
                  auto sum = MakeLocal(i32);
                  sum = I32Add(a, b);
@@ -299,6 +304,104 @@ struct SumUntilTestSuite : GeneratorTestSuite<SumUntilCodeGenerator, SumUntil> {
     EXPECT_EQ(sum_until(kN), ReferenceSumUntil(kN));
     EXPECT_EQ(sum_until(kNoIters), ReferenceSumUntil(kNoIters));
   }
+};
+
+static constexpr uint32_t kNSmall = 27;
+
+template <typename Derived>
+struct CanInitWithIterator {
+  template <typename LocalsArray>
+  void InitSummands(LocalsArray& summands) {
+    size_t i = 0;
+    for (auto& summand : summands) {
+      summand = static_cast<Derived*>(this)->I32Const(i);
+      i++;
+    }
+  }
+};
+
+template <typename Derived>
+struct CanSumWithIterator {
+  template <typename Local, typename LocalsArray>
+  void Sum(Local& result, const LocalsArray& summands) {
+    for (const auto& summand : summands) {
+      result = static_cast<Derived*>(this)->I32Add(result, summand);
+    }
+  }
+};
+
+template <typename Derived>
+struct CanInitWithIndex {
+  template <typename LocalsArray>
+  void InitSummands(LocalsArray& summands) {
+    for (size_t i = 0; i < summands.size; i++) {
+      summands[i] = static_cast<Derived*>(this)->I32Const(i);
+    }
+  }
+};
+
+template <typename Derived>
+struct CanSumWithIndex {
+  template <typename Local, typename LocalsArray>
+  void Sum(Local& result, const LocalsArray& summands) {
+    for (size_t i = 0; i < summands.size; i++) {
+      result = static_cast<Derived*>(this)->I32Add(result, summands[i]);
+    }
+  }
+};
+
+template <typename Derived>
+struct CanGenerateSumUntil {
+  void GenerateFunctionBody() {
+    auto self = static_cast<Derived*>(this);
+    auto& i32 = Derived::i32;
+    auto summands = self->MakeLocalsArray(kNSmall, i32);
+    auto result = self->MakeLocal(i32);
+    self->InitSummands(summands);
+    self->Sum(result, summands);
+    self->local_get(result);
+  }
+};
+
+struct SumUntilLocalsArrayWithIteratorCodeGenerator
+    : WasmAssembler,
+      CanGenerateSumUntil<SumUntilLocalsArrayWithIteratorCodeGenerator>,
+      CanSumWithIterator<SumUntilLocalsArrayWithIteratorCodeGenerator>,
+      CanInitWithIterator<SumUntilLocalsArrayWithIteratorCodeGenerator> {
+  explicit SumUntilLocalsArrayWithIteratorCodeGenerator(xnn_code_buffer* buf)
+      : WasmAssembler(buf) {
+    ValTypesToInt local_ints_decl = {{i32, kNSmall + 1}};
+    AddFunc<0>({i32}, "SumUntilN", {}, local_ints_decl,
+               [&] { this->GenerateFunctionBody(); });
+  }
+};
+
+template <typename G>
+struct SumUntilLocalsArrayTestSuite : GeneratorTestSuite<G, GetIntPtr> {
+  static void ExpectFuncCorrect(GetIntPtr sum_until_n) {
+    EXPECT_EQ(sum_until_n(), ReferenceSumUntil(kNSmall));
+  }
+};
+
+struct SumUntilLocalsArrayWithIterator
+    : SumUntilLocalsArrayTestSuite<
+          SumUntilLocalsArrayWithIteratorCodeGenerator> {};
+
+struct SumUntilLocalsArrayWithIndexCodeGenerator
+    : WasmAssembler,
+      CanGenerateSumUntil<SumUntilLocalsArrayWithIndexCodeGenerator>,
+      CanSumWithIndex<SumUntilLocalsArrayWithIndexCodeGenerator>,
+      CanInitWithIndex<SumUntilLocalsArrayWithIndexCodeGenerator> {
+  explicit SumUntilLocalsArrayWithIndexCodeGenerator(xnn_code_buffer* buf)
+      : WasmAssembler(buf) {
+    ValTypesToInt local_ints_decl = {{i32, kNSmall + 1}};
+    AddFunc<0>({i32}, "SumUntilN", {}, local_ints_decl,
+               [&] { this->GenerateFunctionBody(); });
+  }
+};
+
+struct SumUntilLocalsArrayWithIndexTestSuite
+    : SumUntilLocalsArrayTestSuite<SumUntilLocalsArrayWithIndexCodeGenerator> {
 };
 
 struct DoWhileCodeGenerator : WasmAssembler {
@@ -547,6 +650,36 @@ struct I64x2ShuffleGeneratorTestSuite
   }
 };
 
+struct GetPiGenerator : WasmAssembler {
+  explicit GetPiGenerator(xnn_code_buffer* bf) : WasmAssembler(bf) {
+    ValTypesToInt no_locals = {};
+    AddFunc<0>({f32}, "get_pi", {}, no_locals, [&] { F32Const(kPi); });
+  }
+};
+
+struct GetPiTestSuite
+    : GetValueTestSuite<float, kPi, GetPiGenerator, GetPiPtr> {};
+
+struct Get5TrickyLifetimeGenerator : WasmAssembler {
+  explicit Get5TrickyLifetimeGenerator(xnn_code_buffer* bf)
+      : WasmAssembler(bf) {
+    ValTypesToInt two_locals = {{i32, 2}};
+    AddFunc<0>({i32}, "get5", {}, two_locals, [&] {
+      Local a;
+      {
+        auto b = MakeLocal(I32Const(kExpectedGet5ReturnValue));
+        a = MakeLocal(b);
+      }
+      auto c = MakeLocal(I32Const(0));
+      local_get(a);
+    });
+  }
+};
+
+struct Get5TrickyTestSuite
+    : GetValueTestSuite<int32_t, kExpectedGet5ReturnValue,
+                        Get5TrickyLifetimeGenerator, GetIntPtr> {};
+
 struct InvalidCodeGenerator : WasmAssembler {
   ValTypesToInt no_locals;
   explicit InvalidCodeGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
@@ -576,7 +709,7 @@ TYPED_TEST_P(WasmAssemblerTest, ValidCode) {
 
   ASSERT_EQ(xnn_finalize_code_memory(&b), xnn_status_success);
   ASSERT_EQ(Error::kNoError, generator.error());
-  auto func = (Func)b.first_function_index;
+  auto func = (Func)xnn_first_function_ptr(&b);
   TestSuite::ExpectFuncCorrect(func);
 
   ASSERT_EQ(xnn_release_code_memory(&b), xnn_status_success);
@@ -588,11 +721,13 @@ using WasmAssemblerTestSuits = testing::Types<
     Get5TestSuite, AddTestSuite, Get5AndAddTestSuite, AddWithLocalTestSuite,
     AddTwiceTestSuite, AddTwiceDeclareInitTestSuite,
     AddTwiceWithScopesTestSuite, Add5TestSuite, MaxTestSuite,
-    MaxIncompleteIfTestSuite, SumUntilTestSuite, DoWhileTestSuite,
-    SumArrayTestSuite, MemCpyTestSuite, AddDelayedInitTestSuite,
-    ManyFunctionsGeneratorTestSuite, ManyLocalsGeneratorTestSuite,
-    V128AddGeneratorTestSuite, V128AddConstGeneratorTestSuite,
-    I64x2ShuffleGeneratorTestSuite>;
+    MaxIncompleteIfTestSuite, SumUntilTestSuite,
+    SumUntilLocalsArrayWithIterator, SumUntilLocalsArrayWithIndexTestSuite,
+    DoWhileTestSuite, SumArrayTestSuite, MemCpyTestSuite,
+    AddDelayedInitTestSuite, ManyFunctionsGeneratorTestSuite,
+    ManyLocalsGeneratorTestSuite, V128AddGeneratorTestSuite,
+    V128AddConstGeneratorTestSuite, I64x2ShuffleGeneratorTestSuite,
+    GetPiTestSuite, Get5TrickyTestSuite>;
 INSTANTIATE_TYPED_TEST_SUITE_P(WasmAssemblerTestSuits, WasmAssemblerTest,
                                WasmAssemblerTestSuits);
 
@@ -609,6 +744,7 @@ TEST(WasmAssemblerTest, InvalidCode) {
 namespace {
 class WasmOpsTest : public internal::V128WasmOps<WasmOpsTest>,
                     public internal::I32WasmOps<WasmOpsTest>,
+                    public internal::ControlFlowWasmOps<WasmOpsTest>,
                     public internal::LocalWasmOps<WasmOpsTest>,
                     public internal::MemoryWasmOps<WasmOpsTest>,
                     public Test {
@@ -618,6 +754,13 @@ class WasmOpsTest : public internal::V128WasmOps<WasmOpsTest>,
   MOCK_METHOD(void, EmitEncodedS32, (int32_t), (const));
 
  protected:
+  template <typename Op>
+  void TestV128BinaryOp(uint32_t opcode, Op&& op) {
+    ExpectEmitSIMDOpcode(opcode);
+    auto result = std::mem_fn(op)(*this, v128_value_, v128_value_);
+    EXPECT_EQ(result.type, v128);
+  }
+
   void Emit8ExpectCall(byte opcode) {
     EXPECT_CALL(*this, Emit8(opcode)).Times(1).InSequence(sequence_);
   }
@@ -625,34 +768,39 @@ class WasmOpsTest : public internal::V128WasmOps<WasmOpsTest>,
   void EmitEncodedU32ExpectCall(uint32_t value) {
     EXPECT_CALL(*this, EmitEncodedU32(value)).Times(1).InSequence(sequence_);
   }
+  void ExpectEmitSIMDOpcode(uint32_t opcode) {
+    Emit8ExpectCall(0xFD);
+    EmitEncodedU32ExpectCall(opcode);
+  }
 
   Sequence sequence_;
   ValueOnStack v128_value_{v128, this};
   ValueOnStack i32_value_{i32, this};
+  ValueOnStack f32_value_{f32, this};
+
+  Local i32_local_{i32, i32_local_index, false, this};
+
+  static constexpr uint32_t i32_local_index = 152;
+  static constexpr uint32_t kLogAlignment = 3;
+  static constexpr uint32_t kAlignment = 1 << 3;
+  static constexpr uint32_t kOffset = 16;
 };
 
 class V128StoreLaneWasmOpTest : public WasmOpsTest {
  protected:
   void SetStoreLaneExpectations(byte expected_opcode) {
-    Emit8ExpectCall(0xFD);
-    EmitEncodedU32ExpectCall(expected_opcode);
+    ExpectEmitSIMDOpcode(expected_opcode);
     EmitEncodedU32ExpectCall(kLogAlignment);
     EmitEncodedU32ExpectCall(kOffset);
     Emit8ExpectCall(kLane);
   }
 
-  static constexpr uint32_t kLogAlignment = 3;
-  static constexpr uint32_t kAlignment = 1 << 3;
-  static constexpr uint32_t kOffset = 16;
   static constexpr uint8_t kLane = 1;
 };
 }  // namespace
 
 TEST_F(WasmOpsTest, F32x4Mul) {
-  Emit8ExpectCall(0xFD);
-  EmitEncodedU32ExpectCall(0xE6);
-  auto result = F32x4Mul(v128_value_, v128_value_);
-  EXPECT_EQ(result.type, v128);
+  TestV128BinaryOp(0xE6, &WasmOpsTest::F32x4Mul);
 }
 
 TEST_F(V128StoreLaneWasmOpTest, 32Lane) {
@@ -675,7 +823,38 @@ TEST_F(WasmOpsTest, I32GeU) {
   I32GeU(i32_value_, i32_value_);
 }
 
-using ::xnnpack::internal::At;
+TEST_F(WasmOpsTest, V128Load64Splat) {
+  ExpectEmitSIMDOpcode(0x0A);
+  EmitEncodedU32ExpectCall(kLogAlignment);
+  EmitEncodedU32ExpectCall(kOffset);
+
+  V128Load64Splat(i32_value_, kOffset, kAlignment);
+}
+
+TEST_F(WasmOpsTest, V128F32x4Pmax) {
+  TestV128BinaryOp(0xEB, &WasmOpsTest::F32x4Pmax);
+}
+
+TEST_F(WasmOpsTest, V128F32x4Pmin) {
+  TestV128BinaryOp(0xEA, &WasmOpsTest::F32x4Pmin);
+}
+
+TEST_F(WasmOpsTest, V128F32x4Splat) {
+  ExpectEmitSIMDOpcode(0x13);
+  F32x4Splat(f32_value_);
+}
+
+TEST_F(WasmOpsTest, Return) {
+  Emit8ExpectCall(0x0F);
+  Return();
+}
+
+TEST_F(WasmOpsTest, Tee) {
+  Emit8ExpectCall(0x22);
+  EmitEncodedU32ExpectCall(i32_local_index);
+  local_tee(i32_local_);
+}
+
 using ::xnnpack::internal::LocalsManager;
 
 TEST(WasmAssembler, LocalsManager) {
@@ -689,10 +868,11 @@ TEST(WasmAssembler, LocalsManager) {
   manager.ResetLocalsManager(params, local_declaration);
   EXPECT_EQ(manager.GetNewLocalIndex(f16), 6);
   EXPECT_EQ(manager.GetNewLocalIndex(f16), 7);
-  manager.DestructLocal(f16);
+  EXPECT_EQ(manager.GetNewLocalIndex(f16), 8);
+  manager.DestructLocal(f16, 7);
   EXPECT_EQ(manager.GetNewLocalIndex(f16), 7);
   // assert fails
-  // manager.MakeLocal(f32);
+  // manager.GetNewLocalIndex(f32);
   EXPECT_EQ(manager.GetNewLocalIndex(i32), 4);
 }
 

@@ -103,6 +103,7 @@ OPERATOR_SRCS = [
     "src/operators/reduce-nd.c",
     "src/operators/resize-bilinear-nchw.c",
     "src/operators/resize-bilinear-nhwc.c",
+    "src/operators/rope-nthc.c",
     "src/operators/slice-nd.c",
     "src/operators/softmax-nc.c",
     "src/operators/transpose-nd.c",
@@ -144,6 +145,7 @@ SUBGRAPH_SRCS = [
     "src/subgraph/multiply2.c",
     "src/subgraph/negate.c",
     "src/subgraph/prelu.c",
+    "src/subgraph/rope.c",
     "src/subgraph/sigmoid.c",
     "src/subgraph/softmax.c",
     "src/subgraph/space-to-depth-2d.c",
@@ -181,8 +183,8 @@ PROD_SCALAR_MICROKERNEL_SRCS = [
     "src/xx-transpose/xx-transpose-1x1-scalar-memcpy.c",
     "src/x8-lut/gen/x8-lut-scalar-x4.c",
     "src/x24-transposec/gen/x24-transposec-1x2-scalar.c",
-    "src/x32-packw/gen/x32-packw-x2-scalar-float-x4.c",
-    "src/x32-packw/gen/x32-packw-x4-scalar-float-x4.c",
+    "src/x32-packw/gen/x32-packw-x2-gemm-goi-scalar-float-x4.c",
+    "src/x32-packw/gen/x32-packw-x4-gemm-goi-scalar-float-x4.c",
 ]
 
 PROD_SCALAR_AARCH32_MICROKERNEL_SRCS = [
@@ -259,6 +261,7 @@ PROD_SCALAR_AARCH32_MICROKERNEL_SRCS = [
     "src/f32-vbinary/gen/f32-vsub-minmax-scalar-x8.c",
     "src/f32-vbinary/gen/f32-vsubc-minmax-scalar-x8.c",
     "src/f32-vclamp/gen/f32-vclamp-scalar-x4.c",
+    "src/f32-vcmul/gen/f32-vcmul-scalar-x4.c",
     "src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-x4.c",
     "src/f32-vhswish/gen/f32-vhswish-scalar-x4.c",
     "src/f32-vlrelu/gen/f32-vlrelu-scalar-x4.c",
@@ -408,6 +411,7 @@ PROD_SCALAR_WASM_MICROKERNEL_SRCS = [
     "src/f32-vbinary/gen/f32-vsub-minmax-scalar-x8.c",
     "src/f32-vbinary/gen/f32-vsubc-minmax-scalar-x8.c",
     "src/f32-vclamp/gen/f32-vclamp-scalar-x4.c",
+    "src/f32-vcmul/gen/f32-vcmul-scalar-x4.c",
     "src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-x2.c",
     "src/f32-vhswish/gen/f32-vhswish-scalar-x4.c",
     "src/f32-vlrelu/gen/f32-vlrelu-scalar-x4.c",
@@ -569,6 +573,7 @@ PROD_SCALAR_RISCV_MICROKERNEL_SRCS = [
     "src/f32-vbinary/gen/f32-vsub-minmax-scalar-x8.c",
     "src/f32-vbinary/gen/f32-vsubc-minmax-scalar-x8.c",
     "src/f32-vclamp/gen/f32-vclamp-scalar-x4.c",
+    "src/f32-vcmul/gen/f32-vcmul-scalar-x4.c",
     "src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-x4.c",
     "src/f32-vhswish/gen/f32-vhswish-scalar-x4.c",
     "src/f32-vlrelu/gen/f32-vlrelu-scalar-x4.c",
@@ -732,6 +737,7 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/f32-vbinary/gen/f32-vsub-minmax-neon-x8.c",
     "src/f32-vbinary/gen/f32-vsubc-minmax-neon-x8.c",
     "src/f32-vclamp/gen/f32-vclamp-neon-x8.c",
+    "src/f32-vcmul/gen/f32-vcmul-neon-x8.c",
     "src/f32-velu/gen/f32-velu-neon-rr2-lut16-p3-x8.c",
     "src/f32-vhswish/gen/f32-vhswish-neon-x16.c",
     "src/f32-vlrelu/gen/f32-vlrelu-neon-x8.c",
@@ -823,13 +829,13 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/x8-zip/x8-zip-x2-neon.c",
     "src/x8-zip/x8-zip-x3-neon.c",
     "src/x8-zip/x8-zip-x4-neon.c",
-    "src/x16-packw/gen/x16-packw-x8-neon-ld4lane-x8-prfm.c",
-    "src/x16-packw/gen/x16-packw-x16-neon-ld4lane-x8-prfm.c",
+    "src/x16-packw/gen/x16-packw-x8-gemm-goi-neon-ld4lane-x8-prfm.c",
+    "src/x16-packw/gen/x16-packw-x16-gemm-goi-neon-ld4lane-x8-prfm.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-dec-zip-neon.c",
     "src/x24-transposec/x24-transposec-2x2-neon-tbl64.c",
-    "src/x32-packw/gen/x32-packw-x2-neon-ld2lane-x2-prfm.c",
-    "src/x32-packw/gen/x32-packw-x8-neon-ld4lane-x4-prfm.c",
-    "src/x32-packw/gen/x32-packw-x8s4-neon-ld4lane-x4-prfm.c",
+    "src/x32-packw/gen/x32-packw-x2-gemm-goi-neon-ld2lane-x2-prfm.c",
+    "src/x32-packw/gen/x32-packw-x8-gemm-goi-neon-ld4lane-x4-prfm.c",
+    "src/x32-packw/gen/x32-packw-x8s4-gemm-goi-neon-ld4lane-x4-prfm.c",
     "src/x32-packx/gen/x32-packx-4x-neon-st4-x4-prfm.c",
     "src/x32-transposec/gen/x32-transposec-4x4-reuse-dec-zip-neon.c",
     "src/x32-unpool/x32-unpool-neon.c",
@@ -1076,6 +1082,7 @@ PROD_SSE_MICROKERNEL_SRCS = [
     "src/f32-vbinary/gen/f32-vsub-minmax-sse-x8.c",
     "src/f32-vbinary/gen/f32-vsubc-minmax-sse-x8.c",
     "src/f32-vclamp/gen/f32-vclamp-sse-x8.c",
+    "src/f32-vcmul/gen/f32-vcmul-sse-x8.c",
     "src/f32-vhswish/gen/f32-vhswish-sse-x8.c",
     "src/f32-vlrelu/gen/f32-vlrelu-sse-x8.c",
     "src/f32-vmulcaddc/gen/f32-vmulcaddc-c4-minmax-sse-2x.c",
@@ -1162,8 +1169,8 @@ PROD_SSE2_MICROKERNEL_SRCS = [
     "src/x8-zip/x8-zip-x3-sse2.c",
     "src/x8-zip/x8-zip-x4-sse2.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-multi-sse2.c",
-    "src/x32-packw/gen/x32-packw-x2c4-sse2-x4.c",
-    "src/x32-packw/gen/x32-packw-x8-sse2-x4.c",
+    "src/x32-packw/gen/x32-packw-x2c4-gemm-goi-sse2-x4.c",
+    "src/x32-packw/gen/x32-packw-x8-gemm-goi-sse2-x4.c",
     "src/x32-unpool/x32-unpool-sse2.c",
     "src/x32-zip/x32-zip-xm-sse2.c",
     "src/x32-zip/x32-zip-x2-sse2.c",
@@ -1318,8 +1325,8 @@ PROD_AVX_MICROKERNEL_SRCS = [
     "src/qu8-vmul/gen/qu8-vmul-minmax-fp32-avx-mul16-ld64-x16.c",
     "src/qu8-vmulc/gen/qu8-vmulc-minmax-fp32-avx-mul16-ld64-x16.c",
     "src/x8-lut/gen/x8-lut-avx-x64.c",
-    "src/x32-packw/gen/x32-packw-x16-avx-x4.c",
-    "src/x32-packw/gen/x32-packw-x16s4-avx-x4.c",
+    "src/x32-packw/gen/x32-packw-x16-gemm-goi-avx-x4.c",
+    "src/x32-packw/gen/x32-packw-x16s4-gemm-goi-avx-x4.c",
     "src/x32-transposec/gen/x32-transposec-8x8-reuse-multi-avx.c",
 ]
 
@@ -1459,10 +1466,10 @@ PROD_AVX2_MICROKERNEL_SRCS = [
     "src/qu8-vlrelu/gen/qu8-vlrelu-avx2-x32.c",
     "src/x8-lut/gen/x8-lut-avx2-x128.c",
     "src/x8-transposec/gen/x8-transposec-32x32-reuse-switch-avx2.c",
-    "src/x16-packw/gen/x16-packw-x8-avx2-x16-prfm.c",
-    "src/x16-packw/gen/x16-packw-x8-avx2-x16.c",
-    "src/x16-packw/gen/x16-packw-x16-avx2-x16-prfm.c",
-    "src/x16-packw/gen/x16-packw-x16-avx2-x16.c",
+    "src/x16-packw/gen/x16-packw-x8-gemm-goi-avx2-x16-prfm.c",
+    "src/x16-packw/gen/x16-packw-x8-gemm-goi-avx2-x16.c",
+    "src/x16-packw/gen/x16-packw-x16-gemm-goi-avx2-x16-prfm.c",
+    "src/x16-packw/gen/x16-packw-x16-gemm-goi-avx2-x16.c",
     "src/x16-transposec/gen/x16-transposec-16x16-reuse-switch-avx2.c",
 ]
 
@@ -1505,7 +1512,7 @@ PROD_AVX512F_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-avx512f-x16.c",
     "src/f32-vunary/gen/f32-vneg-avx512f-x16.c",
     "src/f32-vunary/gen/f32-vsqr-avx512f-x16.c",
-    "src/x32-packw/gen/x32-packw-x16-avx512f-x4-prfm.c",
+    "src/x32-packw/gen/x32-packw-x16-gemm-goi-avx512f-x4-prfm.c",
 ]
 
 PROD_AVX512SKX_MICROKERNEL_SRCS = [
@@ -1745,6 +1752,7 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/f32-vbinary/gen/f32-vsubc-wasmsimd-x16.c",
     "src/f32-vclamp/gen/f32-vclamp-wasmsimd-arm-x8.c",
     "src/f32-vclamp/gen/f32-vclamp-wasmsimd-x86-x8.c",
+    "src/f32-vcmul/gen/f32-vcmul-wasmsimd-x8.c",
     "src/f32-velu/gen/f32-velu-wasmsimd-arm-rr2-p6-x20.c",
     "src/f32-velu/gen/f32-velu-wasmsimd-x86-rr2-p6-x20.c",
     "src/f32-vhswish/gen/f32-vhswish-wasmsimd-x16.c",
@@ -1815,8 +1823,8 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/x8-lut/gen/x8-lut-wasmsimd-x32.c",
     "src/x8-transposec/gen/x8-transposec-16x16-reuse-mov-wasmsimd.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-mov-wasmsimd.c",
-    "src/x32-packw/gen/x32-packw-x2c4-wasmsimd-x4.c",
-    "src/x32-packw/gen/x32-packw-x8-wasmsimd-x4.c",
+    "src/x32-packw/gen/x32-packw-x2c4-gemm-goi-wasmsimd-x4.c",
+    "src/x32-packw/gen/x32-packw-x8-gemm-goi-wasmsimd-x4.c",
     "src/x32-transposec/gen/x32-transposec-4x4-reuse-mov-wasmsimd.c",
     "src/x32-unpool/x32-unpool-wasmsimd.c",
     "src/x32-zip/x32-zip-xm-wasmsimd.c",
@@ -2018,6 +2026,12 @@ JIT_WASM32_SRCS = [
     "src/f32-vrelu/f32-vrelu-ukernel-jit-wasm32-shr.cc",
 ]
 
+JIT_WASMSIMD32_SRCS = JIT_WASM32_SRCS + [
+    "src/f32-gemm/MRx8-wasmsimd-x86-loadsplat.cc",
+]
+
+JIT_WASMRELAXEDSIMD32_SRCS = JIT_WASMSIMD32_SRCS
+
 filegroup(
     name = "microkernel_source_files",
     data = ALL_NEON_AARCH64_MICROKERNEL_SRCS + ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS + ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS + ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS + ALL_ARMSIMD32_MICROKERNEL_SRCS + ALL_AVX_MICROKERNEL_SRCS + ALL_AVX2_MICROKERNEL_SRCS + ALL_AVX512F_MICROKERNEL_SRCS + ALL_AVX512SKX_MICROKERNEL_SRCS + ALL_AVX512VBMI_MICROKERNEL_SRCS + ALL_F16C_MICROKERNEL_SRCS + ALL_FMA_MICROKERNEL_SRCS + ALL_FMA3_MICROKERNEL_SRCS + ALL_FP16ARITH_MICROKERNEL_SRCS + ALL_HEXAGON_MICROKERNEL_SRCS + ALL_NEON_MICROKERNEL_SRCS + ALL_NEONBF16_MICROKERNEL_SRCS + ALL_NEONDOT_MICROKERNEL_SRCS + ALL_NEONFMA_MICROKERNEL_SRCS + ALL_NEONFP16_MICROKERNEL_SRCS + ALL_NEONFP16ARITH_MICROKERNEL_SRCS + ALL_NEONV8_MICROKERNEL_SRCS + ALL_SCALAR_MICROKERNEL_SRCS + ALL_SSE_MICROKERNEL_SRCS + ALL_SSE2_MICROKERNEL_SRCS + ALL_SSE41_MICROKERNEL_SRCS + ALL_SSSE3_MICROKERNEL_SRCS + ALL_WASM_MICROKERNEL_SRCS + ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS + ALL_WASMSIMD_MICROKERNEL_SRCS + ALL_XOP_MICROKERNEL_SRCS + AARCH32_ASM_MICROKERNEL_SRCS + AARCH64_ASM_MICROKERNEL_SRCS + WASM32_ASM_MICROKERNEL_SRCS + ["src/microparams-init.c"],
@@ -2118,6 +2132,7 @@ xnnpack_cc_library(
         "src/argmaxpool-config.c",
         "src/avgpool-config.c",
         "src/binary-elementwise-config.c",
+        "src/cmul-config.c",
         "src/conv-hwc2chw-config.c",
         "src/dwconv-config.c",
         "src/dwconv2d-chw-config.c",
@@ -2171,6 +2186,7 @@ xnnpack_cc_library(
         "src/argmaxpool-config.c",
         "src/avgpool-config.c",
         "src/binary-elementwise-config.c",
+        "src/cmul-config.c",
         "src/conv-hwc2chw-config.c",
         "src/dwconv-config.c",
         "src/dwconv2d-chw-config.c",
@@ -5169,7 +5185,7 @@ xnnpack_cc_library(
     hdrs = [
         "src/xnnpack/aarch32-assembler.h",
         "src/xnnpack/aarch64-assembler.h",
-        "src/xnnpack/array-apply.h",
+        "src/xnnpack/array-helpers.h",
         "src/xnnpack/assembler.h",
         "src/xnnpack/leb128.h",
         "src/xnnpack/wasm-assembler.h",
@@ -5178,8 +5194,8 @@ xnnpack_cc_library(
     aarch64_srcs = JIT_AARCH64_SRCS,
     msvc_copts = xnnpack_msvc_std_copts(),
     wasm_srcs = JIT_WASM32_SRCS,
-    wasmrelaxedsimd_srcs = JIT_WASM32_SRCS,
-    wasmsimd_srcs = JIT_WASM32_SRCS,
+    wasmrelaxedsimd_srcs = JIT_WASMRELAXEDSIMD32_SRCS,
+    wasmsimd_srcs = JIT_WASMSIMD32_SRCS,
     deps = [
         ":common",
         ":logging",
@@ -5203,7 +5219,7 @@ xnnpack_cc_library(
     hdrs = [
         "src/xnnpack/aarch32-assembler.h",
         "src/xnnpack/aarch64-assembler.h",
-        "src/xnnpack/array-apply.h",
+        "src/xnnpack/array-helpers.h",
         "src/xnnpack/assembler.h",
         "src/xnnpack/leb128.h",
         "src/xnnpack/wasm-assembler.h",
@@ -5216,8 +5232,8 @@ xnnpack_cc_library(
     ],
     msvc_copts = xnnpack_msvc_std_copts(),
     wasm_srcs = JIT_WASM32_SRCS,
-    wasmrelaxedsimd_srcs = JIT_WASM32_SRCS,
-    wasmsimd_srcs = JIT_WASM32_SRCS,
+    wasmrelaxedsimd_srcs = JIT_WASMRELAXEDSIMD32_SRCS,
+    wasmsimd_srcs = JIT_WASMSIMD32_SRCS,
     deps = [
         ":common",
         ":logging",
@@ -6027,6 +6043,7 @@ xnnpack_benchmark(
         "bench/gemm.h",
     ],
     copts = xnnpack_optional_ruy_copts(),
+    linkopts = WASM_JIT_LINKOPTS,
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
         ":math",
@@ -8013,6 +8030,7 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
+        ":jit",
     ],
 )
 
@@ -8064,6 +8082,7 @@ xnnpack_unit_test(
     srcs = [
         "test/f32-gemm-jit.cc",
     ],
+    linkopts = WASM_JIT_LINKOPTS,
     shard_count = 10,
     tags = ["not_run:arm"],
     deps = MICROKERNEL_TEST_DEPS + [
@@ -8075,8 +8094,8 @@ xnnpack_unit_test(
 xnnpack_unit_test(
     name = "f32_gemminc_minmax_test",
     srcs = [
-        "test/f32-gemm-minmax-2.cc",
         "test/f32-gemminc-minmax.cc",
+        "test/f32-gemminc-minmax-2.cc",
     ],
     shard_count = 5,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -10166,6 +10185,15 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "rope_nthc_test",
+    srcs = [
+        "test/rope-nthc.cc",
+        "test/rope-operator-tester.h",
+    ],
+    deps = OPERATOR_TEST_DEPS,
+)
+
+xnnpack_unit_test(
     name = "sigmoid_nc_test",
     srcs = [
         "test/sigmoid-nc.cc",
@@ -10915,6 +10943,20 @@ xnnpack_unit_test(
         ":XNNPACK_test_mode",
         ":node_type",
         ":operators_test_mode",
+        ":subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "rope_test",
+    srcs = [
+        "test/rope.cc",
+    ],
+    deps = [
+        ":XNNPACK_test_mode",
+        ":node_type",
+        ":operators_test_mode",
+        ":requantization",
         ":subgraph_test_mode",
     ],
 )

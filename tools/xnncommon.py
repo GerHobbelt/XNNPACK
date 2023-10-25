@@ -131,7 +131,6 @@ def generate_isa_check_macro(isa):
 def arch_to_macro(arch, isa):
   return _ARCH_TO_MACRO_MAP[arch]
 
-
 def postprocess_test_case(test_case, arch, isa, assembly=False, jit=False):
   test_case = _remove_duplicate_newlines(test_case)
   if arch:
@@ -141,6 +140,8 @@ def postprocess_test_case(test_case, arch, isa, assembly=False, jit=False):
         guard = "%s && (%s)" % (_ISA_TO_MACRO_MAP[isa], guard)
       else:
         guard = "%s && %s" % (_ISA_TO_MACRO_MAP[isa], guard)
+    if (assembly or jit) and "||" in guard:
+      guard = '(' + guard + ')'
     if assembly:
       guard += " && XNN_ENABLE_ASSEMBLY"
     if jit:

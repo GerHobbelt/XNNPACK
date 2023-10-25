@@ -2236,6 +2236,27 @@ enum xnn_status xnn_run_bankers_rounding_nc_f32(
   uint32_t flags,
   pthreadpool_t threadpool);
 
+enum xnn_status xnn_create_batch_matrix_multiply_nc_f16(
+  uint32_t flags,
+  xnn_operator_t* batch_matrix_multiply_op);
+
+enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f16(
+  xnn_operator_t batch_matrix_multiply_op,
+  size_t batch_size,
+  size_t m,
+  size_t k,
+  size_t n,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_batch_matrix_multiply_nc_f16(
+  xnn_operator_t batch_matrix_multiply_op,
+  void* workspace,
+  const void* lhs_input,
+  const void* rhs_input,
+  void* output);
+
 enum xnn_status xnn_create_batch_matrix_multiply_nc_f32(
   uint32_t flags,
   xnn_operator_t* batch_matrix_multiply_op);
@@ -2253,8 +2274,8 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f32(
 enum xnn_status xnn_setup_batch_matrix_multiply_nc_f32(
   xnn_operator_t batch_matrix_multiply_op,
   void* workspace,
-  const float* input1,
-  const float* input2,
+  const float* lhs_input,
+  const float* rhs_input,
   float* output);
 
 enum xnn_status xnn_create_ceiling_nc_f16(
@@ -3792,6 +3813,33 @@ enum xnn_status xnn_setup_fully_connected_nc_f32_qc8w(
   xnn_operator_t fully_connected_op,
   const float* input,
   float* output);
+
+enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc4w(
+  size_t input_channels,
+  size_t output_channels,
+  size_t input_stride,
+  size_t output_stride,
+  uint8_t kernel_zero_point,
+  const float* kernel_scale,
+  const void* kernel,
+  const float* bias,
+  float output_min,
+  float output_max,
+  uint32_t flags,
+  xnn_code_cache_t code_cache,
+  xnn_weights_cache_t weights_cache,
+  xnn_operator_t* fully_connected_op_out);
+
+enum xnn_status xnn_setup_fully_connected_nc_qd8_f32_qc4w(
+  xnn_operator_t fully_connected_op,
+  const int8_t* input,
+  float* output,
+  const struct xnn_dynamic_quantization_params* quantization_params);
+
+enum xnn_status xnn_reshape_fully_connected_nc_qd8_f32_qc4w(
+  xnn_operator_t fully_connected_op,
+  size_t batch_size,
+  pthreadpool_t threadpool);
 
 enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc8w(
   size_t input_channels,

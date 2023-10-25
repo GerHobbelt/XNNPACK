@@ -1386,14 +1386,16 @@ struct rope_context {
 struct attention_logits_cap {
   enum xnn_attention_logits_cap_type type;
   union {
+    uint16_t f16;
     float f32;
   } cap;
   union {
+    uint16_t f16;
     float f32;
   } cap_reciprocal;
 };
 
-struct scaled_dot_attention_context {
+struct scaled_dot_product_attention_context {
   // Pointer to query.
   const void* query;
   // Pointer to packed key.
@@ -1415,14 +1417,18 @@ struct scaled_dot_attention_context {
   // Cap for logits (Q * K).
   struct attention_logits_cap logits_cap;
 
-  // Channels (head dimension).
-  size_t channels;
-  // Channels (head dimension) in bytes.
-  size_t scaled_channels;
+  // Query/Key Channels (head dimension).
+  size_t query_key_channels;
+  // Query/Key Channels (head dimension) in bytes.
+  size_t query_key_scaled_channels;
   // Tokens length for key/value.
   size_t key_value_tokens;
   // Tokens length for key/value, in bytes.
   size_t key_value_tokens_scaled;
+  // Value Channels.
+  size_t value_channels;
+  // Value Channels, in bytes.
+  size_t value_scaled_channels;
   // Stride, in bytes, between columns of logits and final attention output.
   size_t cn_stride;
 
@@ -1442,6 +1448,10 @@ struct scaled_dot_attention_context {
   size_t logits_batch_stride;
   // Stride, in bytes,  between each head of logits (Q*K).
   size_t logits_head_stride;
+  // Stride, in bytes, between each batch of output.
+  size_t output_batch_stride;
+  // Stride, in bytes, between each head of output.
+  size_t output_head_stride;
 
   struct xnn_hmp_gemm_ukernel gemm_ukernel;
   xnn_compute_reciprocal_fn compute_reciprocal;
@@ -1477,14 +1487,14 @@ struct scaled_dot_attention_context {
 };
 
 #ifndef __cplusplus
-  XNN_PRIVATE void xnn_compute_scaled_dot_attention(
-      const struct scaled_dot_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
+  XNN_PRIVATE void xnn_compute_scaled_dot_product_attention(
+      const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t batch_index,
       size_t head_index,
       size_t tokens_start,
       size_t tokens_block_size);
-  XNN_PRIVATE void xnn_compute_hmp_scaled_dot_attention(
-      const struct scaled_dot_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
+  XNN_PRIVATE void xnn_compute_hmp_scaled_dot_product_attention(
+      const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
       uint32_t uarch_index,
       size_t batch_index,
       size_t head_index,

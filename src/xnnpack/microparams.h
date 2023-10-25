@@ -159,14 +159,16 @@ union xnn_f32_qc4w_minmax_params {
   struct {
     float min;
     float max;
-    int16_t minus_kernel_zero_point[2];
+    int32_t minus_kernel_zero_point;
   } scalar;
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   struct {
     XNN_ALIGN(16) float min[4];
     XNN_ALIGN(16) float max[4];
-    XNN_ALIGN(16) int32_t minus_kernel_zero_point[4];
-    XNN_ALIGN(16) uint16_t mask[8];
+    XNN_ALIGN(16) uint32_t magic_bias_c0[4];
+    XNN_ALIGN(16) uint32_t magic_bias_c1[4];
+    XNN_ALIGN(16) float magic_bias_plus_kernel_zero_point_c0[4];
+    XNN_ALIGN(16) float magic_bias_plus_kernel_zero_point_c1[4];
   } sse;
   struct {
     XNN_ALIGN(32) float min[8];

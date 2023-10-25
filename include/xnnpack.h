@@ -30,14 +30,12 @@ extern "C" {
 /// Allow sparse inference in a Runtime.
 ///
 /// Note: this flag hints XNNPACK to consider sparse inference, but does not guarantee it.
-#define XNN_FLAG_SPARSE_INFERENCE 0x00000001
-#define XNN_FLAG_HINT_SPARSE_INFERENCE XNN_FLAG_SPARSE_INFERENCE
+#define XNN_FLAG_HINT_SPARSE_INFERENCE 0x00000001
 
 /// Allow IEEE FP16 inference in a Runtime.
 ///
 /// Note: this flag hints XNNPACK to consider IEEE FP16 inference, but does not guarantee it.
-#define XNN_FLAG_FP16_INFERENCE 0x00000002
-#define XNN_FLAG_HINT_FP16_INFERENCE XNN_FLAG_FP16_INFERENCE
+#define XNN_FLAG_HINT_FP16_INFERENCE 0x00000002
 
 /// Force IEEE FP16 inference in a Runtime, and fail if FP16 inference is not possible.
 ///
@@ -83,6 +81,9 @@ extern "C" {
 
 /// Yield worker threads of the thread pool to the system scheduler after the inference.
 #define XNN_FLAG_YIELD_WORKERS 0x00000010
+
+/// Use transient indirection buffer to reduce memory footprint
+#define XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER 0x00000020
 
 /// The number of entries in an array of xnn_dynamic_quantization_params that XNNPACK may read beyond array bounds.
 /// The caller must allocate at least this many extra xnn_dynamic_quantization_params before passing the array to XNNPACK.
@@ -922,6 +923,67 @@ enum xnn_status xnn_define_multiply2(
   float output_max,
   uint32_t input1_id,
   uint32_t input2_id,
+  uint32_t output_id,
+  uint32_t flags);
+
+// Cap operations applied to logits (Q * K) of attention operator.
+enum xnn_attention_logits_cap_type {
+  // No capping.
+  xnn_attention_logits_cap_type_none = 0,
+  // Cap the absolute values of logits by tanh: tanh(logits / cap) * cap
+  xnn_attention_logits_cap_type_tanh
+};
+
+// Params when the cap type is xnn_attention_logits_cap_type_tanh.
+struct xnn_attention_logits_cap_tanh_params {
+  float cap;
+};
+
+/// Define a Scaled Dot-Product Attention Node and add it to a Subgraph.
+///
+/// This operator is experimental.
+///
+/// The Scaled Dot-Product Attention Node computes a multi-head or multi-query scaled dot attention on the query, key,
+/// and value tensors.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param cap_type - type of cap to be applied to the logits.
+/// @param cap_params - parameters for the cap. Must be a pointer to xnn_attention_logits_cap_tanh_params if cap_type
+///                     is xnn_attention_logits_cap_type_tanh.
+/// @param query_id - Value ID for the query tensor. The query tensor must be a 3+-dimensional tensor defined in the
+///                   @a subgraph with the dimensions as [*, H, T, C], where H/T/C are the heads/tokens/channels, and *
+///                   is the 0 or more dimensions treated as batch size.
+/// @param key_id - Value ID for the key tensor. The key tensor must be a 2+--dimensional tensor defined in the
+///                 @a subgraph. It can have the same number of dimensions as the query, with the dimensions as
+///                 [*, H, U, C] (multi-head), or have 1 less dimension than the query, with the dimensions as
+///                 as [*, U, C] (multi-query, number of heads omitted implies single head), where H/U/C are the
+///                 heads/key_value_tokens/channels, and * is the 0 or more dimensions treated as batch size. These
+///                 batch size dimensions must be the same as query.
+/// @param value_id - Value ID for the value tensor. The value tensor must be a 2+--dimensional tensor defined in the
+///                   @a subgraph. It can have the same number of dimensions as the query, with the dimensions as
+///                   [*, H, U, D] (multi-head), or have 1 less dimension than the query, with the dimensions as
+///                   as [*, U, D] (multi-query, number of heads omitted implies single head), where H/U/D are the
+///                   heads/key_value_tokens/value_channels, and * is the 0 or more dimensions treated as batch size.
+///                   These batch size dimensions must be the same as query and key.
+/// @param scale_id - Value ID for the scale tensor. The scale tensor must be a 1D tensor defined in the @a subgraph
+///                   with [C] dimensions. The query tensor is multiplied with this scale tensor before the dot product
+///                   with the key tensor.
+/// @param mask_id - Value ID for the mask tensor. The mask tensor must be a 2D tensor defined in the @a subgraph with
+///                  [T, U] dimensions. The mask tensor is added to the logits (query dot value).
+/// @param output_id - Value ID for the output tensor. The output tensor must be a 3+-dimensional tensor defined in the
+///                    @a subgraph with the dimensions as [*, H, T, D], where H/T/D are the heads/tokens/value_channels,
+///                    and * is the 0 or more dimensions treated as batch size. These batch size dimensions must be the
+///                    same as query, key, and value.
+/// @param flags - binary features of the Scaled Dot Product Attention Node. No supported flags are currently defined.
+enum xnn_status xnn_define_scaled_dot_product_attention(
+  xnn_subgraph_t subgraph,
+  enum xnn_attention_logits_cap_type cap_type,
+  const void* cap_params,
+  uint32_t query_id,
+  uint32_t key_id,
+  uint32_t value_id,
+  uint32_t scale_id,
+  uint32_t mask_id,
   uint32_t output_id,
   uint32_t flags);
 
@@ -3179,6 +3241,46 @@ enum xnn_status xnn_setup_unpooling2d_nhwc_x32(
   const uint32_t* index,
   void* output);
 
+// N: batch size
+// H: number of heads
+// T: tokens (sequence length)
+// C: channels (head dimension)
+enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f32(
+  enum xnn_attention_logits_cap_type cap_type,
+  const void* cap_params,
+  uint32_t flags,
+  xnn_operator_t* attention_op_out);
+
+enum xnn_status xnn_reshape_scaled_dot_product_attention_nhtc_f32(
+  xnn_operator_t attention_op,
+  size_t batch_size,
+  size_t query_heads,
+  // Number of tokens in query.
+  size_t query_tokens,
+  size_t key_value_heads,
+  // Number of tokens in key/value. For self-attention, this is same as tokens.
+  size_t key_value_tokens,
+  size_t query_key_channels,
+  size_t value_channels,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
+  pthreadpool_t threadpool);
+
+// Query is of dimension [batch_size, query_heads, query_tokens, query_key_channels].
+// Key and value are of dimension [batch_size, key_value_heads, key_value_tokens, query_key_channels].
+// Scale is of dimension [query_key_channels].
+// Mask is of dimension [query_tokens, key_value_tokens].
+// Output is of dimension [batch_size, query_heads, query_tokens, value_channels].
+enum xnn_status xnn_setup_scaled_dot_product_attention_nhtc_f32(
+  xnn_operator_t attention_op,
+  void* workspace,
+  const float* query,
+  const float* key,
+  const float* value,
+  const float* scale,
+  const float* mask,
+  float* output);
+
 enum xnn_status xnn_create_abs_nc_f16(
   size_t channels,
   size_t input_stride,
@@ -4097,6 +4199,45 @@ enum xnn_status xnn_run_transpose_nd_x16(
     const size_t* output_perm,
     uint32_t flags,
     pthreadpool_t threadpool);
+
+// N: batch size
+// H: number of heads
+// T: tokens (sequence length)
+// C: channels (head dimension)
+enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f16(
+  enum xnn_attention_logits_cap_type cap_type,
+  const void* cap_params,
+  uint32_t flags,
+  xnn_operator_t* attention_op_out);
+
+enum xnn_status xnn_reshape_scaled_dot_product_attention_nhtc_f16(
+  xnn_operator_t attention_op,
+  size_t batch_size,
+  size_t query_heads,
+  // Number of tokens in query.
+  size_t query_tokens,
+  size_t key_value_heads,
+  // Number of tokens in key/value. For self-attention, this is same as tokens.
+  size_t key_value_tokens,
+  size_t query_key_channels,
+  size_t value_channels,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
+  pthreadpool_t threadpool);
+
+// Query is of dimension [batch_size, query_heads, query_tokens, channels].
+// Key and value are of dimension [batch_size, key_value_heads, key_value_tokens, channels].
+// Scale is of dimension [channels].
+// Mask is of dimension [query_tokens, key_value_tokens].
+enum xnn_status xnn_setup_scaled_dot_product_attention_nhtc_f16(
+  xnn_operator_t attention_op,
+  void* workspace,
+  const void* query,
+  const void* key,
+  const void* value,
+  const void* scale,
+  const void* mask,
+  void* output);
 
 enum xnn_status xnn_create_convolution2d_nhwc_qs8_qc8w(
   uint32_t input_padding_top,
@@ -5489,57 +5630,6 @@ enum xnn_status xnn_run_convert_nc_qu8_f32(
   uint8_t input_zero_point,
   uint32_t flags,
   pthreadpool_t threadpool);
-
-// Cap operations applied to logits (Q * K) of attention operator.
-enum xnn_attention_logits_cap_type {
-  // No capping.
-  xnn_attention_logits_cap_type_none = 0,
-  // Cap the absolute values of logits by tanh: tanh(logits / cap) * cap
-  xnn_attention_logits_cap_type_tanh
-};
-
-// Params when the cap type is xnn_attention_logits_cap_type_tanh.
-struct xnn_attention_logits_cap_tanh_params {
-  float cap;
-};
-
-// N: batch size
-// H: number of heads
-// T: tokens (sequence length)
-// C: channels (head dimension)
-enum xnn_status xnn_create_scaled_dot_attention_nhtc_f32(
-  enum xnn_attention_logits_cap_type cap_type,
-  const void* cap_params,
-  uint32_t flags,
-  xnn_operator_t* attention_op_out);
-
-enum xnn_status xnn_reshape_scaled_dot_attention_nhtc_f32(
-  xnn_operator_t attention_op,
-  size_t batch_size,
-  size_t query_heads,
-  // Number of tokens in query.
-  size_t query_tokens,
-  size_t key_value_heads,
-  // Number of tokens in key/value. For self-attention, this is same as tokens.
-  size_t key_value_tokens,
-  size_t channels,
-  size_t* workspace_size,
-  size_t* workspace_alignment,
-  pthreadpool_t threadpool);
-
-// Query is of dimension [batch_size, query_heads, query_tokens, channels].
-// Key and value are of dimension [batch_size, key_value_heads, key_value_tokens, channels].
-// Scale is of dimension [channels].
-// Mask is of dimension [query_tokens, key_value_tokens].
-enum xnn_status xnn_setup_scaled_dot_attention_nhtc_f32(
-  xnn_operator_t attention_op,
-  void* workspace,
-  const float* query,
-  const float* key,
-  const float* value,
-  const float* scale,
-  const float* mask,
-  float* output);
 
 #ifdef __cplusplus
 }  // extern "C"

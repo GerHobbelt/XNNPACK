@@ -111,7 +111,21 @@ static void f32_igemm(benchmark::State& state,
   convolution_op.dilation_width       = dilation;
   convolution_op.padding_top          = padding_top;
   convolution_op.padding_left         = padding_left;
-  xnn_indirection_init_conv2d(&convolution_op, mr, XNN_LOG2_SIZEOF_FLOAT);
+  const size_t tiled_output_size = round_up(output_size, mr);
+  xnn_indirection_init_conv2d(
+      /*output_tile_size=*/mr,
+      /*output_start=*/0,
+      /*output_end=*/tiled_output_size,
+      convolution_op.indirection_buffer,
+      convolution_op.input,
+      convolution_op.zero_buffer,
+      convolution_op.input_pixel_stride << XNN_LOG2_SIZEOF_FLOAT,
+      convolution_op.input_height, convolution_op.input_width,
+      convolution_op.output_height, convolution_op.output_width,
+      convolution_op.kernel_height, convolution_op.kernel_width,
+      convolution_op.stride_height, convolution_op.stride_width,
+      convolution_op.dilation_height, convolution_op.dilation_width,
+      convolution_op.padding_top, convolution_op.padding_left);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(i.cbegin(), i.cbegin() + i_elements, i.begin() + n * i_elements);
   }
@@ -241,7 +255,21 @@ static void f32_igemm(benchmark::State& state,
   convolution_op.dilation_width       = dilation;
   convolution_op.padding_top          = padding_top;
   convolution_op.padding_left         = padding_left;
-  xnn_indirection_init_conv2d(&convolution_op, mr, XNN_LOG2_SIZEOF_FLOAT);
+  const size_t tiled_output_size = round_up(output_size, mr);
+  xnn_indirection_init_conv2d(
+      /*output_tile_size=*/mr,
+      /*output_start=*/0,
+      /*output_end=*/tiled_output_size,
+      convolution_op.indirection_buffer,
+      convolution_op.input,
+      convolution_op.zero_buffer,
+      convolution_op.input_pixel_stride << XNN_LOG2_SIZEOF_FLOAT,
+      convolution_op.input_height, convolution_op.input_width,
+      convolution_op.output_height, convolution_op.output_width,
+      convolution_op.kernel_height, convolution_op.kernel_width,
+      convolution_op.stride_height, convolution_op.stride_width,
+      convolution_op.dilation_height, convolution_op.dilation_width,
+      convolution_op.padding_top, convolution_op.padding_left);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(i.cbegin(), i.cbegin() + i_elements, i.begin() + n * i_elements);
   }
@@ -1376,6 +1404,13 @@ static void f32_igemm(benchmark::State& state,
       /*mr=*/6, /*nr=*/8, /*kr=*/1, /*sr=*/1);
   }
 
+  static void f32_igemm_1x8__wasmsimd_x86_splat(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_1x8__wasmsimd_x86_splat,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/1, /*nr=*/8, /*kr=*/1, /*sr=*/1);
+  }
+
   static void f32_igemm_3x8__wasmsimd_x86_splat(benchmark::State& state, const char* net) {
     f32_igemm(state,
       xnn_f32_igemm_minmax_ukernel_3x8__wasmsimd_x86_splat,
@@ -1480,6 +1515,7 @@ static void f32_igemm(benchmark::State& state,
   BENCHMARK_CONV(f32_igemm_4x8__wasmsimd_arm_splat)
   BENCHMARK_CONV(f32_igemm_5x8__wasmsimd_arm_splat)
   BENCHMARK_CONV(f32_igemm_6x8__wasmsimd_arm_splat)
+  BENCHMARK_CONV(f32_igemm_1x8__wasmsimd_x86_splat)
   BENCHMARK_CONV(f32_igemm_3x8__wasmsimd_x86_splat)
   BENCHMARK_CONV(f32_igemm_4x8__wasmsimd_x86_splat)
   BENCHMARK_CONV(f32_igemm_5x8__wasmsimd_x86_splat)
@@ -1856,6 +1892,166 @@ BENCHMARK_CONV(f32_igemm_3x8s4__jit_wasmsimd32_x86_xinf)
 BENCHMARK_CONV(f32_igemm_4x8s4__jit_wasmsimd32_x86_xinf)
 BENCHMARK_CONV(f32_igemm_5x8s4__jit_wasmsimd32_x86_xinf)
 BENCHMARK_CONV(f32_igemm_6x8s4__jit_wasmsimd32_x86_xinf)
+
+static void f32_igemm_1x8__jit_wasmsimd32_x86_splat_x1(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x1,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/1, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_3x8__jit_wasmsimd32_x86_splat_x1(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x1,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/3, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_4x8__jit_wasmsimd32_x86_splat_x1(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x1,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/4, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_5x8__jit_wasmsimd32_x86_splat_x1(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x1,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/5, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_6x8__jit_wasmsimd32_x86_splat_x1(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x1,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/6, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_1x8__jit_wasmsimd32_x86_splat_x2(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x2,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/1, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_3x8__jit_wasmsimd32_x86_splat_x2(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x2,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/3, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_4x8__jit_wasmsimd32_x86_splat_x2(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x2,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/4, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_5x8__jit_wasmsimd32_x86_splat_x2(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x2,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/5, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_6x8__jit_wasmsimd32_x86_splat_x2(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x2,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/6, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_1x8__jit_wasmsimd32_x86_splat_x4(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x4,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/1, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_3x8__jit_wasmsimd32_x86_splat_x4(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x4,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/3, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_4x8__jit_wasmsimd32_x86_splat_x4(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x4,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/4, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_5x8__jit_wasmsimd32_x86_splat_x4(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x4,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/5, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_6x8__jit_wasmsimd32_x86_splat_x4(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_x4,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/6, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_1x8__jit_wasmsimd32_x86_splat_xinf(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_xinf,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/1, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_3x8__jit_wasmsimd32_x86_splat_xinf(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_xinf,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/3, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_4x8__jit_wasmsimd32_x86_splat_xinf(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_xinf,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/4, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_5x8__jit_wasmsimd32_x86_splat_xinf(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_xinf,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/5, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+
+static void f32_igemm_6x8__jit_wasmsimd32_x86_splat_xinf(benchmark::State& state, const char* net) {
+  f32_igemm(state,
+    xnn_generate_f32_igemm_ukernel_6x8__wasmsimd32_x86_splat_xinf,
+    xnn_init_f32_minmax_scalar_params,
+    /*mr=*/6, /*nr=*/8, /*kr=*/1, /*sr=*/4);
+}
+BENCHMARK_CONV(f32_igemm_1x8__jit_wasmsimd32_x86_splat_x1)
+BENCHMARK_CONV(f32_igemm_3x8__jit_wasmsimd32_x86_splat_x1)
+BENCHMARK_CONV(f32_igemm_4x8__jit_wasmsimd32_x86_splat_x1)
+BENCHMARK_CONV(f32_igemm_5x8__jit_wasmsimd32_x86_splat_x1)
+BENCHMARK_CONV(f32_igemm_6x8__jit_wasmsimd32_x86_splat_x1)
+BENCHMARK_CONV(f32_igemm_1x8__jit_wasmsimd32_x86_splat_x2)
+BENCHMARK_CONV(f32_igemm_3x8__jit_wasmsimd32_x86_splat_x2)
+BENCHMARK_CONV(f32_igemm_4x8__jit_wasmsimd32_x86_splat_x2)
+BENCHMARK_CONV(f32_igemm_5x8__jit_wasmsimd32_x86_splat_x2)
+BENCHMARK_CONV(f32_igemm_6x8__jit_wasmsimd32_x86_splat_x2)
+BENCHMARK_CONV(f32_igemm_1x8__jit_wasmsimd32_x86_splat_x4)
+BENCHMARK_CONV(f32_igemm_3x8__jit_wasmsimd32_x86_splat_x4)
+BENCHMARK_CONV(f32_igemm_4x8__jit_wasmsimd32_x86_splat_x4)
+BENCHMARK_CONV(f32_igemm_5x8__jit_wasmsimd32_x86_splat_x4)
+BENCHMARK_CONV(f32_igemm_6x8__jit_wasmsimd32_x86_splat_x4)
+BENCHMARK_CONV(f32_igemm_1x8__jit_wasmsimd32_x86_splat_xinf)
+BENCHMARK_CONV(f32_igemm_3x8__jit_wasmsimd32_x86_splat_xinf)
+BENCHMARK_CONV(f32_igemm_4x8__jit_wasmsimd32_x86_splat_xinf)
+BENCHMARK_CONV(f32_igemm_5x8__jit_wasmsimd32_x86_splat_xinf)
+BENCHMARK_CONV(f32_igemm_6x8__jit_wasmsimd32_x86_splat_xinf)
 #endif  // (XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD) && XNN_PLATFORM_JIT
 
 

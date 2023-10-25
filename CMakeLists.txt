@@ -95,6 +95,7 @@ ADD_COMPILE_DEFINITIONS("XNN_ENABLE_ARM_BF16=$<BOOL:${XNNPACK_ENABLE_ARM_BF16}>"
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_ARM_DOTPROD=$<BOOL:${XNNPACK_ENABLE_ARM_DOTPROD}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_ARM_I8MM=$<BOOL:${XNNPACK_ENABLE_ARM_I8MM}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_RISCV_VECTOR=$<BOOL:${XNNPACK_ENABLE_RISCV_VECTOR}>")
+ADD_COMPILE_DEFINITIONS("XNN_ENABLE_CPUINFO=1")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_ASSEMBLY=$<BOOL:${XNNPACK_ENABLE_ASSEMBLY}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_JIT=$<BOOL:${XNNPACK_ENABLE_JIT}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_MEMOPT=$<BOOL:${XNNPACK_ENABLE_MEMOPT}>")
@@ -217,7 +218,7 @@ SET(OPERATOR_SRCS
   src/operators/resize-bilinear-nchw.c
   src/operators/resize-bilinear-nhwc.c
   src/operators/rope-nthc.c
-  src/operators/scaled-dot-attention-nhtc.c
+  src/operators/scaled-dot-product-attention-nhtc.c
   src/operators/slice-nd.c
   src/operators/softmax-nc.c
   src/operators/transpose-nd.c
@@ -259,6 +260,7 @@ SET(SUBGRAPH_SRCS
   src/subgraph/multiply2.c
   src/subgraph/negate.c
   src/subgraph/prelu.c
+  src/subgraph/scaled-dot-product-attention.c
   src/subgraph/sigmoid.c
   src/subgraph/softmax.c
   src/subgraph/space-to-depth-2d.c
@@ -1228,10 +1230,10 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(rope-nthc-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME rope-nthc-test COMMAND rope-nthc-test)
 
-    ADD_EXECUTABLE(scaled-dot-attention-nhtc-test test/scaled-dot-attention-nhtc.cc)
-    TARGET_INCLUDE_DIRECTORIES(scaled-dot-attention-nhtc-test PRIVATE src test)
-    TARGET_LINK_LIBRARIES(scaled-dot-attention-nhtc-test PRIVATE XNNPACK fp16 gtest gtest_main)
-    ADD_TEST(NAME scaled-dot-attention-nhtc-test COMMAND scaled-dot-attention-nhtc-test)
+    ADD_EXECUTABLE(scaled-dot-product-attention-nhtc-test test/scaled-dot-product-attention-nhtc.cc)
+    TARGET_INCLUDE_DIRECTORIES(scaled-dot-product-attention-nhtc-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(scaled-dot-product-attention-nhtc-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    ADD_TEST(NAME scaled-dot-product-attention-nhtc-test COMMAND scaled-dot-product-attention-nhtc-test)
 
     ADD_EXECUTABLE(sigmoid-nc-test test/sigmoid-nc.cc)
     TARGET_INCLUDE_DIRECTORIES(sigmoid-nc-test PRIVATE src test)
@@ -1552,6 +1554,12 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_INCLUDE_DIRECTORIES(prelu-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(prelu-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
     ADD_TEST(NAME prelu-test COMMAND prelu-test)
+
+    ADD_EXECUTABLE(scaled-dot-product-attention-test test/scaled-dot-product-attention.cc)
+    SET_TARGET_PROPERTIES(scaled-dot-product-attention-test PROPERTIES CXX_EXTENSIONS YES)
+    TARGET_INCLUDE_DIRECTORIES(scaled-dot-product-attention-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(scaled-dot-product-attention-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
+    ADD_TEST(NAME scaled-dot-product-attention-test COMMAND scaled-dot-product-attention-test)
 
     ADD_EXECUTABLE(sigmoid-test test/sigmoid.cc)
     SET_TARGET_PROPERTIES(sigmoid-test PROPERTIES CXX_EXTENSIONS YES)
@@ -3722,6 +3730,26 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(f32-vrelu-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f32-vrelu-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(f32-vrelu-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f32-vrndd-bench bench/f32-vrndd.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-vrndd-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-vrndd-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-vrndd-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f32-vrndne-bench bench/f32-vrndne.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-vrndne-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-vrndne-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-vrndne-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f32-vrndu-bench bench/f32-vrndu.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-vrndu-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-vrndu-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-vrndu-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f32-vrndz-bench bench/f32-vrndz.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-vrndz-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-vrndz-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-vrndz-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
   ADD_EXECUTABLE(f32-vsigmoid-bench bench/f32-vsigmoid.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-vsigmoid-bench PRIVATE . include src)

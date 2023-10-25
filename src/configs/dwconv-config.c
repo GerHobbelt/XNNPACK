@@ -6,15 +6,15 @@
 #include <assert.h>
 #include <stddef.h>
 
-#ifdef _WIN32
+#if _WIN32
   #include <windows.h>
 #else
   #include <pthread.h>
 #endif
 
-#ifndef __EMSCRIPTEN__
+#if XNN_ENABLE_CPUINFO
   #include <cpuinfo.h>
-#endif
+#endif  // XNN_ENABLE_CPUINFO
 
 #include <xnnpack/common.h>
 #include <xnnpack/config.h>

@@ -1984,10 +1984,10 @@ size_t xnn_init_f32_qc4w_minmax_sse_params(
   for (uint32_t i = 0; i < 4; i++) {
     params->sse.min[i] = output_min;
     params->sse.max[i] = output_max;
-    params->sse.minus_kernel_zero_point[i] = -(int32_t) kernel_zero_point;
-  }
-  for (uint32_t i = 0; i < 8; i++) {
-    params->sse.mask[i] = (uint16_t) 0xF;
+    params->sse.magic_bias_c0[i] = 0x4B0000F0;
+    params->sse.magic_bias_c1[i] = 0x4900000F;
+    params->sse.magic_bias_plus_kernel_zero_point_c0[i] = 0x1.0001E0p+23f + (float) kernel_zero_point;
+    params->sse.magic_bias_plus_kernel_zero_point_c1[i] = 0x1.00001Ep+19f + (float) kernel_zero_point;
   }
   return sizeof(params->sse);
 }
@@ -2055,9 +2055,7 @@ size_t xnn_init_f32_qc4w_minmax_scalar_params(
   assert(kernel_zero_point <= 15);
   params->scalar.min = output_min;
   params->scalar.max = output_max;
-  for (uint32_t i = 0; i < 2; i++) {
-    params->scalar.minus_kernel_zero_point[i] = -(int16_t) kernel_zero_point;
-  }
+  params->scalar.minus_kernel_zero_point = -(int32_t) kernel_zero_point;
   return sizeof(params->scalar);
 }
 

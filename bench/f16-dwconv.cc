@@ -158,7 +158,7 @@ static void f16_dwconv(benchmark::State& state,
 }
 
 static void f16_dwconv(benchmark::State& state,
-  xnn_f16_dwconv_multipass_minmax_ukernel_fn dwconv,
+  xnn_f16_dwconv_minmax_multipass_ukernel_fn dwconv,
   xnn_init_f16_minmax_params_fn init_params,
   uint32_t first_pass_tile,
   uint32_t middle_pass_tile,
@@ -212,12 +212,15 @@ static void f16_dwconv(benchmark::State& state,
   std::generate(b.begin(), b.end(), std::ref(f16rng));
 
   std::vector<uint16_t> z(channels + XNN_EXTRA_BYTES / sizeof(uint16_t));
-  std::vector<uint16_t, AlignedAllocator<uint16_t, 64>> buffer(channels + XNN_ALLOCATION_ALIGNMENT / sizeof(uint16_t));
+  std::vector<uint16_t, AlignedAllocator<uint16_t, 64>> buffer(channels + XNN_MAX_SIMD_SIZE / sizeof(uint16_t));
 
   const size_t tile_size = xnn_dwconv_multipass_tile_size(
     kernel_size, first_pass_tile, middle_pass_tile, last_pass_tile);
-  const size_t w_elements = xnn_dwconv_multipass_weights_count(
-    tile_size, channels, channel_tile, channel_subtile, channel_round);
+  const size_t w_elements =
+    xnn_dwconv_multipass_weights_size(
+      tile_size, channels, channel_tile, channel_subtile, channel_round, /*bias_element_size=*/sizeof(uint16_t),
+      /*log2_filter_element_size=*/1, /*extra_weights_byte=*/0) /
+    sizeof(uint16_t);
   // Can read (primary_tile - kernel_size) elements after end of indirection buffer.
   const size_t i_elements = tile_size - kernel_size + output_height * step_height;
   const size_t c_elements = output_size * channels;

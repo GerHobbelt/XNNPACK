@@ -221,7 +221,8 @@ static void DWConvBenchmark(benchmark::State& state,
   std::generate(b.begin(), b.end(), std::ref(i32rng));
 
   std::vector<int8_t> z(channels + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<uint32_t, AlignedAllocator<uint32_t, 64>> buffer(channels + XNN_ALLOCATION_ALIGNMENT / sizeof(uint32_t));
+  std::vector<int32_t, AlignedAllocator<int32_t, 64>> buffer(
+    channels + XNN_MAX_SIMD_SIZE / sizeof(int8_t));
 
   const size_t tile_size = xnn_dwconv_multipass_tile_size(
     kernel_size, first_pass_tile, middle_pass_tile, last_pass_tile);
@@ -426,6 +427,225 @@ static void DWConvBenchmark(benchmark::State& state,
       32 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckNEON);
   }
 
+  static void qs8_dwconv_5f5m5l8c8s8r__neon_mul8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l8c8s8r__neon_mul8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l8c8s8r__neon_mla8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l8c8s8r__neon_mla8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__neon_mul8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l16c8s8r__neon_mul8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__neon_mla8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l16c8s8r__neon_mla8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__neon_mul8_ld128(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l16c8s8r__neon_mul8_ld128,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__neon_mla8_ld128(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l16c8s8r__neon_mla8_ld128,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l8c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l8c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l16c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_5f5m5l32c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_5f5m5l32c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/5, /*middle_pass_tile=*/5, /*last_pass_tile=*/5,
+      /*channel_tile=*/32, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+
+  static void qs8_dwconv_6f6m7l8c8s8r__neon_mul8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l8c8s8r__neon_mul8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l8c8s8r__neon_mla8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l8c8s8r__neon_mla8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__neon_mul8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l16c8s8r__neon_mul8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__neon_mla8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l16c8s8r__neon_mla8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__neon_mul8_ld128(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l16c8s8r__neon_mul8_ld128,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__neon_mla8_ld128(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l16c8s8r__neon_mla8_ld128,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l8c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l8c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l16c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_6f6m7l32c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_6f6m7l32c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/6, /*middle_pass_tile=*/6, /*last_pass_tile=*/7,
+      /*channel_tile=*/32, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+
+  static void qs8_dwconv_8f8m9l8c8s8r__neon_mul8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l8c8s8r__neon_mul8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l8c8s8r__neon_mla8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l8c8s8r__neon_mla8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__neon_mul8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l16c8s8r__neon_mul8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__neon_mla8_ld64(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l16c8s8r__neon_mla8_ld64,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__neon_mul8_ld128(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l16c8s8r__neon_mul8_ld128,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__neon_mla8_ld128(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l16c8s8r__neon_mla8_ld128,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l8c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l8c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l16c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+  static void qs8_dwconv_8f8m9l32c8s8r__neon_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_rndnu_ukernel_8f8m9l32c8s8r__neon_mul16,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*first_pass_tile=*/8, /*middle_pass_tile=*/8, /*last_pass_tile=*/9,
+      /*channel_tile=*/32, /*channel_subtile=*/8, /*channel_round=*/8,
+      benchmark::utils::CheckNEON);
+  }
+
   BENCHMARK_DWCONV(qs8_dwconv_9p8c__neon_mul8_ld64);
   BENCHMARK_DWCONV(qs8_dwconv_9p16c__neon_mul8_ld64);
   BENCHMARK_DWCONV(qs8_dwconv_9p16c__neon_mul8_ld128);
@@ -444,6 +664,37 @@ static void DWConvBenchmark(benchmark::State& state,
   BENCHMARK_DWCONV(qs8_dwconv_25p8c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_25p16c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_25p32c__neon_mul16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l8c8s8r__neon_mul8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l8c8s8r__neon_mla8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__neon_mul8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__neon_mla8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__neon_mul8_ld128);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__neon_mla8_ld128);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l8c8s8r__neon_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__neon_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l32c8s8r__neon_mul16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l8c8s8r__neon_mul8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l8c8s8r__neon_mla8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__neon_mul8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__neon_mla8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__neon_mul8_ld128);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__neon_mla8_ld128);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l8c8s8r__neon_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__neon_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l32c8s8r__neon_mul16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l8c8s8r__neon_mul8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l8c8s8r__neon_mla8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__neon_mul8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__neon_mla8_ld64);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__neon_mul8_ld128);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__neon_mla8_ld128);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l8c8s8r__neon_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__neon_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l32c8s8r__neon_mul16);
+
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 
 
@@ -1185,8 +1436,159 @@ static void DWConvBenchmark(benchmark::State& state,
       16 /* channel tile */, 9 /* primary tile */);
   }
 
+  static void qs8_dwconv_9p8c__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_9p8c__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      8 /* channel tile */, 9 /* primary tile */);
+  }
+  static void qs8_dwconv_9p16c__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_9p16c__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      16 /* channel tile */, 9 /* primary tile */);
+  }
+
+  static void qs8_dwconv_25p8c__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p8c__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      8 /* channel tile */, 25 /* primary tile */);
+  }
+  static void qs8_dwconv_25p16c__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p16c__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      16 /* channel tile */, 25 /* primary tile */);
+  }
+
+  static void qs8_dwconv_25p8c__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p8c__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      8 /* channel tile */, 25 /* primary tile */);
+  }
+  static void qs8_dwconv_25p16c__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p16c__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      16 /* channel tile */, 25 /* primary tile */);
+  }
+
+  static void qs8_dwconv_5f5m5l8c8s8r__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l8c8s8r__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l16c8s8r__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_5f5m5l8c8s8r__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l8c8s8r__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_5f5m5l16c8s8r__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l16c8s8r__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+
+  static void qs8_dwconv_6f6m7l8c8s8r__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l8c8s8r__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l16c8s8r__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_6f6m7l8c8s8r__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l8c8s8r__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_6f6m7l16c8s8r__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l16c8s8r__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+
+  static void qs8_dwconv_8f8m9l8c8s8r__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l8c8s8r__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__wasmsimd_mul16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l16c8s8r__wasmsimd_mul16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_8f8m9l8c8s8r__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l8c8s8r__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/8, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+  static void qs8_dwconv_8f8m9l16c8s8r__wasmsimd_mul16_add16(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l16c8s8r__wasmsimd_mul16_add16,
+      xnn_init_qs8_conv_minmax_fp32_wasmsimd_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/16, /*channel_subtile=*/8, /*channel_round=*/8);
+  }
+
   BENCHMARK_DWCONV(qs8_dwconv_9p8c__wasmsimd_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_9p16c__wasmsimd_mul16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_9p8c__wasmsimd_mul16_add16);
+  BENCHMARK_DWCONV(qs8_dwconv_9p16c__wasmsimd_mul16_add16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_25p8c__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_25p16c__wasmsimd_mul16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_25p8c__wasmsimd_mul16_add16);
+  BENCHMARK_DWCONV(qs8_dwconv_25p16c__wasmsimd_mul16_add16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l8c8s8r__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l8c8s8r__wasmsimd_mul16_add16);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l16c8s8r__wasmsimd_mul16_add16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l8c8s8r__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l8c8s8r__wasmsimd_mul16_add16);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l16c8s8r__wasmsimd_mul16_add16);
+
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l8c8s8r__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__wasmsimd_mul16);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l8c8s8r__wasmsimd_mul16_add16);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l16c8s8r__wasmsimd_mul16_add16);
+
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 
 
@@ -1210,9 +1612,110 @@ static void DWConvBenchmark(benchmark::State& state,
       4 /* channel tile */, 9 /* primary tile */);
   }
 
+  static void qs8_dwconv_25p1c__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p1c__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      1 /* channel tile */, 25 /* primary tile */);
+  }
+  static void qs8_dwconv_25p2c__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p2c__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      2 /* channel tile */, 25 /* primary tile */);
+  }
+  static void qs8_dwconv_25p4c__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_25p4c__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      4 /* channel tile */, 25 /* primary tile */);
+  }
+
+  static void qs8_dwconv_5f5m5l1c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l1c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/1, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+  static void qs8_dwconv_5f5m5l2c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l2c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/2, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+  static void qs8_dwconv_5f5m5l4c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_5f5m5l4c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/5, /*middle_tile=*/5, /*last_tile=*/5,
+      /*channel_tile=*/4, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+
+  static void qs8_dwconv_6f6m7l1c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l1c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/1, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+  static void qs8_dwconv_6f6m7l2c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l2c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/2, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+  static void qs8_dwconv_6f6m7l4c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_6f6m7l4c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/6, /*middle_tile=*/6, /*last_tile=*/7,
+      /*channel_tile=*/4, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+
+  static void qs8_dwconv_8f8m9l1c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l1c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/1, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+  static void qs8_dwconv_8f8m9l2c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l2c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/2, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+  static void qs8_dwconv_8f8m9l4c1s1r__wasm_fmagic(benchmark::State& state, const char* net) {
+    DWConvBenchmark(state,
+      xnn_qs8_dwconv_minmax_fp32_ukernel_8f8m9l4c1s1r__wasm_fmagic,
+      xnn_init_qs8_conv_minmax_fp32_scalar_fmagic_params,
+      /*first_pass_tile=*/8, /*middle_tile=*/8, /*last_tile=*/9,
+      /*channel_tile=*/4, /*channel_subtile=*/1, /*channel_round=*/1);
+  }
+
   BENCHMARK_DWCONV(qs8_dwconv_9p1c__wasm_fmagic);
   BENCHMARK_DWCONV(qs8_dwconv_9p2c__wasm_fmagic);
   BENCHMARK_DWCONV(qs8_dwconv_9p4c__wasm_fmagic);
+
+  BENCHMARK_DWCONV(qs8_dwconv_25p1c__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_25p2c__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_25p4c__wasm_fmagic);
+
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l1c1s1r__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l2c1s1r__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_5f5m5l4c1s1r__wasm_fmagic);
+
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l1c1s1r__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l2c1s1r__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_6f6m7l4c1s1r__wasm_fmagic);
+
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l1c1s1r__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l2c1s1r__wasm_fmagic);
+  BENCHMARK_DWCONV(qs8_dwconv_8f8m9l4c1s1r__wasm_fmagic);
 #endif  // XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 
 

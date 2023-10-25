@@ -14,7 +14,6 @@
 
 #include <arm_neon.h>
 
-#include <xnnpack/math.h>
 #include <xnnpack/packw.h>
 
 
@@ -65,6 +64,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x2__neon_ld2lane(
           w0 += 2;
           v00 = vld2_lane_u32(w1 + 0, v00, 1);
           w1 += 2;
+
           vst1_u32(packed_weights + 0, v00.val[0]);
           vst1_u32(packed_weights + 2, v00.val[1]);
           packed_weights += 4;

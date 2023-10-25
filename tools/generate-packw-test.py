@@ -54,18 +54,6 @@ TEST(${TEST_NAME}, n_eq_${NR}) {
     .Test(${", ".join(TEST_ARGS)});
 }
 
-TEST(${TEST_NAME}, g_eq_2) {
-  $if ISA_CHECK:
-    ${ISA_CHECK};
-  PackWMicrokernelTester()
-    .g(2)
-    .n(${NR})
-    .nr(${NR})
-    .kr(${KR})
-    .sr(${SR})
-    .Test(${", ".join(TEST_ARGS)});
-}
-
 $if NR > 1:
   TEST(${TEST_NAME}, n_div_${NR}) {
     $if ISA_CHECK:
@@ -85,6 +73,7 @@ $if NR > 1:
     for (size_t n = 1; n < ${NR}; n++) {
       PackWMicrokernelTester()
         .n(n)
+        .k(${NR})
         .nr(${NR})
         .kr(${KR})
         .sr(${SR})
@@ -98,6 +87,7 @@ TEST(${TEST_NAME}, n_gt_${NR}) {
   for (size_t n = ${NR+1}; n < ${10 if NR == 1 else NR*2}; n++) {
     PackWMicrokernelTester()
       .n(n)
+      .k(${NR})
       .nr(${NR})
       .kr(${KR})
       .sr(${SR})
@@ -109,9 +99,10 @@ TEST(${TEST_NAME}, k_eq_${NR}) {
   $if ISA_CHECK:
     ${ISA_CHECK};
   PackWMicrokernelTester()
-    .k(${NR})
     .n(${NR})
+    .k(${NR})
     .nr(${NR})
+    .kr(${KR})
     .sr(${SR})
     .Test(${", ".join(TEST_ARGS)});
 }
@@ -120,24 +111,22 @@ $if NR > 1:
   TEST(${TEST_NAME}, k_div_${NR}) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (size_t n = ${NR*2}; n < ${NR*10}; n += ${NR}) {
-      PackWMicrokernelTester()
-        .k(n)
-        .n(n)
-        .nr(${NR})
-        .kr(${KR})
-        .sr(${SR})
-        .Test(${", ".join(TEST_ARGS)});
-    }
+    PackWMicrokernelTester()
+      .n(${NR})
+      .k(${NR*5})
+      .nr(${NR})
+      .kr(${KR})
+      .sr(${SR})
+      .Test(${", ".join(TEST_ARGS)});
   }
 
   TEST(${TEST_NAME}, k_lt_${NR}) {
     $if ISA_CHECK:
       ${ISA_CHECK};
-    for (size_t n = 1; n < ${NR}; n++) {
+    for (size_t k = 1; k < ${NR}; k++) {
       PackWMicrokernelTester()
-        .k(n)
-        .n(n)
+        .n(${NR})
+        .k(k)
         .nr(${NR})
         .kr(${KR})
         .sr(${SR})
@@ -148,10 +137,10 @@ $if NR > 1:
 TEST(${TEST_NAME}, k_gt_${NR}) {
   $if ISA_CHECK:
     ${ISA_CHECK};
-  for (size_t n = ${NR+1}; n < ${10 if NR == 1 else NR*2}; n++) {
+  for (size_t k = ${NR+1}; k < ${10 if NR == 1 else NR*2}; k++) {
     PackWMicrokernelTester()
-      .k(n)
-      .n(n)
+      .n(${NR})
+      .k(k)
       .nr(${NR})
       .kr(${KR})
       .sr(${SR})
@@ -159,16 +148,30 @@ TEST(${TEST_NAME}, k_gt_${NR}) {
   }
 }
 
+TEST(${TEST_NAME}, g_eq_2) {
+  $if ISA_CHECK:
+    ${ISA_CHECK};
+  PackWMicrokernelTester()
+    .g(2)
+    .n(${NR})
+    .k(${NR})
+    .nr(${NR})
+    .kr(${KR})
+    .sr(${SR})
+    .Test(${", ".join(TEST_ARGS)});
+}
+
 TEST(${TEST_NAME}, null_bias) {
   $if ISA_CHECK:
     ${ISA_CHECK};
   for (size_t n = 1; n < ${10 if NR == 1 else NR*2}; n++) {
     PackWMicrokernelTester()
+      .nullbias(true)
       .n(n)
+      .k(${NR})
       .nr(${NR})
       .kr(${KR})
       .sr(${SR})
-      .nullbias(true)
       .Test(${", ".join(TEST_ARGS)});
   }
 }

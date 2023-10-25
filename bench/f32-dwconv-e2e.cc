@@ -56,8 +56,9 @@ static void DWConvEnd2EndBenchmark(
       xnn_params.f32.dwconv[i].minmax.unipass = xnn_dwconv_unipass_ukernel_fn(dwconv_minmax);
       xnn_params.f32.dwconv[i].linear.unipass = xnn_dwconv_unipass_ukernel_fn(dwconv);
       xnn_params.f32.dwconv[i].channel_tile = channel_tile;
+      xnn_params.f32.dwconv[i].channel_subtile = channel_tile;
+      xnn_params.f32.dwconv[i].channel_round = 1;
       xnn_params.f32.dwconv[i].primary_tile = primary_tile;
-      xnn_params.f32.dwconv[i].last_tile = 0;
       xnn_params.f32.dwconv[i].init.f32 = init_params;
       break;
     }
@@ -91,7 +92,7 @@ static void DWConvEnd2EndBenchmark(
 static void DWConvEnd2EndBenchmark(
   benchmark::State& state,
   models::ExecutionPlanFactory model_factory,
-  xnn_f32_dwconv_multipass_minmax_ukernel_fn dwconv_minmax,
+  xnn_f32_dwconv_minmax_multipass_ukernel_fn dwconv_minmax,
   xnn_f32_dwconv_multipass_ukernel_fn dwconv,
   xnn_init_f32_minmax_params_fn init_params,
   uint8_t channel_tile, uint8_t channel_subtile, uint8_t channel_round,

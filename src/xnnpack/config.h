@@ -245,6 +245,175 @@ struct xnn_xx_pad_config {
 };
 XNN_INTERNAL const struct xnn_xx_pad_config* xnn_init_xx_pad_config();
 
+struct xnn_avgpool_config {
+  xnn_avgpool_unipass_ukernel_fn unipass;
+  xnn_avgpool_multipass_ukernel_fn multipass;
+  union {
+    xnn_init_f16_scaleminmax_params_fn f16;
+    xnn_init_f32_scaleminmax_params_fn f32;
+    xnn_init_qu8_avgpool_minmax_params_fn qu8;
+  } init;
+  // Number of rows in a primary tile.
+  // Unipass micro-kernel must be called with this number of rows, or fewer.
+  // Multipass micro-kernel must be called with more than this number of rows.
+  uint8_t primary_tile;
+  // Number of rows in an incremental tile.
+  // For best efficiency, multipass micro-kernel must process the number of rows in the primary tile plus a multiple
+  // of this number of rows in each call. This number has no meaning for the unipass micro-kernel.
+  uint8_t incremental_tile;
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint16_t channel_tile;
+};
+XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_f16_avgpool_config();
+XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_f32_avgpool_config();
+XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_qu8_avgpool_config();
+
+struct xnn_pavgpool_config {
+  xnn_pavgpool_unipass_ukernel_fn unipass;
+  xnn_pavgpool_multipass_ukernel_fn multipass;
+  union {
+    xnn_init_f16_minmax_params_fn f16;
+    xnn_init_f32_minmax_params_fn f32;
+  } init;
+  // Number of rows in a primary tile.
+  // Unipass micro-kernel must be called with this number of rows, or fewer.
+  // Multipass micro-kernel must be called with more than this number of rows.
+  uint8_t primary_tile;
+  // Number of rows in an incremental tile.
+  // For best efficiency, multipass micro-kernel must process the number of rows in the primary tile plus a multiple
+  // of this number of rows in each call. This number has no meaning for the unipass micro-kernel.
+  uint8_t incremental_tile;
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint16_t channel_tile;
+};
+XNN_INTERNAL const struct xnn_pavgpool_config* xnn_init_f16_pavgpool_config();
+XNN_INTERNAL const struct xnn_pavgpool_config* xnn_init_f32_pavgpool_config();
+
+struct xnn_gavgpool_config {
+  xnn_gavgpool_unipass_ukernel_fn unipass;
+  xnn_gavgpool_multipass_ukernel_fn multipass;
+  union {
+    xnn_init_f16_scaleminmax_params_fn f16;
+    xnn_init_f32_scaleminmax_params_fn f32;
+    xnn_init_qs8_avgpool_minmax_params_fn qs8;
+    xnn_init_qu8_avgpool_minmax_params_fn qu8;
+  } init;
+  union {
+    xnn_update_f16_scaleminmax_params_fn f16;
+    xnn_update_f32_scaleminmax_params_fn f32;
+    xnn_update_qs8_avgpool_minmax_params_fn qs8;
+    xnn_update_qu8_avgpool_minmax_params_fn qu8;
+  } update;
+  // Number of rows in a tile.
+  // For best efficiency, micro-kernel must produce a multiple of this number of rows in each call.
+  uint16_t row_tile;
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint16_t channel_tile;
+};
+XNN_INTERNAL const struct xnn_gavgpool_config* xnn_init_f16_gavgpool_config();
+XNN_INTERNAL const struct xnn_gavgpool_config* xnn_init_f32_gavgpool_config();
+XNN_INTERNAL const struct xnn_gavgpool_config* xnn_init_qs8_gavgpool_config();
+XNN_INTERNAL const struct xnn_gavgpool_config* xnn_init_qu8_gavgpool_config();
+
+struct xnn_gavgpool_cw_config {
+  xnn_gavgpool_cw_ukernel_fn ukernel;
+  union {
+    xnn_init_f16_gavgpool_neonfp16arith_params_fn f16;
+  } init;
+  union {
+    xnn_update_f16_gavgpool_neonfp16arith_params_fn f16;
+  } update;
+
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint8_t channel_tile;
+};
+XNN_INTERNAL const struct xnn_gavgpool_cw_config* xnn_init_f16_gavgpool_cw_config();
+XNN_INTERNAL const struct xnn_gavgpool_cw_config* xnn_init_f32_gavgpool_cw_config();
+
+union xnn_dwconv_ukernel {
+  xnn_dwconv_unipass_ukernel_fn unipass;
+  xnn_dwconv_multipass_ukernel_fn multipass;
+};
+
+struct xnn_dwconv_config {
+  union xnn_dwconv_ukernel minmax;
+  union xnn_dwconv_ukernel linear;
+  union {
+    xnn_init_qc8_conv_minmax_params_fn qc8;
+    xnn_init_qs8_conv_minmax_params_fn qs8;
+    xnn_init_qu8_conv_minmax_params_fn qu8;
+    xnn_init_f16_minmax_params_fn f16;
+    xnn_init_f32_minmax_params_fn f32;
+  } init;
+  // Number of channels in a tile.
+  uint8_t channel_tile;
+  // Number of channels in a subtile. This must be less-than-equal channel_tile. After processing channel_tile, the
+  // remainder is processed in tiles of channel_subtile.
+  uint8_t channel_subtile;
+  // How much to round channels by to get more optimal tiling.
+  uint8_t channel_round;
+  // Number of elements in the tile. For multipass, this is the tile size for first pass.
+  uint8_t primary_tile;
+  // Tile size for middle pass. Middle pass can be run multiple times. Will be zero for unipass, non-zero and not
+  // greater than last_tile for multipass.
+  uint8_t middle_tile;
+  // Tile size for last pass. Will be zero for unipass, non-zero for multipass.
+  uint8_t last_tile;
+};
+
+XNN_INTERNAL struct xnn_dwconv_config* xnn_init_f16_dwconv_config();
+XNN_INTERNAL struct xnn_dwconv_config* xnn_init_f32_dwconv_config();
+XNN_INTERNAL struct xnn_dwconv_config* xnn_init_qc8_dwconv_config();
+XNN_INTERNAL struct xnn_dwconv_config* xnn_init_qs8_dwconv_config();
+XNN_INTERNAL struct xnn_dwconv_config* xnn_init_qu8_dwconv_config();
+
+struct xnn_ibilinear_config {
+  xnn_ibilinear_ukernel_fn ukernel;
+  // Number of output pixels in a tile.
+  // For best efficiency, micro-kernel must produce a multiple of this number of pixels in each call.
+  uint8_t pixel_tile;
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint8_t channel_tile;
+};
+
+// Bilinear interpolation (2D).
+XNN_INTERNAL const struct xnn_ibilinear_config* xnn_init_f16_ibilinear_config();
+XNN_INTERNAL const struct xnn_ibilinear_config* xnn_init_f32_ibilinear_config();
+XNN_INTERNAL const struct xnn_ibilinear_config* xnn_init_s8_ibilinear_config();
+XNN_INTERNAL const struct xnn_ibilinear_config* xnn_init_u8_ibilinear_config();
+
+struct xnn_ibilinear_chw_config {
+  xnn_ibilinear_chw_ukernel_fn ukernel;
+  // Number of output pixels in a tile.
+  // For best efficiency, micro-kernel must produce a multiple of this number of pixels in each call.
+  uint8_t pixel_tile;
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint8_t channel_tile;
+};
+
+// Bilinear interpolation (2D) in CHW layout.
+XNN_INTERNAL const struct xnn_ibilinear_chw_config* xnn_init_f16_ibilinear_chw_config();
+XNN_INTERNAL const struct xnn_ibilinear_chw_config* xnn_init_f32_ibilinear_chw_config();
+
+struct xnn_prelu_config {
+  xnn_prelu_ukernel_fn ukernel;
+  // Number of rows in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of rows in each call.
+  uint16_t row_tile;
+  // Number of channels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
+  uint16_t channel_tile;
+};
+
+XNN_INTERNAL const struct xnn_prelu_config* xnn_init_f16_prelu_config();
+XNN_INTERNAL const struct xnn_prelu_config* xnn_init_f32_prelu_config();
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif

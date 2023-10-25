@@ -220,107 +220,6 @@ struct dwconv2d_chw_parameters {
   uint8_t output_height_tile;
 };
 
-struct gavgpool_cw_parameters {
-  xnn_gavgpool_cw_ukernel_fn ukernel;
-  union {
-    xnn_init_f16_gavgpool_neonfp16arith_params_fn f16;
-  } init;
-  union {
-    xnn_update_f16_gavgpool_neonfp16arith_params_fn f16;
-  } update;
-
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint8_t channel_tile;
-};
-
-union dwconv_fused_ukernels {
-  xnn_dwconv_unipass_ukernel_fn unipass;
-  xnn_dwconv_multipass_ukernel_fn multipass;
-};
-
-struct dwconv_parameters {
-  union dwconv_fused_ukernels minmax;
-  union dwconv_fused_ukernels linear;
-  union {
-    xnn_init_qc8_conv_minmax_params_fn qc8;
-    xnn_init_qs8_conv_minmax_params_fn qs8;
-    xnn_init_qu8_conv_minmax_params_fn qu8;
-    xnn_init_f16_minmax_params_fn f16;
-    xnn_init_f32_minmax_params_fn f32;
-  } init;
-  uint8_t channel_tile;
-  uint8_t channel_subtile;
-  uint8_t channel_round;
-  uint8_t primary_tile;  // First tile in multipass.
-  uint8_t middle_tile;
-  uint8_t last_tile;  // Will be zero for unipass, non-zero for multipass.
-};
-
-struct gavgpool_parameters {
-  xnn_gavgpool_unipass_ukernel_fn unipass;
-  xnn_gavgpool_multipass_ukernel_fn multipass;
-  union {
-    xnn_init_f16_scaleminmax_params_fn f16;
-    xnn_init_f32_scaleminmax_params_fn f32;
-    xnn_init_qs8_avgpool_minmax_params_fn qs8;
-    xnn_init_qu8_avgpool_minmax_params_fn qu8;
-  } init;
-  union {
-    xnn_update_f16_scaleminmax_params_fn f16;
-    xnn_update_f32_scaleminmax_params_fn f32;
-    xnn_update_qs8_avgpool_minmax_params_fn qs8;
-    xnn_update_qu8_avgpool_minmax_params_fn qu8;
-  } update;
-  // Number of rows in a tile.
-  // For best efficiency, micro-kernel must produce a multiple of this number of rows in each call.
-  uint16_t row_tile;
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint16_t channel_tile;
-};
-
-struct avgpool_parameters {
-  xnn_avgpool_unipass_ukernel_fn unipass;
-  xnn_avgpool_multipass_ukernel_fn multipass;
-  union {
-    xnn_init_f16_scaleminmax_params_fn f16;
-    xnn_init_f32_scaleminmax_params_fn f32;
-    xnn_init_qu8_avgpool_minmax_params_fn qu8;
-  } init;
-  // Number of rows in a primary tile.
-  // Unipass micro-kernel must be called with this number of rows, or fewer.
-  // Multipass micro-kernel must be called with more than this number of rows.
-  uint8_t primary_tile;
-  // Number of rows in an incremental tile.
-  // For best efficiency, multipass micro-kernel must process the number of rows in the primary tile plus a multiple
-  // of this number of rows in each call. This number has no meaning for the unipass micro-kernel.
-  uint8_t incremental_tile;
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint16_t channel_tile;
-};
-
-struct pavgpool_parameters {
-  xnn_pavgpool_unipass_ukernel_fn unipass;
-  xnn_pavgpool_multipass_ukernel_fn multipass;
-  union {
-    xnn_init_f16_minmax_params_fn f16;
-    xnn_init_f32_minmax_params_fn f32;
-  } init;
-  // Number of rows in a primary tile.
-  // Unipass micro-kernel must be called with this number of rows, or fewer.
-  // Multipass micro-kernel must be called with more than this number of rows.
-  uint8_t primary_tile;
-  // Number of rows in an incremental tile.
-  // For best efficiency, multipass micro-kernel must process the number of rows in the primary tile plus a multiple
-  // of this number of rows in each call. This number has no meaning for the unipass micro-kernel.
-  uint8_t incremental_tile;
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint16_t channel_tile;
-};
-
 struct argmaxpool_parameters {
   union {
     xnn_argmaxpool_unipass_ukernel_fn up;
@@ -342,37 +241,11 @@ struct maxpool_parameters {
   uint8_t qr;
 };
 
-struct ibilinear_parameters {
-  xnn_ibilinear_ukernel_fn ukernel;
-  // Number of output pixels in a tile.
-  // For best efficiency, micro-kernel must produce a multiple of this number of pixels in each call.
-  uint8_t pixel_tile;
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint8_t channel_tile;
-};
-
-struct ibilinear_chw_parameters {
-  xnn_ibilinear_chw_ukernel_fn ukernel;
-  // Number of output pixels in a tile.
-  // For best efficiency, micro-kernel must produce a multiple of this number of pixels in each call.
-  uint8_t pixel_tile;
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint8_t channel_tile;
-};
-
 struct zip_parameters {
   xnn_zipc_ukernel_fn x2;
   xnn_zipc_ukernel_fn x3;
   xnn_zipc_ukernel_fn x4;
   xnn_zipv_ukernel_fn xm;
-};
-
-struct prelu_parameters {
-  xnn_prelu_ukernel_fn ukernel;
-  uint16_t row_tile;
-  uint16_t channel_tile;
 };
 
 struct raddstoreexpminusmax_parameters {
@@ -441,27 +314,17 @@ struct xnn_parameters {
   struct xnn_allocator allocator;
   struct {
     struct gemm_parameters gemm;
-    struct dwconv_parameters dwconv[XNN_MAX_QC8_DWCONV_UKERNELS];
   } qc8;
   struct {
     struct gemm_parameters gemm;
-    struct dwconv_parameters dwconv[XNN_MAX_QS8_DWCONV_UKERNELS];
-    struct gavgpool_parameters gavgpool;
   } qs8;
   struct {
     struct gemm_parameters gemm;
-    struct dwconv_parameters dwconv[XNN_MAX_QU8_DWCONV_UKERNELS];
-    struct avgpool_parameters avgpool;
-    struct gavgpool_parameters gavgpool;
   } qu8;
   struct {
-    // Bilinear interpolation (2D).
-    struct ibilinear_parameters ibilinear;
     struct maxpool_parameters maxpool;
   } s8;
   struct {
-    // Bilinear interpolation (2D).
-    struct ibilinear_parameters ibilinear;
     struct maxpool_parameters maxpool;
     xnn_u8_lut32norm_ukernel_fn lut32norm;
     xnn_u8_rmax_ukernel_fn rmax;
@@ -472,14 +335,7 @@ struct xnn_parameters {
   struct {
     struct gemm_parameters gemm;
     struct gemm_parameters gemm2;
-    struct dwconv_parameters dwconv[XNN_MAX_F16_DWCONV_UKERNELS];
-    struct avgpool_parameters avgpool;
-    struct pavgpool_parameters pavgpool;
-    struct gavgpool_parameters gavgpool;
     struct maxpool_parameters maxpool;
-    // Bilinear interpolation (2D).
-    struct ibilinear_parameters ibilinear;
-    struct prelu_parameters prelu;
     struct vmulcaddc_parameters vmulcaddc;
     struct raddstoreexpminusmax_parameters raddstoreexpminusmax;
     xnn_rmax_ukernel_fn rmax;
@@ -495,23 +351,12 @@ struct xnn_parameters {
     struct dwconv2d_chw_parameters dwconv2d_chw_5x5;
     // Direct 5x5 stride-2 Convolution with padding 2 on left and right in CHW layout.
     struct dwconv2d_chw_parameters dwconv2d_chw_5x5s2;
-    // Global Average Pooling in CW layout.
-    struct gavgpool_cw_parameters gavgpool_cw;
-    // Bilinear interpolation (2D) in CHW layout.
-    struct ibilinear_chw_parameters ibilinear_chw;
   } f16;
   struct {
     struct gemm_parameters gemm;
     struct gemm_parameters gemm2;
-    struct dwconv_parameters dwconv[XNN_MAX_F32_DWCONV_UKERNELS];
-    struct avgpool_parameters avgpool;
-    struct pavgpool_parameters pavgpool;
-    struct gavgpool_parameters gavgpool;
     struct maxpool_parameters maxpool;
     struct argmaxpool_parameters argmaxpool[XNN_MAX_F32_ARGMAXPOOL_UKERNELS];
-    // Bilinear interpolation (2D).
-    struct ibilinear_parameters ibilinear;
-    struct prelu_parameters prelu;
     struct vmulcaddc_parameters vmulcaddc;
     struct raddstoreexpminusmax_parameters raddstoreexpminusmax;
     xnn_rmax_ukernel_fn rmax;
@@ -531,10 +376,6 @@ struct xnn_parameters {
     struct dwconv2d_chw_parameters dwconv2d_chw_5x5;
     // Direct 5x5 stride-2 Convolution with padding 2 on left and right in CHW layout.
     struct dwconv2d_chw_parameters dwconv2d_chw_5x5s2;
-    // Global Average Pooling in CW layout.
-    struct gavgpool_cw_parameters gavgpool_cw;
-    // Bilinear interpolation (2D) in CHW layout.
-    struct ibilinear_chw_parameters ibilinear_chw;
   } f32;
   struct {
     xnn_unpool_ukernel_fn unpool;

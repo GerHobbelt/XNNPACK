@@ -43,6 +43,14 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
   // Any immediate other than 7 is not supported.
   EXPECT_ERROR(Error::kInvalidOperand, a.ands(x9, x3, 8));
 
+  CHECK_ENCODING(0x94000001, a.bl(4));
+  CHECK_ENCODING(0x97FFFF80, a.bl(-512));
+  EXPECT_ERROR(Error::kInvalidOperand, a.bl(3));
+  EXPECT_ERROR(Error::kLabelOffsetOutOfBounds, a.bl(128 * 1024 * 1204 + 4));  // > 128MB
+  EXPECT_ERROR(Error::kLabelOffsetOutOfBounds, a.bl(-128 * 1024 * 1204 - 4));  // < -128MB
+
+  CHECK_ENCODING(0xD63F0100, a.blr(x8));
+
   CHECK_ENCODING(0xF100081F, a.cmp(x0, 2));
   EXPECT_ERROR(Error::kInvalidOperand, a.cmp(x0, 4096));
 
@@ -81,7 +89,18 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
   EXPECT_ERROR(Error::kInvalidOperand, a.ldr(x8, mem[x4], 256));
   EXPECT_ERROR(Error::kInvalidOperand, a.ldr(x8, mem[x4], -257));
 
+  CHECK_ENCODING(0xD29BD5A9, a.mov(x9, 0xDEAD));
+
   CHECK_ENCODING(0xAA0303E9, a.mov(x9, x3));
+
+  CHECK_ENCODING(0xF29BD5A9, a.movk(x9, 0xDEAD, 0));
+  CHECK_ENCODING(0xF2BBD5A9, a.movk(x9, 0xDEAD, 16));
+  CHECK_ENCODING(0xF2DBD5A9, a.movk(x9, 0xDEAD, 32));
+  CHECK_ENCODING(0xF2FBD5A9, a.movk(x9, 0xDEAD, 48));
+  // Not divisible by 16.
+  EXPECT_ERROR(Error::kInvalidOperand, a.movk(x9, 0xDEAD, 1));
+  // Out of range, max shift is 48.
+  EXPECT_ERROR(Error::kInvalidOperand, a.movk(x9, 0xDEAD, 64));
 
   CHECK_ENCODING(0xD503201F, a.nop());
 
@@ -97,6 +116,10 @@ TEST(AArch64Assembler, BaseInstructionEncoding) {
   CHECK_ENCODING(0xD65F03C0, a.ret());
 
   CHECK_ENCODING(0xCB020083, a.sub(x3, x4, x2));
+
+  CHECK_ENCODING(0xD1003083, a.sub(x3, x4, 12));
+  CHECK_ENCODING(0xD13FFC83, a.sub(x3, x4, 4095));
+  EXPECT_ERROR(Error::kInvalidOperand, a.sub(x0, x2, 4096));  // Out of bounds.
 
   CHECK_ENCODING(0xA90457F4, a.stp(x20, x21, mem[sp, 64]));
   CHECK_ENCODING(0xA98457F4, a.stp(x20, x21, mem[sp, 64]++));
@@ -257,6 +280,10 @@ TEST(AArch64Assembler, SIMDInstructionEncoding) {
   CHECK_ENCODING(0x4EB21E50, a.mov(v16.v16b(), v18.v16b()));
   CHECK_ENCODING(0x0EB21E50, a.mov(v16.v8b(), v18.v8b()));
   EXPECT_ERROR(Error::kInvalidOperand, a.mov(v16.v16b(), v18.v8b()));
+
+  CHECK_ENCODING(0x4E183DC3, a.mov(x3, v14.d()[1]));
+  CHECK_ENCODING(0x4E083D02, a.mov(x2, v8.d()[0]));
+  EXPECT_ERROR(Error::kInvalidOperand, a.mov(x3, v14.d()[2]));
 
   CHECK_ENCODING(0x4F000405, a.movi(v5.v4s(), 0));
   CHECK_ENCODING(0x4F008405, a.movi(v5.v8h(), 0));
@@ -673,6 +700,28 @@ INSTANTIATE_TEST_SUITE_P(
     std::vector<VRegister>({v4.v4s()}),
     std::vector<VRegister>({v4.v4s(), v5.v4s(), v6.v4s(), v7.v4s()}),
     std::vector<VRegister>({v4.v4s(), v5.v4s(), v6.v4s(), v7.v4s(), v20.v4s(), v21.v4s(), v22.v4s(), v23.v4s()})));
+
+typedef void (*MovFn)(uint64_t*);
+
+TEST(MovTest, Mov) {
+  xnn_code_buffer buffer;
+  xnn_allocate_code_memory(&buffer, XNN_DEFAULT_CODE_BUFFER_SIZE);
+  MacroAssembler assm(&buffer);
+
+  uint64_t expected = 0x0123456789ABCDEF;
+  assm.Mov(x1, expected);
+  assm.str(x1, mem[x0]);
+  assm.ret();
+
+  MovFn mov_fn = reinterpret_cast<MovFn>(assm.finalize());
+  uint64_t out = 0;
+  mov_fn(&out);
+
+  xnn_finalize_code_memory(&buffer);
+  ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&buffer));
+
+  EXPECT_EQ(expected, out);
+}
 
 #endif  // XNN_ARCH_ARM64 && XNN_PLATFORM_JIT
 

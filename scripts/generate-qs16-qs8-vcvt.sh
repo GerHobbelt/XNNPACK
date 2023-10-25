@@ -14,6 +14,11 @@ tools/xngen src/qs16-qs8-vcvt/sse2.c.in -D BATCH_TILE=4  -o src/qs16-qs8-vcvt/ge
 tools/xngen src/qs16-qs8-vcvt/sse2.c.in -D BATCH_TILE=8  -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse2-x8.c &
 tools/xngen src/qs16-qs8-vcvt/sse2.c.in -D BATCH_TILE=16 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse2-x16.c &
 
+################################## x86 SSSE3 #################################
+tools/xngen src/qs16-qs8-vcvt/ssse3.c.in -D BATCH_TILE=4  -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-ssse3-x4.c &
+tools/xngen src/qs16-qs8-vcvt/ssse3.c.in -D BATCH_TILE=8  -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-ssse3-x8.c &
+tools/xngen src/qs16-qs8-vcvt/ssse3.c.in -D BATCH_TILE=16 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-ssse3-x16.c &
+
 ################################## x86 SSE4.1 #################################
 tools/xngen src/qs16-qs8-vcvt/sse4.c.in -D BATCH_TILE=4  -D AVX=0 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse41-x4.c &
 tools/xngen src/qs16-qs8-vcvt/sse4.c.in -D BATCH_TILE=8  -D AVX=0 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse41-x8.c &
@@ -23,6 +28,10 @@ tools/xngen src/qs16-qs8-vcvt/sse4.c.in -D BATCH_TILE=4  -D AVX=1 -o src/qs16-qs
 tools/xngen src/qs16-qs8-vcvt/sse4.c.in -D BATCH_TILE=8  -D AVX=1 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-avx-x8.c &
 tools/xngen src/qs16-qs8-vcvt/sse4.c.in -D BATCH_TILE=16 -D AVX=1 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-avx-x16.c &
 
+################################## WAsm SIMD ##################################
+tools/xngen src/qs16-qs8-vcvt/wasmsimd.c.in -D BATCH_TILE=8  -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-wasmsimd-x8.c &
+tools/xngen src/qs16-qs8-vcvt/wasmsimd.c.in -D BATCH_TILE=16 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-wasmsimd-x16.c &
+tools/xngen src/qs16-qs8-vcvt/wasmsimd.c.in -D BATCH_TILE=32 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-wasmsimd-x32.c &
 
 #################################### Scalar ###################################
 tools/xngen src/qs16-qs8-vcvt/scalar.c.in -D BATCH_TILE=1 -o src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-scalar-x1.c &

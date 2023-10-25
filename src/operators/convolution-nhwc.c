@@ -64,22 +64,15 @@ static inline const struct dwconv_parameters* find_dwconv_ukernel(
   if (best_ukernel == NULL) {
     xnn_log_debug("no dwconv ukernel found");
   } else if (best_ukernel->last_tile == 0) {
-    xnn_log_debug("dwconv unipass ukernel of primary_tile %d found", best_ukernel->primary_tile);
+    xnn_log_debug("dwconv unipass ukernel of primary tile %"PRIu8" found", best_ukernel->primary_tile);
   } else {
-    xnn_log_debug("dwconv multipass ukernel of tiles %d, %d, %d found",
+    xnn_log_debug("dwconv multipass ukernel of tiles %"PRIu8", %"PRIu8", %"PRIu8" found",
                   best_ukernel->primary_tile,
                   best_ukernel->middle_tile,
                   best_ukernel->last_tile);
   }
   return best_ukernel;
 }
-
-#if XNN_PLATFORM_JIT
-static inline uintptr_t cached_code_at_offset(xnn_operator_t op, size_t offset)
-{
-  return (uintptr_t)op->code_cache->cache.code.start + offset;
-}
-#endif  // XNN_PLATFORM_JIT
 
 static enum xnn_status create_vmulcaddc_path(
     uint32_t groups,

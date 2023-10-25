@@ -17,11 +17,18 @@
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
 #include <xnnpack/aligned-allocator.h>
+#include <xnnpack/common.h>
 #include <xnnpack/pack.h>
 #include <xnnpack/microfnptr.h>
 #include <xnnpack/microparams-init.h>
 #include <xnnpack/requantization.h>
 
+#if XNN_ARCH_ARM64
+#include <xnnpack/aarch64-assembler.h>
+#endif  // XNN_ARCH_ARM64
+#if XNN_ARCH_ARM
+#include <xnnpack/aarch32-assembler.h>
+#endif  // XNN_ARCH_ARM
 
 void GemmMicrokernelTester::Test(
   xnn_qu8_gemm_minmax_ukernel_fn gemm,
@@ -1662,6 +1669,96 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_minmax_ukernel_fn igemm_minmax, x
 
 #if XNN_PLATFORM_JIT
 
+enum class TrampolineType {
+  kGEMM,
+  kIGEMM
+};
+
+#if XNN_ARCH_ARM64
+using TrampolineReturnType = uint64_t;
+using TrampolineGenerator = xnnpack::aarch64::TrampolineGenerator;
+constexpr size_t kNumArgsOnStackForGEMM = 2;
+constexpr size_t kNumArgsOnStackForIGEMM = 4;
+
+std::string RegisterFromCorruptedValue(uint64_t corrupted_value) {
+  const uint8_t reg_code = corrupted_value & xnnpack::aarch64::kRegisterCorruptMask;
+  const std::string reg_type = (corrupted_value & (~reg_code)) == xnnpack::aarch64::kXRegisterCorruptValue ? "x" : "d";
+  return reg_type + std::to_string(reg_code);
+}
+#endif  // XNN_ARCH_ARM64
+
+#if XNN_ARCH_ARM
+using TrampolineReturnType = uint32_t;
+using TrampolineGenerator = xnnpack::aarch32::TrampolineGenerator;
+constexpr size_t kNumArgsOnStackForGEMM = 6;
+constexpr size_t kNumArgsOnStackForIGEMM = 8;
+
+std::string RegisterFromCorruptedValue(uint32_t corrupted_value) {
+  const uint8_t reg_code = corrupted_value & xnnpack::aarch32::kRegisterCorruptMask;
+  const std::string reg_type = (corrupted_value & (~reg_code)) == xnnpack::aarch32::kRRegisterCorruptValue ? "r" : "s";
+  return reg_type + std::to_string(reg_code);
+}
+#endif  // XNN_ARCH_ARM
+
+size_t NumArgsOnStack(TrampolineType type) {
+  switch (type) {
+    case TrampolineType::kGEMM:
+      return kNumArgsOnStackForGEMM;
+    case TrampolineType::kIGEMM:
+      return kNumArgsOnStackForIGEMM;
+    default:
+      assert(false);
+  }
+}
+
+void* GenerateTrampoline(xnn_code_buffer* code_buffer, TrampolineType type) {
+  void* trampoline_start = (void*) ((uintptr_t) code_buffer->start + code_buffer->size);
+
+  TrampolineGenerator trampoline(code_buffer);
+  trampoline.generate(NumArgsOnStack(type));
+  trampoline.finalize();
+
+  if (trampoline.error() != xnnpack::Error::kNoError) {
+    return nullptr;
+  }
+
+  return trampoline_start;
+}
+
+// Type for a TrampolineGenerator that calls a GEMM minmax microkernel.
+// Return value is 0 if there are no errors, otherwise it is a corrupted value which encodes the register that was not
+// saved correctly.
+typedef TrampolineReturnType (*xnn_f32_gemm_minmax_ukernel_trampoline_fn)(
+  size_t mr,
+  size_t nr,
+  size_t k,
+  const float* a,
+  size_t a_stride,
+  const float* w,
+  float* c,
+  size_t cm_stride,
+  size_t cn_stride,
+  const union xnn_f32_minmax_params* params,
+  void* ukernel_address);
+
+// Type for a TrampolineGenerator that calls a IGEMM minmax microkernel.
+// Return value is 0 if there are no errors, otherwise it is a corrupted value which encodes the register that was not
+// saved correctly.
+typedef TrampolineReturnType (*xnn_f32_igemm_minmax_ukernel_trampoline_fn)(
+  size_t mr,
+  size_t nr,
+  size_t kc,
+  size_t ks,
+  const float** a,
+  const float* w,
+  float* c,
+  size_t cm_stride,
+  size_t cn_stride,
+  size_t a_offset,
+  const float* zero,
+  const union xnn_f32_minmax_params* params,
+  void* ukernel_address);
+
 void GemmMicrokernelTester::Test(
     xnn_jit_gemm_code_generator_fn gemm_generator,
     xnn_init_f16_minmax_params_fn init_params) const
@@ -1952,15 +2049,22 @@ void GemmMicrokernelTester::Test(
     p.f32_minmax.min = c_min;
     p.f32_minmax.max = c_max;
     ASSERT_EQ(xnn_status_success, gemm_generator(&code_buffer, mr(), n() % nr(), k() * sizeof(float), &p));
-    ASSERT_EQ(xnn_status_success, xnn_finalize_code_memory(&code_buffer));
-    xnn_f32_gemm_minmax_ukernel_fn gemm_minmax =
-        reinterpret_cast<xnn_f32_gemm_minmax_ukernel_fn>(code_buffer.start);
 
-    gemm_minmax(m(), n(), k() * sizeof(float),
+    void* ukernel_address = code_buffer.start;
+    void* trampoline_start = GenerateTrampoline(&code_buffer, TrampolineType::kGEMM);
+    ASSERT_NE(trampoline_start, nullptr);
+
+    ASSERT_EQ(xnn_status_success, xnn_finalize_code_memory(&code_buffer));
+    xnn_f32_gemm_minmax_ukernel_trampoline_fn gemm_minmax =
+        reinterpret_cast<xnn_f32_gemm_minmax_ukernel_trampoline_fn>(trampoline_start);
+
+    TrampolineReturnType error = gemm_minmax(m(), n(), k() * sizeof(float),
       a.data(), a_stride() * sizeof(float),
       packed_w.data(),
       c.data(), cm_stride() * sizeof(float), cn_stride() * sizeof(float),
-      &params);
+      &params, ukernel_address);
+
+    ASSERT_EQ(error, 0) << "Callee-saved register not saved correctly: " << RegisterFromCorruptedValue(error);
 
     ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&code_buffer));
 
@@ -2084,16 +2188,23 @@ void GemmMicrokernelTester::Test(
     p.f32_minmax.max = c_max;
     ASSERT_EQ(xnn_status_success,
               igemm_generator(&code_buffer, mr(), n() % nr(), k() * sizeof(float), ks() * mr() * sizeof(void *), &p));
-    ASSERT_EQ(xnn_status_success, xnn_finalize_code_memory(&code_buffer));
-    xnn_f32_igemm_minmax_ukernel_fn igemm_minmax =
-        reinterpret_cast<xnn_f32_igemm_minmax_ukernel_fn>(code_buffer.start);
 
-    igemm_minmax(
+    void* ukernel_address = code_buffer.start;
+    void* trampoline_start = GenerateTrampoline(&code_buffer, TrampolineType::kIGEMM);
+    ASSERT_NE(trampoline_start, nullptr);
+
+    ASSERT_EQ(xnn_status_success, xnn_finalize_code_memory(&code_buffer));
+    xnn_f32_igemm_minmax_ukernel_trampoline_fn igemm_minmax =
+        reinterpret_cast<xnn_f32_igemm_minmax_ukernel_trampoline_fn>(trampoline_start);
+
+    TrampolineReturnType error = igemm_minmax(
       m(), n(), k() * sizeof(float), ks() * mr() * sizeof(void*),
       im2col.data(), packed_w.data(),
       c.data(), cm_stride() * sizeof(float), cn_stride() * sizeof(float),
       a_offset() * sizeof(float), zero_pointer,
-      &params);
+      &params, ukernel_address);
+
+    ASSERT_EQ(error, 0) << "Callee-saved register not saved correctly: " << RegisterFromCorruptedValue(error);
 
     ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&code_buffer));
 

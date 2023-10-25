@@ -10,11 +10,16 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5 FATAL_ERROR)
 
 PROJECT(pthreadpool-download NONE)
 
+# Set file timestamps to the time of extraction.
+IF(POLICY CMP0135)
+  CMAKE_POLICY(SET CMP0135 NEW)
+ENDIF()
+
 # LINT.IfChange
 INCLUDE(ExternalProject)
 ExternalProject_Add(pthreadpool
-  URL https://github.com/Maratyszcza/pthreadpool/archive/0a4b81c950fa4fb08037ceeaa54d008efdf4e739.zip
-  URL_HASH SHA256=2b4bd93beb478e1919ca81262e9f4998ceaa798bac1c3185ee64be907be1babd
+  URL https://github.com/Maratyszcza/pthreadpool/archive/4fe0e1e183925bf8cfa6aae24237e724a96479b8.zip
+  URL_HASH SHA256=a4cf06de57bfdf8d7b537c61f1c3071bce74e57524fe053e0bbd2332feca7f95
   SOURCE_DIR "${CMAKE_BINARY_DIR}/pthreadpool-source"
   BINARY_DIR "${CMAKE_BINARY_DIR}/pthreadpool"
   CONFIGURE_COMMAND ""

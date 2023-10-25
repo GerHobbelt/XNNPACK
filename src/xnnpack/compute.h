@@ -18,6 +18,7 @@
 enum xnn_parallelization_type {
   xnn_parallelization_type_invalid = 0,
   xnn_parallelization_type_1d,
+  xnn_parallelization_type_1d_with_thread,
   xnn_parallelization_type_1d_tile_1d,
   xnn_parallelization_type_2d,
   xnn_parallelization_type_2d_tile_1d,
@@ -45,6 +46,7 @@ struct compute_parameters {
   enum xnn_parallelization_type type;
   union {
     pthreadpool_task_1d_t task_1d;
+    pthreadpool_task_1d_with_thread_t task_1d_with_thread;
     pthreadpool_task_1d_tile_1d_t task_1d_tile_1d;
     pthreadpool_task_2d_t task_2d;
     pthreadpool_task_2d_tile_1d_t task_2d_tile_1d;
@@ -883,6 +885,7 @@ struct average_pooling_context {
     xnn_avgpool_multipass_ukernel_fn multipass_ukernel;
   };
   size_t buffer_size;
+  void* multipass_buffer;
 };
 
 #ifndef __cplusplus
@@ -923,6 +926,7 @@ struct pixelwise_average_pooling_context {
     xnn_pavgpool_multipass_ukernel_fn multipass_ukernel;
   };
   size_t buffer_size;
+  void* multipass_buffer;
 };
 
 #ifndef __cplusplus
@@ -957,6 +961,7 @@ struct global_average_pooling_nwc_context {
     xnn_gavgpool_multipass_ukernel_fn multipass_ukernel;
   };
   size_t buffer_size;
+  void* multipass_buffer;
 };
 
 #ifndef __cplusplus
@@ -964,8 +969,9 @@ struct global_average_pooling_nwc_context {
       const struct global_average_pooling_nwc_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t batch_index);
 
-  XNN_PRIVATE void xnn_compute_global_average_pooling_nwc_multipass(
+  XNN_PRIVATE void xnn_compute_global_average_pooling_nwc_multipass_with_thread(
       const struct global_average_pooling_nwc_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t thread_index,
       size_t batch_index);
 #endif
 
@@ -991,6 +997,21 @@ struct global_average_pooling_ncw_context {
       size_t channels_start,
       size_t channels_slice);
 #endif
+
+struct resize_bilinear_nhwc_indirection_init_context {
+  const void** buffer;
+  const void* input;
+  size_t packed_weight_size;
+  size_t input_pixel_stride;
+  size_t input_offset;
+  size_t input_height;
+  size_t input_width;
+  size_t output_height;
+  size_t output_width;
+  bool align_corners;
+  bool tensorflow_legacy_mode;
+  xnn_indirection_init_resize_bilinear2d_hwc_fn indirection_init;
+};
 
 struct resize_bilinear_context {
   // Number of channels multiplied by sizeof(input element).
@@ -1041,16 +1062,20 @@ struct resize_bilinear_chw_context {
 };
 
 #ifndef __cplusplus
+  XNN_PRIVATE void xnn_compute_resize_bilinear_indirection(
+      const struct resize_bilinear_nhwc_indirection_init_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t output_y_start,
+      size_t output_y_tile);
   XNN_PRIVATE void xnn_compute_resize_bilinear(
       const struct resize_bilinear_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t batch_index,
       size_t pixel_start,
       size_t pixel_range);
   XNN_PRIVATE void xnn_compute_resize_bilinear_chw(
-    const struct resize_bilinear_chw_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t batch_index,
-    size_t pixel_start,
-    size_t pixel_range);
+      const struct resize_bilinear_chw_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index,
+      size_t pixel_start,
+      size_t pixel_range);
 #endif
 
 struct elementwise_binary_context {
@@ -1364,6 +1389,9 @@ struct f32_qd8_convert_context {
   xnn_reduce_ukernel_fn rminmax_ukernel;
   xnn_vunary_ukernel_fn convert_ukernel;
   xnn_init_f32_qs8_cvt_params_fn init_params;
+  union {
+    union xnn_f32_default_params f32_default;
+  } params;
 };
 
 #ifndef __cplusplus
@@ -1509,6 +1537,11 @@ struct scaled_dot_product_attention_context {
   // Stride, in bytes, between each head of output.
   size_t output_head_stride;
 
+  // Stride, in bytes, between the buffer for each thread to write scaled query.
+  size_t scaled_query_thread_stride;
+  // Stride, in bytes, between the buffer for each thread to write logits.
+  size_t logits_thread_stride;
+
   struct xnn_hmp_gemm_ukernel gemm_ukernel;
   xnn_compute_reciprocal_fn compute_reciprocal;
   xnn_rmax_ukernel_fn rmax_ukernel;
@@ -1543,7 +1576,18 @@ struct scaled_dot_product_attention_context {
 };
 
 #ifndef __cplusplus
+  // We have 4 variations of compute scaled dot product attention:
+  // 1. micro-architecture aware and not micro-architecture aware
+  // 2. whether the workspace size is based on batch_size or number of heads.
+  // The workspace size is chosen based on which one requires a smaller memory allocation for workspace.
+  // Batch size (times query heads and query tokens) is compared to number of threads (times MR).
   XNN_PRIVATE void xnn_compute_scaled_dot_product_attention(
+      const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index,
+      size_t head_index,
+      size_t tokens_start,
+      size_t tokens_block_size);
+  XNN_PRIVATE void xnn_compute_scaled_dot_product_attention_with_thread(
       const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t thread_index,
       size_t batch_index,
@@ -1551,6 +1595,13 @@ struct scaled_dot_product_attention_context {
       size_t tokens_start,
       size_t tokens_block_size);
   XNN_PRIVATE void xnn_compute_hmp_scaled_dot_product_attention(
+      const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
+      uint32_t uarch_index,
+      size_t batch_index,
+      size_t head_index,
+      size_t tokens_start,
+      size_t tokens_block_size);
+  XNN_PRIVATE void xnn_compute_hmp_scaled_dot_product_attention_with_thread(
       const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
       uint32_t uarch_index,
       size_t thread_index,

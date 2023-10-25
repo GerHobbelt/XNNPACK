@@ -403,13 +403,25 @@ struct xnn_operator_data {
   size_t output_channels;
   struct xnn_shape shape1;
   struct xnn_shape shape2;
-  size_t num_reduction_axes;
-  size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
-  size_t pre_paddings[XNN_MAX_TENSOR_DIMS];
-  size_t post_paddings[XNN_MAX_TENSOR_DIMS];
-  // TODO(zhin): merge this with pre_paddings/post_paddings to reduce size of this struct.
-  size_t offsets[XNN_MAX_TENSOR_DIMS];
-  size_t sizes[XNN_MAX_TENSOR_DIMS];
+  union {
+    // Used for reduction/mean.
+    struct {
+      size_t num_reduction_axes;
+      size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+    };
+    // Used for concatenate.
+    size_t axis;
+    // Used for static constant pad.
+    struct {
+      size_t post_paddings[XNN_MAX_TENSOR_DIMS];
+      size_t pre_paddings[XNN_MAX_TENSOR_DIMS];
+    };
+    // Used for static slice.
+    struct {
+      size_t offsets[XNN_MAX_TENSOR_DIMS];
+      size_t sizes[XNN_MAX_TENSOR_DIMS];
+    };
+  };
   uint32_t adjustment_height;
   uint32_t adjustment_width;
   uint32_t num_inputs;
@@ -499,6 +511,16 @@ size_t xnn_shape_multiply_batch_dims(
 // Product of all shape dimensions, except for the last (channel) one
 size_t xnn_shape_multiply_non_channel_dims(
   const struct xnn_shape shape[1]);
+
+// Product of n leading dimensions.
+size_t xnn_shape_multiply_leading_dims(
+  const struct xnn_shape shape[1],
+  size_t num_leading_dims);
+
+// Product of trailing dimensions starting from start_dim.
+size_t xnn_shape_multiply_trailing_dims(
+  const struct xnn_shape shape[1],
+  size_t start_dim);
 
 enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph, uint32_t flags);
 

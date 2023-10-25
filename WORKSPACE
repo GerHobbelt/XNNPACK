@@ -58,19 +58,19 @@ http_archive(
 # pthreadpool library, used for parallelization
 http_archive(
     name = "pthreadpool",
-    sha256 = "2b4bd93beb478e1919ca81262e9f4998ceaa798bac1c3185ee64be907be1babd",
-    strip_prefix = "pthreadpool-0a4b81c950fa4fb08037ceeaa54d008efdf4e739",
-    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/0a4b81c950fa4fb08037ceeaa54d008efdf4e739.zip"],
+    sha256 = "a4cf06de57bfdf8d7b537c61f1c3071bce74e57524fe053e0bbd2332feca7f95",
+    strip_prefix = "pthreadpool-4fe0e1e183925bf8cfa6aae24237e724a96479b8",
+    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/4fe0e1e183925bf8cfa6aae24237e724a96479b8.zip"],
 )
 # LINT.ThenChange(cmake/DownloadPThreadPool.cmake)
 
 # cpuinfo library, used for detecting processor characteristics
 http_archive(
     name = "cpuinfo",
-    sha256 = "609fc42c47482c1fc125dccac65e843f640e792540162581c4b7eb6ff81c826a",
-    strip_prefix = "cpuinfo-87d8234510367db49a65535021af5e1838a65ac2",
+    sha256 = "a0f53ccfb477c57753c595df02bf79ed67bf092fd9a5c61ec5b8992b81bc1e65",
+    strip_prefix = "cpuinfo-959002f82d7962a473d8bf301845f2af720e0aa4",
     urls = [
-        "https://github.com/pytorch/cpuinfo/archive/87d8234510367db49a65535021af5e1838a65ac2.zip",
+        "https://github.com/pytorch/cpuinfo/archive/959002f82d7962a473d8bf301845f2af720e0aa4.zip",
     ],
 )
 

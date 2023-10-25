@@ -55,12 +55,8 @@ void GemmMicrokernelTester::Test(
   std::vector<uint8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(u8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(u8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(u8rng));
+    std::generate(b.begin(), b.end(), std::ref(u8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -149,12 +145,8 @@ void GemmMicrokernelTester::Test(
   std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(u8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(u8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(u8rng));
+    std::generate(b.begin(), b.end(), std::ref(u8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -272,12 +264,8 @@ void GemmMicrokernelTester::Test(
   std::vector<int8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -399,12 +387,8 @@ void GemmMicrokernelTester::Test(
   std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -535,12 +519,12 @@ void GemmMicrokernelTester::Test(
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
-    for (int i = 0; i < m(); ++i) {
+    for (size_t i = 0; i < m(); ++i) {
       const float* input_ptr = &input[i * k()];
       const auto minmax = std::minmax_element(input_ptr, input_ptr + k());
       quantization_params[i] = xnn_f32_qd8_asymmetric_quantization_params(*minmax.first, *minmax.second);
       const float inv_scale = 1.f / quantization_params[i].inv_scale;
-      for (int j = 0; j < k(); ++j) {
+      for (size_t j = 0; j < k(); ++j) {
         float scaled_input = input_ptr[j] * inv_scale;
         scaled_input = std::min<float>(scaled_input, float(std::numeric_limits<int8_t>::max()
                                                            - quantization_params[i].zero_point));
@@ -549,9 +533,7 @@ void GemmMicrokernelTester::Test(
         a[i * a_stride() + j] = int8_t(std::lrintf(scaled_input) + long(quantization_params[i].zero_point));
       }
     }
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
 
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
@@ -663,12 +645,8 @@ void GemmMicrokernelTester::Test(
   std::vector<int8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -766,12 +744,8 @@ void GemmMicrokernelTester::Test(
   std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -3042,12 +3016,8 @@ void GemmMicrokernelTester::Test(
   std::vector<int8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -3178,12 +3148,8 @@ void GemmMicrokernelTester::Test(
   std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -3322,12 +3288,8 @@ void GemmMicrokernelTester::Test(
   std::vector<int8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 
@@ -3434,12 +3396,8 @@ void GemmMicrokernelTester::Test(
   std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    do {
-      std::generate(a.begin(), a.end(), std::ref(i8rng));
-    } while (a.size() > 1 && *std::max_element(a.cbegin(), a.cend()) == *std::min_element(a.cbegin(), a.cend()));
-    do {
-      std::generate(b.begin(), b.end(), std::ref(w8rng));
-    } while (b.size() > 1 && *std::max_element(b.cbegin(), b.cend()) == *std::min_element(b.cbegin(), b.cend()));
+    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
     std::fill(c.begin(), c.end(), 0xA5);
 

@@ -534,7 +534,7 @@ void xnn_f16_avgpool_minmax_ukernel_9x__f16c_c8(
   } while (--output_pixels != 0);
 }
 
-void xnn_f16_f32_vcvt_ukernel__f16c_x16(
+void xnn_f16_f32_vcvt_ukernel__f16c_u16(
     size_t batch,
     const void* input,
     float* output,
@@ -1332,7 +1332,8 @@ void xnn_f16_prelu_ukernel__f16c_2x16(
 void xnn_f16_rmax_ukernel__f16c(
     size_t batch,
     const void* input,
-    void* output) XNN_OOB_READS
+    void* output,
+    const union xnn_f16_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(batch != 0);
   assert(batch % sizeof(uint16_t) == 0);
@@ -3405,7 +3406,7 @@ void xnn_f16_vsqr_ukernel__f16c_u16(
   }
 }
 
-void xnn_f32_f16_vcvt_ukernel__f16c_x16(
+void xnn_f32_f16_vcvt_ukernel__f16c_u16(
     size_t batch,
     const float* input,
     void* output,

@@ -355,12 +355,11 @@ struct xnn_operator {
     };  // For constant pad operator.
     const struct xnn_x8_lut_config* lut_config;
     const struct xnn_cmul_config* cmul_config;
-    const struct xnn_unary_elementwise_config* copy_config;
     const struct xnn_transpose_config* transpose_config;
     struct {
-      const struct xnn_reduce_config* rminmax_config;
-      const struct xnn_unary_elementwise_config* convert_config;
-    };  // For F32 to QD8 convert operator.
+      const struct xnn_unary_elementwise_config* unary_elementwise_config;
+      const struct xnn_reduce_config* rminmax_config;  // For dynamic quantization convert operator.
+    };  // For unary elementwise operators.
     struct {
       const struct xnn_rmax_config* rmax_config;
       const struct xnn_raddstoreexpminusmax_config* raddstoreexpminusmax_config;
@@ -406,7 +405,10 @@ struct xnn_operator {
     struct pixelwise_average_pooling_context pixelwise_average_pooling;
     struct prelu_context prelu;
     struct reduce_context reduce;
-    struct resize_bilinear_context resize_bilinear;
+    struct {
+      struct resize_bilinear_context resize_bilinear;
+      struct resize_bilinear_nhwc_indirection_init_context resize_nhwc_indirection_init;
+    };
     struct resize_bilinear_chw_context resize_bilinear_chw;
     struct slice_context slice;
     struct spmm_context spmm;

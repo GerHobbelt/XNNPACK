@@ -47,7 +47,7 @@
 #include <xnnpack/zip.h>
 
 
-void xnn_f16_f32_vcvt_ukernel__neon_int16_x16(
+void xnn_f16_f32_vcvt_ukernel__neon_int16_u16(
     size_t batch,
     const void* input,
     float* output,
@@ -4432,7 +4432,7 @@ void xnn_f32_dwconv2d_chw_ukernel_5x5s2p2__neon_1x4(
   } while (output_height != 0);
 }
 
-void xnn_f32_f16_vcvt_ukernel__neon_x8(
+void xnn_f32_f16_vcvt_ukernel__neon_u8(
     size_t batch,
     const float* input,
     void* output,
@@ -7972,7 +7972,7 @@ void xnn_f32_qc8w_gemm_minmax_ukernel_4x8__neon_lane_ld64(
   } while (nc != 0);
 }
 
-void xnn_f32_qs8_vcvt_ukernel__neon_x32(
+void xnn_f32_qs8_vcvt_ukernel__neon_u32(
     size_t batch,
     const float* input,
     int8_t* output,
@@ -8098,7 +8098,7 @@ void xnn_f32_qs8_vcvt_ukernel__neon_x32(
   }
 }
 
-void xnn_f32_qu8_vcvt_ukernel__neon_x32(
+void xnn_f32_qu8_vcvt_ukernel__neon_u32(
     size_t batch,
     const float* input,
     uint8_t* output,
@@ -8420,7 +8420,8 @@ void xnn_f32_raddstoreexpminusmax_ukernel__neon_rr2_lut64_p2_u8(
 void xnn_f32_rmax_ukernel__neon(
     size_t batch,
     const float* input,
-    float* output)
+    float* output,
+    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(batch != 0);
   assert(batch % sizeof(float) == 0);
@@ -11640,7 +11641,7 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x8c2s4__neon_mlal(
   } while (nc != 0);
 }
 
-void xnn_qs16_qs8_vcvt_ukernel__neon_x32(
+void xnn_qs16_qs8_vcvt_ukernel__neon_u32(
     size_t batch,
     const int16_t* input,
     int8_t* output,
@@ -13232,7 +13233,7 @@ void xnn_qs8_dwconv_minmax_rndnu_ukernel_9p16c__neon_mla8_ld64(
   } while (--output_width != 0);
 }
 
-void xnn_qs8_f32_vcvt_ukernel__neon_x32(
+void xnn_qs8_f32_vcvt_ukernel__neon_u32(
     size_t batch,
     const int8_t* input,
     float* output,
@@ -21027,7 +21028,7 @@ void xnn_qu8_dwconv_minmax_rndnu_ukernel_9p16c__neon_mul8(
   } while (--output_width != 0);
 }
 
-void xnn_qu8_f32_vcvt_ukernel__neon_x32(
+void xnn_qu8_f32_vcvt_ukernel__neon_u32(
     size_t batch,
     const uint8_t* input,
     float* output,
@@ -25781,7 +25782,7 @@ void xnn_s8_maxpool_minmax_ukernel_9p8x__neon_c16(
   } while (--output_pixels != 0);
 }
 
-void xnn_s8_vclamp_ukernel__neon_x64(
+void xnn_s8_vclamp_ukernel__neon_u64(
     size_t batch,
     const int8_t* input,
     int8_t* output,
@@ -26389,7 +26390,8 @@ void xnn_u8_maxpool_minmax_ukernel_9p8x__neon_c16(
 void xnn_u8_rmax_ukernel__neon(
     size_t batch,
     const uint8_t* input,
-    uint8_t* output)
+    uint8_t* output,
+    const void* params)
 {
   assert(batch != 0);
   assert(batch % sizeof(uint8_t) == 0);
@@ -26424,7 +26426,7 @@ void xnn_u8_rmax_ukernel__neon(
   }
 }
 
-void xnn_u8_vclamp_ukernel__neon_x64(
+void xnn_u8_vclamp_ukernel__neon_u64(
     size_t batch,
     const uint8_t* input,
     uint8_t* output,
@@ -26487,7 +26489,7 @@ void xnn_u8_vclamp_ukernel__neon_x64(
   }
 }
 
-void xnn_x16_packw_gemm_goi_ukernel_x16__neon_ld4lane_x8_prfm(
+void xnn_x16_packw_gemm_goi_ukernel_x16__neon_ld4lane_u8_prfm(
   size_t g,
   size_t nc,
   size_t kc,
@@ -27083,7 +27085,7 @@ void xnn_x16_packw_gemm_goi_ukernel_x16__neon_ld4lane_x8_prfm(
   } while (--g != 0);
 }
 
-void xnn_x16_packw_gemm_goi_ukernel_x8__neon_ld4lane_x8_prfm(
+void xnn_x16_packw_gemm_goi_ukernel_x8__neon_ld4lane_u8_prfm(
   size_t g,
   size_t nc,
   size_t kc,
@@ -27780,7 +27782,7 @@ void xnn_x24_transposec_ukernel__2x2_neon_tbl64(
   } while (block_width != 0);
 }
 
-void xnn_x32_packw_gemm_goi_ukernel_x2__neon_ld2lane_x2_prfm(
+void xnn_x32_packw_gemm_goi_ukernel_x2__neon_ld2lane_u2_prfm(
   size_t g,
   size_t nc,
   size_t kc,
@@ -27870,7 +27872,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x2__neon_ld2lane_x2_prfm(
   } while (--g != 0);
 }
 
-void xnn_x32_packw_gemm_goi_ukernel_x8__neon_ld4lane_x4_prfm(
+void xnn_x32_packw_gemm_goi_ukernel_x8__neon_ld4lane_u4_prfm(
   size_t g,
   size_t nc,
   size_t kc,
@@ -28204,7 +28206,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__neon_ld4lane_x4_prfm(
   } while (--g != 0);
 }
 
-void xnn_x32_packw_gemm_goi_ukernel_x8s4__neon_ld4lane_x4_prfm(
+void xnn_x32_packw_gemm_goi_ukernel_x8s4__neon_ld4lane_u4_prfm(
   size_t g,
   size_t nc,
   size_t kc,
@@ -29336,245 +29338,6 @@ void xnn_x32_zip_xm_ukernel__neon(
       output = last_output;
     }
   }
-}
-
-void xnn_x8_packw_gemm_goi_ukernel_x8__scalar_int_x2(
-  size_t g,
-  size_t nc,
-  size_t kc,
-  size_t nr,
-  size_t kr,
-  size_t sr,
-  const int8_t* weights,
-  const uint32_t* bias,
-  const void* scale,
-  int8_t* packed_weights,
-  size_t extra_bytes,
-  const void* params)
-{
-  assert(g != 0);
-  assert(nc != 0);
-  assert(kc != 0);
-  assert(nr == 8);   // This kernel is for NR=8
-  assert(kr == 1);
-  assert(sr == 1);
-  assert(weights != NULL);
-  assert(packed_weights != NULL);
-
-  int8_t* out = (int8_t*) packed_weights;
-  const uint32_t* b = (const uint32_t*) bias;
-
-  do {
-    // NC main loop multiple of 8
-    const int8_t* w0 = (const int8_t*) weights;
-    size_t n = nc;
-    for (;n >= 8; n -= 8) {
-      if XNN_LIKELY(b != NULL) {
-        ((uint32_t*) out)[0] = b[0];
-        ((uint32_t*) out)[1] = b[1];
-        ((uint32_t*) out)[2] = b[2];
-        ((uint32_t*) out)[3] = b[3];
-        ((uint32_t*) out)[4] = b[4];
-        ((uint32_t*) out)[5] = b[5];
-        ((uint32_t*) out)[6] = b[6];
-        ((uint32_t*) out)[7] = b[7];
-        b += 8;
-      } else {
-        ((uint32_t*) out)[0] = 0;
-        ((uint32_t*) out)[1] = 0;
-        ((uint32_t*) out)[2] = 0;
-        ((uint32_t*) out)[3] = 0;
-        ((uint32_t*) out)[4] = 0;
-        ((uint32_t*) out)[5] = 0;
-        ((uint32_t*) out)[6] = 0;
-        ((uint32_t*) out)[7] = 0;
-      }
-      out += 8 * sizeof(uint32_t);
-
-      const int8_t* w1 = w0 + kc;
-      const int8_t* w2 = w1 + kc;
-      const int8_t* w3 = w2 + kc;
-      const int8_t* w4 = w3 + kc;
-      const int8_t* w5 = w4 + kc;
-      const int8_t* w6 = w5 + kc;
-      const int8_t* w7 = w6 + kc;
-
-      // KC main loop multiple of 8x2
-      size_t k = kc;
-      for (; k >= 2; k -= 2) {
-        const int8_t v00 = w0[0];
-        const int8_t v01 = w0[1];
-        w0 += 2;
-        const int8_t v10 = w1[0];
-        const int8_t v11 = w1[1];
-        w1 += 2;
-        const int8_t v20 = w2[0];
-        const int8_t v21 = w2[1];
-        w2 += 2;
-        const int8_t v30 = w3[0];
-        const int8_t v31 = w3[1];
-        w3 += 2;
-        const int8_t v40 = w4[0];
-        const int8_t v41 = w4[1];
-        w4 += 2;
-        const int8_t v50 = w5[0];
-        const int8_t v51 = w5[1];
-        w5 += 2;
-        const int8_t v60 = w6[0];
-        const int8_t v61 = w6[1];
-        w6 += 2;
-        const int8_t v70 = w7[0];
-        const int8_t v71 = w7[1];
-        w7 += 2;
-        out[0] = v00;
-        out[1] = v10;
-        out[2] = v20;
-        out[3] = v30;
-        out[4] = v40;
-        out[5] = v50;
-        out[6] = v60;
-        out[7] = v70;
-        out[8] = v01;
-        out[9] = v11;
-        out[10] = v21;
-        out[11] = v31;
-        out[12] = v41;
-        out[13] = v51;
-        out[14] = v61;
-        out[15] = v71;
-        out += 16;
-      }
-
-      // KC remainder
-      for (; k != 0; --k) {
-        const int8_t v0 = *w0++;
-        out[0] = v0;
-        const int8_t v1 = *w1++;
-        out[1] = v1;
-        const int8_t v2 = *w2++;
-        out[2] = v2;
-        const int8_t v3 = *w3++;
-        out[3] = v3;
-        const int8_t v4 = *w4++;
-        out[4] = v4;
-        const int8_t v5 = *w5++;
-        out[5] = v5;
-        const int8_t v6 = *w6++;
-        out[6] = v6;
-        const int8_t v7 = *w7++;
-        out[7] = v7;
-        out += 8;
-      }
-      out = (int8_t*) ((uintptr_t) out + extra_bytes);
-      w0 = w7;
-    }
-
-    // NC remainder (1..7)
-    if XNN_UNLIKELY(n != 0) {
-      if XNN_LIKELY(b != NULL) {
-        size_t nb = n;
-        do {
-          *((uint32_t*) out) = *b++;
-          out += sizeof(uint32_t);
-        } while (--nb != 0);
-      } else {
-        size_t nb = n;
-        do {
-          *((uint32_t*) out) = 0;
-          out += sizeof(uint32_t);
-        } while (--nb != 0);
-      }
-      out += (8 - n) * sizeof(uint32_t);
-
-      // NR remainder has less than 8 rows so last row is not loaded
-      const int8_t* w1 = w0 + kc;
-      if XNN_UNPREDICTABLE(n < 2) {
-        w1 = w0;
-      }
-      const int8_t* w2 = w1 + kc;
-      if XNN_UNPREDICTABLE(n <= 2) {
-        w2 = w1;
-      }
-      const int8_t* w3 = w2 + kc;
-      if XNN_UNPREDICTABLE(n < 4) {
-        w3 = w2;
-      }
-      const int8_t* w4 = w3 + kc;
-      if XNN_UNPREDICTABLE(n <= 4) {
-        w4 = w3;
-      }
-      const int8_t* w5 = w4 + kc;
-      if XNN_UNPREDICTABLE(n < 6) {
-        w5 = w4;
-      }
-      const int8_t* w6 = w5 + kc;
-      if XNN_UNPREDICTABLE(n <= 6) {
-        w6 = w5;
-      }
-
-      // KC main loop multiple of 8x2
-      size_t k = kc;
-      for (; k >= 2; k -= 2) {
-        const int8_t v00 = w0[0];
-        const int8_t v01 = w0[1];
-        w0 += 2;
-        const int8_t v10 = w1[0];
-        const int8_t v11 = w1[1];
-        w1 += 2;
-        const int8_t v20 = w2[0];
-        const int8_t v21 = w2[1];
-        w2 += 2;
-        const int8_t v30 = w3[0];
-        const int8_t v31 = w3[1];
-        w3 += 2;
-        const int8_t v40 = w4[0];
-        const int8_t v41 = w4[1];
-        w4 += 2;
-        const int8_t v50 = w5[0];
-        const int8_t v51 = w5[1];
-        w5 += 2;
-        const int8_t v60 = w6[0];
-        const int8_t v61 = w6[1];
-        w6 += 2;
-        out[0] = v00;
-        out[1] = v10;
-        out[2] = v20;
-        out[3] = v30;
-        out[4] = v40;
-        out[5] = v50;
-        out[6] = v60;
-        out[8] = v01;
-        out[9] = v11;
-        out[10] = v21;
-        out[11] = v31;
-        out[12] = v41;
-        out[13] = v51;
-        out[14] = v61;
-        out += 16;
-      }
-
-      // KC remainder of 1..1
-      for (; k != 0; --k) {
-        const int8_t v0 = *w0++;
-        out[0] = v0;
-        const int8_t v1 = *w1++;
-        out[1] = v1;
-        const int8_t v2 = *w2++;
-        out[2] = v2;
-        const int8_t v3 = *w3++;
-        out[3] = v3;
-        const int8_t v4 = *w4++;
-        out[4] = v4;
-        const int8_t v5 = *w5++;
-        out[5] = v5;
-        const int8_t v6 = *w6++;
-        out[6] = v6;
-        out += 8;
-      }
-      out = (int8_t*) ((uintptr_t) out + extra_bytes);
-    }
-    weights += nc * kc;
-  } while (--g != 0);
 }
 
 void xnn_x8_transposec_ukernel__16x16_reuse_dec_zip_neon(

@@ -9,7 +9,9 @@
 #include <xnnpack/memory.h>
 #include <xnnpack/wasm-assembler.h>
 
+#include <array>
 #include <cstdint>
+#include <numeric>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -21,6 +23,9 @@ using AddPtr = int (*)(int, int);
 using MaxPtr = AddPtr;
 using SumUntil = Add5Ptr;
 using DoWhile = Add5Ptr;
+using SumUntilManyLocals = int (*)();
+using SumArray = int (*)(const int*, int);
+using MemCpy = void (*)(int*, const int*, int);
 
 namespace xnnpack {
 namespace {
@@ -33,14 +38,16 @@ constexpr int32_t kAPlusFive = kA + kExpectedGet5ReturnValue;
 constexpr int32_t kB = 42;
 constexpr int32_t kExpectedSum = kA + kB;
 constexpr int32_t kExpectedSumTwice = 2 * kExpectedSum;
+constexpr uint32_t kLargeNumberOfLocals = 300;
+constexpr uint32_t kLargeNumberOfFunctions = 300;
+constexpr size_t kArraySize = 5;
+constexpr std::array<int, kArraySize> kArray = {1, 2, 3, 45, 6};
+const int kExpectedArraySum = std::accumulate(kArray.begin(), kArray.end(), 0);
 
 struct Get5Generator : WasmAssembler {
   explicit Get5Generator(xnn_code_buffer* buf) : WasmAssembler(buf) {
     ValTypesToInt no_locals;
-    AddFunc<0>({i32}, "get5", {}, no_locals, [this]() {
-      i32_const(5);
-      end();
-    });
+    AddFunc<0>({i32}, "get5", {}, no_locals, [this]() { i32_const(5); });
   }
 };
 
@@ -63,7 +70,6 @@ struct AddGenerator : WasmAssembler {
       local_get(a);
       local_get(b);
       i32_add();
-      end();
     });
   }
 };
@@ -83,7 +89,6 @@ struct AddWithLocalGenerator : WasmAssembler {
                  auto sum = MakeLocal(i32);
                  sum = I32Add(a, b);
                  local_get(sum);
-                 end();
                });
   }
 };
@@ -103,7 +108,6 @@ struct AddTwiceGenerator : WasmAssembler {
                  second = I32Add(second, a);
                  second = I32Add(second, b);
                  local_get(second);
-                 end();
                });
   }
 };
@@ -129,7 +133,6 @@ struct AddTwiceWithScopesGenerator : WasmAssembler {
                    first = I32Add(first, sum);
                  }
                  local_get(first);
-                 end();
                });
   }
 };
@@ -143,7 +146,6 @@ struct Add5CodeGenerator : WasmAssembler {
     AddFunc<1>({i32}, "add5", {i32}, no_locals, [this](Local a) {
       a = I32Add(I32Const(5), a);
       local_get(a);
-      end();
     });
   }
 };
@@ -163,7 +165,6 @@ struct MaxCodeGenerator : WasmAssembler {
                  IfElse([&] { I32LtS(a, b); }, [&] { result = b; },
                         [&] { result = a; });
                  local_get(result);
-                 end();
                });
   }
 };
@@ -186,7 +187,6 @@ struct MaxIncompleteIfCodeGenerator : WasmAssembler {
                [this](Local a, Local b) {
                  If([&] { I32LtS(a, b); }, [&] { a = b; });
                  local_get(a);
-                 end();
                });
   }
 };
@@ -206,21 +206,21 @@ struct SumUntilCodeGenerator : WasmAssembler {
               i = I32Add(i, I32Const(1));
             });
       local_get(result);
-      end();
     });
   }
 };
 
-struct SumUntilTestSuite : GeneratorTestSuite<SumUntilCodeGenerator, SumUntil> {
-  static int ReferenceSumUntil(int n) {
-    int i = 0;
-    int result = 0;
-    while (i < n) {
-      result += i;
-      i++;
-    }
-    return result;
+static int ReferenceSumUntil(int n) {
+  int i = 0;
+  int result = 0;
+  while (i < n) {
+    result += i;
+    i++;
   }
+  return result;
+}
+
+struct SumUntilTestSuite : GeneratorTestSuite<SumUntilCodeGenerator, SumUntil> {
   static void ExpectFuncCorrect(SumUntil sum_until) {
     static constexpr int kN = 5;
     static constexpr int kNoIters = 0;
@@ -243,7 +243,6 @@ struct DoWhileCodeGenerator : WasmAssembler {
           },
           [&] { I32LtS(i, n); });
       local_get(result);
-      end();
     });
   }
 };
@@ -265,13 +264,137 @@ struct DoWhileTestSuite : GeneratorTestSuite<DoWhileCodeGenerator, DoWhile> {
   }
 };
 
+struct SumArrayMemory : WasmAssembler {
+  explicit SumArrayMemory(xnn_code_buffer* buf) : WasmAssembler(buf) {
+    ValTypesToInt two_local_ints = {{i32, 2}};
+    AddFunc<2>({i32}, "SumArray", {i32, i32}, two_local_ints,
+               [&](Local array, Local n) {
+                 auto i = MakeLocal(i32);
+                 auto result = MakeLocal(i32);
+                 While([&] { I32LtS(i, n); },
+                       [&] {
+                         result = I32Add(result, I32Load(array, i));
+                         i = I32Add(i, I32Const(1));
+                       });
+                 local_get(result);
+               });
+  }
+};
+
+struct SumArrayTestSuite : GeneratorTestSuite<SumArrayMemory, SumArray> {
+  static void ExpectFuncCorrect(SumArray sum_array) {
+    EXPECT_EQ(sum_array(kArray.data(), kArraySize), kExpectedArraySum);
+  }
+};
+
+struct MemCpyGenerator : WasmAssembler {
+  explicit MemCpyGenerator(xnn_code_buffer* bf) : WasmAssembler(bf) {
+    ValTypesToInt two_local_ints = {{i32, 2}};
+    AddFunc<3>({}, "mymemcpy", {i32, i32, i32}, two_local_ints,
+               [&](Local dst, Local src, Local n) {
+                 auto i = MakeLocal(i32);
+                 auto value = MakeLocal(i32);
+
+                 While([&] { I32LtS(i, n); },
+                       [&] {
+                         value = I32Load(src, i);
+                         I32Store(dst, i, value);
+                         i = I32Add(i, I32Const(1));
+                       });
+               });
+  }
+};
+
+struct MemCpyTestSuite : GeneratorTestSuite<MemCpyGenerator, MemCpy> {
+  static void ExpectFuncCorrect(MemCpy mem_cpy) {
+    std::array<int, kArraySize> dst;
+    mem_cpy(dst.data(), kArray.data(), kArraySize);
+    EXPECT_THAT(dst, testing::ElementsAreArray(kArray));
+  }
+};
+
+struct AddDelayedInitLocalsGenerator : WasmAssembler {
+  explicit AddDelayedInitLocalsGenerator(xnn_code_buffer* b)
+      : WasmAssembler(b) {
+    ValTypesToInt three_ints = {{i32, 3}};
+    AddFunc<2>({i32}, "add_delayed_init", {i32, i32}, three_ints,
+               [this](Local a, Local b) {
+                 Local c;
+                 c = MakeLocal(i32);
+                 Local d;
+                 d = MakeLocal(i32);
+                 Local sum;
+                 c = I32Add(c, a);
+                 d = I32Add(c, b);
+                 sum = MakeLocal(i32);
+                 sum = I32Add(a, sum);
+                 sum = I32Add(b, sum);
+                 local_get(sum);
+               });
+  }
+};
+
+struct AddDelayedInitTestSuite
+    : AddTestSuiteTmpl<AddDelayedInitLocalsGenerator, kExpectedSum> {};
+
+struct ManyFunctionsGenerator : WasmAssembler {
+  explicit ManyFunctionsGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
+    for (uint32_t func_index = 0; func_index < kLargeNumberOfFunctions;
+         func_index++) {
+      AddGet5(func_index);
+    }
+  }
+
+ private:
+  void AddGet5(uint32_t index) {
+    function_names[index] = "get5_" + std::to_string(index);
+    ValTypesToInt no_locals;
+    AddFunc<0>({i32}, function_names[index].c_str(), {}, no_locals,
+               [this]() { i32_const(5); });
+  }
+  static std::array<std::string, kLargeNumberOfFunctions> function_names;
+};
+
+std::array<std::string, kLargeNumberOfFunctions>
+    ManyFunctionsGenerator::function_names = {};
+
+struct ManyFunctionsGeneratorTestSuite
+    : GeneratorTestSuite<ManyFunctionsGenerator, GetIntPtr> {
+  static void ExpectFuncCorrect(GetIntPtr get_int) {
+    EXPECT_EQ(get_int(), kExpectedGet5ReturnValue);
+  }
+};
+
+struct ManyLocalsGenerator : WasmAssembler {
+  explicit ManyLocalsGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
+    ValTypesToInt many_ints = {{i32, kLargeNumberOfFunctions + 1}};
+    AddFunc<0>({i32}, "sum_until_with_many_locals", {}, many_ints, [this]() {
+      std::array<Local, kLargeNumberOfFunctions> locals;
+      for (int i = 0; i < kLargeNumberOfFunctions; i++) {
+        locals[i] = MakeLocal(i32);
+        locals[i] = I32Const(i);
+      }
+      auto sum = MakeLocal(i32);
+
+      for (int i = 0; i < kLargeNumberOfFunctions; i++) {
+        sum = I32Add(sum, locals[i]);
+      }
+      local_get(sum);
+    });
+  }
+};
+
+struct ManyLocalsGeneratorTestSuite
+    : GeneratorTestSuite<ManyLocalsGenerator, SumUntilManyLocals> {
+  static void ExpectFuncCorrect(SumUntilManyLocals sum_until) {
+    EXPECT_EQ(sum_until(), ReferenceSumUntil(kLargeNumberOfFunctions));
+  }
+};
+
 struct InvalidCodeGenerator : WasmAssembler {
   ValTypesToInt no_locals;
   explicit InvalidCodeGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
-    AddFunc<0>({}, "invalid", {}, no_locals, [this]() {
-      i32_const(5);
-      end();
-    });
+    AddFunc<0>({}, "invalid", {}, no_locals, [this]() { i32_const(5); });
   }
 };
 
@@ -286,9 +409,10 @@ TYPED_TEST_P(WasmAssemblerTest, ValidCode) {
   using TestSuite = TypeParam;
   using Generator = typename TestSuite::Generator;
   using Func = typename TestSuite::Func;
+  static constexpr size_t kBufferSize = 131072;
 
   xnn_code_buffer b;
-  xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
+  xnn_allocate_code_memory(&b, kBufferSize);
 
   Generator generator(&b);
   generator.Emit();
@@ -304,11 +428,12 @@ TYPED_TEST_P(WasmAssemblerTest, ValidCode) {
 
 REGISTER_TYPED_TEST_SUITE_P(WasmAssemblerTest, ValidCode);
 
-using WasmAssemblerTestSuits =
-    testing::Types<Get5TestSuite, AddTestSuite, AddWithLocalTestSuite,
-                   AddTwiceTestSuite, AddTwiceWithScopesTestSuite,
-                   Add5TestSuite, MaxTestSuite, MaxIncompleteIfTestSuite,
-                   SumUntilTestSuite, DoWhileTestSuite>;
+using WasmAssemblerTestSuits = testing::Types<
+    Get5TestSuite, AddTestSuite, AddWithLocalTestSuite, AddTwiceTestSuite,
+    AddTwiceWithScopesTestSuite, Add5TestSuite, MaxTestSuite,
+    MaxIncompleteIfTestSuite, SumUntilTestSuite, DoWhileTestSuite,
+    SumArrayTestSuite, MemCpyTestSuite, AddDelayedInitTestSuite,
+    ManyFunctionsGeneratorTestSuite, ManyLocalsGeneratorTestSuite>;
 INSTANTIATE_TYPED_TEST_SUITE_P(WasmAssemblerTestSuits, WasmAssemblerTest,
                                WasmAssemblerTestSuits);
 

@@ -1,6 +1,9 @@
 #include <xnnpack/assembler.h>
+#include <xnnpack/leb128.h>
 #include <xnnpack/wasm-assembler.h>
 
+#include <cstdint>
+#include <numeric>
 #include <vector>
 
 namespace xnnpack {
@@ -9,6 +12,7 @@ using internal::AppendEncodedU32;
 using internal::Export;
 using internal::Function;
 using internal::FuncType;
+using internal::WidthEncodedU32;
 
 void WasmAssembler::EmitMagicVersionAndDlynkSection() {
   EmitByteArray(kMagic);
@@ -47,6 +51,8 @@ void WasmAssembler::EmitTypeSection() {
   EmitSection(kTypeSectionCode, AppendArray(functions_, AppendFuncType));
 }
 
+void WasmAssembler::EmitImportSection() { EmitByteArray(kImportSection); }
+
 // Functions emitting Function section
 void WasmAssembler::AppendFuncs(std::vector<byte>& out) {
   AppendEncodedU32(functions_.size(), out);
@@ -78,10 +84,19 @@ void WasmAssembler::EmitExportsSection() {
 
 // Functions emitting Code section
 static void AppendFunctionBody(const Function& func, std::vector<byte>& out) {
-  out.push_back(func.body.size() + 2 * func.locals_declaration.size() + 1);
+  const auto& locals_declaration = func.locals_declaration;
+  const uint32_t locals_declaration_size =
+      std::accumulate(locals_declaration.begin(),
+                      locals_declaration.end(), 0,
+                      [](uint32_t sum, const auto& declaration) {
+                        return sum + WidthEncodedU32(declaration.second);
+                      }) +
+      locals_declaration.size() +
+      WidthEncodedU32(locals_declaration.size());
+  AppendEncodedU32(func.body.size() + locals_declaration_size, out);
 
-  AppendEncodedU32(func.locals_declaration.size(), out);
-  for (const auto& type_to_count : func.locals_declaration) {
+  AppendEncodedU32(locals_declaration.size(), out);
+  for (const auto& type_to_count : locals_declaration) {
     AppendEncodedU32(type_to_count.second, out);
     out.push_back(type_to_count.first.code);
   }

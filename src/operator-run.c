@@ -308,7 +308,7 @@ void xnn_compute_packw_gemm_goi(
   void* packed_weights = (void*) ((uintptr_t) context->packed_weights + context->w_stride * n_block_start);
 
   context->packw_gemm_goi(
-    /*g=*/1, n_block_size, context->k,
+    context->g, n_block_size, context->k,
     context->nr, context->kr, context->sr,
     kernel, bias, packed_weights,
     /*extra_bytes=*/0, /*params=*/NULL);
@@ -1493,6 +1493,11 @@ enum xnn_status xnn_run_operator_with_index(
                     xnn_operator_type_to_string(op->type),
                     xnn_microkernel_type_to_string(op->ukernel.type));
       return xnn_status_success;
+    case xnn_run_state_needs_setup:
+      xnn_log_error(
+        "failed to run operator %zu:%zu (%s %s): operator has been reshaped but not yet setup", opdata_index,
+        operator_object_index, xnn_operator_type_to_string(op->type), xnn_microkernel_type_to_string(op->ukernel.type));
+      return xnn_status_invalid_state;
   }
 
   uint32_t flags = PTHREADPOOL_FLAG_DISABLE_DENORMALS;

@@ -157,7 +157,7 @@ XNN_INLINE bool xnn_value_is_internal(const struct xnn_value* value) {
 }
 
 XNN_INLINE bool xnn_value_is_persistent(const struct xnn_value* value) {
-  return (value->flags & XNN_VALUE_FLAG_PERSISTENT) != 0;
+  return value->allocation_type == xnn_allocation_type_persistent;
 }
 
 XNN_INLINE bool xnn_value_is_valid(const struct xnn_value* value) {
@@ -165,7 +165,7 @@ XNN_INLINE bool xnn_value_is_valid(const struct xnn_value* value) {
 }
 
 XNN_INLINE bool xnn_value_is_static(const struct xnn_value* value) {
-  return value->data != NULL;
+  return value->allocation_type == xnn_allocation_type_static;
 }
 
 struct xnn_node;
@@ -178,6 +178,12 @@ typedef enum xnn_status (*xnn_create_operator_fn)(
   struct xnn_operator_data* opdata,
   struct xnn_code_cache* code_cache,
   struct xnn_weights_cache* weights_cache);
+
+typedef enum xnn_status (*xnn_reshape_operator_fn)(
+  struct xnn_operator_data* opdata,
+  const struct xnn_value* values,
+  size_t num_values,
+  pthreadpool_t threadpool);
 
 typedef enum xnn_status (*xnn_setup_operator_fn)(
   const struct xnn_operator_data* opdata,
@@ -329,6 +335,8 @@ struct xnn_node {
   size_t num_zeroes;
   // Factory function to create an operator object from the node.
   xnn_create_operator_fn create;
+  // Function to reshape an operator using opdata.
+  xnn_reshape_operator_fn reshape;
   // Function to setup an operator using opdata.
   xnn_setup_operator_fn setup;
 };
@@ -347,6 +355,7 @@ struct xnn_operator_data {
   enum xnn_node_type type;
   uint32_t id;
   xnn_operator_t operator_objects[XNN_MAX_OPERATOR_OBJECTS];
+  xnn_reshape_operator_fn reshape;
   xnn_setup_operator_fn setup;
   size_t batch_size;
   size_t input_height;
@@ -371,6 +380,9 @@ struct xnn_operator_data {
   uint32_t num_outputs;
   uint32_t outputs[XNN_MAX_RUNTIME_OUTPUTS];
   xnn_timestamp end_ts[XNN_MAX_OPERATOR_OBJECTS];
+  void* workspace;
+  size_t workspace_size;
+  size_t workspace_alignment;
 };
 
 struct xnn_subgraph {

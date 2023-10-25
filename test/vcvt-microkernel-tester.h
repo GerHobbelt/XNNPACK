@@ -105,7 +105,7 @@ class VCvtMicrokernelTester {
       std::fill(output.begin(), output.end(), nanf(""));
 
       union xnn_f16_f32_cvt_params params;
-      if (init_params) {
+      if (init_params != nullptr) {
         init_params(&params);
       }
 
@@ -133,7 +133,7 @@ class VCvtMicrokernelTester {
       std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
 
       union xnn_f32_f16_cvt_params params;
-      if (init_params) {
+      if (init_params != nullptr) {
         init_params(&params);
       }
 
@@ -170,9 +170,7 @@ class VCvtMicrokernelTester {
       std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       union xnn_f32_qs8_cvt_params params;
-      if (init_params) {
-        init_params(&params, scale(), output_zero_point(), qmin(), qmax());
-      }
+      init_params(&params, scale(), output_zero_point(), qmin(), qmax());
 
       // Call optimized micro-kernel.
       vcvt(batch_size() * sizeof(float), input.data(), output.data(), &params);
@@ -265,7 +263,7 @@ class VCvtMicrokernelTester {
       // Compute reference results
       const int32_t multiplier = (int32_t) lrintf(-256.0f * scale());
       for (size_t i = 0; i < batch_size(); i++) {
-        const int32_t input_value = (input_zero_point() - input[i]) << 7;
+        const int32_t input_value = (input_zero_point() - input[i]) * 128;
         int32_t output_value = math_asr_s32(input_value * multiplier + INT32_C(0x4000), 15) + output_zero_point();
         output_value = std::min<int32_t>(output_value, std::numeric_limits<int8_t>::max());
         output_value = std::max<int32_t>(output_value, std::numeric_limits<int8_t>::min());
@@ -386,7 +384,7 @@ class VCvtMicrokernelTester {
       // Compute reference results
       const int32_t multiplier = (int32_t) lrintf(-256.0f * scale());
       for (size_t i = 0; i < batch_size(); i++) {
-        const int32_t input_value = (input_zero_point() - input[i]) << 7;
+        const int32_t input_value = (input_zero_point() - input[i]) * 128;
         int32_t output_value = math_asr_s32(input_value * multiplier + INT32_C(0x4000), 15) + output_zero_point();
         output_value = std::min<int32_t>(output_value, std::numeric_limits<uint8_t>::max());
         output_value = std::max<int32_t>(output_value, std::numeric_limits<uint8_t>::min());

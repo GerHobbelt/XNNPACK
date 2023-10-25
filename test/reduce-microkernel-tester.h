@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <cstdlib>
 #include <functional>
@@ -23,10 +24,12 @@
 
 
 class ReduceMicrokernelTester {
+  using FloatIt = std::vector<float>::iterator;
  public:
   enum class OpType {
     Max,
     Min,
+    MinMax,
   };
 
   inline ReduceMicrokernelTester& batch_size(size_t batch_size) {
@@ -58,15 +61,9 @@ class ReduceMicrokernelTester {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
 
       // Compute reference results.
-      float output_ref = std::nan("");
-      switch (op_type) {
-        case OpType::Max:
-          output_ref = *std::max_element(input.begin(), input.begin() + batch_size());
-          break;
-        case OpType::Min:
-          output_ref = *std::min_element(input.begin(), input.begin() + batch_size());
-          break;
-      }
+
+      FloatIt min, max;
+      std::tie(min, max) = std::minmax_element(input.begin(), input.begin() + batch_size());
 
       // Prepare parameters.
       xnn_f32_default_params params;
@@ -75,12 +72,26 @@ class ReduceMicrokernelTester {
       }
 
       // Call optimized micro-kernel.
-      float output = std::nanf("");
-      reduce(batch_size() * sizeof(float), input.data(), &output, init_params != nullptr ? &params : nullptr);
+      float output[2] = {std::nanf(""), std::nanf("")};
+      reduce(batch_size() * sizeof(float), input.data(), output, init_params != nullptr ? &params : nullptr);
 
       // Verify results.
-      EXPECT_EQ(output, output_ref)
-        << "with batch " << batch_size();
+      switch (op_type) {
+        case OpType::Max:
+          EXPECT_EQ(output[0], *max)
+              << "with batch " << batch_size();
+          break;
+        case OpType::Min:
+          EXPECT_EQ(output[0], *min)
+              << "with batch " << batch_size();
+          break;
+        case OpType::MinMax:
+          EXPECT_EQ(output[0], *min)
+              << "with batch " << batch_size();
+          EXPECT_EQ(output[1], *max)
+              << "with batch " << batch_size();
+          break;
+      }
     }
   }
 

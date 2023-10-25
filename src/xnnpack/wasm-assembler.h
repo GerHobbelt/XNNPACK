@@ -14,10 +14,14 @@
 #include <cassert>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <functional>
+#include <initializer_list>
+#include <numeric>
 #include <type_traits>
 #include <utility>
 #include <vector>
+
 
 namespace xnnpack {
 
@@ -36,10 +40,52 @@ inline bool operator==(const ValType& lhs, const ValType& rhs) {
 using ValTypesToInt = std::vector<std::pair<ValType, uint32_t>>;
 
 namespace internal {
-struct FuncType {
-  std::vector<ValType> param;
-  std::vector<ValType> result;
+template <typename Array, typename ElementEncodingLength>
+static uint32_t VectorEncodingLength(
+    Array&& array, ElementEncodingLength&& element_encoding_length) {
+  const auto add_encoding_length = [&](uint32_t acc, const auto& element) {
+    return acc + element_encoding_length(element);
+  };
+  const uint32_t total_length_of_element_encodings = std::accumulate(
+      array.begin(), array.end(), uint32_t{0}, add_encoding_length);
+  return WidthEncodedU32(array.size()) + total_length_of_element_encodings;
+}
+
+struct ResultType {
+  ResultType(std::initializer_list<ValType> codes) : type(kNoTypeCode) {
+    switch (codes.size()) {
+      case 0:
+        break;
+      case 1:
+        type = *codes.begin();
+        break;
+      default:
+        XNN_UNREACHABLE;
+    }
+  }
+
+  bool IsVoid() const { return type.code == kNoTypeCode; }
+
+  ValType type;
+
+ private:
+  static constexpr byte kNoTypeCode = 0;
 };
+
+inline bool operator==(const ResultType& lhs, const ResultType& rhs) {
+  return lhs.type == rhs.type;
+}
+
+struct FuncType {
+  FuncType(std::vector<ValType> param, ResultType result)
+      : param(std::move(param)), result(result) {}
+  std::vector<ValType> param;
+  ResultType result;
+};
+
+inline bool operator==(const FuncType& lhs, const FuncType& rhs) {
+  return lhs.param == rhs.param && lhs.result == rhs.result;
+}
 
 inline uint32_t& At(ValTypesToInt& map, ValType type) {
   const auto it =
@@ -51,13 +97,22 @@ inline uint32_t& At(ValTypesToInt& map, ValType type) {
 }
 
 struct Function {
-  FuncType type;
+  Function(uint32_t type_index, ValTypesToInt locals_declaration,
+           std::vector<byte> body)
+      : type_index(type_index),
+        locals_declaration(std::move(locals_declaration)),
+        body(std::move(body)) {}
+  uint32_t type_index;
   ValTypesToInt locals_declaration;
   std::vector<byte> body;
 };
 
 struct Export {
+  Export(const char* name, size_t function_index)
+      : name(name), name_length(strlen(name)), function_index(function_index) {}
+
   const char* name;
+  size_t name_length;
   size_t function_index;
 };
 
@@ -88,8 +143,10 @@ class I32WasmOps : public WasmOpsBase<Derived, I32WasmOps<Derived>> {
   void i32_and() const { this->Emit8(0x71); }
   void i32_lt_s() const { this->Emit8(0x48); }
   void i32_le_s() const { this->Emit8(0x4C); }
+  void i32_ge_u() const { this->Emit8(0x4F); }
   void i32_shl() const { this->Emit8(0x74); }
   void i32_shr_u() const { this->Emit8(0x76); }
+  void i32_ne() const { this->Emit8(0x47); }
   void i32_const(int32_t value) const {
     this->Emit8(0x41);
     this->EmitEncodedS32(value);
@@ -277,7 +334,13 @@ class LocalWasmOps : public LocalsManager {
 
     Local(const Local& other) = delete;
 
-    Local(Local&& other) = default;
+    Local(Local&& other)
+        : type_(other.type_),
+          index_(other.index_),
+          ops_(other.ops_),
+          is_managed_(other.is_managed_) {
+      other.index_ = kInvalidIndex;
+    }
 
     Local& operator=(const Local& other) {
       assert((type_ == other.type_) &&
@@ -327,6 +390,12 @@ class LocalWasmOps : public LocalsManager {
                  GetMutableDerived()};
   }
 
+  Local MakeLocal(const ValueOnStack& rhs) {
+    auto result = MakeLocal(rhs.type);
+    result = rhs;
+    return result;
+  }
+
   void local_get(uint32_t index) const {
     GetDerived()->Emit8(0x20);
     GetDerived()->EmitEncodedU32(index);
@@ -361,8 +430,16 @@ class LocalWasmOps : public LocalsManager {
     return BinaryOp(a, b, &Derived::i32_le_s);
   }
 
+  ValueOnStack I32GeU(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::i32_ge_u);
+  }
+
   ValueOnStack I32Shl(const ValueOnStack& value, const ValueOnStack& bits_num) {
     return BinaryOp(value, bits_num, &Derived::i32_shl);
+  }
+
+  ValueOnStack I32Ne(const ValueOnStack& lhs, const ValueOnStack& rhs) {
+    return BinaryOp(lhs, rhs, &Derived::i32_ne);
   }
 
   ValueOnStack I32ShrU(const ValueOnStack& value,
@@ -514,14 +591,15 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
   using Function = internal::Function;
   using FuncType = internal::FuncType;
   using LocalsManager = internal::LocalsManager;
+  using ResultType = internal::ResultType;
 
  public:
   explicit WasmAssembler(xnn_code_buffer* buf) : AssemblerBase(buf) {}
 
   template <size_t InSize, typename Body>
-  void AddFunc(const std::vector<ValType>& result, const char* name,
+  void AddFunc(const ResultType& result, const char* name,
                const std::array<ValType, InSize>& param,
-               const ValTypesToInt& locals_declaration_count, Body&& body) {
+               ValTypesToInt locals_declaration_count, Body&& body) {
     std::vector<byte> code;
     SetOut(&code);
     ResetLocalsManager(InSize, locals_declaration_count);
@@ -533,7 +611,7 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
     internal::ArrayApply(std::move(input_locals), std::forward<Body>(body));
     end();
     RegisterFunction(result, name, std::vector(param.begin(), param.end()),
-                     locals_declaration_count, std::move(code));
+                     std::move(locals_declaration_count), std::move(code));
   }
 
   void Emit() {
@@ -558,15 +636,11 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
   constexpr static byte kExportsSectionCode = 0x07;
   constexpr static byte kCodeSectionCode = 0x0A;
 
-  void RegisterFunction(const std::vector<ValType>& result, const char* name,
-                        const std::vector<ValType>& param,
-                        ValTypesToInt locals_declaration_count,
-                        std::vector<byte> code) {
-    exports_.push_back(Export{name, functions_.size()});
-    functions_.push_back(Function{FuncType{param, result},
-                                  std::move(locals_declaration_count),
-                                  std::move(code)});
-  }
+  void RegisterFunction(const ResultType& result, const char* name,
+                        std::vector<ValType>&& param,
+                        ValTypesToInt&& locals_declaration_count,
+                        std::vector<byte> code);
+  uint32_t FindOrAddFuncType(FuncType&& type);
 
   template <typename Array>
   void EmitByteArray(Array&& array) {
@@ -575,34 +649,40 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
     }
   }
 
-  template <typename AppendSection>
-  void EmitSection(byte section_code, AppendSection&& append_section) {
-    std::vector<byte> out;
-    append_section(out);
-
+  template <typename Array, typename SizeCalculator, typename EmitElement>
+  void EmitSection(byte section_code, Array&& array,
+                   SizeCalculator&& size_calculator,
+                   EmitElement&& emit_element) {
     emit8(section_code);
-    EmitEncodedU32(out.size());
-    EmitByteArray(out);
+    EmitEncodedU32(VectorEncodingLength(
+        array, std::forward<SizeCalculator>(size_calculator)));
+    EmitEncodedU32(array.size());
+    for (const auto& element : array) emit_element(element);
   }
 
   void EmitMagicVersion();
 
   void EmitTypeSection();
+  void EmitFuncType(const FuncType& type);
+  void EmitParamType(const std::vector<ValType>& type);
+  void EmitResultType(const ResultType& type);
 
   void EmitImportSection();
 
   void EmitFunctionSection();
-  void AppendFuncs(std::vector<byte>& out);
 
   void EmitExportsSection();
+  void EmitExport(const Export& exp);
 
   void EmitCodeSection();
+  void EmitFunction(const Function& func);
 
   void EmitEncodedU32(uint32_t n) {
     internal::StoreEncodedU32(n, [this](byte b) { emit8(b); });
   }
 
   std::vector<Function> functions_;
+  std::vector<FuncType> func_types_;
   std::vector<Export> exports_;
 };
 

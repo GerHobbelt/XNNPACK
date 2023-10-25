@@ -2307,6 +2307,11 @@ SET(ALL_NEON_MICROKERNEL_SRCS
   src/f32-rminmax/gen/f32-rmin-neon-x12-acc3.c
   src/f32-rminmax/gen/f32-rmin-neon-x16-acc2.c
   src/f32-rminmax/gen/f32-rmin-neon-x16-acc4.c
+  src/f32-rminmax/gen/f32-rminmax-neon-x4.c
+  src/f32-rminmax/gen/f32-rminmax-neon-x8-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-neon-x12-acc3.c
+  src/f32-rminmax/gen/f32-rminmax-neon-x16-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-neon-x16-acc4.c
   src/f32-rsum/gen/f32-rsum-neon-x4.c
   src/f32-rsum/gen/f32-rsum-neon-x8-acc2.c
   src/f32-rsum/gen/f32-rsum-neon-x12-acc3.c
@@ -4776,6 +4781,11 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/f32-rminmax/gen/f32-rmin-scalar-x3-acc3.c
   src/f32-rminmax/gen/f32-rmin-scalar-x4-acc2.c
   src/f32-rminmax/gen/f32-rmin-scalar-x4-acc4.c
+  src/f32-rminmax/gen/f32-rminmax-scalar-x1.c
+  src/f32-rminmax/gen/f32-rminmax-scalar-x2-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-scalar-x3-acc3.c
+  src/f32-rminmax/gen/f32-rminmax-scalar-x4-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-scalar-x4-acc4.c
   src/f32-rsum/gen/f32-rsum-scalar-x1.c
   src/f32-rsum/gen/f32-rsum-scalar-x2-acc2.c
   src/f32-rsum/gen/f32-rsum-scalar-x3-acc3.c
@@ -5124,6 +5134,13 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/math/u64-sqrt-scalar-cvtu32-sqrt-cvtsatu32f64.c
   src/math/u64-sqrt-scalar-cvtu32-sqrt-llrint.c
   src/math/u64-sqrt-scalar-cvtu64-sqrt-llrint.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-1x2-minmax-scalar.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-1x4-minmax-scalar.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-1x8-minmax-scalar.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-2x2-minmax-scalar.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-2x4-minmax-scalar.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-2x8-minmax-scalar.c
+  src/qd8-f32-qs8w-gemm/gen/qd8-f32-qs8w-gemm-4x4-minmax-scalar.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l1c1s1r-minmax-fp32-scalar-fmagic.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l1c1s1r-minmax-fp32-scalar-imagic.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l1c1s1r-minmax-fp32-scalar-lrintf.c
@@ -5828,6 +5845,11 @@ SET(ALL_SSE_MICROKERNEL_SRCS
   src/f32-rminmax/gen/f32-rmin-sse-x12-acc3.c
   src/f32-rminmax/gen/f32-rmin-sse-x16-acc2.c
   src/f32-rminmax/gen/f32-rmin-sse-x16-acc4.c
+  src/f32-rminmax/gen/f32-rminmax-sse-x4.c
+  src/f32-rminmax/gen/f32-rminmax-sse-x8-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-sse-x12-acc3.c
+  src/f32-rminmax/gen/f32-rminmax-sse-x16-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-sse-x16-acc4.c
   src/f32-rsum/gen/f32-rsum-sse-x4.c
   src/f32-rsum/gen/f32-rsum-sse-x8-acc2.c
   src/f32-rsum/gen/f32-rsum-sse-x12-acc3.c
@@ -6871,6 +6893,11 @@ SET(ALL_WASM_MICROKERNEL_SRCS
   src/f32-rminmax/gen/f32-rmin-wasm-x3-acc3.c
   src/f32-rminmax/gen/f32-rmin-wasm-x4-acc2.c
   src/f32-rminmax/gen/f32-rmin-wasm-x4-acc4.c
+  src/f32-rminmax/gen/f32-rminmax-wasm-x1.c
+  src/f32-rminmax/gen/f32-rminmax-wasm-x2-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-wasm-x3-acc3.c
+  src/f32-rminmax/gen/f32-rminmax-wasm-x4-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-wasm-x4-acc4.c
   src/f32-vbinary/gen/f32-vadd-minmax-wasm-x1.c
   src/f32-vbinary/gen/f32-vadd-minmax-wasm-x2.c
   src/f32-vbinary/gen/f32-vadd-minmax-wasm-x4.c
@@ -8069,6 +8096,16 @@ SET(ALL_WASMSIMD_MICROKERNEL_SRCS
   src/f32-rminmax/gen/f32-rmin-wasmsimd-pminmax-x12-acc3.c
   src/f32-rminmax/gen/f32-rmin-wasmsimd-pminmax-x16-acc2.c
   src/f32-rminmax/gen/f32-rmin-wasmsimd-pminmax-x16-acc4.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-minmax-x4.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-minmax-x8-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-minmax-x12-acc3.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-minmax-x16-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-minmax-x16-acc4.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-pminmax-x4.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-pminmax-x8-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-pminmax-x12-acc3.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-pminmax-x16-acc2.c
+  src/f32-rminmax/gen/f32-rminmax-wasmsimd-pminmax-x16-acc4.c
   src/f32-rsum/gen/f32-rsum-wasmsimd-x4.c
   src/f32-rsum/gen/f32-rsum-wasmsimd-x8-acc2.c
   src/f32-rsum/gen/f32-rsum-wasmsimd-x12-acc3.c
@@ -9091,6 +9128,9 @@ SET(AARCH64_ASM_MICROKERNEL_SRCS
   src/f32-gemm/gen/f32-gemm-6x8-minmax-asm-aarch64-neonfma-cortex-a75.S
   src/f32-gemm/gen/f32-gemm-6x8-minmax-asm-aarch64-neonfma-ld64.S
   src/f32-gemm/gen/f32-gemm-6x8-minmax-asm-aarch64-neonfma-ld128.S
+  src/f32-gemm/gen/f32-gemm-goi-1x8-minmax-asm-aarch64-neonfma-ld128-prfm.S
+  src/f32-gemm/gen/f32-gemm-goi-1x8-minmax-asm-aarch64-neonfma-ld128.S
+  src/f32-gemm/gen/f32-gemm-goi-4x8-minmax-asm-aarch64-neonfma-ld128.S
   src/f32-gemm/gen/f32-gemminc-1x8-minmax-asm-aarch64-neonfma-cortex-a53.S
   src/f32-gemm/gen/f32-gemminc-1x8-minmax-asm-aarch64-neonfma-cortex-a75-prfm.S
   src/f32-gemm/gen/f32-gemminc-1x8-minmax-asm-aarch64-neonfma-cortex-a75.S

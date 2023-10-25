@@ -25,11 +25,11 @@ void xnn_f32_rmax_ukernel__scalar_x1(
   assert(input != NULL);
   assert(output != NULL);
 
-  float vacc0 = *input;
+  float vmax0 = *input;
   do {
     const float vt = *input++;
-    vacc0 = math_max_f32(vacc0, vt);
+    vmax0 = math_max_f32(vmax0, vt);
     batch -= sizeof(float);
   } while (batch != 0);
-  *output = vacc0;
+  output[0] = vmax0;
 }

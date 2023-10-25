@@ -162,6 +162,18 @@ typedef void (*xnn_f32_gemm_minmax_ukernel_fn)(
     size_t cn_stride,
     const union xnn_f32_minmax_params* params);
 
+typedef void (*xnn_f32_gemm_goi_minmax_ukernel_fn)(
+    size_t mr,
+    size_t nr,
+    size_t k,
+    const float* a,
+    size_t a_stride,
+    const float* w,
+    float* c,
+    size_t cm_stride,
+    size_t cn_stride,
+    const union xnn_f32_minmax_params* params);
+
 typedef void (*xnn_f32_qc8w_gemm_minmax_ukernel_fn)(
     size_t mr,
     size_t nr,
@@ -185,6 +197,19 @@ typedef void (*xnn_qs8_gemm_minmax_ukernel_fn)(
     size_t cm_stride,
     size_t cn_stride,
     const union xnn_qs8_conv_minmax_params* params);
+
+typedef void (*xnn_qd8_f32_qs8w_gemm_ukernel_fn)(
+    size_t mr,
+    size_t nr,
+    size_t k,
+    const int8_t* a,
+    size_t a_stride,
+    const void* w,
+    float* c,
+    size_t cm_stride,
+    size_t cn_stride,
+    const union xnn_f32_minmax_params* params,
+    const struct xnn_qd8_quantization_params* quantization_params);
 
 typedef void (*xnn_qs8_qc8w_gemm_minmax_ukernel_fn)(
     size_t mr,

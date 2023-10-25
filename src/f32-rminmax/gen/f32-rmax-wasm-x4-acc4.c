@@ -24,10 +24,10 @@ void xnn_f32_rmax_ukernel__wasm_x4_acc4(
   assert(input != NULL);
   assert(output != NULL);
 
-  float vacc0 = *input;
-  float vacc1 = vacc0;
-  float vacc2 = vacc0;
-  float vacc3 = vacc0;
+  float vmax0 = *input;
+  float vmax1 = vmax0;
+  float vmax2 = vmax0;
+  float vmax3 = vmax0;
   for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
     const float vt0 = input[0];
     const float vt1 = input[1];
@@ -35,21 +35,21 @@ void xnn_f32_rmax_ukernel__wasm_x4_acc4(
     const float vt3 = input[3];
     input += 4;
 
-    vacc0 = __builtin_wasm_max_f32(vacc0, vt0);
-    vacc1 = __builtin_wasm_max_f32(vacc1, vt1);
-    vacc2 = __builtin_wasm_max_f32(vacc2, vt2);
-    vacc3 = __builtin_wasm_max_f32(vacc3, vt3);
+    vmax0 = __builtin_wasm_max_f32(vmax0, vt0);
+    vmax1 = __builtin_wasm_max_f32(vmax1, vt1);
+    vmax2 = __builtin_wasm_max_f32(vmax2, vt2);
+    vmax3 = __builtin_wasm_max_f32(vmax3, vt3);
   }
-  vacc0 = __builtin_wasm_max_f32(vacc0, vacc1);
-  vacc2 = __builtin_wasm_max_f32(vacc2, vacc3);
-  vacc0 = __builtin_wasm_max_f32(vacc0, vacc2);
+  vmax0 = __builtin_wasm_max_f32(vmax0, vmax1);
+  vmax2 = __builtin_wasm_max_f32(vmax2, vmax3);
+  vmax0 = __builtin_wasm_max_f32(vmax0, vmax2);
 
   if XNN_UNLIKELY(batch != 0) {
     do {
       const float vt = *input++;
-      vacc0 = __builtin_wasm_max_f32(vacc0, vt);
+      vmax0 = __builtin_wasm_max_f32(vmax0, vt);
       batch -= sizeof(float);
     } while (batch != 0);
   }
-  *output = vacc0;
+  output[0] = vmax0;
 }

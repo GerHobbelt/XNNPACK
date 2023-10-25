@@ -5198,11 +5198,15 @@ xnnpack_cc_library(
         "src/jit/aarch32-assembler.cc",
         "src/jit/aarch64-assembler.cc",
         "src/jit/assembler.cc",
+        "src/jit/wasm-assembler.cc",
     ],
     hdrs = [
         "src/xnnpack/aarch32-assembler.h",
         "src/xnnpack/aarch64-assembler.h",
+        "src/xnnpack/array-apply.h",
         "src/xnnpack/assembler.h",
+        "src/xnnpack/leb128.h",
+        "src/xnnpack/wasm-assembler.h",
     ],
     aarch32_srcs = JIT_AARCH32_SRCS,
     aarch64_srcs = JIT_AARCH64_SRCS,
@@ -5211,6 +5215,9 @@ xnnpack_cc_library(
         "-DXNN_TEST_MODE=1",
     ],
     msvc_copts = xnnpack_msvc_std_copts(),
+    wasm_srcs = JIT_WASM32_SRCS,
+    wasmrelaxedsimd_srcs = JIT_WASM32_SRCS,
+    wasmsimd_srcs = JIT_WASM32_SRCS,
     deps = [
         ":common",
         ":logging",
@@ -6082,6 +6089,14 @@ xnnpack_benchmark(
     name = "f32_rmax_bench",
     srcs = [
         "bench/f32-rmax.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
+    name = "f32_rminmax_bench",
+    srcs = [
+        "bench/f32-rminmax.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS,
 )
@@ -8002,6 +8017,18 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "f32_gemm_goi_minmax_test",
+    srcs = [
+        "test/f32-gemm-goi-minmax.cc",
+        "test/gemm-goi-microkernel-tester.h",
+    ],
+    shard_count = 10,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":packing",
+    ],
+)
+
+xnnpack_unit_test(
     name = "f32_qc8w_gemm_test",
     srcs = [
         "test/f32-qc8w-gemm.cc",
@@ -8152,6 +8179,15 @@ xnnpack_unit_test(
     name = "f32_rmax_test",
     srcs = [
         "test/f32-rmax.cc",
+        "test/reduce-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "f32_rminmax_test",
+    srcs = [
+        "test/f32-rminmax.cc",
         "test/reduce-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
@@ -8671,6 +8707,18 @@ xnnpack_unit_test(
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "qd8_f32_qs8w_gemm_test",
+    timeout = "moderate",
+    srcs = [
+        "test/qd8-f32-qs8w-gemm.cc",
+    ],
+    shard_count = 10,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
 )
 
 xnnpack_unit_test(
@@ -9702,6 +9750,7 @@ xnnpack_unit_test(
         "test/clamp-nc.cc",
         "test/clamp-operator-tester.h",
     ],
+    linkopts = WASM_JIT_LINKOPTS,
     deps = OPERATOR_TEST_DEPS,
 )
 
@@ -9711,6 +9760,7 @@ xnnpack_unit_test(
         "test/clamp-nc-eager.cc",
         "test/clamp-operator-tester.h",
     ],
+    linkopts = WASM_JIT_LINKOPTS,
     deps = OPERATOR_TEST_DEPS,
 )
 
@@ -10471,6 +10521,7 @@ xnnpack_unit_test(
     srcs = [
         "test/clamp.cc",
     ],
+    linkopts = WASM_JIT_LINKOPTS,
     deps = [
         ":XNNPACK_test_mode",
         ":node_type",
@@ -11086,6 +11137,7 @@ xnnpack_unit_test(
         "test/runtime-tester.h",
         "test/subgraph-tester.h",
     ],
+    linkopts = WASM_JIT_LINKOPTS,
     deps = [
         ":XNNPACK_test_mode",
         ":subgraph_test_mode",
@@ -11114,6 +11166,7 @@ xnnpack_unit_test(
         "test/runtime-tester.h",
         "test/subgraph-tester.h",
     ],
+    linkopts = WASM_JIT_LINKOPTS,
     deps = [
         ":XNNPACK",
         ":common",

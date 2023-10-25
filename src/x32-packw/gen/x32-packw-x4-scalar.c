@@ -9,6 +9,8 @@
 
 
 #include <assert.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #include <xnnpack/math.h>
 #include <xnnpack/packw.h>
@@ -32,7 +34,6 @@ void xnn_x32_packw_gemm_goi_ukernel_x4__scalar(
   assert(nr == 4);   // This kernel is for NR=4
   assert(kr == 1);
   assert(sr == 1);
-  assert(nr >= sr);
   assert(weights != NULL);
   assert(packed_weights != NULL);
 
@@ -101,7 +102,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x4__scalar(
         }
 
         // KC remainder
-        for (; k >= 1; --k) {
+        for (; k != 0; --k) {
           packed_weights[0] = *w0++;
           packed_weights[1] = *w1++;
           packed_weights[2] = *w2++;
@@ -138,8 +139,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x4__scalar(
         packed_weights += (4 - n);
       } while (--k);
       packed_weights = (uint32_t*) ((uintptr_t) packed_weights + extra_bytes);
-      }
-
+    }
     weights += nc * kc;
   } while (--g != 0);
 }

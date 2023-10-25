@@ -536,6 +536,43 @@ enum xnn_status xnn_define_global_average_pooling_2d(
   uint32_t output_id,
   uint32_t flags);
 
+/// Define a 1D Global Sum Pooling Node and add it to a Subgraph.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param output_min - lower bound for clipping output values.
+/// @param output_max - upper bound for clipping output values.
+/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with 2 or more dimensions
+///                   defined in the @a subgraph. Averaging is performed across the second-innermost dimension.
+/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor with 2 or more
+///                    dimensions defined in the @a subgraph.
+/// @param flags - binary features of the 1D Global Sum Pooling Node. No supported flags are currently defined.
+enum xnn_status xnn_define_global_sum_pooling_1d(
+  xnn_subgraph_t subgraph,
+  float output_min,
+  float output_max,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags);
+
+/// Define a 2D Global Sum Pooling Node and add it to a Subgraph.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param output_min - lower bound for clipping output values.
+/// @param output_max - upper bound for clipping output values.
+/// @param input_id - Value ID for the input tensor. The input tensor must be a dense tensor with 3 or more dimensions
+///                   defined in the @a subgraph. Averaging is performed across the second- and third-innermost
+///                   dimensions.
+/// @param output_id - Value ID for the output tensor. The output tensor must be a dense tensor with 3 or more
+///                    dimensions defined in the @a subgraph.
+/// @param flags - binary features of the 2D Global Sum Pooling Node. No supported flags are currently defined.
+enum xnn_status xnn_define_global_sum_pooling_2d(
+  xnn_subgraph_t subgraph,
+  float output_min,
+  float output_max,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags);
+
 /// Define a 2D Average Pooling Node and add it to a Subgraph.
 ///
 /// @param subgraph - a Subgraph object that will own the created Node.
@@ -1964,6 +2001,23 @@ enum xnn_status xnn_setup_global_average_pooling_nwc_f32(
   float* output,
   pthreadpool_t threadpool);
 
+enum xnn_status xnn_create_global_sum_pooling_nwc_f32(
+  size_t channels,
+  size_t input_stride,
+  size_t output_stride,
+  float output_min,
+  float output_max,
+  uint32_t flags,
+  xnn_operator_t* global_sum_pooling_op_out);
+
+enum xnn_status xnn_setup_global_sum_pooling_nwc_f32(
+  xnn_operator_t global_sum_pooling_op,
+  size_t batch_size,
+  size_t width,
+  const float* input,
+  float* output,
+  pthreadpool_t threadpool);
+
 enum xnn_status xnn_create_hardswish_nc_f32(
   size_t channels,
   size_t input_stride,
@@ -2863,6 +2917,23 @@ enum xnn_status xnn_create_global_average_pooling_nwc_f16(
 
 enum xnn_status xnn_setup_global_average_pooling_nwc_f16(
   xnn_operator_t global_average_pooling_op,
+  size_t batch_size,
+  size_t width,
+  const void* input,
+  void* output,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_create_global_sum_pooling_nwc_f16(
+  size_t channels,
+  size_t input_stride,
+  size_t output_stride,
+  float output_min,
+  float output_max,
+  uint32_t flags,
+  xnn_operator_t* global_sum_pooling_op_out);
+
+enum xnn_status xnn_setup_global_sum_pooling_nwc_f16(
+  xnn_operator_t global_sum_pooling_op,
   size_t batch_size,
   size_t width,
   const void* input,

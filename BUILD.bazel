@@ -129,6 +129,7 @@ SUBGRAPH_SRCS = [
     "src/subgraph/floor.c",
     "src/subgraph/fully-connected.c",
     "src/subgraph/global-average-pooling.c",
+    "src/subgraph/global-sum-pooling.c",
     "src/subgraph/hardswish.c",
     "src/subgraph/leaky-relu.c",
     "src/subgraph/max-pooling-2d.c",
@@ -5228,6 +5229,7 @@ xnnpack_cc_library(
     ],
     deps = [
         ":allocator",
+        ":microkernel_configs",
         ":microparams",
         ":params",
     ],
@@ -6583,16 +6585,16 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
-    name = "sigmoid_bench",
-    srcs = ["bench/sigmoid.cc"],
+    name = "prelu_bench",
+    srcs = ["bench/prelu.cc"],
     copts = xnnpack_optional_tflite_copts(),
     tags = ["nowin32"],
     deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
 )
 
 xnnpack_benchmark(
-    name = "prelu_bench",
-    srcs = ["bench/prelu.cc"],
+    name = "sigmoid_bench",
+    srcs = ["bench/sigmoid.cc"],
     copts = xnnpack_optional_tflite_copts(),
     tags = ["nowin32"],
     deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
@@ -6617,6 +6619,14 @@ xnnpack_benchmark(
 xnnpack_benchmark(
     name = "square_root_bench",
     srcs = ["bench/square-root.cc"],
+    copts = xnnpack_optional_tflite_copts(),
+    tags = ["nowin32"],
+    deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
+)
+
+xnnpack_benchmark(
+    name = "tanh_bench",
+    srcs = ["bench/tanh.cc"],
     copts = xnnpack_optional_tflite_copts(),
     tags = ["nowin32"],
     deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
@@ -9748,6 +9758,16 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "global_sum_pooling_nwc_test",
+    srcs = [
+        "test/global-sum-pooling-nwc.cc",
+        "test/global-sum-pooling-operator-tester.h",
+    ],
+    shard_count = 10,
+    deps = OPERATOR_TEST_DEPS,
+)
+
+xnnpack_unit_test(
     name = "hardswish_nc_test",
     srcs = [
         "test/hardswish-nc.cc",
@@ -10502,6 +10522,32 @@ xnnpack_unit_test(
         ":node_type",
         ":operators_test_mode",
         ":requantization",
+        ":subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "global_sum_pooling_1d_test",
+    srcs = [
+        "test/global-sum-pooling-1d.cc",
+    ],
+    deps = [
+        ":XNNPACK_test_mode",
+        ":node_type",
+        ":operators_test_mode",
+        ":subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "global_sum_pooling_2d_test",
+    srcs = [
+        "test/global-sum-pooling-2d.cc",
+    ],
+    deps = [
+        ":XNNPACK_test_mode",
+        ":node_type",
+        ":operators_test_mode",
         ":subgraph_test_mode",
     ],
 )

@@ -17,7 +17,10 @@
 #include <gtest/gtest.h>
 
 using ::testing::ElementsAreArray;
+using ::testing::FloatNear;
+using ::testing::IsNull;
 using ::testing::NotNull;
+using ::testing::Pointwise;
 using ::testing::Sequence;
 using ::testing::Test;
 using GetIntPtr = int (*)();
@@ -512,38 +515,6 @@ struct AddDelayedInitLocalsGenerator : WasmAssembler {
 struct AddDelayedInitTestSuite
     : AddTestSuiteTmpl<AddDelayedInitLocalsGenerator, kExpectedSum> {};
 
-struct ManyFunctionsGenerator : WasmAssembler {
-  explicit ManyFunctionsGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
-    for (uint32_t func_index = 0; func_index < kLargeNumberOfFunctions;
-         func_index++) {
-      AddGet5(func_index);
-    }
-  }
-
- private:
-  void AddGet5(uint32_t index) {
-    function_names[index] = "get5_" + std::to_string(index);
-    ValTypesToInt no_locals;
-    AddFunc<0>({i32}, function_names[index].c_str(), {}, no_locals,
-               [this]() { i32_const(5); });
-  }
-  static std::array<std::string, kLargeNumberOfFunctions> function_names;
-};
-
-std::array<std::string, kLargeNumberOfFunctions>
-    ManyFunctionsGenerator::function_names = {};
-
-struct ManyFunctionsGeneratorTestSuite
-    : GeneratorTestSuite<ManyFunctionsGenerator, GetIntPtr> {
-  static void ExpectFuncCorrect(GetIntPtr get_int) {
-    for (uint32_t func_index = 0; func_index < kLargeNumberOfFunctions;
-         func_index++) {
-      GetIntPtr get_int_offseted = (GetIntPtr)((int)get_int + func_index);
-      Get5TestSuite::ExpectFuncCorrect(get_int_offseted);
-    }
-  }
-};
-
 struct ManyLocalsGenerator : WasmAssembler {
   explicit ManyLocalsGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
     ValTypesToInt many_ints = {{i32, kLargeNumberOfLocals + 1}};
@@ -622,6 +593,35 @@ struct V128AddConstGeneratorTestSuite
   }
 };
 
+struct V128AddPiGenerator : WasmAssembler {
+  explicit V128AddPiGenerator(xnn_code_buffer* bf) : WasmAssembler(bf) {
+    ValTypesToInt two_v128 = {{v128, 2}};
+    AddFunc<2>({}, "v128_add_pi", {i32, i32}, two_v128,
+               [this](Local src, Local dst) {
+                 auto a = MakeLocal(v128);
+                 auto b = MakeLocal(v128);
+                 a = V128Load(src);
+                 b = V128Const(kPi);
+                 a = F32x4Add(a, b);
+                 V128Store(dst, a);
+               });
+  }
+};
+
+struct V128AddPiGeneratorTestSuite
+    : GeneratorTestSuite<V128AddPiGenerator, V128AddConst> {
+  static void ExpectFuncCorrect(V128AddConst v128_add_const) {
+    static constexpr std::array<float, 5> kIn = {1, 2, 3, 4, 5};
+
+    std::array<float, 4> expected_out;
+    for (int i = 0; i < 4; i++) expected_out[i] = kIn[i] + kPi;
+
+    std::array<float, 4> out;
+    v128_add_const(kIn.data(), out.data());
+    EXPECT_THAT(out, Pointwise(FloatNear(1e-6f), expected_out));
+  }
+};
+
 struct I64x2ShuffleGenerator : WasmAssembler {
   explicit I64x2ShuffleGenerator(xnn_code_buffer* bf) : WasmAssembler(bf) {
     ValTypesToInt two_v128 = {{v128, 2}};
@@ -687,6 +687,26 @@ struct InvalidCodeGenerator : WasmAssembler {
   }
 };
 
+struct ManyFunctionsGenerator : WasmAssembler {
+  explicit ManyFunctionsGenerator(xnn_code_buffer* buf) : WasmAssembler(buf) {
+    for (uint32_t func_index = 0; func_index < kLargeNumberOfFunctions;
+         func_index++) {
+      AddGet5(func_index);
+    }
+  }
+
+ private:
+  void AddGet5(uint32_t index) {
+    function_names[index] = "get5_" + std::to_string(index);
+    ValTypesToInt no_locals;
+    AddFunc<0>({i32}, function_names[index].c_str(), {}, no_locals,
+               [this]() { i32_const(5); });
+  }
+  static std::array<std::string, kLargeNumberOfFunctions> function_names;
+};
+std::array<std::string, kLargeNumberOfFunctions>
+    ManyFunctionsGenerator::function_names = {};
+
 template <typename TestSuite>
 class WasmAssemblerTest : public Test {};
 
@@ -717,17 +737,18 @@ TYPED_TEST_P(WasmAssemblerTest, ValidCode) {
 
 REGISTER_TYPED_TEST_SUITE_P(WasmAssemblerTest, ValidCode);
 
-using WasmAssemblerTestSuits = testing::Types<
-    Get5TestSuite, AddTestSuite, Get5AndAddTestSuite, AddWithLocalTestSuite,
-    AddTwiceTestSuite, AddTwiceDeclareInitTestSuite,
-    AddTwiceWithScopesTestSuite, Add5TestSuite, MaxTestSuite,
-    MaxIncompleteIfTestSuite, SumUntilTestSuite,
-    SumUntilLocalsArrayWithIterator, SumUntilLocalsArrayWithIndexTestSuite,
-    DoWhileTestSuite, SumArrayTestSuite, MemCpyTestSuite,
-    AddDelayedInitTestSuite, ManyFunctionsGeneratorTestSuite,
-    ManyLocalsGeneratorTestSuite, V128AddGeneratorTestSuite,
-    V128AddConstGeneratorTestSuite, I64x2ShuffleGeneratorTestSuite,
-    GetPiTestSuite, Get5TrickyTestSuite>;
+using WasmAssemblerTestSuits =
+    testing::Types<Get5TestSuite, AddTestSuite, Get5AndAddTestSuite,
+                   AddWithLocalTestSuite, AddTwiceTestSuite,
+                   AddTwiceDeclareInitTestSuite, AddTwiceWithScopesTestSuite,
+                   Add5TestSuite, MaxTestSuite, MaxIncompleteIfTestSuite,
+                   SumUntilTestSuite, SumUntilLocalsArrayWithIterator,
+                   SumUntilLocalsArrayWithIndexTestSuite, DoWhileTestSuite,
+                   SumArrayTestSuite, MemCpyTestSuite, AddDelayedInitTestSuite,
+                   ManyLocalsGeneratorTestSuite, V128AddGeneratorTestSuite,
+                   V128AddPiGeneratorTestSuite, V128AddConstGeneratorTestSuite,
+                   I64x2ShuffleGeneratorTestSuite, GetPiTestSuite,
+                   Get5TrickyTestSuite>;
 INSTANTIATE_TYPED_TEST_SUITE_P(WasmAssemblerTestSuits, WasmAssemblerTest,
                                WasmAssemblerTestSuits);
 
@@ -739,6 +760,16 @@ TEST(WasmAssemblerTest, InvalidCode) {
   generator.Emit();
   EXPECT_THAT(generator.finalize(), NotNull());
   EXPECT_THAT(xnn_first_function_ptr(&b), XNN_INVALID_FUNCTION_INDEX);
+}
+
+TEST(WasmAssemblerTest, MaxNumberOfFunctionsExceeded) {
+  xnn_code_buffer b;
+  xnn_allocate_code_memory(&b, XNN_DEFAULT_CODE_BUFFER_SIZE);
+
+  ManyFunctionsGenerator generator(&b);
+  generator.Emit();
+  EXPECT_THAT(generator.finalize(), IsNull());
+  EXPECT_EQ(generator.error(), Error::kMaxNumberOfFunctionsExceeded);
 }
 
 namespace {

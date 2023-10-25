@@ -109,7 +109,7 @@ static void* resize_buffer(
 {
   const size_t new_capacity = round_up_po2(new_size, get_page_size());
   #if XNN_PLATFORM_LINUX
-    void* new_pointer = mremap(old_pointer, old_size, new_capacity, MREMAP_MAYMOVE, NULL);
+    void* new_pointer = mremap(old_pointer, old_capacity, new_capacity, MREMAP_MAYMOVE, NULL);
     if (new_pointer == MAP_FAILED) {
       xnn_log_error("mremap failed with errno: %d", errno);
       return NULL;
@@ -292,6 +292,9 @@ uintptr_t xnn_first_function_in_chunk_ptr(struct xnn_code_buffer* buffer, size_t
   #if (XNN_ARCH_ARM || XNN_ARCH_ARM64)
     return (uintptr_t) buffer->start + offset;
   #elif XNN_PLATFORM_WEB
+    if (offset == offset_end) {
+      return XNN_INVALID_FUNCTION_INDEX;
+    }
     return xnnLoadWasmModuleJS(buffer->start, offset, offset_end, XNN_INVALID_FUNCTION_INDEX);
   #endif
 }

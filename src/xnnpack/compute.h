@@ -936,6 +936,7 @@ struct univector_strided_context {
     union xnn_f16_minmax_params f16_minmax;
     union xnn_f16_neg_params f16_neg;
     union xnn_f16_sigmoid_params f16_sigmoid;
+    union xnn_f16_tanh_params f16_tanh;
     union xnn_f32_abs_params f32_abs;
     union xnn_f32_default_params f32_default;
     union xnn_f32_elu_params f32_elu;
@@ -949,6 +950,7 @@ struct univector_strided_context {
     union xnn_f32_rnd_params f32_rnd;
     union xnn_f32_sigmoid_params f32_sigmoid;
     union xnn_f32_sqrt_params f32_sqrt;
+    union xnn_f32_tanh_params f32_tanh;
     union xnn_qs8_cvt_params qs8_cvt;
     union xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
     union xnn_qs8_f32_cvt_params qs8_f32_cvt;

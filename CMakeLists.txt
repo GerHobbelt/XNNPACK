@@ -261,6 +261,7 @@ SET(SUBGRAPH_SRCS
   src/subgraph/static-slice.c
   src/subgraph/static-transpose.c
   src/subgraph/subtract.c
+  src/subgraph/tanh.c
   src/subgraph/unpooling-2d.c
   src/subgraph/validation.c
   src/tensor.c)
@@ -1293,7 +1294,7 @@ IF(XNNPACK_BUILD_TESTS)
 
     ADD_EXECUTABLE(tanh-nc-test test/tanh-nc.cc)
     TARGET_INCLUDE_DIRECTORIES(tanh-nc-test PRIVATE src test)
-    TARGET_LINK_LIBRARIES(tanh-nc-test PRIVATE XNNPACK gtest gtest_main)
+    TARGET_LINK_LIBRARIES(tanh-nc-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME tanh-nc-test COMMAND tanh-nc-test)
 
     ADD_EXECUTABLE(transpose-nd-test test/transpose-nd.cc)
@@ -1592,6 +1593,12 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_INCLUDE_DIRECTORIES(subtract2-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(subtract2-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
     ADD_TEST(NAME subtract2-test COMMAND subtract2-test)
+
+    ADD_EXECUTABLE(tanh-test test/sigmoid.cc)
+    SET_TARGET_PROPERTIES(tanh-test PROPERTIES CXX_EXTENSIONS YES)
+    TARGET_INCLUDE_DIRECTORIES(tanh-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(tanh-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
+    ADD_TEST(NAME tanh-test COMMAND tanh-test)
 
     ADD_EXECUTABLE(unpooling-2d-test test/unpooling-2d.cc)
     TARGET_INCLUDE_DIRECTORIES(unpooling-2d-test PRIVATE src test)
@@ -2458,6 +2465,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f32-vtanh-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME f32-vtanh-test COMMAND f32-vtanh-test)
 
+  ADD_EXECUTABLE(qc8-dwconv-multipass-minmax-fp32-test test/qc8-dwconv-multipass-minmax-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qc8-dwconv-multipass-minmax-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qc8-dwconv-multipass-minmax-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qc8-dwconv-multipass-minmax-fp32-test PRIVATE hardware-config logging microkernel-utils microkernels-all microparams-init packing)
+  ADD_TEST(NAME qc8-dwconv-multipass-minmax-fp32-test COMMAND qc8-dwconv-multipass-minmax-fp32-test)
+
   ADD_EXECUTABLE(qc8-dwconv-unipass-minmax-fp32-test test/qc8-dwconv-unipass-minmax-fp32.cc)
   TARGET_INCLUDE_DIRECTORIES(qc8-dwconv-unipass-minmax-fp32-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(qc8-dwconv-unipass-minmax-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
@@ -2487,6 +2500,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(qc8-igemm-minmax-fp32-test PRIVATE pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(qc8-igemm-minmax-fp32-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME qc8-igemm-minmax-fp32-test COMMAND qc8-igemm-minmax-fp32-test)
+
+  ADD_EXECUTABLE(qs8-dwconv-multipass-minmax-fp32-test test/qs8-dwconv-multipass-minmax-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-dwconv-multipass-minmax-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-dwconv-multipass-minmax-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main microparams-init)
+  TARGET_LINK_LIBRARIES(qs8-dwconv-multipass-minmax-fp32-test PRIVATE hardware-config logging microkernel-utils microkernels-all microparams-init packing)
+  ADD_TEST(NAME qs8-dwconv-multipass-minmax-fp32-test COMMAND qs8-dwconv-multipass-minmax-fp32-test)
 
   ADD_EXECUTABLE(qs8-dwconv-unipass-minmax-fp32-test test/qs8-dwconv-unipass-minmax-fp32.cc)
   TARGET_INCLUDE_DIRECTORIES(qs8-dwconv-unipass-minmax-fp32-test PRIVATE include src test)
@@ -2610,6 +2629,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(qu8-avgpool-minmax-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(qu8-avgpool-minmax-fp32-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME qu8-avgpool-minmax-fp32-test COMMAND qu8-avgpool-minmax-fp32-test)
+
+  ADD_EXECUTABLE(qu8-dwconv-multipass-minmax-fp32-test test/qu8-dwconv-multipass-minmax-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qu8-dwconv-multipass-minmax-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qu8-dwconv-multipass-minmax-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qu8-dwconv-multipass-minmax-fp32-test PRIVATE hardware-config logging microkernel-utils microkernels-all microparams-init packing)
+  ADD_TEST(NAME qu8-dwconv-multipass-minmax-fp32-test COMMAND qu8-dwconv-multipass-minmax-fp32-test)
 
   ADD_EXECUTABLE(qu8-dwconv-unipass-minmax-fp32-test test/qu8-dwconv-unipass-minmax-fp32.cc)
   TARGET_INCLUDE_DIRECTORIES(qu8-dwconv-unipass-minmax-fp32-test PRIVATE include src test)
@@ -2843,6 +2868,18 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(x24-transpose-test PRIVATE pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(x24-transpose-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME x24-transpose-test COMMAND x24-transpose-test)
+
+  ADD_EXECUTABLE(x8-packw-test test/x8-packw.cc)
+  TARGET_INCLUDE_DIRECTORIES(x8-packw-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(x8-packw-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(x8-packw-test PRIVATE hardware-config logging microkernels-all packing)
+  ADD_TEST(NAME x8-packw-test COMMAND x8-packw-test)
+
+  ADD_EXECUTABLE(x16-packw-test test/x16-packw.cc)
+  TARGET_INCLUDE_DIRECTORIES(x16-packw-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(x16-packw-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(x16-packw-test PRIVATE hardware-config logging microkernels-all packing)
+  ADD_TEST(NAME x16-packw-test COMMAND x16-packw-test)
 
   ADD_EXECUTABLE(x32-packw-test test/x32-packw.cc)
   TARGET_INCLUDE_DIRECTORIES(x32-packw-test PRIVATE include src test)
@@ -3383,7 +3420,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   ADD_EXECUTABLE(f32-bgemm-bench bench/f32-bgemm.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-bgemm-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f32-bgemm-bench PRIVATE benchmark pthreadpool)
-  TARGET_LINK_LIBRARIES(f32-bgemm-bench PRIVATE bench-utils logging microkernels-all)
+  TARGET_LINK_LIBRARIES(f32-bgemm-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
   ADD_EXECUTABLE(f32-conv-hwc-bench bench/f32-conv-hwc.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-conv-hwc-bench PRIVATE . include src)
@@ -3696,6 +3733,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(x24-transpose-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(x24-transpose-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(x24-transpose-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(x32-packw-bench bench/x32-packw.cc)
+  TARGET_INCLUDE_DIRECTORIES(x32-packw-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(x32-packw-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(x32-packw-bench PRIVATE bench-utils hardware-config logging microkernels-all packing)
 
   ADD_EXECUTABLE(x32-transpose-bench bench/x32-transpose.cc)
   TARGET_INCLUDE_DIRECTORIES(x32-transpose-bench PRIVATE . include src)

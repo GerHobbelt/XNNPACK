@@ -668,12 +668,11 @@ class DWConvMicrokernelTester {
         const uint32_t accumulated_range = uint32_t(accumulated_max - accumulated_min);
         const float output_scale = accumulated_range >= 256 ? double(accumulated_range) / 255.0 : 1.00001;
         scale[c] = 1.0f / output_scale;
-        scale[c] = 1.0f;
       }
 
       size_t num_middle_pass =
         divide_round_up(doz(tile_size, first_pass_tile() + last_pass_tile()), middle_pass_tile());
-      const size_t rounded_c = round_up_po2(channels(), channel_round());
+      const size_t rounded_c = round_up_po2(channels(), channel_subtile());
       const size_t packed_weights_offset_to_last_tile =
           first_pass_tile() * rounded_c * sizeof(int8_t)+ rounded_c * sizeof(int32_t) +
           num_middle_pass * middle_pass_tile() * rounded_c * sizeof(int8_t) +

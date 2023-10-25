@@ -54,13 +54,15 @@ http_archive(
     urls = ["https://github.com/Maratyszcza/FXdiv/archive/b408327ac2a15ec3e43352421954f5b1967701d1.zip"],
 )
 
+# LINT.IfChange
 # pthreadpool library, used for parallelization
 http_archive(
     name = "pthreadpool",
-    sha256 = "e6370550a1abf1503daf3c2c196e0a1c2b253440c39e1a57740ff49af2d8bedf",
-    strip_prefix = "pthreadpool-43edadc654d6283b4b6e45ba09a853181ae8e850",
-    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/43edadc654d6283b4b6e45ba09a853181ae8e850.zip"],
+    sha256 = "2ec0855a671fbf939e7c081697dffb0f6727b0bba0049da1922d8784328da8b4",
+    strip_prefix = "pthreadpool-18513c20da253e25f3caa82bf872f43d36b99af6",
+    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/18513c20da253e25f3caa82bf872f43d36b99af6.zip"],
 )
+# LINT.ThenChange(cmake/DownloadGoogleTest.cmake)
 
 # cpuinfo library, used for detecting processor characteristics
 http_archive(
@@ -81,6 +83,19 @@ http_archive(
         "https://github.com/google/ruy/archive/9f53ba413e6fc879236dcaa3e008915973d67a4f.zip",
     ],
 )
+
+RULES_ANDROID_NDK_COMMIT = "72ca32741f27c3de69fdcb7a1aaf3ca59919ad8c"
+
+RULES_ANDROID_NDK_SHA = "73eac2cf5f2fd009e8fb197346a2ca39f320b786985658de63a1dff0f12c53d5"
+
+http_archive(
+    name = "rules_android_ndk",
+    sha256 = RULES_ANDROID_NDK_SHA,
+    strip_prefix = "rules_android_ndk-%s" % RULES_ANDROID_NDK_COMMIT,
+    url = "https://github.com/bazelbuild/rules_android_ndk/archive/%s.zip" % RULES_ANDROID_NDK_COMMIT,
+)
+
+load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
 
 # Android NDK location and version is auto-detected from $ANDROID_NDK_HOME environment variable
 android_ndk_repository(name = "androidndk")

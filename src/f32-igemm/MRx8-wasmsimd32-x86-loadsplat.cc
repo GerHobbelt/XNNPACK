@@ -96,14 +96,6 @@ class F32IGemmLoadsplatGenerator : public internal::GemmIGemmLoadsplatCommons {
                     [&] { I32NeZ(nc); });
                 });
   }
-
- private:
-  void ClampCs(LocalsArray& cs, const Local& mr, const Local& c, const Local& cm_stride) {
-    cs[0] = c;
-    for (size_t i = 1; i < cs.size(); i++) {
-      cs[i] = Select(cs[i - 1], I32Add(cs[i - 1], cm_stride), I32GeU(I32Const(i), mr));
-    }
-  }
 };
 
 constexpr auto generate = internal::generate_gemm_or_igemm<xnnpack::F32IGemmLoadsplatGenerator>;

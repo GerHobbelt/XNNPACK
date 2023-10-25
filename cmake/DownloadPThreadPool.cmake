@@ -10,10 +10,11 @@ CMAKE_MINIMUM_REQUIRED(VERSION 3.5 FATAL_ERROR)
 
 PROJECT(pthreadpool-download NONE)
 
+# LINT.IfChange
 INCLUDE(ExternalProject)
 ExternalProject_Add(pthreadpool
-  URL https://github.com/Maratyszcza/pthreadpool/archive/43edadc654d6283b4b6e45ba09a853181ae8e850.zip
-  URL_HASH SHA256=e6370550a1abf1503daf3c2c196e0a1c2b253440c39e1a57740ff49af2d8bedf
+  URL https://github.com/Maratyszcza/pthreadpool/archive/18513c20da253e25f3caa82bf872f43d36b99af6.zip
+  URL_HASH SHA256=2ec0855a671fbf939e7c081697dffb0f6727b0bba0049da1922d8784328da8b4
   SOURCE_DIR "${CMAKE_BINARY_DIR}/pthreadpool-source"
   BINARY_DIR "${CMAKE_BINARY_DIR}/pthreadpool"
   CONFIGURE_COMMAND ""
@@ -21,3 +22,4 @@ ExternalProject_Add(pthreadpool
   INSTALL_COMMAND ""
   TEST_COMMAND ""
 )
+# LINT.ThenChange(../WORKSPACE.bazel)

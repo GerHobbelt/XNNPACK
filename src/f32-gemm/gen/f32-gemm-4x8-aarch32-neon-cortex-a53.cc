@@ -26,7 +26,7 @@ class Generator : public MacroAssembler {
 };
 
 
-// void xnn_f32_gemm_minmax_ukernel_4x8__asm_aarch32_neon_prfm_cortex_a53(
+// void xnn_f32_gemm_minmax_ukernel_4x8__asm_aarch32_neon_cortex_a53_prfm(
 //     size_t mr,                            r0
 //     size_t nc,                            r1
 //     size_t kc,                            r2 -> r5 -> sp + 0
@@ -55,7 +55,7 @@ class Generator : public MacroAssembler {
 // temp r0, r2 for Cortex-A53 loads
 // unused r14 (lr)
 
-// Converted from: src/f32-gemm/gen/f32-gemm-4x8-minmax-asm-aarch32-neon-prfm-cortex-a53.S
+// Converted from: src/f32-gemm/gen/f32-gemm-4x8-minmax-asm-aarch32-neon-cortex-a53-prfm.S
 void Generator::generate(bool prefetch, size_t max_mr, size_t nc_mod_nr, size_t kc, const jit_gemm_params* jit_gemm_params)
 {
   assert(max_mr <= 4);
@@ -814,7 +814,7 @@ xnn_status_t xnn_generate_f32_gemm_ukernel_4x8__aarch32_neon_cortex_a53(xnn_code
   return xnn_status_success;
 }
 
-xnn_status_t xnn_generate_f32_gemm_ukernel_4x8__aarch32_neon_prfm_cortex_a53(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params) {
+xnn_status_t xnn_generate_f32_gemm_ukernel_4x8__aarch32_neon_cortex_a53_prfm(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params) {
   using namespace xnnpack::aarch32;
   Generator g(code);
   assert(params != nullptr);

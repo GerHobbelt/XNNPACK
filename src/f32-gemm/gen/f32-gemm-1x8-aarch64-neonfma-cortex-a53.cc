@@ -25,7 +25,7 @@ class Generator : public MacroAssembler {
   void perform_post_operations(size_t max_mr, size_t num_post_operations, const xnn_post_operation* post_operations);
 };
 
-// void xnn_f32_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_prfm_cortex_a53(
+// void xnn_f32_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_cortex_a53_prfm(
 //     size_t mr,                (x0) - unused.  mr = 1
 //     size_t nc,                x1
 //     size_t kc,                x2 / x0
@@ -48,7 +48,7 @@ class Generator : public MacroAssembler {
 
 // A53 based on A57/A75 but with LDR instead of LDP
 
-// Converted from: src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-prfm-cortex-a53.S
+// Converted from: src/f32-gemm/gen/f32-gemm-1x8-minmax-asm-aarch64-neonfma-cortex-a53-prfm.S
 void Generator::generate(bool prefetch, size_t max_mr, size_t nc_mod_nr, size_t kc, const jit_gemm_params* jit_gemm_params)
 {
   assert(max_mr <= 1);
@@ -339,7 +339,7 @@ xnn_status_t xnn_generate_f32_gemm_ukernel_1x8__aarch64_neonfma_cortex_a53(xnn_c
   return xnn_status_success;
 }
 
-xnn_status_t xnn_generate_f32_gemm_ukernel_1x8__aarch64_neonfma_prfm_cortex_a53(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params) {
+xnn_status_t xnn_generate_f32_gemm_ukernel_1x8__aarch64_neonfma_cortex_a53_prfm(xnn_code_buffer* code, size_t max_mr, size_t nc_mod_nr, size_t kc, const void* params) {
   using namespace xnnpack::aarch64;
   Generator g(code);
   assert(params != nullptr);

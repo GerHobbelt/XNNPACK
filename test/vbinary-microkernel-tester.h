@@ -299,17 +299,19 @@ class VBinaryMicrokernelTester {
   void Test(xnn_f32_vbinary_relu_ukernel_fn vbinary_relu, OpType op_type) const {
     std::random_device random_device;
     auto rng = std::mt19937(random_device());
-    std::uniform_real_distribution<float> f32dist(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> lhs_f32dist(-1.0f, 1.0f);
+    // For denominator, avoid 0 so we don't get Infinity as the result.
+    std::uniform_real_distribution<float> rhs_f32dist(0.1, 1.0f);
 
     std::vector<float> a(batch_size() + XNN_EXTRA_BYTES / sizeof(float));
     std::vector<float> b(batch_size() + XNN_EXTRA_BYTES / sizeof(float));
     std::vector<float> y(batch_size() + (inplace_a() || inplace_b() ? XNN_EXTRA_BYTES / sizeof(float) : 0));
     std::vector<float> y_ref(batch_size());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
-      std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
-      std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
+      std::generate(a.begin(), a.end(), [&]() { return lhs_f32dist(rng); });
+      std::generate(b.begin(), b.end(), [&]() { return rhs_f32dist(rng); });
       if (inplace_a() || inplace_b()) {
-        std::generate(y.begin(), y.end(), [&]() { return f32dist(rng); });
+        std::generate(y.begin(), y.end(), [&]() { return lhs_f32dist(rng); });
       } else {
         std::fill(y.begin(), y.end(), nanf(""));
       }

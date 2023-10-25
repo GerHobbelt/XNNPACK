@@ -89,24 +89,42 @@ void xnn_qd8_f32_qc8w_gemm_minmax_ukernel_2x4__scalar(
     float vout1x2 = (float) vacc1x2;
     float vout1x3 = (float) vacc1x3;
 
-    const float vascale0 = quantization_params[0].inv_scale;
-    const float vbscale0 = ((const float*) w)[0];
-    const float vbscale1 = ((const float*) w)[1];
-    const float vbscale2 = ((const float*) w)[2];
-    const float vbscale3 = ((const float*) w)[3];
+    const float vinput_scale0 = quantization_params[0].inv_scale;
+    vout0x0 *= vinput_scale0;
+    vout0x1 *= vinput_scale0;
+    vout0x2 *= vinput_scale0;
+    vout0x3 *= vinput_scale0;
+    const float vinput_scale1 = quantization_params[1].inv_scale;
+    vout1x0 *= vinput_scale1;
+    vout1x1 *= vinput_scale1;
+    vout1x2 *= vinput_scale1;
+    vout1x3 *= vinput_scale1;
+
+    const float vfilter_output_scale0 = ((const float*) w)[0];
+    vout0x0 *= vfilter_output_scale0;
+    vout1x0 *= vfilter_output_scale0;
+    const float vfilter_output_scale1 = ((const float*) w)[1];
+    vout0x1 *= vfilter_output_scale1;
+    vout1x1 *= vfilter_output_scale1;
+    const float vfilter_output_scale2 = ((const float*) w)[2];
+    vout0x2 *= vfilter_output_scale2;
+    vout1x2 *= vfilter_output_scale2;
+    const float vfilter_output_scale3 = ((const float*) w)[3];
+    vout0x3 *= vfilter_output_scale3;
+    vout1x3 *= vfilter_output_scale3;
+
     const float vbias0 = ((const float*) w)[4];
-    vout0x0 = math_muladd_f32(vout0x0, vascale0 * vbscale0, vbias0);
+    vout0x0 += vbias0;
+    vout1x0 += vbias0;
     const float vbias1 = ((const float*) w)[5];
-    vout0x1 = math_muladd_f32(vout0x1, vascale0 * vbscale1, vbias1);
+    vout0x1 += vbias1;
+    vout1x1 += vbias1;
     const float vbias2 = ((const float*) w)[6];
-    vout0x2 = math_muladd_f32(vout0x2, vascale0 * vbscale2, vbias2);
+    vout0x2 += vbias2;
+    vout1x2 += vbias2;
     const float vbias3 = ((const float*) w)[7];
-    vout0x3 = math_muladd_f32(vout0x3, vascale0 * vbscale3, vbias3);
-    const float vascale1 = quantization_params[1].inv_scale;
-    vout1x0 = math_muladd_f32(vout1x0, vascale1 * vbscale0, vbias0);
-    vout1x1 = math_muladd_f32(vout1x1, vascale1 * vbscale1, vbias1);
-    vout1x2 = math_muladd_f32(vout1x2, vascale1 * vbscale2, vbias2);
-    vout1x3 = math_muladd_f32(vout1x3, vascale1 * vbscale3, vbias3);
+    vout0x3 += vbias3;
+    vout1x3 += vbias3;
 
     w = (const float*) w + 8;
 

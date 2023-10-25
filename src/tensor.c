@@ -12,6 +12,7 @@
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
 #include <xnnpack/log.h>
+#include <xnnpack/math.h>
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
 
@@ -26,6 +27,54 @@ static void set_allocation_type(struct xnn_value* value)
   } else {
     value->allocation_type = xnn_allocation_type_workspace;
   }
+}
+
+static enum xnn_status check_zero_point(
+  enum xnn_datatype datatype,
+  int32_t zero_point)
+{
+  switch (datatype) {
+    case xnn_datatype_qcint4:
+      if (zero_point < 0 || zero_point > 15) {
+        xnn_log_error(
+          "failed to create Quantized Dense Tensor value: invalid zero point %" PRId32" outside the [0, 15] range",
+          zero_point);
+        return xnn_status_invalid_parameter;
+      }
+      break;
+    case xnn_datatype_qcint8:
+    case xnn_datatype_qint8:
+      if ((int32_t) (int8_t) zero_point != zero_point) {
+        xnn_log_error(
+          "failed to create Quantized Dense Tensor value: invalid zero point %" PRId32" outside the [-128, 127] range",
+          zero_point);
+        return xnn_status_invalid_parameter;
+      }
+      break;
+    case xnn_datatype_quint8:
+      if ((int32_t) (uint8_t) zero_point != zero_point) {
+        xnn_log_error(
+          "failed to create Quantized Dense Tensor value: invalid zero point %" PRId32" outside the [0, 255] range",
+          zero_point);
+        return xnn_status_invalid_parameter;
+      }
+      break;
+    case xnn_datatype_qcint32:
+    case xnn_datatype_qint32:
+      if (zero_point != 0) {
+        xnn_log_error(
+          "failed to create Quantized Dense Tensor value: invalid non-zero zero point %" PRId32,
+          zero_point);
+        return xnn_status_invalid_parameter;
+      }
+      break;
+    default:
+      xnn_log_error("failed to create Quantized Dense Tensor value: unsupported datatype %s (%d)",
+        xnn_datatype_to_string(datatype), datatype);
+      return xnn_status_unsupported_parameter;
+  }
+
+  return xnn_status_success;
 }
 
 enum xnn_status xnn_define_tensor_value(
@@ -119,35 +168,9 @@ enum xnn_status xnn_define_quantized_tensor_value(
     return xnn_status_unsupported_parameter;
   }
 
-  switch (datatype) {
-    case xnn_datatype_qint8:
-      if ((int32_t) (int8_t) zero_point != zero_point) {
-        xnn_log_error(
-          "failed to create Quantized Dense Tensor value: invalid zero point %" PRId32" outside the [-128, 127] range",
-          zero_point);
-        return xnn_status_invalid_parameter;
-      }
-      break;
-    case xnn_datatype_quint8:
-      if ((int32_t) (uint8_t) zero_point != zero_point) {
-        xnn_log_error(
-          "failed to create Quantized Dense Tensor value: invalid zero point %" PRId32" outside the [0, 255] range",
-          zero_point);
-        return xnn_status_invalid_parameter;
-      }
-      break;
-    case xnn_datatype_qint32:
-      if (zero_point != 0) {
-        xnn_log_error(
-          "failed to create Quantized Dense Tensor value: invalid non-zero zero point %" PRId32,
-          zero_point);
-        return xnn_status_invalid_parameter;
-      }
-      break;
-    default:
-      xnn_log_error("failed to create Quantized Dense Tensor value: unsupported datatype %s (%d)",
-        xnn_datatype_to_string(datatype), datatype);
-      return xnn_status_unsupported_parameter;
+  enum xnn_status status = check_zero_point(datatype, zero_point);
+  if (status != xnn_status_success) {
+    return status;
   }
 
   if (scale <= 0.0f || !isnormal(scale)) {
@@ -179,9 +202,105 @@ enum xnn_status xnn_define_quantized_tensor_value(
   return xnn_status_success;
 }
 
+enum xnn_status xnn_define_dynamically_quantized_tensor_value(
+    xnn_subgraph_t subgraph,
+    enum xnn_datatype datatype,
+    size_t num_dims,
+    size_t num_nonbatch_dims,
+    const size_t* dims,
+    uint32_t external_id,
+    uint32_t flags,
+    uint32_t* id_out)
+{
+  if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
+    xnn_log_error("failed to create Dynamically Quantized Dense Tensor value: XNNPACK is not initialized");
+    return xnn_status_uninitialized;
+  }
+
+  if (external_id != XNN_INVALID_VALUE_ID && external_id >= subgraph->external_value_ids) {
+    xnn_log_error(
+      "failed to create Dynamically Quantized Dense Tensor value: "
+      "external ID %" PRIu32 " exceeds the number of reserved external IDs in subgraph (%" PRIu32 ")",
+      external_id, subgraph->external_value_ids);
+    return xnn_status_invalid_parameter;
+  }
+
+  if (num_dims > XNN_MAX_TENSOR_DIMS) {
+    xnn_log_error(
+      "failed to create Dynamically Quantized Dense Tensor value: num of dimensions exceeds XNNPACK limit (%d)",
+      XNN_MAX_TENSOR_DIMS);
+    return xnn_status_unsupported_parameter;
+  }
+
+  if (num_nonbatch_dims > num_dims) {
+    xnn_log_error(
+      "failed to create Dynamically Quantized Dense Tensor value: "
+      "non batch dimensions %zu is greater than number of dimensions %zu",
+      num_nonbatch_dims, num_dims);
+    return xnn_status_invalid_parameter;
+  }
+
+  switch (datatype) {
+    case xnn_datatype_qdint8:
+      break;
+    default:
+      xnn_log_error("failed to create Dynamically Quantized Dense Tensor value: unsupported datatype %s (%d)",
+        xnn_datatype_to_string(datatype), datatype);
+      return xnn_status_unsupported_parameter;
+  }
+
+  if ((flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) != 0) {
+    xnn_log_error(
+        "failed to create Dynamically Quantized Dense Tensor value: "
+        "external dynamically quantized tensors are not supported.");
+    return xnn_status_unsupported_parameter;
+  }
+
+  struct xnn_value* value = subgraph->values + external_id;
+  if (external_id == XNN_INVALID_VALUE_ID) {
+    value = xnn_subgraph_new_internal_value(subgraph);
+    if (value == NULL) {
+      return xnn_status_out_of_memory;
+    }
+  }
+  value->type = xnn_value_type_dense_tensor;
+  value->datatype = datatype;
+  value->quantization.num_nonbatch_dims = num_nonbatch_dims;
+  value->shape.num_dims = num_dims;
+  memcpy(value->shape.dim, dims, num_dims * sizeof(size_t));
+  value->size = xnn_tensor_get_size_by_id(subgraph, value->id);
+  value->flags = flags;
+  value->data = NULL;
+  set_allocation_type(value);
+
+  *id_out = value->id;
+  return xnn_status_success;
+}
+
 enum xnn_status xnn_define_channelwise_quantized_tensor_value(
     xnn_subgraph_t subgraph,
     enum xnn_datatype datatype,
+    const float* scale,
+    size_t num_dims,
+    size_t channel_dim,
+    const size_t* dims,
+    const void* data,
+    uint32_t external_id,
+    uint32_t flags,
+    uint32_t* id_out)
+{
+  return xnn_define_channelwise_quantized_tensor_value_v2(
+    subgraph, datatype,
+    /*zero_point=*/0, scale,
+    num_dims, channel_dim, dims, data,
+    external_id, flags,
+    id_out);
+}
+
+enum xnn_status xnn_define_channelwise_quantized_tensor_value_v2(
+    xnn_subgraph_t subgraph,
+    enum xnn_datatype datatype,
+    int32_t zero_point,
     const float* scale,
     size_t num_dims,
     size_t channel_dim,
@@ -225,7 +344,13 @@ enum xnn_status xnn_define_channelwise_quantized_tensor_value(
     return xnn_status_invalid_parameter;
   }
 
+  enum xnn_status status = check_zero_point(datatype, zero_point);
+  if (status != xnn_status_success) {
+    return status;
+  }
+
   switch (datatype) {
+    case xnn_datatype_qcint4:
     case xnn_datatype_qcint8:
     case xnn_datatype_qcint32:
       break;
@@ -255,7 +380,7 @@ enum xnn_status xnn_define_channelwise_quantized_tensor_value(
   }
   value->type = xnn_value_type_dense_tensor;
   value->datatype = datatype;
-  value->quantization.zero_point = 0;
+  value->quantization.zero_point = zero_point;
   value->quantization.channelwise_scale = scale;
   value->quantization.channel_dimension = channel_dim;
   value->shape.num_dims = num_dims;
@@ -313,6 +438,8 @@ size_t xnn_tensor_get_size(const struct xnn_value* value)
     case xnn_datatype_fp32:
       size = 4;
       break;
+    case xnn_datatype_qcint4:
+    case xnn_datatype_qdint8:
     case xnn_datatype_qint8:
     case xnn_datatype_quint8:
     case xnn_datatype_qcint8:
@@ -326,7 +453,14 @@ size_t xnn_tensor_get_size(const struct xnn_value* value)
       XNN_UNREACHABLE;
   }
 
-  return size * xnn_shape_multiply_all_dims(&value->shape);
+  size *= xnn_shape_multiply_all_dims(&value->shape);
+
+  // Adjustments for nibbles, assume that we can't have sizes are byte-aligned (rounded up).
+  if (value->datatype == xnn_datatype_qcint4) {
+    size = round_up_po2(size, 2) >> 1;
+  }
+
+  return size;
 }
 
 size_t xnn_tensor_get_size_by_id(xnn_subgraph_t subgraph, uint32_t value_id)

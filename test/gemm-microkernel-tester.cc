@@ -626,8 +626,9 @@ void GemmMicrokernelTester::Test(
 
     for (size_t i = 0; i < m(); i++) {
       for (size_t j = 0; j < n(); j++) {
-        EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j],
-            std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
+        // Extract tolerance into variable to workaround test failures on Linux AArch64.
+        const float tolerance = std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f);
+        EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], tolerance)
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
             << " (accumulator = " << acc[i * n() + j]
             << "), optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
@@ -2405,7 +2406,7 @@ static void PerformUnaryOperation(std::vector<float>& v, const std::vector<xnn_p
         break;
       }
       default:
-        FAIL() << "Unsupport post operation: " << (op.op_type);
+        FAIL() << "Unsupported post operation: " << (op.op_type);
     }
   }
 }
@@ -2480,6 +2481,7 @@ void GemmMicrokernelTester::Test(
       c.data(), cm_stride() * sizeof(float), cn_stride() * sizeof(float),
       post_operation_params);
 
+    xnn_release_memory(post_operation_params);
     ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&code_buffer));
 
     // Validate micro-kernel outputs.
@@ -2759,6 +2761,7 @@ void GemmMicrokernelTester::Test(
       a_offset() * sizeof(float), zero_pointer,
       post_operation_params);
 
+    xnn_release_memory(post_operation_params);
     ASSERT_EQ(xnn_status_success, xnn_release_code_memory(&code_buffer));
 
     for (size_t i = 0; i < m(); i++) {

@@ -6,6 +6,8 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include <xnnpack/common.h>
+
 #include <gtest/gtest.h>
 
 #include "fully-connected-operator-tester.h"
@@ -488,7 +490,7 @@ TEST(FULLY_CONNECTED_NC_F32, weights_cache_unit_batch_transpose_weights) {
     .TestF32();
 }
 
-#if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && XNN_ENABLE_JIT // TODO(b/287020333)
+#if (XNN_ARCH_ARM || XNN_ARCH_ARM64 || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD) && XNN_ENABLE_JIT
 TEST(FULLY_CONNECTED_NC_F32, unit_batch_with_jit) {
   FullyConnectedOperatorTester()
     .batch_size(1)
@@ -508,7 +510,7 @@ TEST(FULLY_CONNECTED_NC_F32, small_batch_with_jit) {
     .iterations(3)
     .TestF32();
 }
-#endif  // (XNN_ARCH_ARM || XNN_ARCH_ARM64) && XNN_ENABLE_JIT
+#endif  // (XNN_ARCH_ARM || XNN_ARCH_ARM64 || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD) && XNN_ENABLE_JIT
 
 TEST(FULLY_CONNECTED_NC_F32_QC8W, unit_batch) {
   FullyConnectedOperatorTester()
@@ -559,7 +561,7 @@ TEST(FULLY_CONNECTED_NC_F32_QC8W, unit_batch_with_output_stride) {
     .TestF32QC8W();
 }
 
-TEST(FULLY_CONNECTED_NC_F32_QC8W, DISABLED_unit_batch_transpose_weights) {
+TEST(FULLY_CONNECTED_NC_F32_QC8W, unit_batch_transpose_weights) {
   FullyConnectedOperatorTester()
     .transpose_weights(true)
     .batch_size(1)
@@ -628,7 +630,7 @@ TEST(FULLY_CONNECTED_NC_F32_QC8W, small_batch_with_output_stride) {
     .TestF32QC8W();
 }
 
-TEST(FULLY_CONNECTED_NC_F32_QC8W, DISABLED_small_batch_transpose_weights) {
+TEST(FULLY_CONNECTED_NC_F32_QC8W, small_batch_transpose_weights) {
   FullyConnectedOperatorTester()
     .transpose_weights(true)
     .batch_size(12)
@@ -658,7 +660,7 @@ TEST(FULLY_CONNECTED_NC_F32_QC8W, weights_cache_unit_batch) {
     .TestF32QC8W();
 }
 
-TEST(FULLY_CONNECTED_NC_F32_QC8W, DISABLED_weights_cache_unit_batch_transpose_weights) {
+TEST(FULLY_CONNECTED_NC_F32_QC8W, weights_cache_unit_batch_transpose_weights) {
   FullyConnectedOperatorTester()
     .transpose_weights(true)
     .batch_size(1)

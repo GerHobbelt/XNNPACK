@@ -271,13 +271,13 @@ PROD_SCALAR_AARCH32_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-scalar-x4.c",
     "src/f32-vunary/gen/f32-vneg-scalar-x4.c",
     "src/f32-vunary/gen/f32-vsqr-scalar-x4.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p1c-minmax-fp32-scalar-fmagic.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p1c-minmax-fp32-scalar-fmagic.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p1c-minmax-fp32-scalar-fmagic.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x2-minmax-fp32-scalar-fmagic.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x2-minmax-fp32-scalar-fmagic.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x2-minmax-fp32-scalar-fmagic.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x2-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p1c-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p1c-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p1c-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x2-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x2-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x2-minmax-fp32-scalar-fmagic.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x2-minmax-fp32-scalar-fmagic.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p1c-minmax-fp32-scalar-fmagic.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p1c-minmax-fp32-scalar-fmagic.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-scalar-x4.c",
@@ -418,13 +418,13 @@ PROD_SCALAR_WASM_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-scalar-x4.c",
     "src/f32-vunary/gen/f32-vneg-scalar-x4.c",
     "src/f32-vunary/gen/f32-vsqr-scalar-x4.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p2c-minmax-fp32-scalar-imagic.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p2c-minmax-fp32-scalar-imagic.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p1c-minmax-fp32-scalar-imagic.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x2-minmax-fp32-scalar-imagic.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x2-minmax-fp32-scalar-imagic.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x2-minmax-fp32-scalar-imagic.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x2-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p2c-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p2c-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p1c-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x2-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x2-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x2-minmax-fp32-scalar-imagic.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x2-minmax-fp32-scalar-imagic.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p2c-minmax-fp32-scalar-imagic.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p1c-minmax-fp32-scalar-imagic.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-scalar-x1.c",
@@ -577,13 +577,13 @@ PROD_SCALAR_RISCV_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-scalar-x4.c",
     "src/f32-vunary/gen/f32-vneg-scalar-x4.c",
     "src/f32-vunary/gen/f32-vsqr-scalar-x4.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p2c-minmax-fp32-scalar-lrintf.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p2c-minmax-fp32-scalar-lrintf.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p2c-minmax-fp32-scalar-lrintf.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4-minmax-fp32-scalar-lrintf.c",
-    "src/qc8-gemm/gen/qc8-gemm-3x4-minmax-fp32-scalar-lrintf.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4-minmax-fp32-scalar-lrintf.c",
-    "src/qc8-igemm/gen/qc8-igemm-3x4-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p2c-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p2c-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p2c-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x4-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4-minmax-fp32-scalar-lrintf.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-3x4-minmax-fp32-scalar-lrintf.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p2c-minmax-fp32-scalar-lrintf.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p2c-minmax-fp32-scalar-lrintf.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-scalar-x4.c",
@@ -644,10 +644,10 @@ PROD_SCALAR_RISCV_MICROKERNEL_SRCS = [
 ]
 
 PROD_ARMSIMD32_MICROKERNEL_SRCS = [
-    "src/qc8-gemm/gen/qc8-gemm-1x2c4-minmax-fp32-armsimd32.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x2c4-minmax-fp32-armsimd32.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x2c4-minmax-fp32-armsimd32.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x2c4-minmax-fp32-armsimd32.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x2c4-minmax-fp32-armsimd32.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x2c4-minmax-fp32-armsimd32.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x2c4-minmax-fp32-armsimd32.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x2c4-minmax-fp32-armsimd32.c",
     "src/qs8-gemm/gen/qs8-gemm-1x2c4-minmax-fp32-armsimd32.c",
     "src/qs8-gemm/gen/qs8-gemm-2x2c4-minmax-fp32-armsimd32.c",
     "src/qs8-igemm/gen/qs8-igemm-1x2c4-minmax-fp32-armsimd32.c",
@@ -736,16 +736,16 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-neon-x8.c",
     "src/f32-vunary/gen/f32-vneg-neon-x8.c",
     "src/f32-vunary/gen/f32-vsqr-neon-x8.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-neon-mla8-ld128.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-neon-mla8-ld64.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p8c-minmax-fp32-neon-mla8-ld64.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p16c-minmax-fp32-neon-mla8-ld64.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8-minmax-fp32-neon-mlal-lane.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8c2s4-minmax-fp32-neon-mlal.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x8c2s4-minmax-fp32-neon-mlal.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8-minmax-fp32-neon-mlal-lane.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8c2s4-minmax-fp32-neon-mlal.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x8c2s4-minmax-fp32-neon-mlal.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-neon-mla8-ld128.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-neon-mla8-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p8c-minmax-fp32-neon-mla8-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p16c-minmax-fp32-neon-mla8-ld64.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8-minmax-fp32-neon-mlal-lane.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c2s4-minmax-fp32-neon-mlal.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x8c2s4-minmax-fp32-neon-mlal.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8-minmax-fp32-neon-mlal-lane.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8c2s4-minmax-fp32-neon-mlal.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x8c2s4-minmax-fp32-neon-mlal.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p16c-minmax-rndnu-neon-mla8-ld64.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p8c-minmax-rndnu-neon-mla8-ld64.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p16c-minmax-rndnu-neon-mla8-ld64.c",
@@ -825,6 +825,7 @@ PROD_NEON_MICROKERNEL_SRCS = [
 ]
 
 PROD_NEONFP16_MICROKERNEL_SRCS = [
+    "src/f16-f32acc-rsum/gen/f16-f32acc-rsum-neonfp16-x32-acc4.c",
     "src/f16-f32-vcvt/gen/f16-f32-vcvt-neonfp16-x16.c",
     "src/f32-f16-vcvt/gen/f32-f16-vcvt-neonfp16-x16.c",
 ]
@@ -885,26 +886,26 @@ PROD_NEONV8_MICROKERNEL_SRCS = [
     "src/f32-vrnd/gen/f32-vrndne-neonv8-x8.c",
     "src/f32-vrnd/gen/f32-vrndu-neonv8-x8.c",
     "src/f32-vrnd/gen/f32-vrndz-neonv8-x8.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-neonv8-mla8-ld128.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-neonv8-mla8-ld64.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p8c-minmax-fp32-neonv8-mla8-ld64.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p16c-minmax-fp32-neonv8-mla8-ld64.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8-minmax-fp32-neonv8-mlal-lane-prfm.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8-minmax-fp32-neonv8-mlal-lane.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8c2s4-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8c8-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x16-minmax-fp32-neonv8-mlal-lane.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x8c2s4-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x8c8-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x16-minmax-fp32-neonv8-mlal-lane.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8-minmax-fp32-neonv8-mlal-lane-prfm.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8-minmax-fp32-neonv8-mlal-lane.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8c2s4-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8c8-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x16-minmax-fp32-neonv8-mlal-lane.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x8c2s4-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x8c8-minmax-fp32-neonv8-mlal.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x16-minmax-fp32-neonv8-mlal-lane.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-neonv8-mla8-ld128.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-neonv8-mla8-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p8c-minmax-fp32-neonv8-mla8-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p16c-minmax-fp32-neonv8-mla8-ld64.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8-minmax-fp32-neonv8-mlal-lane-prfm.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8-minmax-fp32-neonv8-mlal-lane.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c2s4-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c8-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x16-minmax-fp32-neonv8-mlal-lane.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x8c2s4-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x8c8-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x16-minmax-fp32-neonv8-mlal-lane.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8-minmax-fp32-neonv8-mlal-lane-prfm.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8-minmax-fp32-neonv8-mlal-lane.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8c2s4-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8c8-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x16-minmax-fp32-neonv8-mlal-lane.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x8c2s4-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x8c8-minmax-fp32-neonv8-mlal.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x16-minmax-fp32-neonv8-mlal-lane.c",
 ]
 
 PROD_NEONFP16ARITH_MICROKERNEL_SRCS = [
@@ -987,14 +988,14 @@ PROD_NEONBF16_AARCH64_MICROKERNEL_SRCS = [
 ]
 
 PROD_NEONDOT_MICROKERNEL_SRCS = [
-    "src/qc8-gemm/gen/qc8-gemm-1x8c4-minmax-fp32-neondot.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x16c4-minmax-fp32-neondot.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x8c4-minmax-fp32-neondot.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x16c4-minmax-fp32-neondot.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8c4-minmax-fp32-neondot.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x16c4-minmax-fp32-neondot.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x8c4-minmax-fp32-neondot.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x16c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x16c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x16c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x16c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8c4-minmax-fp32-neondot.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x16c4-minmax-fp32-neondot.c",
     "src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-rndnu-neondot.c",
     "src/qs8-gemm/gen/qs8-gemm-1x16c4-minmax-rndnu-neondot.c",
     "src/qs8-gemm/gen/qs8-gemm-4x8c4-minmax-rndnu-neondot.c",
@@ -1091,13 +1092,13 @@ PROD_SSE2_MICROKERNEL_SRCS = [
     "src/f32-vrnd/gen/f32-vrndz-sse2-x8.c",
     "src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-x8.c",
     "src/f32-vtanh/gen/f32-vtanh-sse2-expm1minus-rr1-lut8-p4h3ts-div-x16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p8c-minmax-fp32-sse2-mul16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-sse2-mul16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p8c-minmax-fp32-sse2-mul16.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4c8-minmax-fp32-sse2-ld64.c",
-    "src/qc8-gemm/gen/qc8-gemm-3x4c8-minmax-fp32-sse2-ld64.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4c8-minmax-fp32-sse2-ld64.c",
-    "src/qc8-igemm/gen/qc8-igemm-3x4c8-minmax-fp32-sse2-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p8c-minmax-fp32-sse2-mul16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p8c-minmax-fp32-sse2-mul16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p8c-minmax-fp32-sse2-mul16.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4c8-minmax-fp32-sse2-ld64.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x4c8-minmax-fp32-sse2-ld64.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c8-minmax-fp32-sse2-ld64.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-3x4c8-minmax-fp32-sse2-ld64.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p8c-minmax-fp32-sse2-mul16-add16.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p8c-minmax-fp32-sse2-mul16-add16.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-sse2-x32.c",
@@ -1177,13 +1178,13 @@ PROD_SSE41_MICROKERNEL_SRCS = [
     "src/f32-vrnd/gen/f32-vrndz-sse41-x8.c",
     "src/f32-vsigmoid/gen/f32-vsigmoid-sse41-rr2-lut64-p2-div-x8.c",
     "src/f32-vtanh/gen/f32-vtanh-sse41-expm1minus-rr1-lut8-p4h3ts-div-x20.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p8c-minmax-fp32-sse41-mul16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-sse41-mul16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p8c-minmax-fp32-sse41-mul16.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4c8-minmax-fp32-sse41-ld64.c",
-    "src/qc8-gemm/gen/qc8-gemm-3x4c8-minmax-fp32-sse41-ld64.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4c8-minmax-fp32-sse41-ld64.c",
-    "src/qc8-igemm/gen/qc8-igemm-3x4c8-minmax-fp32-sse41-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p8c-minmax-fp32-sse41-mul16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p8c-minmax-fp32-sse41-mul16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p8c-minmax-fp32-sse41-mul16.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4c8-minmax-fp32-sse41-ld64.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x4c8-minmax-fp32-sse41-ld64.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c8-minmax-fp32-sse41-ld64.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-3x4c8-minmax-fp32-sse41-ld64.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p8c-minmax-fp32-sse41-mul16-add16.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p8c-minmax-fp32-sse41-mul16-add16.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-sse41-x16.c",
@@ -1267,13 +1268,13 @@ PROD_AVX_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-avx-x16.c",
     "src/f32-vunary/gen/f32-vneg-avx-x16.c",
     "src/f32-vunary/gen/f32-vsqr-avx-x16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-avx-mul16-add16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-avx-mul16-add16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p16c-minmax-fp32-avx-mul16-add16.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4c8-minmax-fp32-avx-ld128.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x4c8-minmax-fp32-avx-ld128.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4c8-minmax-fp32-avx-ld128.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x4c8-minmax-fp32-avx-ld128.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-avx-mul16-add16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-avx-mul16-add16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p16c-minmax-fp32-avx-mul16-add16.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4c8-minmax-fp32-avx-ld128.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x4c8-minmax-fp32-avx-ld128.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c8-minmax-fp32-avx-ld128.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x4c8-minmax-fp32-avx-ld128.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p16c-minmax-fp32-avx-mul16-add16.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p16c-minmax-fp32-avx-mul16-add16.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-avx-x32.c",
@@ -1311,6 +1312,7 @@ PROD_F16C_MICROKERNEL_SRCS = [
     "src/f16-avgpool/f16-avgpool-9p8x-minmax-f16c-c8.c",
     "src/f16-avgpool/f16-avgpool-9x-minmax-f16c-c8.c",
     "src/f16-f32-vcvt/gen/f16-f32-vcvt-f16c-x16.c",
+    "src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-x32-acc4.c",
     "src/f16-gavgpool/gen/f16-gavgpool-7p7x-minmax-f16c-c8.c",
     "src/f16-gavgpool/gen/f16-gavgpool-7x-minmax-f16c-c8.c",
     "src/f16-maxpool/f16-maxpool-9p8x-minmax-f16c-c8.c",
@@ -1346,13 +1348,13 @@ PROD_F16C_MICROKERNEL_SRCS = [
 ]
 
 PROD_XOP_MICROKERNEL_SRCS = [
-    "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-xop-mul16-add16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-xop-mul16-add16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p16c-minmax-fp32-xop-mul16-add16.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4c8-minmax-fp32-xop-ld64.c",
-    "src/qc8-gemm/gen/qc8-gemm-2x4c8-minmax-fp32-xop-ld64.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4c8-minmax-fp32-xop-ld64.c",
-    "src/qc8-igemm/gen/qc8-igemm-2x4c8-minmax-fp32-xop-ld64.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-xop-mul16-add16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-xop-mul16-add16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p16c-minmax-fp32-xop-mul16-add16.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4c8-minmax-fp32-xop-ld64.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x4c8-minmax-fp32-xop-ld64.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c8-minmax-fp32-xop-ld64.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x4c8-minmax-fp32-xop-ld64.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p16c-minmax-fp32-xop-mul16-add16.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p16c-minmax-fp32-xop-mul16-add16.c",
     "src/qs8-gemm/gen/qs8-gemm-1x4c8-minmax-fp32-xop-ld64.c",
@@ -1415,13 +1417,13 @@ PROD_AVX2_MICROKERNEL_SRCS = [
     "src/f32-velu/gen/f32-velu-avx2-rr1-lut4-p4-perm-x56.c",
     "src/f32-vsigmoid/gen/f32-vsigmoid-avx2-rr1-p5-div-x40.c",
     "src/f32-vtanh/gen/f32-vtanh-avx2-expm1minus-rr1-lut4-p4h3ts-perm-div-x32.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-avx2-mul32.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-avx2-mul32.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p16c-minmax-fp32-avx2-mul32.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x8c8-minmax-fp32-avx2.c",
-    "src/qc8-gemm/gen/qc8-gemm-3x8c8-minmax-fp32-avx2.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x8c8-minmax-fp32-avx2.c",
-    "src/qc8-igemm/gen/qc8-igemm-3x8c8-minmax-fp32-avx2.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-avx2-mul32.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-avx2-mul32.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p16c-minmax-fp32-avx2-mul32.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c8-minmax-fp32-avx2.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x8c8-minmax-fp32-avx2.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8c8-minmax-fp32-avx2.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-3x8c8-minmax-fp32-avx2.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p16c-minmax-fp32-avx2-mul32.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p16c-minmax-fp32-avx2-mul32.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-avx2-x16.c",
@@ -1497,13 +1499,13 @@ PROD_AVX512SKX_MICROKERNEL_SRCS = [
     "src/f32-qs8-vcvt/gen/f32-qs8-vcvt-avx512skx-x128.c",
     "src/f32-qu8-vcvt/gen/f32-qu8-vcvt-avx512skx-x128.c",
     "src/f32-vtanh/gen/f32-vtanh-avx512skx-expm1minus-rr1-lut4-p4h3ts-perm-div-x64.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p32c-minmax-fp32-avx512skx-mul32.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p32c-minmax-fp32-avx512skx-mul32.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p32c-minmax-fp32-avx512skx-mul32.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x16c8-minmax-fp32-avx512skx.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x16c8-minmax-fp32-avx512skx.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x16c8-minmax-fp32-avx512skx.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x16c8-minmax-fp32-avx512skx.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p32c-minmax-fp32-avx512skx-mul32.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p32c-minmax-fp32-avx512skx-mul32.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p32c-minmax-fp32-avx512skx-mul32.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x16c8-minmax-fp32-avx512skx.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x16c8-minmax-fp32-avx512skx.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x16c8-minmax-fp32-avx512skx.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x16c8-minmax-fp32-avx512skx.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p32c-minmax-fp32-avx512skx-mul32.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p32c-minmax-fp32-avx512skx-mul32.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-avx512skx-x32.c",
@@ -1576,13 +1578,13 @@ PROD_WASM_MICROKERNEL_SRCS = [
     "src/f32-vmulcaddc/gen/f32-vmulcaddc-c1-minmax-wasm-2x.c",
     "src/f32-vrelu/gen/f32-vrelu-wasm-x8.c",
     "src/f32-vtanh/gen/f32-vtanh-wasm-expm1minus-rr1-p6h5ts-div-x4.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p2c-minmax-fp32-wasm-fmagic.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p2c-minmax-fp32-wasm-fmagic.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p2c-minmax-fp32-wasm-fmagic.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4-minmax-fp32-wasm-fmagic.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x4-minmax-fp32-wasm-fmagic.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4-minmax-fp32-wasm-fmagic.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x4-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p2c-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p2c-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p2c-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x4-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4-minmax-fp32-wasm-fmagic.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x4-minmax-fp32-wasm-fmagic.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p2c-minmax-fp32-wasm-fmagic.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p2c-minmax-fp32-wasm-fmagic.c",
     "src/qs8-gemm/gen/qs8-gemm-1x4-minmax-fp32-wasm-fmagic.c",
@@ -1747,13 +1749,13 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-wasmsimd-x8.c",
     "src/f32-vunary/gen/f32-vneg-wasmsimd-x8.c",
     "src/f32-vunary/gen/f32-vsqr-wasmsimd-x8.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-wasmsimd-mul16-add16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-wasmsimd-mul16-add16.c",
-    "src/qc8-dwconv/gen/qc8-dwconv-25p16c-minmax-fp32-wasmsimd-mul16-add16.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p16c-minmax-fp32-wasmsimd-mul16-add16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p16c-minmax-fp32-wasmsimd-mul16-add16.c",
+    "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p16c-minmax-fp32-wasmsimd-mul16-add16.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x4c2s4-minmax-fp32-wasmsimd-dot16x2-ld128.c",
     "src/qs8-dwconv/gen/qs8-dwconv-9p16c-minmax-fp32-wasmsimd-mul16-add16.c",
     "src/qs8-dwconv/gen/qs8-dwconv-25p16c-minmax-fp32-wasmsimd-mul16-add16.c",
     "src/qs8-f32-vcvt/gen/qs8-f32-vcvt-wasmsimd-x32.c",
@@ -1858,10 +1860,10 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/f32-vlrelu/gen/f32-vlrelu-wasmrelaxedsimd-laneselect-x4.c",
     "src/f32-vmulcaddc/gen/f32-vmulcaddc-c4-minmax-wasmrelaxedsimd-fma-2x.c",
     "src/f32-vsigmoid/gen/f32-vsigmoid-wasmrelaxedsimd-fma-rr2-p5-div-x24.c",
-    "src/qc8-gemm/gen/qc8-gemm-1x4c16-minmax-fp32-wasmsdot.c",
-    "src/qc8-gemm/gen/qc8-gemm-4x4c16-minmax-fp32-wasmsdot.c",
-    "src/qc8-igemm/gen/qc8-igemm-1x4c16-minmax-fp32-wasmsdot.c",
-    "src/qc8-igemm/gen/qc8-igemm-4x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x4c16-minmax-fp32-wasmsdot.c",
     "src/qs8-gemm/gen/qs8-gemm-1x4c16-minmax-fp32-wasmsdot.c",
     "src/qs8-gemm/gen/qs8-gemm-4x4c16-minmax-fp32-wasmsdot.c",
     "src/qs8-igemm/gen/qs8-igemm-1x4c16-minmax-fp32-wasmsdot.c",
@@ -1888,10 +1890,10 @@ JIT_AARCH32_SRCS = [
     "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a55.cc",
     "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a75.cc",
     "src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-ld64.cc",
-    "src/qc8-gemm/gen/qc8-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc",
-    "src/qc8-gemm/gen/qc8-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc",
-    "src/qc8-igemm/gen/qc8-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc",
-    "src/qc8-igemm/gen/qc8-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc",
+    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc",
+    "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc",
     "src/qs8-gemm/gen/qs8-gemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc",
     "src/qs8-gemm/gen/qs8-gemm-4x8c4-rndnu-aarch32-neondot-ld64.cc",
     "src/qs8-igemm/gen/qs8-igemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc",
@@ -5720,6 +5722,14 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
+    name = "f16_f32acc_rsum_bench",
+    srcs = [
+        "bench/f16-f32acc-rsum.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
     name = "f16_spmm_bench",
     srcs = [
         "bench/f16-spmm.cc",
@@ -5940,6 +5950,18 @@ xnnpack_benchmark(
         ":allocator",
         ":math",
     ] + xnnpack_optional_ruy_deps(),
+)
+
+xnnpack_benchmark(
+    name = "f32_qc8w_gemm_bench",
+    srcs = [
+        "bench/f32-qc8w-gemm.cc",
+        "bench/gemm.h",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":allocator",
+        ":math",
+    ],
 )
 
 xnnpack_benchmark(
@@ -6221,10 +6243,10 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
-    name = "x32_packw_bench",
+    name = "x8_packw_bench",
     srcs = [
         "bench/bgemm.h",
-        "bench/x32-packw.cc",
+        "bench/x8-packw.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
@@ -6237,6 +6259,18 @@ xnnpack_benchmark(
     srcs = [
         "bench/bgemm.h",
         "bench/x16-packw.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":allocator",
+        ":math",
+    ],
+)
+
+xnnpack_benchmark(
+    name = "x32_packw_bench",
+    srcs = [
+        "bench/bgemm.h",
+        "bench/x32-packw.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
@@ -6468,8 +6502,8 @@ xnnpack_cc_library(
 )
 
 xnnpack_cc_library(
-    name = "qc8_mobilenet_v1",
-    srcs = ["models/qc8-mobilenet-v1.cc"],
+    name = "qs8_qc8w_mobilenet_v1",
+    srcs = ["models/qs8-qc8w-mobilenet-v1.cc"],
     hdrs = ["models/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
@@ -6480,8 +6514,8 @@ xnnpack_cc_library(
 )
 
 xnnpack_cc_library(
-    name = "qc8_mobilenet_v2",
-    srcs = ["models/qc8-mobilenet-v2.cc"],
+    name = "qs8_qc8w_mobilenet_v2",
+    srcs = ["models/qs8-qc8w-mobilenet-v2.cc"],
     hdrs = ["models/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
@@ -6834,10 +6868,10 @@ xnnpack_benchmark(
         ":fp32_sparse_mobilenet_v2",
         ":fp32_sparse_mobilenet_v3_large",
         ":fp32_sparse_mobilenet_v3_small",
-        ":qc8_mobilenet_v1",
-        ":qc8_mobilenet_v2",
         ":qs8_mobilenet_v1",
         ":qs8_mobilenet_v2",
+        ":qs8_qc8w_mobilenet_v1",
+        ":qs8_qc8w_mobilenet_v2",
         ":qu8_mobilenet_v1",
         ":qu8_mobilenet_v2",
         "@pthreadpool",
@@ -7574,6 +7608,15 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "f16_f32acc_rsum_test",
+    srcs = [
+        "test/f16-f32acc-rsum.cc",
+        "test/rsum-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
     name = "f16_vsigmoid_test",
     srcs = [
         "test/f16-vsigmoid.cc",
@@ -7859,6 +7902,17 @@ xnnpack_unit_test(
     srcs = [
         "test/f32-gemm-minmax.cc",
         "test/f32-gemm-minmax-2.cc",
+    ],
+    shard_count = 10,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "f32_qc8w_gemm_minmax_test",
+    srcs = [
+        "test/f32-qc8w-gemm-minmax.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -8506,11 +8560,11 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qc8_dwconv_minmax_multipass_fp32_test",
+    name = "qs8_qc8w_dwconv_minmax_multipass_fp32_test",
     timeout = "moderate",
     srcs = [
         "test/dwconv-microkernel-tester.h",
-        "test/qc8-dwconv-minmax-multipass-fp32.cc",
+        "test/qs8-qc8w-dwconv-minmax-multipass-fp32.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -8520,11 +8574,11 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qc8_dwconv_minmax_unipass_fp32_test",
+    name = "qs8_qc8w_dwconv_minmax_unipass_fp32_test",
     timeout = "moderate",
     srcs = [
         "test/dwconv-microkernel-tester.h",
-        "test/qc8-dwconv-minmax-unipass-fp32.cc",
+        "test/qs8-qc8w-dwconv-minmax-unipass-fp32.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -8534,9 +8588,9 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qc8_gemm_jit_fp32_test",
+    name = "qs8_qc8w_gemm_jit_fp32_test",
     srcs = [
-        "test/qc8-gemm-jit-fp32.cc",
+        "test/qs8-qc8w-gemm-jit-fp32.cc",
     ],
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
@@ -8545,12 +8599,12 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qc8_gemm_minmax_fp32_test",
+    name = "qs8_qc8w_gemm_minmax_fp32_test",
     timeout = "moderate",
     srcs = [
-        "test/qc8-gemm-minmax-fp32.cc",
-        "test/qc8-gemm-minmax-fp32-2.cc",
-        "test/qc8-gemm-minmax-fp32-3.cc",
+        "test/qs8-qc8w-gemm-minmax-fp32.cc",
+        "test/qs8-qc8w-gemm-minmax-fp32-2.cc",
+        "test/qs8-qc8w-gemm-minmax-fp32-3.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -8559,9 +8613,9 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qc8_igemm_jit_fp32_test",
+    name = "qs8_qc8w_igemm_jit_fp32_test",
     srcs = [
-        "test/qc8-igemm-jit-fp32.cc",
+        "test/qs8-qc8w-igemm-jit-fp32.cc",
     ],
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
@@ -8570,12 +8624,12 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "qc8_igemm_minmax_fp32_test",
+    name = "qs8_qc8w_igemm_minmax_fp32_test",
     timeout = "moderate",
     srcs = [
-        "test/qc8-igemm-minmax-fp32.cc",
-        "test/qc8-igemm-minmax-fp32-2.cc",
-        "test/qc8-igemm-minmax-fp32-3.cc",
+        "test/qs8-qc8w-igemm-minmax-fp32.cc",
+        "test/qs8-qc8w-igemm-minmax-fp32-2.cc",
+        "test/qs8-qc8w-igemm-minmax-fp32-3.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -9231,6 +9285,17 @@ xnnpack_unit_test(
     srcs = [
         "test/packb-microkernel-tester.h",
         "test/x32-packb.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":packing",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "x8_packw_test",
+    srcs = [
+        "test/packw-microkernel-tester.h",
+        "test/x8-packw.cc",
     ],
     deps = MICROKERNEL_TEST_DEPS + [
         ":packing",

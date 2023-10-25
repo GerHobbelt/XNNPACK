@@ -337,10 +337,10 @@ SET(JIT_AARCH32_SRCS
   src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a55.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a75.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-ld64.cc
-  src/qc8-gemm/gen/qc8-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
-  src/qc8-gemm/gen/qc8-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc
-  src/qc8-igemm/gen/qc8-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
-  src/qc8-igemm/gen/qc8-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc
+  src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
+  src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc
   src/qs8-gemm/gen/qs8-gemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc
   src/qs8-gemm/gen/qs8-gemm-4x8c4-rndnu-aarch32-neondot-ld64.cc
   src/qs8-igemm/gen/qs8-igemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc
@@ -1797,6 +1797,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f16-rsum-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME f16-rsum-test COMMAND f16-rsum-test)
 
+  ADD_EXECUTABLE(f16-f32acc-rsum-test test/f16-f32acc-rsum.cc)
+  TARGET_INCLUDE_DIRECTORIES(f16-f32acc-rsum-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(f16-f32acc-rsum-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(f16-f32acc-rsum-test PRIVATE hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME f16-f32acc-rsum-test COMMAND f16-f32acc-rsum-test)
+
   ADD_EXECUTABLE(f16-vabs-test test/f16-vabs.cc)
   TARGET_INCLUDE_DIRECTORIES(f16-vabs-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(f16-vabs-test PRIVATE fp16 pthreadpool gtest gtest_main)
@@ -2090,6 +2096,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f32-gemm-minmax-test PRIVATE pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(f32-gemm-minmax-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME f32-gemm-minmax-test COMMAND f32-gemm-minmax-test)
+
+  ADD_EXECUTABLE(f32-qc8w-gemm-minmax-test test/f32-qc8w-gemm-minmax.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-qc8w-gemm-minmax-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(f32-qc8w-gemm-minmax-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(f32-qc8w-gemm-minmax-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME f32-qc8w-gemm-minmax-test COMMAND f32-qc8w-gemm-minmax-test)
 
   ADD_EXECUTABLE(f32-gemm-jit-test test/f32-gemm-jit.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-gemm-jit-test PRIVATE include src test)
@@ -2540,41 +2552,41 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f32-vtanh-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME f32-vtanh-test COMMAND f32-vtanh-test)
 
-  ADD_EXECUTABLE(qc8-dwconv-minmax-multipass-fp32-test test/qc8-dwconv-minmax-multipass-fp32.cc)
-  TARGET_INCLUDE_DIRECTORIES(qc8-dwconv-minmax-multipass-fp32-test PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(qc8-dwconv-minmax-multipass-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(qc8-dwconv-minmax-multipass-fp32-test PRIVATE hardware-config logging microkernel-utils microkernels-all microparams-init packing)
-  ADD_TEST(NAME qc8-dwconv-minmax-multipass-fp32-test COMMAND qc8-dwconv-minmax-multipass-fp32-test)
+  ADD_EXECUTABLE(qs8-qc8w-dwconv-minmax-multipass-fp32-test test/qs8-qc8w-dwconv-minmax-multipass-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-qc8w-dwconv-minmax-multipass-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-dwconv-minmax-multipass-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-dwconv-minmax-multipass-fp32-test PRIVATE hardware-config logging microkernel-utils microkernels-all microparams-init packing)
+  ADD_TEST(NAME qs8-qc8w-dwconv-minmax-multipass-fp32-test COMMAND qs8-qc8w-dwconv-minmax-multipass-fp32-test)
 
-  ADD_EXECUTABLE(qc8-dwconv-minmax-unipass-fp32-test test/qc8-dwconv-minmax-unipass-fp32.cc)
-  TARGET_INCLUDE_DIRECTORIES(qc8-dwconv-minmax-unipass-fp32-test PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(qc8-dwconv-minmax-unipass-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(qc8-dwconv-minmax-unipass-fp32-test PRIVATE hardware-config logging microkernels-all microparams-init packing)
-  ADD_TEST(NAME qc8-dwconv-minmax-unipass-fp32-test COMMAND qc8-dwconv-minmax-unipass-fp32-test)
+  ADD_EXECUTABLE(qs8-qc8w-dwconv-minmax-unipass-fp32-test test/qs8-qc8w-dwconv-minmax-unipass-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-qc8w-dwconv-minmax-unipass-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-dwconv-minmax-unipass-fp32-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-dwconv-minmax-unipass-fp32-test PRIVATE hardware-config logging microkernels-all microparams-init packing)
+  ADD_TEST(NAME qs8-qc8w-dwconv-minmax-unipass-fp32-test COMMAND qs8-qc8w-dwconv-minmax-unipass-fp32-test)
 
-  ADD_EXECUTABLE(qc8-gemm-jit-fp32-test test/qc8-gemm-jit-fp32.cc)
-  TARGET_INCLUDE_DIRECTORIES(qc8-gemm-jit-fp32-test PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(qc8-gemm-jit-fp32-test PRIVATE pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(qc8-gemm-jit-fp32-test PRIVATE jit gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
-  ADD_TEST(NAME qc8-gemm-jit-fp32-test COMMAND qc8-gemm-jit-fp32-test)
+  ADD_EXECUTABLE(qs8-qc8w-gemm-jit-fp32-test test/qs8-qc8w-gemm-jit-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-qc8w-gemm-jit-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-gemm-jit-fp32-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-gemm-jit-fp32-test PRIVATE jit gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME qs8-qc8w-gemm-jit-fp32-test COMMAND qs8-qc8w-gemm-jit-fp32-test)
 
-  ADD_EXECUTABLE(qc8-gemm-minmax-fp32-test test/qc8-gemm-minmax-fp32.cc test/qc8-gemm-minmax-fp32-2.cc test/qc8-gemm-minmax-fp32-3.cc)
-  TARGET_INCLUDE_DIRECTORIES(qc8-gemm-minmax-fp32-test PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(qc8-gemm-minmax-fp32-test PRIVATE pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(qc8-gemm-minmax-fp32-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
-  ADD_TEST(NAME qc8-gemm-minmax-fp32-test COMMAND qc8-gemm-minmax-fp32-test)
+  ADD_EXECUTABLE(qs8-qc8w-gemm-minmax-fp32-test test/qs8-qc8w-gemm-minmax-fp32.cc test/qs8-qc8w-gemm-minmax-fp32-2.cc test/qs8-qc8w-gemm-minmax-fp32-3.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-qc8w-gemm-minmax-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-gemm-minmax-fp32-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-gemm-minmax-fp32-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME qs8-qc8w-gemm-minmax-fp32-test COMMAND qs8-qc8w-gemm-minmax-fp32-test)
 
-  ADD_EXECUTABLE(qc8-igemm-jit-fp32-test test/qc8-igemm-jit-fp32.cc)
-  TARGET_INCLUDE_DIRECTORIES(qc8-igemm-jit-fp32-test PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(qc8-igemm-jit-fp32-test PRIVATE pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(qc8-igemm-jit-fp32-test PRIVATE jit gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
-  ADD_TEST(NAME qc8-igemm-jit-fp32-test COMMAND qc8-igemm-jit-fp32-test)
+  ADD_EXECUTABLE(qs8-qc8w-igemm-jit-fp32-test test/qs8-qc8w-igemm-jit-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-qc8w-igemm-jit-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-igemm-jit-fp32-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-igemm-jit-fp32-test PRIVATE jit gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME qs8-qc8w-igemm-jit-fp32-test COMMAND qs8-qc8w-igemm-jit-fp32-test)
 
-  ADD_EXECUTABLE(qc8-igemm-minmax-fp32-test test/qc8-igemm-minmax-fp32.cc test/qc8-igemm-minmax-fp32-2.cc test/qc8-igemm-minmax-fp32-3.cc)
-  TARGET_INCLUDE_DIRECTORIES(qc8-igemm-minmax-fp32-test PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(qc8-igemm-minmax-fp32-test PRIVATE pthreadpool gtest gtest_main)
-  TARGET_LINK_LIBRARIES(qc8-igemm-minmax-fp32-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
-  ADD_TEST(NAME qc8-igemm-minmax-fp32-test COMMAND qc8-igemm-minmax-fp32-test)
+  ADD_EXECUTABLE(qs8-qc8w-igemm-minmax-fp32-test test/qs8-qc8w-igemm-minmax-fp32.cc test/qs8-qc8w-igemm-minmax-fp32-2.cc test/qs8-qc8w-igemm-minmax-fp32-3.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-qc8w-igemm-minmax-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-igemm-minmax-fp32-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-qc8w-igemm-minmax-fp32-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME qs8-qc8w-igemm-minmax-fp32-test COMMAND qs8-qc8w-igemm-minmax-fp32-test)
 
   ADD_EXECUTABLE(qs8-dwconv-minmax-multipass-fp32-test test/qs8-dwconv-minmax-multipass-fp32.cc)
   TARGET_INCLUDE_DIRECTORIES(qs8-dwconv-minmax-multipass-fp32-test PRIVATE include src test)
@@ -2962,6 +2974,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(x32-packb-test PRIVATE hardware-config logging microkernels-all packing)
   ADD_TEST(NAME x32-packb-test COMMAND x32-packb-test)
 
+  ADD_EXECUTABLE(x8-packw-test test/x8-packw.cc)
+  TARGET_INCLUDE_DIRECTORIES(x8-packw-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(x8-packw-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(x8-packw-test PRIVATE hardware-config logging microkernels-all packing)
+  ADD_TEST(NAME x8-packw-test COMMAND x8-packw-test)
+
   ADD_EXECUTABLE(x16-packw-test test/x16-packw.cc)
   TARGET_INCLUDE_DIRECTORIES(x16-packw-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(x16-packw-test PRIVATE pthreadpool gtest gtest_main)
@@ -3285,8 +3303,8 @@ IF(XNNPACK_BUILD_BENCHMARKS)
       models/fp32-sparse-mobilenet-v2.cc
       models/fp32-sparse-mobilenet-v3-large.cc
       models/fp32-sparse-mobilenet-v3-small.cc
-      models/qc8-mobilenet-v1.cc
-      models/qc8-mobilenet-v2.cc
+      models/qs8-qc8w-mobilenet-v1.cc
+      models/qs8-qc8w-mobilenet-v2.cc
       models/qs8-mobilenet-v1.cc
       models/qs8-mobilenet-v2.cc
       models/qu8-mobilenet-v1.cc
@@ -3486,6 +3504,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_LINK_LIBRARIES(f16-rsum-bench PRIVATE benchmark fp16 pthreadpool)
   TARGET_LINK_LIBRARIES(f16-rsum-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
+  ADD_EXECUTABLE(f16-f32acc-rsum-bench bench/f16-f32acc-rsum.cc)
+  TARGET_INCLUDE_DIRECTORIES(f16-f32acc-rsum-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f16-f32acc-rsum-bench PRIVATE benchmark fp16 pthreadpool)
+  TARGET_LINK_LIBRARIES(f16-f32acc-rsum-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
   ADD_EXECUTABLE(f16-spmm-bench bench/f16-spmm.cc)
   TARGET_INCLUDE_DIRECTORIES(f16-spmm-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f16-spmm-bench PRIVATE benchmark fp16 pthreadpool)
@@ -3555,6 +3578,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(f32-gemm-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f32-gemm-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(f32-gemm-bench PRIVATE jit bench-utils hardware-config logging microkernels-all microparams-init packing)
+
+  ADD_EXECUTABLE(f32-qc8w-gemm-bench bench/f32-qc8w-gemm.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-qc8w-gemm-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-qc8w-gemm-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-qc8w-gemm-bench PRIVATE jit bench-utils hardware-config logging microkernels-all microparams-init packing)
 
   ADD_EXECUTABLE(f32-igemm-bench bench/f32-igemm.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-igemm-bench PRIVATE . include src)
@@ -3847,6 +3875,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(x24-transpose-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(x24-transpose-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(x24-transpose-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(x8-packw-bench bench/x8-packw.cc)
+  TARGET_INCLUDE_DIRECTORIES(x8-packw-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(x8-packw-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(x8-packw-bench PRIVATE bench-utils hardware-config logging microkernels-all packing)
 
   ADD_EXECUTABLE(x16-packw-bench bench/x16-packw.cc)
   TARGET_INCLUDE_DIRECTORIES(x16-packw-bench PRIVATE . include src)

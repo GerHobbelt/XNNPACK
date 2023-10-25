@@ -63,39 +63,6 @@ static void f16_rsum(
     benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
-  BENCHMARK_CAPTURE(f16_rsum, f16c_x8,
-                    xnn_f16_rsum_ukernel__f16c_x8,
-                    xnn_init_f16_scale_avx_params,
-                    benchmark::utils::CheckF16C)
-    ->Apply(benchmark::utils::ReductionParameters<uint16_t>)
-    ->UseRealTime();
-  BENCHMARK_CAPTURE(f16_rsum, f16c_x16_acc2,
-                    xnn_f16_rsum_ukernel__f16c_x16_acc2,
-                    xnn_init_f16_scale_avx_params,
-                    benchmark::utils::CheckF16C)
-    ->Apply(benchmark::utils::ReductionParameters<uint16_t>)
-    ->UseRealTime();
-  BENCHMARK_CAPTURE(f16_rsum, f16c_x24_acc3,
-                    xnn_f16_rsum_ukernel__f16c_x24_acc3,
-                    xnn_init_f16_scale_avx_params,
-                    benchmark::utils::CheckF16C)
-    ->Apply(benchmark::utils::ReductionParameters<uint16_t>)
-    ->UseRealTime();
-  BENCHMARK_CAPTURE(f16_rsum, f16c_x32_acc2,
-                    xnn_f16_rsum_ukernel__f16c_x32_acc2,
-                    xnn_init_f16_scale_avx_params,
-                    benchmark::utils::CheckF16C)
-    ->Apply(benchmark::utils::ReductionParameters<uint16_t>)
-    ->UseRealTime();
-  BENCHMARK_CAPTURE(f16_rsum, f16c_x32_acc4,
-                    xnn_f16_rsum_ukernel__f16c_x32_acc4,
-                    xnn_init_f16_scale_avx_params,
-                    benchmark::utils::CheckF16C)
-    ->Apply(benchmark::utils::ReductionParameters<uint16_t>)
-    ->UseRealTime();
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
-
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
   BENCHMARK_CAPTURE(f16_rsum, neonfp16arith_x8,
                     xnn_f16_rsum_ukernel__neonfp16arith_x8,

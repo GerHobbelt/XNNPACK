@@ -412,7 +412,7 @@ void xnn_f32_vrndz_ukernel__neonv8_x8(
   }
 }
 
-void xnn_qc8_dwconv_minmax_fp32_ukernel_25p16c__neonv8_mla8_ld64(
+void xnn_qs8_qc8w_dwconv_minmax_fp32_ukernel_25p16c__neonv8_mla8_ld64(
     size_t channels,
     size_t output_width,
     const int8_t** input,
@@ -422,7 +422,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_25p16c__neonv8_mla8_ld64(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
@@ -1067,7 +1067,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_25p16c__neonv8_mla8_ld64(
   } while (--output_width != 0);
 }
 
-void xnn_qc8_dwconv_minmax_fp32_ukernel_25p8c__neonv8_mla8_ld64(
+void xnn_qs8_qc8w_dwconv_minmax_fp32_ukernel_25p8c__neonv8_mla8_ld64(
     size_t channels,
     size_t output_width,
     const int8_t** input,
@@ -1077,7 +1077,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_25p8c__neonv8_mla8_ld64(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
@@ -1600,7 +1600,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_25p8c__neonv8_mla8_ld64(
   } while (--output_width != 0);
 }
 
-void xnn_qc8_dwconv_minmax_fp32_ukernel_3p16c__neonv8_mla8_ld128(
+void xnn_qs8_qc8w_dwconv_minmax_fp32_ukernel_3p16c__neonv8_mla8_ld128(
     size_t channels,
     size_t output_width,
     const int8_t** input,
@@ -1610,7 +1610,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_3p16c__neonv8_mla8_ld128(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
@@ -1787,7 +1787,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_3p16c__neonv8_mla8_ld128(
   } while (--output_width != 0);
 }
 
-void xnn_qc8_dwconv_minmax_fp32_ukernel_9p16c__neonv8_mla8_ld64(
+void xnn_qs8_qc8w_dwconv_minmax_fp32_ukernel_9p16c__neonv8_mla8_ld64(
     size_t channels,
     size_t output_width,
     const int8_t** input,
@@ -1797,7 +1797,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_9p16c__neonv8_mla8_ld64(
     size_t output_increment,
     size_t input_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(channels != 0);
   assert(output_width != 0);
@@ -2106,7 +2106,7 @@ void xnn_qc8_dwconv_minmax_fp32_ukernel_9p16c__neonv8_mla8_ld64(
   } while (--output_width != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -2116,7 +2116,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -2388,7 +2388,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -2398,7 +2398,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -2584,7 +2584,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -2594,7 +2594,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -2779,7 +2779,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -2789,7 +2789,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -2956,7 +2956,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -2966,7 +2966,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -3158,7 +3158,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -3168,7 +3168,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 2);
@@ -3411,7 +3411,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -3421,7 +3421,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 2);
@@ -3706,7 +3706,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_gemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
+void xnn_qs8_qc8w_gemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -3716,7 +3716,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
     int8_t* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 4);
@@ -4307,7 +4307,7 @@ void xnn_qc8_gemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -4319,7 +4319,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -4603,7 +4603,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x16__neonv8_mlal_lane(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -4615,7 +4615,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -4813,7 +4813,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane_prfm(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -4825,7 +4825,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -5022,7 +5022,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8__neonv8_mlal_lane(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -5034,7 +5034,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -5212,7 +5212,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c2s4__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -5224,7 +5224,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -5427,7 +5427,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_1x8c8__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -5439,7 +5439,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 2);
@@ -5694,7 +5694,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_2x8c2s4__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -5706,7 +5706,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 2);
@@ -6003,7 +6003,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_2x8c8__neonv8_mlal(
   } while (nc != 0);
 }
 
-void xnn_qc8_igemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
+void xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
     size_t mr,
     size_t nc,
     size_t kc,
@@ -6015,7 +6015,7 @@ void xnn_qc8_igemm_minmax_fp32_ukernel_4x16__neonv8_mlal_lane(
     size_t cn_stride,
     size_t a_offset,
     const int8_t* zero,
-    const union xnn_qc8_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const union xnn_qs8_qc8w_conv_minmax_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(mr != 0);
   assert(mr <= 4);

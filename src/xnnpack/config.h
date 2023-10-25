@@ -80,6 +80,16 @@ static inline bool xnn_is_f16_chw_compatible_config(const struct xnn_hardware_co
   #endif
 }
 
+static inline bool xnn_is_chw_compatible_config(const struct xnn_hardware_config hardware_config[XNN_MIN_ELEMENTS(1)]) {
+  #if (XNN_ARCH_X86 || XNN_ARCH_X86_64)
+    // Sparse microkernels on x86 currently target only SSE, and on processors
+    // with AVX ISA dense inference is expected to be faster than sparse.
+    return (!hardware_config->use_x86_avx);
+  #else
+    return true;
+  #endif
+}
+
 static inline bool xnn_is_f16_supported_natively(const struct xnn_hardware_config hardware_config[XNN_MIN_ELEMENTS(1)]) {
   #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || (XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR)
     return hardware_config->use_arm_neon_fp16_arith;
@@ -254,6 +264,19 @@ XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qu8_to_f32_cvt_
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_s8_clamp_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_u8_clamp_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_xx_copy_config();
+
+struct xnn_reduce_config {
+  xnn_reduce_ukernel_fn ukernel;
+  union {
+    xnn_init_f32_default_params_fn f32_default;
+    xnn_init_f32_scale_params_fn f32_scale;
+  } init;
+  // Number of elements in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of
+  // elements in each call.
+  size_t element_tile;
+};
+XNN_INTERNAL const struct xnn_reduce_config* xnn_init_f32_rsum_config();
 
 struct xnn_xx_fill_config {
   xnn_fill_ukernel_fn ukernel;

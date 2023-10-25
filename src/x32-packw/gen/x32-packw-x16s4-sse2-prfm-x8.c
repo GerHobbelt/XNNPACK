@@ -82,6 +82,38 @@ void xnn_x32_packw_gemm_goi_ukernel_x16s4__sse2_prfm_x8(
       const float* w13 = w12 + kc;
       const float* w14 = w13 + kc;
       const float* w15 = w14 + kc;
+      xnn_prefetch_to_l1((const int8_t*) w0);
+      xnn_prefetch_to_l1((const int8_t*) w0 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w1);
+      xnn_prefetch_to_l1((const int8_t*) w1 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w2);
+      xnn_prefetch_to_l1((const int8_t*) w2 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w3);
+      xnn_prefetch_to_l1((const int8_t*) w3 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w4);
+      xnn_prefetch_to_l1((const int8_t*) w4 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w5);
+      xnn_prefetch_to_l1((const int8_t*) w5 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w6);
+      xnn_prefetch_to_l1((const int8_t*) w6 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w7);
+      xnn_prefetch_to_l1((const int8_t*) w7 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w8);
+      xnn_prefetch_to_l1((const int8_t*) w8 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w9);
+      xnn_prefetch_to_l1((const int8_t*) w9 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w10);
+      xnn_prefetch_to_l1((const int8_t*) w10 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w11);
+      xnn_prefetch_to_l1((const int8_t*) w11 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w12);
+      xnn_prefetch_to_l1((const int8_t*) w12 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w13);
+      xnn_prefetch_to_l1((const int8_t*) w13 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w14);
+      xnn_prefetch_to_l1((const int8_t*) w14 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w15);
+      xnn_prefetch_to_l1((const int8_t*) w15 + 64);
 
       size_t k = kc;
       // KC main loop multiple of 8
@@ -410,7 +442,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x16s4__sse2_prfm_x8(
       // KC remainder (1..3)
       if XNN_UNLIKELY(k != 0) {
         assert(k >= 1);
-        assert(k <= 7);
+        assert(k <= 3);
         __m128 v0 = _mm_undefined_ps();
         __m128 v1 = _mm_undefined_ps();
         __m128 v2 = _mm_undefined_ps();
@@ -731,7 +763,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x16s4__sse2_prfm_x8(
       }
 
       size_t k = kc;
-      // KC main loop multiple of {KUNROLL}
+      // KC main loop multiple of 8
       for (; k >= 8; k -= 8) {
         // Read blocks of 4x4
         // a b c d

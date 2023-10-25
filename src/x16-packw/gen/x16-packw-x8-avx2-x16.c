@@ -63,6 +63,7 @@ void xnn_x16_packw_gemm_goi_ukernel_x8__avx2_x16(
       const uint16_t* w5 = w4 + kc;
       const uint16_t* w6 = w5 + kc;
       const uint16_t* w7 = w6 + kc;
+
       size_t k = kc;
       for (; k >= 16; k -= 16) {
         __m256i v0 = _mm256_loadu_si256((const __m256i*) w0);
@@ -451,7 +452,6 @@ void xnn_x16_packw_gemm_goi_ukernel_x8__avx2_x16(
       packed_weights = (uint16_t*) ((uintptr_t) packed_weights + extra_bytes);
       w0 = w7;
     }
-
 
     // NC remainder (1..7)
     if XNN_UNLIKELY(n != 0) {

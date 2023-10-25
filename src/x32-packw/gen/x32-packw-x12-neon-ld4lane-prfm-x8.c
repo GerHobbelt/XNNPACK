@@ -40,35 +40,11 @@ void xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_prfm_x8(
   assert(weights != NULL);
   assert(packed_weights != NULL);
   uint32x4x4_t vtmp0123x0123;
-  vtmp0123x0123.val[0] = vdupq_n_u32(0);
-  vtmp0123x0123.val[1] = vdupq_n_u32(0);
-  vtmp0123x0123.val[2] = vdupq_n_u32(0);
-  vtmp0123x0123.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp4567x0123;
-  vtmp4567x0123.val[0] = vdupq_n_u32(0);
-  vtmp4567x0123.val[1] = vdupq_n_u32(0);
-  vtmp4567x0123.val[2] = vdupq_n_u32(0);
-  vtmp4567x0123.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp0123x4567;
-  vtmp0123x4567.val[0] = vdupq_n_u32(0);
-  vtmp0123x4567.val[1] = vdupq_n_u32(0);
-  vtmp0123x4567.val[2] = vdupq_n_u32(0);
-  vtmp0123x4567.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp4567x4567;
-  vtmp4567x4567.val[0] = vdupq_n_u32(0);
-  vtmp4567x4567.val[1] = vdupq_n_u32(0);
-  vtmp4567x4567.val[2] = vdupq_n_u32(0);
-  vtmp4567x4567.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp0123x89AB;
-  vtmp0123x89AB.val[0] = vdupq_n_u32(0);
-  vtmp0123x89AB.val[1] = vdupq_n_u32(0);
-  vtmp0123x89AB.val[2] = vdupq_n_u32(0);
-  vtmp0123x89AB.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp4567x89AB;
-  vtmp4567x89AB.val[0] = vdupq_n_u32(0);
-  vtmp4567x89AB.val[1] = vdupq_n_u32(0);
-  vtmp4567x89AB.val[2] = vdupq_n_u32(0);
-  vtmp4567x89AB.val[3] = vdupq_n_u32(0);
 
   do {
     // NC main loop multiple of 12
@@ -101,6 +77,30 @@ void xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_prfm_x8(
       const uint32_t* w9 = w8 + kc;
       const uint32_t* w10 = w9 + kc;
       const uint32_t* w11 = w10 + kc;
+      xnn_prefetch_to_l1((const int8_t*) w0);
+      xnn_prefetch_to_l1((const int8_t*) w0 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w1);
+      xnn_prefetch_to_l1((const int8_t*) w1 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w2);
+      xnn_prefetch_to_l1((const int8_t*) w2 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w3);
+      xnn_prefetch_to_l1((const int8_t*) w3 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w4);
+      xnn_prefetch_to_l1((const int8_t*) w4 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w5);
+      xnn_prefetch_to_l1((const int8_t*) w5 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w6);
+      xnn_prefetch_to_l1((const int8_t*) w6 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w7);
+      xnn_prefetch_to_l1((const int8_t*) w7 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w8);
+      xnn_prefetch_to_l1((const int8_t*) w8 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w9);
+      xnn_prefetch_to_l1((const int8_t*) w9 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w10);
+      xnn_prefetch_to_l1((const int8_t*) w10 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w11);
+      xnn_prefetch_to_l1((const int8_t*) w11 + 64);
 
       // KC main loop multiple of 8
       size_t k = kc;
@@ -210,6 +210,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_prfm_x8(
       // KC remainder of 1..3
       // Same as main loop but ld1, ld2 or ld3
       if XNN_UNLIKELY(k != 0) {
+        assert(k >= 1);
+        assert(k <= 3);
         switch (k) {
           // KC remainder of 1
           case 1:

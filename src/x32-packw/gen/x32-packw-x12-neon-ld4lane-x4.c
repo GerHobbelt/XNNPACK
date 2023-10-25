@@ -39,20 +39,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_x4(
   assert(weights != NULL);
   assert(packed_weights != NULL);
   uint32x4x4_t vtmp0123x0123;
-  vtmp0123x0123.val[0] = vdupq_n_u32(0);
-  vtmp0123x0123.val[1] = vdupq_n_u32(0);
-  vtmp0123x0123.val[2] = vdupq_n_u32(0);
-  vtmp0123x0123.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp0123x4567;
-  vtmp0123x4567.val[0] = vdupq_n_u32(0);
-  vtmp0123x4567.val[1] = vdupq_n_u32(0);
-  vtmp0123x4567.val[2] = vdupq_n_u32(0);
-  vtmp0123x4567.val[3] = vdupq_n_u32(0);
   uint32x4x4_t vtmp0123x89AB;
-  vtmp0123x89AB.val[0] = vdupq_n_u32(0);
-  vtmp0123x89AB.val[1] = vdupq_n_u32(0);
-  vtmp0123x89AB.val[2] = vdupq_n_u32(0);
-  vtmp0123x89AB.val[3] = vdupq_n_u32(0);
 
   do {
     // NC main loop multiple of 12
@@ -118,6 +106,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_x4(
       // KC remainder of 1..3
       // Same as main loop but ld1, ld2 or ld3
       if XNN_UNLIKELY(k != 0) {
+        assert(k >= 1);
+        assert(k <= 3);
         switch (k) {
           // KC remainder of 1
           case 1:

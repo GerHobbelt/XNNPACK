@@ -210,6 +210,7 @@ SET(OPERATOR_SRCS
   src/operators/lut-elementwise-nc.c
   src/operators/max-pooling-nhwc.c
   src/operators/prelu-nc.c
+  src/operators/reduce-nd.c
   src/operators/resize-bilinear-nchw.c
   src/operators/resize-bilinear-nhwc.c
   src/operators/slice-nd.c
@@ -293,6 +294,7 @@ SET(XNNPACK_SRCS
   src/pavgpool-config.c
   src/prelu-config.c
   src/raddstoreexpminusmax-config.c
+  src/reduce-config.c
   src/rmax-config.c
   src/spmm-config.c
   src/lut32norm-config.c
@@ -1204,6 +1206,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(maximum-nd-eager-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME maximum-nd-eager-test COMMAND maximum-nd-eager-test)
 
+    ADD_EXECUTABLE(mean-nd-test test/mean-nd.cc)
+    TARGET_INCLUDE_DIRECTORIES(mean-nd-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(mean-nd-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    ADD_TEST(NAME mean-nd-test COMMAND mean-nd-test)
+
     ADD_EXECUTABLE(minimum-nd-test test/minimum-nd.cc)
     TARGET_INCLUDE_DIRECTORIES(minimum-nd-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(minimum-nd-test PRIVATE XNNPACK fp16 gtest gtest_main)
@@ -1644,6 +1651,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(slice-normalization-test PRIVATE gtest gtest_main pthreadpool)
   TARGET_LINK_LIBRARIES(slice-normalization-test PRIVATE normalization)
   ADD_TEST(NAME slice-normalization-test COMMAND slice-normalization-test)
+
+  ADD_EXECUTABLE(reduce-normalization-test test/reduce-normalization.cc)
+  TARGET_INCLUDE_DIRECTORIES(reduce-normalization-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(reduce-normalization-test PRIVATE gtest gtest_main pthreadpool)
+  TARGET_LINK_LIBRARIES(reduce-normalization-test PRIVATE normalization)
+  ADD_TEST(NAME reduce-normalization-test COMMAND reduce-normalization-test)
 
   ADD_EXECUTABLE(transpose-normalization-test test/transpose-normalization.cc)
   TARGET_INCLUDE_DIRECTORIES(transpose-normalization-test PRIVATE include src test)
@@ -2167,6 +2180,18 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f32-rmax-test PRIVATE hardware-config logging microkernels-all)
   ADD_TEST(NAME f32-rmax-test COMMAND f32-rmax-test)
 
+  ADD_EXECUTABLE(f32-rmin-test test/f32-rmin.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-rmin-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(f32-rmin-test PRIVATE fp16 pthreadpool gtest gtest_main microparams-init)
+  TARGET_LINK_LIBRARIES(f32-rmin-test PRIVATE hardware-config logging microkernels-all)
+  ADD_TEST(NAME f32-rmin-test COMMAND f32-rmin-test)
+
+  ADD_EXECUTABLE(f32-rsum-test test/f32-rsum.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-rsum-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(f32-rsum-test PRIVATE fp16 pthreadpool gtest gtest_main microparams-init)
+  TARGET_LINK_LIBRARIES(f32-rsum-test PRIVATE hardware-config logging microkernels-all)
+  ADD_TEST(NAME f32-rsum-test COMMAND f32-rsum-test)
+
   ADD_EXECUTABLE(f32-spmm-minmax-test test/f32-spmm-minmax.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-spmm-minmax-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(f32-spmm-minmax-test PRIVATE fp16 pthreadpool gtest gtest_main)
@@ -2220,6 +2245,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(f32-vclamp-test PRIVATE fp16 pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(f32-vclamp-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME f32-vclamp-test COMMAND f32-vclamp-test)
+
+  ADD_EXECUTABLE(f32-vcmul-test test/f32-vcmul.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-vcmul-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(f32-vcmul-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(f32-vcmul-test PRIVATE hardware-config logging microkernels-all)
+  ADD_TEST(NAME f32-vcmul-test COMMAND f32-vcmul-test)
 
   ADD_EXECUTABLE(f32-vhswish-test test/f32-vhswish.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-vhswish-test PRIVATE include src test)
@@ -3558,6 +3589,16 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_LINK_LIBRARIES(f32-rmax-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(f32-rmax-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
+  ADD_EXECUTABLE(f32-rmin-bench bench/f32-rmin.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-rmin-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-rmin-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-rmin-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f32-rsum-bench bench/f32-rsum.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-rsum-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-rsum-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-rsum-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
   ADD_EXECUTABLE(f32-spmm-bench bench/f32-spmm.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-spmm-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f32-spmm-bench PRIVATE benchmark pthreadpool)
@@ -3567,6 +3608,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(f32-softmax-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f32-softmax-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(f32-softmax-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(f32-vcmul-bench bench/f32-vcmul.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-vcmul-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-vcmul-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-vcmul-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
   ADD_EXECUTABLE(f32-velu-bench bench/f32-velu.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-velu-bench PRIVATE . include src)
@@ -3809,5 +3855,5 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   ADD_EXECUTABLE(jit-bench bench/jit.cc)
   TARGET_INCLUDE_DIRECTORIES(jit-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(jit-bench PRIVATE benchmark pthreadpool)
-  TARGET_LINK_LIBRARIES(jit-bench PRIVATE jit memory microkernels-all)
+  TARGET_LINK_LIBRARIES(jit-bench PRIVATE jit logging memory microkernels-all)
 ENDIF()

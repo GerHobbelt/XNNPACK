@@ -64,6 +64,23 @@ void xnn_x16_packw_gemm_goi_ukernel_x8__avx2_prfm_x16(
       const uint16_t* w5 = w4 + kc;
       const uint16_t* w6 = w5 + kc;
       const uint16_t* w7 = w6 + kc;
+      xnn_prefetch_to_l1((const int8_t*) w0);
+      xnn_prefetch_to_l1((const int8_t*) w0 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w1);
+      xnn_prefetch_to_l1((const int8_t*) w1 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w2);
+      xnn_prefetch_to_l1((const int8_t*) w2 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w3);
+      xnn_prefetch_to_l1((const int8_t*) w3 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w4);
+      xnn_prefetch_to_l1((const int8_t*) w4 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w5);
+      xnn_prefetch_to_l1((const int8_t*) w5 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w6);
+      xnn_prefetch_to_l1((const int8_t*) w6 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w7);
+      xnn_prefetch_to_l1((const int8_t*) w7 + 64);
+
       size_t k = kc;
       for (; k >= 16; k -= 16) {
         __m256i v0 = _mm256_loadu_si256((const __m256i*) w0);
@@ -468,7 +485,6 @@ void xnn_x16_packw_gemm_goi_ukernel_x8__avx2_prfm_x16(
       packed_weights = (uint16_t*) ((uintptr_t) packed_weights + extra_bytes);
       w0 = w7;
     }
-
 
     // NC remainder (1..7)
     if XNN_UNLIKELY(n != 0) {

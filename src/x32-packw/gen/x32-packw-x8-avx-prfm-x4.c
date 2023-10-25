@@ -66,6 +66,22 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__avx_prfm_x4(
       const float* w5 = w4 + kc;
       const float* w6 = w5 + kc;
       const float* w7 = w6 + kc;
+      xnn_prefetch_to_l1((const int8_t*) w0);
+      xnn_prefetch_to_l1((const int8_t*) w0 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w1);
+      xnn_prefetch_to_l1((const int8_t*) w1 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w2);
+      xnn_prefetch_to_l1((const int8_t*) w2 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w3);
+      xnn_prefetch_to_l1((const int8_t*) w3 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w4);
+      xnn_prefetch_to_l1((const int8_t*) w4 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w5);
+      xnn_prefetch_to_l1((const int8_t*) w5 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w6);
+      xnn_prefetch_to_l1((const int8_t*) w6 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w7);
+      xnn_prefetch_to_l1((const int8_t*) w7 + 64);
 
       // KC main loop multiple of 4
       size_t k = kc;
@@ -120,7 +136,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__avx_prfm_x4(
         packed_w += 32;
       }
 
-      // KC remainder
+      // KC remainder (1..3)
       if XNN_UNLIKELY(k != 0) {
         assert(k >= 1);
         assert(k <= 3);
@@ -294,7 +310,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__avx_prfm_x4(
         packed_w += 32;
       }
 
-      // KC remainder
+      // KC remainder (1..3)
       if XNN_UNLIKELY(k != 0) {
         assert(k >= 1);
         assert(k <= 3);

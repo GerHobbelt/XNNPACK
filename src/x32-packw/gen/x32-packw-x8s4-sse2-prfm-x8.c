@@ -68,6 +68,22 @@ void xnn_x32_packw_gemm_goi_ukernel_x8s4__sse2_prfm_x8(
       const float* w5 = w4 + kc;
       const float* w6 = w5 + kc;
       const float* w7 = w6 + kc;
+      xnn_prefetch_to_l1((const int8_t*) w0);
+      xnn_prefetch_to_l1((const int8_t*) w0 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w1);
+      xnn_prefetch_to_l1((const int8_t*) w1 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w2);
+      xnn_prefetch_to_l1((const int8_t*) w2 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w3);
+      xnn_prefetch_to_l1((const int8_t*) w3 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w4);
+      xnn_prefetch_to_l1((const int8_t*) w4 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w5);
+      xnn_prefetch_to_l1((const int8_t*) w5 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w6);
+      xnn_prefetch_to_l1((const int8_t*) w6 + 64);
+      xnn_prefetch_to_l1((const int8_t*) w7);
+      xnn_prefetch_to_l1((const int8_t*) w7 + 64);
 
       size_t k = kc;
       // KC main loop multiple of 8
@@ -250,7 +266,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x8s4__sse2_prfm_x8(
       // KC remainder (1..3)
       if XNN_UNLIKELY(k != 0) {
         assert(k >= 1);
-        assert(k <= 7);
+        assert(k <= 3);
         __m128 v0 = _mm_undefined_ps();
         __m128 v1 = _mm_undefined_ps();
         __m128 v2 = _mm_undefined_ps();
@@ -435,7 +451,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x8s4__sse2_prfm_x8(
       }
 
       size_t k = kc;
-      // KC main loop multiple of {KUNROLL}
+      // KC main loop multiple of 8
       for (; k >= 8; k -= 8) {
         // Read blocks of 4x4
         // a b c d

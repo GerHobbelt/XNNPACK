@@ -16,7 +16,7 @@ PROJECT(XNNPACK C CXX ASM)
 
 SET(CMAKE_C_STANDARD 99)
 SET(CMAKE_C_EXTENSIONS NO)
-SET(CMAKE_CXX_STANDARD 11)
+SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_CXX_STANDARD_REQUIRED YES)
 SET(CMAKE_CXX_EXTENSIONS NO)
 
@@ -28,6 +28,7 @@ OPTION(XNNPACK_ENABLE_JIT "Build XNNPACK with JIT micro-kernels" OFF)
 OPTION(XNNPACK_ENABLE_MEMOPT "Build XNNPACK with optimized memory allocation scheme" ON)
 OPTION(XNNPACK_ENABLE_SPARSE "Build XNNPACK with graph rewriting for sparse inference" ON)
 OPTION(XNNPACK_ENABLE_GEMM_M_SPECIALIZATION "Build XNNPACK with support for selecting microkernel with different MR" ON)
+OPTION(XNNPACK_ENABLE_DWCONV_MULTIPASS "Build XNNPACK with DWCONV multipass microkernels enabled" OFF)
 OPTION(XNNPACK_BUILD_LIBRARY "Build XNNPACK library" ON)
 OPTION(XNNPACK_BUILD_TESTS "Build XNNPACK unit tests" ON)
 OPTION(XNNPACK_BUILD_BENCHMARKS "Build XNNPACK benchmarks" ON)
@@ -94,6 +95,7 @@ ADD_COMPILE_DEFINITIONS("XNN_ENABLE_JIT=$<BOOL:${XNNPACK_ENABLE_JIT}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_MEMOPT=$<BOOL:${XNNPACK_ENABLE_MEMOPT}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_SPARSE=$<BOOL:${XNNPACK_ENABLE_SPARSE}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_GEMM_M_SPECIALIZATION=$<BOOL:${XNNPACK_ENABLE_GEMM_M_SPECIALIZATION}>")
+ADD_COMPILE_DEFINITIONS("XNN_ENABLE_DWCONV_MULTIPASS=$<BOOL:${XNNPACK_ENABLE_DWCONV_MULTIPASS}>")
 
 IF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
   # Disable "unary minus operator applied to unsigned type, result still unsigned" warning
@@ -121,16 +123,6 @@ ENDIF()
 
 # ---[ Download deps
 IF(NOT XNNPACK_USE_SYSTEM_LIBS)
-  IF(NOT DEFINED CLOG_SOURCE_DIR)
-    MESSAGE(STATUS "Downloading clog to ${CMAKE_BINARY_DIR}/clog-source (define CLOG_SOURCE_DIR to avoid it)")
-    CONFIGURE_FILE(cmake/DownloadCLog.cmake "${CMAKE_BINARY_DIR}/clog-download/CMakeLists.txt")
-    EXECUTE_PROCESS(COMMAND "${CMAKE_COMMAND}" -G "${CMAKE_GENERATOR}" .
-      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/clog-download")
-    EXECUTE_PROCESS(COMMAND "${CMAKE_COMMAND}" --build .
-      WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/clog-download")
-    SET(CLOG_SOURCE_DIR "${CMAKE_BINARY_DIR}/clog-source" CACHE STRING "clog source directory")
-  ENDIF()
-
   IF(NOT DEFINED CPUINFO_SOURCE_DIR)
     MESSAGE(STATUS "Downloading cpuinfo to ${CMAKE_BINARY_DIR}/cpuinfo-source (define CPUINFO_SOURCE_DIR to avoid it)")
     CONFIGURE_FILE(cmake/DownloadCpuinfo.cmake "${CMAKE_BINARY_DIR}/cpuinfo-download/CMakeLists.txt")
@@ -818,26 +810,6 @@ IF(LIBM)
   ENDIF()
 ENDIF()
 
-# ---[ Configure clog
-IF(NOT TARGET clog)
-  IF(NOT XNNPACK_USE_SYSTEM_LIBS)
-    SET(CLOG_BUILD_TESTS OFF CACHE BOOL "")
-    SET(CLOG_RUNTIME_TYPE "${CPUINFO_RUNTIME_TYPE}" CACHE STRING "")
-    ADD_SUBDIRECTORY(
-      "${CLOG_SOURCE_DIR}/deps/clog"
-      "${CMAKE_BINARY_DIR}/clog")
-    # We build static version of clog but a dynamic library may indirectly depend on it
-    SET_PROPERTY(TARGET clog PROPERTY POSITION_INDEPENDENT_CODE ON)
-  ELSE()
-    ADD_LIBRARY(clog STATIC IMPORTED)
-    FIND_LIBRARY(CLOG_LIBRARY clog)
-    IF(NOT CLOG_LIBRARY)
-      MESSAGE(FATAL_ERROR "Cannot find clog")
-    ENDIF()
-    SET_PROPERTY(TARGET clog PROPERTY IMPORTED_LOCATION "${CLOG_LIBRARY}")
-  ENDIF()
-ENDIF()
-
 # ---[ Configure cpuinfo
 IF(NOT TARGET cpuinfo)
   IF(NOT XNNPACK_USE_SYSTEM_LIBS)
@@ -1353,6 +1325,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_INCLUDE_DIRECTORIES(subgraph-fp16-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(subgraph-fp16-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME subgraph-fp16-test COMMAND subgraph-fp16-test)
+
+    ADD_EXECUTABLE(subgraph-test test/subgraph.cc)
+    TARGET_INCLUDE_DIRECTORIES(subgraph-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(subgraph-test PRIVATE XNNPACK gtest gtest_main)
+    ADD_TEST(NAME subgraph-test COMMAND subgraph-test)
 
     ADD_EXECUTABLE(subgraph-nchw-test test/subgraph-nchw.cc)
     TARGET_INCLUDE_DIRECTORIES(subgraph-nchw-test PRIVATE src test)

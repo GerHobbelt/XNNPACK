@@ -515,6 +515,7 @@ IF(XNNPACK_BUILD_LIBRARY)
   # Need C_EXTENSIONS to get constants for mmap (MAP_ANONYMOUS).
   SET_TARGET_PROPERTIES(memory PROPERTIES C_EXTENSIONS YES)
   ADD_LIBRARY(convolution-test-helpers OBJECT test/convolution-test-helpers.cc)
+  TARGET_INCLUDE_DIRECTORIES(convolution-test-helpers PRIVATE include src)
   ADD_LIBRARY(post-operation OBJECT src/operators/post-operation.c)
   IF(XNNPACK_LIBRARY_TYPE STREQUAL "default")
     ADD_LIBRARY(XNNPACK ${XNNPACK_SRCS})
@@ -799,7 +800,9 @@ TARGET_INCLUDE_DIRECTORIES(normalization PRIVATE include src)
 TARGET_INCLUDE_DIRECTORIES(packing PRIVATE include src)
 TARGET_INCLUDE_DIRECTORIES(logging PRIVATE include src)
 IF(XNNPACK_BUILD_LIBRARY)
-  TARGET_INCLUDE_DIRECTORIES(XNNPACK PUBLIC include)
+  TARGET_INCLUDE_DIRECTORIES(XNNPACK PUBLIC
+    "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+    "$<INSTALL_INTERFACE:include>")
   TARGET_INCLUDE_DIRECTORIES(XNNPACK PRIVATE src)
   TARGET_INCLUDE_DIRECTORIES(allocator PRIVATE include src)
   TARGET_INCLUDE_DIRECTORIES(cache PRIVATE include src)
@@ -816,7 +819,7 @@ IF(XNNPACK_BUILD_LIBRARY)
     TARGET_COMPILE_DEFINITIONS(XNNPACK PRIVATE _WIN32_WINNT=0x0601)
     TARGET_COMPILE_DEFINITIONS(mutex PRIVATE _WIN32_WINNT=0x0601)
   ENDIF()
-  SET_TARGET_PROPERTIES(XNNPACK PROPERTIES PUBLIC_HEADER include/xnnpack.h)
+  SET_TARGET_PROPERTIES(XNNPACK PROPERTIES PUBLIC_HEADER "${CMAKE_CURRENT_SOURCE_DIR}/include/xnnpack.h")
 ENDIF()
 
 # ---[ Find libm
@@ -949,10 +952,21 @@ IF(XNNPACK_BUILD_LIBRARY)
   TARGET_LINK_LIBRARIES(operator-run PRIVATE fp16)
 
   TARGET_LINK_LIBRARIES(XNNPACK PRIVATE fp16)
+
+  INCLUDE(CMakePackageConfigHelpers)
+  CONFIGURE_PACKAGE_CONFIG_FILE(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/${CMAKE_PROJECT_NAME}Config.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_PROJECT_NAME}Config.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}")
+
   INSTALL(TARGETS XNNPACK
-      LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-      PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    EXPORT ${CMAKE_PROJECT_NAME}Targets
+    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+  INSTALL(EXPORT ${CMAKE_PROJECT_NAME}Targets
+    FILE "${CMAKE_PROJECT_NAME}Config.cmake"
+    DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${CMAKE_PROJECT_NAME}")
 ENDIF()
 
 # ---[ XNNPACK unit tests
@@ -1519,7 +1533,7 @@ IF(XNNPACK_BUILD_TESTS)
 
     ADD_EXECUTABLE(fully-connected-test test/fully-connected.cc)
     TARGET_INCLUDE_DIRECTORIES(fully-connected-test PRIVATE src test)
-    TARGET_LINK_LIBRARIES(fully-connected-test PRIVATE XNNPACK fp16 gtest gtest_main subgraph)
+    TARGET_LINK_LIBRARIES(fully-connected-test PRIVATE XNNPACK fp16 gmock gtest gtest_main subgraph)
     ADD_TEST(NAME fully-connected-test COMMAND fully-connected-test)
 
     ADD_EXECUTABLE(global-average-pooling-1d-test test/global-average-pooling-1d.cc)
@@ -2677,7 +2691,7 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(qd8-f32-qc4w-gemm-minmax-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME qd8-f32-qc4w-gemm-minmax-test COMMAND qd8-f32-qc4w-gemm-minmax-test)
 
-  ADD_EXECUTABLE(qd8-f32-qc8w-igemm-minmax-test test/qd8-f32-qc8w-igemm-minmax.cc)
+  ADD_EXECUTABLE(qd8-f32-qc8w-igemm-minmax-test test/qd8-f32-qc8w-igemm-minmax.cc  test/qd8-f32-qc8w-igemm-minmax-2.cc  test/qd8-f32-qc8w-igemm-minmax-3.cc)
   TARGET_INCLUDE_DIRECTORIES(qd8-f32-qc8w-igemm-minmax-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(qd8-f32-qc8w-igemm-minmax-test PRIVATE fp16 pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(qd8-f32-qc8w-igemm-minmax-test PRIVATE gemm-microkernel-tester hardware-config logging microkernels-all microparams-init)

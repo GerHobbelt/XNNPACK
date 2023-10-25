@@ -106,6 +106,7 @@ OPERATOR_SRCS = [
     "src/operators/resize-bilinear-nchw.c",
     "src/operators/resize-bilinear-nhwc.c",
     "src/operators/rope-nthc.c",
+    "src/operators/scaled-dot-attention-nhtc.c",
     "src/operators/slice-nd.c",
     "src/operators/softmax-nc.c",
     "src/operators/transpose-nd.c",
@@ -414,7 +415,7 @@ PROD_SCALAR_MICROKERNEL_SRCS = [
     "src/xx-transposev/xx-transposev-1x1-scalar-memcpy.c",
     "src/x8-lut/gen/x8-lut-scalar-x1.c",
     "src/x8-lut/gen/x8-lut-scalar-x4.c",
-    "src/x8-packw/gen/x8-packw-x4-gemm-goi-scalar-int-x4.c",
+    "src/x8-packw/gen/x8-packw-x4-gemm-goi-scalar-int-x2.c",
     "src/x8-transposec/gen/x8-transposec-2x4-scalar-int.c",
     "src/x8-zip/x8-zip-xm-scalar.c",
     "src/x8-zip/x8-zip-x2-scalar.c",
@@ -610,7 +611,7 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/u8-vclamp/u8-vclamp-neon-x64.c",
     "src/xx-fill/xx-fill-neon-x64.c",
     "src/xx-pad/xx-pad-neon.c",
-    "src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x4.c",
+    "src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x2.c",
     "src/x8-transposec/gen/x8-transposec-16x16-reuse-dec-zip-neon.c",
     "src/x8-zip/x8-zip-xm-neon.c",
     "src/x8-zip/x8-zip-x2-neon.c",
@@ -803,6 +804,7 @@ PROD_NEONBF16_AARCH64_MICROKERNEL_SRCS = [
 PROD_NEONDOT_MICROKERNEL_SRCS = [
     "src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x8c4-minmax-neondot.c",
     "src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x16c4-minmax-neondot.c",
+    "src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x16c8-minmax-neondot.c",
     "src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x16c4-minmax-neondot.c",
     "src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-rndnu-neondot.c",
     "src/qs8-gemm/gen/qs8-gemm-1x16c4-minmax-rndnu-neondot.c",
@@ -828,6 +830,10 @@ PROD_NEONDOT_MICROKERNEL_SRCS = [
     "src/qu8-igemm/gen/qu8-igemm-1x16c4-minmax-rndnu-neondot.c",
     "src/qu8-igemm/gen/qu8-igemm-4x8c4-minmax-rndnu-neondot.c",
     "src/qu8-igemm/gen/qu8-igemm-4x16c4-minmax-rndnu-neondot.c",
+]
+
+PROD_NEONI8MM_MICROKERNEL_SRCS = [
+    "src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-8x16c8-minmax-neoni8mm.c",
 ]
 
 PROD_SSE_MICROKERNEL_SRCS = [
@@ -886,7 +892,7 @@ PROD_SSE_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-sse-x8.c",
     "src/f32-vunary/gen/f32-vneg-sse-x8.c",
     "src/f32-vunary/gen/f32-vsqr-sse-x8.c",
-    "src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x4.c",
+    "src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x2.c",
     "src/x32-packx/x32-packx-4x-sse.c",
     "src/x32-transposec/x32-transposec-4x4-sse.c",
 ]
@@ -1051,7 +1057,7 @@ PROD_SSE41_MICROKERNEL_SRCS = [
     "src/s8-maxpool/s8-maxpool-9p8x-minmax-sse41-c16.c",
     "src/s8-vclamp/s8-vclamp-sse41-x64.c",
     "src/u8-ibilinear/gen/u8-ibilinear-sse41-c16.c",
-    "src/x8-packw/gen/x8-packw-x16-gemm-goi-scalar-int-x4.c",
+    "src/x8-packw/gen/x8-packw-x16-gemm-goi-scalar-int-x2.c",
 ]
 
 PROD_AVX_MICROKERNEL_SRCS = [
@@ -1069,8 +1075,8 @@ PROD_AVX_MICROKERNEL_SRCS = [
     "src/f32-prelu/gen/f32-prelu-avx-2x16.c",
     "src/f32-qc4w-gemm/gen/f32-qc4w-gemm-1x16-minmax-avx-broadcast.c",
     "src/f32-qc4w-gemm/gen/f32-qc4w-gemm-3x16-minmax-avx-broadcast.c",
-    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x8-minmax-avx-dup.c",
-    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-4x8-minmax-avx-dup.c",
+    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x16-minmax-avx-broadcast.c",
+    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-5x16-minmax-avx-broadcast.c",
     "src/f32-qs8-vcvt/gen/f32-qs8-vcvt-avx-x32.c",
     "src/f32-qu8-vcvt/gen/f32-qu8-vcvt-avx-x32.c",
     "src/f32-rsum/gen/f32-rsum-avx-x32-acc4.c",
@@ -1236,8 +1242,8 @@ PROD_FMA3_MICROKERNEL_SRCS = [
     "src/f32-igemm/gen/f32-igemm-5x16-minmax-fma3-broadcast-prfm.c",
     "src/f32-qc4w-gemm/gen/f32-qc4w-gemm-1x16-minmax-fma3-broadcast.c",
     "src/f32-qc4w-gemm/gen/f32-qc4w-gemm-3x16-minmax-fma3-broadcast.c",
-    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x8-minmax-fma3-dup.c",
-    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-4x8-minmax-fma3-dup.c",
+    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x16-minmax-fma3-broadcast.c",
+    "src/f32-qc8w-gemm/gen/f32-qc8w-gemm-5x16-minmax-fma3-broadcast.c",
     "src/f32-vhswish/gen/f32-vhswish-fma3-x16.c",
     "src/f32-vtanh/gen/f32-vtanh-fma3-expm1minus-rr1-lut4-p4h3ts-perm-div-x40.c",
 ]
@@ -1381,7 +1387,7 @@ PROD_AVX512SKX_MICROKERNEL_SRCS = [
     "src/qu8-vadd/gen/qu8-vadd-minmax-avx512skx-mul32-ld128-x16.c",
     "src/qu8-vaddc/gen/qu8-vaddc-minmax-avx512skx-mul32-ld128-x16.c",
     "src/x8-lut/gen/x8-lut-avx512skx-vpshufb-x64.c",
-    "src/x8-packw/gen/x8-packw-x32-gemm-goi-scalar-int-x4.c",
+    "src/x8-packw/gen/x8-packw-x32-gemm-goi-scalar-int-x2.c",
 ]
 
 PROD_AVX512VBMI_MICROKERNEL_SRCS = [
@@ -1677,7 +1683,7 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/xx-fill/xx-fill-wasmsimd-x64.c",
     "src/xx-pad/xx-pad-wasmsimd.c",
     "src/x8-lut/gen/x8-lut-wasmsimd-x32.c",
-    "src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x4.c",
+    "src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x2.c",
     "src/x8-transposec/gen/x8-transposec-16x16-reuse-mov-wasmsimd.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-mov-wasmsimd.c",
     "src/x32-packw/gen/x32-packw-x2c4-gemm-goi-wasmsimd-x4.c",
@@ -3264,11 +3270,45 @@ xnnpack_cc_library(
 )
 
 xnnpack_cc_library(
+    name = "neoni8mm_amalgam_microkernels",
+    aarch64_copts = ["-march=armv8.2-a+i8mm"],
+    aarch64_srcs = ["src/amalgam/gen/neoni8mm.c"],
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+        ":math",
+        ":microkernels_h",
+        ":microparams",
+        ":prefetch",
+        ":tables",
+        ":unaligned",
+    ],
+)
+
+xnnpack_cc_library(
     name = "neoni8mm_bench_microkernels",
     aarch64_copts = [
         "-march=armv8.2-a+i8mm",
     ],
     aarch64_srcs = ALL_NEONI8MM_MICROKERNEL_SRCS,
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
+    deps = [
+        ":common",
+        ":math",
+        ":microkernels_h",
+        ":microparams",
+        ":prefetch",
+        ":tables",
+        ":unaligned",
+    ],
+)
+
+xnnpack_cc_library(
+    name = "neoni8mm_prod_microkernels",
+    aarch64_copts = ["-march=armv8.2-a+i8mm"],
+    aarch64_srcs = PROD_NEONI8MM_MICROKERNEL_SRCS,
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
     deps = [
@@ -4433,6 +4473,9 @@ xnnpack_aggregate_library(
     }) + select({
         ":arm_dotprod_enabled": [":neondot_amalgam_microkernels"],
         "//conditions:default": [],
+    }) + select({
+        ":arm_i8mm_enabled": [":neoni8mm_amalgam_microkernels"],
+        "//conditions:default": [],
     }),
     wasm_deps = [
         ":wasm_amalgam_microkernels",
@@ -4591,6 +4634,9 @@ xnnpack_aggregate_library(
         "//conditions:default": [],
     }) + select({
         ":arm_dotprod_enabled": [":neondot_prod_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":arm_i8mm_enabled": [":neoni8mm_prod_microkernels"],
         "//conditions:default": [],
     }),
     wasm_deps = [
@@ -6017,6 +6063,14 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
+    name = "f32_round_bench",
+    srcs = [
+        "bench/f32-round.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
     name = "f32_rsum_bench",
     srcs = [
         "bench/f32-rsum.cc",
@@ -6140,14 +6194,6 @@ xnnpack_benchmark(
         ":im2col",
         ":math",
     ],
-)
-
-xnnpack_benchmark(
-    name = "rounding_bench",
-    srcs = [
-        "bench/rounding.cc",
-    ],
-    deps = MICROKERNEL_BENCHMARK_DEPS,
 )
 
 xnnpack_benchmark(
@@ -6411,6 +6457,14 @@ xnnpack_benchmark(
 xnnpack_benchmark(
     name = "prelu_bench",
     srcs = ["bench/prelu.cc"],
+    copts = xnnpack_optional_tflite_copts(),
+    tags = ["nowin32"],
+    deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
+)
+
+xnnpack_benchmark(
+    name = "scaled_dot_attention_bench",
+    srcs = ["bench/scaled-dot-attention.cc"],
     copts = xnnpack_optional_tflite_copts(),
     tags = ["nowin32"],
     deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
@@ -10090,6 +10144,18 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "scaled_dot_attention_nhtc_test",
+    timeout = "moderate",
+    srcs = [
+        "test/attention-operator-tester.h",
+        "test/scaled-dot-attention-nhtc.cc",
+    ],
+    deps = OPERATOR_TEST_DEPS + [
+        ":aligned_allocator",
+    ],
+)
+
+xnnpack_unit_test(
     name = "sigmoid_nc_test",
     srcs = [
         "test/sigmoid-nc.cc",
@@ -11088,6 +11154,19 @@ xnnpack_unit_test(
     srcs = [
         "test/runtime-tester.h",
         "test/subgraph.cc",
+        "test/subgraph-tester.h",
+    ],
+    deps = [
+        ":XNNPACK",
+        ":subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "subgraph_shape_inference_test",
+    srcs = [
+        "test/runtime-tester.h",
+        "test/subgraph-shape-inference.cc",
         "test/subgraph-tester.h",
     ],
     deps = [

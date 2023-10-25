@@ -23,7 +23,7 @@
 
 
 // Maximum number of pthreadpool parallelization invocations per operator.
-#define XNN_MAX_COMPUTE_INVOCATIONS 2
+#define XNN_MAX_COMPUTE_INVOCATIONS 3
 
 struct xnn_ukernel_conv2d {
   union {
@@ -58,10 +58,9 @@ struct xnn_ukernel_dwconv2d {
 
 struct xnn_ukernel_gemm {
   struct xnn_hmp_gemm_ukernel gemm_cases[XNN_MAX_MR];
-  union {
-    xnn_packw_gemm_goi_ukernel_fn packw_gemm_goi;
-    xnn_packw_gemm_gio_ukernel_fn packw_gemm_gio;
-  };
+  // Attention operator uses both types of packing.
+  xnn_packw_gemm_goi_ukernel_fn packw_gemm_goi;
+  xnn_packw_gemm_gio_ukernel_fn packw_gemm_gio;
   uint8_t mr;
   uint8_t nr;
   uint8_t kr;
@@ -311,7 +310,12 @@ struct xnn_operator {
   // reshape, so it needs to keep two sets of params around. Configs can have different initialization functions.
   union {
     union xnn_f32_minmax_params f32_minmax;
+    union xnn_f32_expminus_params f32_expminus_params;
   } params2;
+  // Third set of params. Used by scaled dot attention operator.
+  union {
+    union xnn_f32_tanh_params f32_tanh;
+  } params3;
   size_t num_post_operation_params;
   void* post_operation_params;
   enum xnn_operator_type type;
@@ -356,6 +360,15 @@ struct xnn_operator {
       const struct xnn_reduce_config* rminmax_config;
       const struct xnn_unary_elementwise_config* convert_config;
     };  // For F32 to QD8 convert operator.
+    struct {
+      const struct xnn_rmax_config* rmax_config;
+      const struct xnn_raddstoreexpminusmax_config* raddstoreexpminusmax_config;
+      const struct xnn_binary_elementwise_config* vadd_config;
+      const struct xnn_binary_elementwise_config* vmul_config;
+      const struct xnn_unary_elementwise_config* vtanh_config;
+      enum xnn_attention_logits_cap_type cap_type;
+      struct xnn_attention_logits_cap_tanh_params cap_params;
+    } attention;  // For attention operator.
   };
 
   struct compute_parameters compute[XNN_MAX_COMPUTE_INVOCATIONS];
@@ -369,11 +382,12 @@ struct xnn_operator {
     struct elementwise_binary_context elementwise_binary;
     // PACKW GEMM GOI + GEMM are used together in Dynamic Fully Connected.
     struct {
-      struct gemm_context gemm;
       union {
-        struct packw_gemm_goi_context packw_gemm_goi;
-        struct packw_gemm_gio_context packw_gemm_gio;
+        struct gemm_context gemm;
+        struct scaled_dot_attention_context attention;
       };
+      struct packw_gemm_goi_context packw_gemm_goi;
+      struct packw_gemm_gio_context packw_gemm_gio;
     };
     struct global_average_pooling_nwc_context global_average_pooling_nwc;
     struct global_average_pooling_ncw_context global_average_pooling_ncw;

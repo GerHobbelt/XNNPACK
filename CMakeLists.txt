@@ -217,6 +217,7 @@ SET(OPERATOR_SRCS
   src/operators/resize-bilinear-nchw.c
   src/operators/resize-bilinear-nhwc.c
   src/operators/rope-nthc.c
+  src/operators/scaled-dot-attention-nhtc.c
   src/operators/slice-nd.c
   src/operators/softmax-nc.c
   src/operators/transpose-nd.c
@@ -342,6 +343,7 @@ SET(PROD_NEONV8_MICROKERNEL_SRCS src/amalgam/gen/neonv8.c)
 SET(PROD_NEONFP16ARITH_MICROKERNEL_SRCS src/amalgam/gen/neonfp16arith.c)
 SET(PROD_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS src/amalgam/gen/neonfp16arith-aarch64.c)
 SET(PROD_NEONDOT_MICROKERNEL_SRCS src/amalgam/gen/neondot.c)
+SET(PROD_NEONI8MM_MICROKERNEL_SRCS src/amalgam/gen/neoni8mm.c)
 SET(PROD_SSE_MICROKERNEL_SRCS src/amalgam/gen/sse.c)
 SET(PROD_SSE2_MICROKERNEL_SRCS src/amalgam/gen/sse2.c)
 SET(PROD_SSSE3_MICROKERNEL_SRCS src/amalgam/gen/ssse3.c)
@@ -407,6 +409,9 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^arm64")
   ENDIF()
   IF(XNNPACK_ENABLE_ARM_DOTPROD)
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONDOT_MICROKERNEL_SRCS})
+  ENDIF()
+  IF(XNNPACK_ENABLE_ARM_I8MM)
+    LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONI8MM_MICROKERNEL_SRCS})
   ENDIF()
   LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEON_MICROKERNEL_SRCS})
   LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONFP16_MICROKERNEL_SRCS})
@@ -578,6 +583,7 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^arm64" AND NOT MSVC)
   SET_PROPERTY(SOURCE ${ALL_NEONDOT_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+dotprod ")
   SET_PROPERTY(SOURCE ${PROD_NEONDOT_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+dotprod ")
   SET_PROPERTY(SOURCE ${ALL_NEONI8MM_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+i8mm ")
+  SET_PROPERTY(SOURCE ${PROD_NEONI8MM_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+i8mm ")
   SET_PROPERTY(SOURCE ${AARCH64_ASM_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+fp16+dotprod ")
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
@@ -1221,6 +1227,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_INCLUDE_DIRECTORIES(rope-nthc-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(rope-nthc-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME rope-nthc-test COMMAND rope-nthc-test)
+
+    ADD_EXECUTABLE(scaled-dot-attention-nhtc-test test/scaled-dot-attention-nhtc.cc)
+    TARGET_INCLUDE_DIRECTORIES(scaled-dot-attention-nhtc-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(scaled-dot-attention-nhtc-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    ADD_TEST(NAME scaled-dot-attention-nhtc-test COMMAND scaled-dot-attention-nhtc-test)
 
     ADD_EXECUTABLE(sigmoid-nc-test test/sigmoid-nc.cc)
     TARGET_INCLUDE_DIRECTORIES(sigmoid-nc-test PRIVATE src test)
@@ -3667,6 +3678,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_LINK_LIBRARIES(f32-rmin-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(f32-rmin-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
+  ADD_EXECUTABLE(f32-round-bench bench/f32-round.cc)
+  TARGET_INCLUDE_DIRECTORIES(f32-round-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(f32-round-bench PRIVATE benchmark cpuinfo pthreadpool)
+  TARGET_LINK_LIBRARIES(f32-round-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
   ADD_EXECUTABLE(f32-rsum-bench bench/f32-rsum.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-rsum-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(f32-rsum-bench PRIVATE benchmark pthreadpool)
@@ -3833,11 +3849,6 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(qu8-vmulc-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(qu8-vmulc-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(qu8-vmulc-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
-
-  ADD_EXECUTABLE(rounding-bench bench/rounding.cc)
-  TARGET_INCLUDE_DIRECTORIES(rounding-bench PRIVATE . include src)
-  TARGET_LINK_LIBRARIES(rounding-bench PRIVATE benchmark cpuinfo pthreadpool)
-  TARGET_LINK_LIBRARIES(rounding-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
   ADD_EXECUTABLE(s16-rmaxabs-bench bench/s16-rmaxabs.cc)
   TARGET_INCLUDE_DIRECTORIES(s16-rmaxabs-bench PRIVATE . include src)

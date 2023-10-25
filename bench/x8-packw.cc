@@ -62,7 +62,7 @@ static void x8_packw(benchmark::State& state,
 
     packw(batch, dim_n, dim_k, nr, kr, sr,
       weights.data() + buffer_index * batch * dim_n * dim_k,
-       /*bias=*/nullptr,
+      /*bias=*/nullptr, /*scale=*/nullptr,
       packed_weights.data() + buffer_index * batch * (rounded_n * rounded_k + rounded_n),
       /*extra_bytes=*/0, /*params=*/nullptr);
   }
@@ -81,7 +81,31 @@ static void x8_packw(benchmark::State& state,
     benchmark::Counter(uint64_t(state.iterations()) * bytes_per_iteration, benchmark::Counter::kIsRate);
 }
 
-
+static void x8_packw_x2__scalar_int_x2(benchmark::State& state, const char* net) {
+  x8_packw(state,
+    xnn_x8_packw_gemm_goi_ukernel_x2__scalar_int_x2,
+    /*nr=*/2, /*kr=*/1, /*sr=*/1);
+}
+static void x8_packw_x4__scalar_int_x2(benchmark::State& state, const char* net) {
+  x8_packw(state,
+    xnn_x8_packw_gemm_goi_ukernel_x4__scalar_int_x2,
+    /*nr=*/4, /*kr=*/1, /*sr=*/1);
+}
+static void x8_packw_x8__scalar_int_x2(benchmark::State& state, const char* net) {
+  x8_packw(state,
+    xnn_x8_packw_gemm_goi_ukernel_x8__scalar_int_x2,
+    /*nr=*/8, /*kr=*/1, /*sr=*/1);
+}
+static void x8_packw_x16__scalar_int_x2(benchmark::State& state, const char* net) {
+  x8_packw(state,
+    xnn_x8_packw_gemm_goi_ukernel_x16__scalar_int_x2,
+    /*nr=*/16, /*kr=*/1, /*sr=*/1);
+}
+static void x8_packw_x32__scalar_int_x2(benchmark::State& state, const char* net) {
+  x8_packw(state,
+    xnn_x8_packw_gemm_goi_ukernel_x32__scalar_int_x2,
+    /*nr=*/32, /*kr=*/1, /*sr=*/1);
+}
 static void x8_packw_x2__scalar_int_x4(benchmark::State& state, const char* net) {
   x8_packw(state,
     xnn_x8_packw_gemm_goi_ukernel_x2__scalar_int_x4,
@@ -107,6 +131,13 @@ static void x8_packw_x32__scalar_int_x4(benchmark::State& state, const char* net
     xnn_x8_packw_gemm_goi_ukernel_x32__scalar_int_x4,
     /*nr=*/32, /*kr=*/1, /*sr=*/1);
 }
+
+BENCHMARK_BGEMM(x8_packw_x2__scalar_int_x2)
+BENCHMARK_BGEMM(x8_packw_x4__scalar_int_x2)
+BENCHMARK_BGEMM(x8_packw_x8__scalar_int_x2)
+BENCHMARK_BGEMM(x8_packw_x16__scalar_int_x2)
+BENCHMARK_BGEMM(x8_packw_x32__scalar_int_x2)
+
 BENCHMARK_BGEMM(x8_packw_x2__scalar_int_x4)
 BENCHMARK_BGEMM(x8_packw_x4__scalar_int_x4)
 BENCHMARK_BGEMM(x8_packw_x8__scalar_int_x4)
@@ -122,14 +153,16 @@ void x8_packw__reference(
   size_t sr,
   const int8_t* weights,
   const uint32_t* bias,
+  const void* scale,
   int8_t* packed_weights,
   size_t extra_bytes,
   const void* params)
 {
   xnn_pack_f32_qs8w_gemm_goi_w(batch, dim_n, dim_k, nr, kr, sr,
-     (const int8_t*) weights,
-     (const float*) bias,
-     (void*) packed_weights,
+     reinterpret_cast<const int8_t*>(weights),
+     reinterpret_cast<const float*>(bias),
+     static_cast<const float*>(scale),
+     static_cast<void*>(packed_weights),
      extra_bytes, params);
 }
 

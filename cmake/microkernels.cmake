@@ -3567,7 +3567,9 @@ SET(ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS)
 
 SET(ALL_NEONDOT_MICROKERNEL_SRCS
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x8c4-minmax-neondot.c
+  src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x8c8-minmax-neondot.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x16c4-minmax-neondot.c
+  src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x16c8-minmax-neondot.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x8c4-minmax-neondot.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x16c4-minmax-neondot.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-3x16c4-minmax-neondot.c
@@ -3575,7 +3577,11 @@ SET(ALL_NEONDOT_MICROKERNEL_SRCS
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x16c4-minmax-neondot.c
   src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-fp32-neondot.c
   src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-rndnu-neondot.c
+  src/qs8-gemm/gen/qs8-gemm-1x8c8-minmax-fp32-neondot.c
+  src/qs8-gemm/gen/qs8-gemm-1x8c8-minmax-rndnu-neondot.c
   src/qs8-gemm/gen/qs8-gemm-1x16c4-minmax-rndnu-neondot.c
+  src/qs8-gemm/gen/qs8-gemm-1x16c8-minmax-fp32-neondot.c
+  src/qs8-gemm/gen/qs8-gemm-1x16c8-minmax-rndnu-neondot.c
   src/qs8-gemm/gen/qs8-gemm-4x8c4-minmax-rndnu-neondot.c
   src/qs8-gemm/gen/qs8-gemm-4x16c4-minmax-rndnu-neondot.c
   src/qs8-gemm/gen/qs8-gemm-6x8c4-minmax-rndnu-neondot.c
@@ -3592,7 +3598,9 @@ SET(ALL_NEONDOT_MICROKERNEL_SRCS
   src/qs8-igemm/gen/qs8-igemm-8x8c4-minmax-rndnu-neondot.c
   src/qs8-igemm/gen/qs8-igemm-8x16c4-minmax-rndnu-neondot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c4-minmax-fp32-neondot.c
+  src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c8-minmax-fp32-neondot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x16c4-minmax-fp32-neondot.c
+  src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x16c8-minmax-fp32-neondot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c4-minmax-fp32-neondot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x16c4-minmax-fp32-neondot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-6x8c4-minmax-fp32-neondot.c
@@ -5808,10 +5816,15 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/x8-lut/gen/x8-lut-scalar-x4.c
   src/x8-lut/gen/x8-lut-scalar-x8.c
   src/x8-lut/gen/x8-lut-scalar-x16.c
+  src/x8-packw/gen/x8-packw-x2-gemm-goi-scalar-int-x2.c
   src/x8-packw/gen/x8-packw-x2-gemm-goi-scalar-int-x4.c
+  src/x8-packw/gen/x8-packw-x4-gemm-goi-scalar-int-x2.c
   src/x8-packw/gen/x8-packw-x4-gemm-goi-scalar-int-x4.c
+  src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x2.c
   src/x8-packw/gen/x8-packw-x8-gemm-goi-scalar-int-x4.c
+  src/x8-packw/gen/x8-packw-x16-gemm-goi-scalar-int-x2.c
   src/x8-packw/gen/x8-packw-x16-gemm-goi-scalar-int-x4.c
+  src/x8-packw/gen/x8-packw-x32-gemm-goi-scalar-int-x2.c
   src/x8-packw/gen/x8-packw-x32-gemm-goi-scalar-int-x4.c
   src/x8-transposec/gen/x8-transposec-1x2-scalar-int.c
   src/x8-transposec/gen/x8-transposec-1x4-scalar-int.c

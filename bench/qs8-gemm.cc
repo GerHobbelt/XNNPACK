@@ -70,9 +70,11 @@ static void GEMMBenchmark(benchmark::State& state,
   std::fill(w.begin(), w.end(), 0);
   const xnn_qs8_packing_params packing_params = { 127 };
   if (extended_weights) {
-    xnn_pack_qs8_gemm_xw_goi_w(1 /* groups */, nc, kc, nr, kr, sr, k.data(), b.data(), w.data(), 0, &packing_params);
+    xnn_pack_qs8_gemm_xw_goi_w(/*groups=*/1, nc, kc, nr, kr, sr,
+      k.data(), b.data(), /*scale=*/nullptr, w.data(), /*extra_bytes=*/0, &packing_params);
   } else {
-    xnn_pack_qs8_gemm_goi_w(1 /* groups */, nc, kc, nr, kr, sr, k.data(), b.data(), w.data(), 0, &packing_params);
+    xnn_pack_qs8_gemm_goi_w(/*groups=*/1, nc, kc, nr, kr, sr,
+      k.data(), b.data(), /*scale=*/nullptr, w.data(), /*extra_bytes=*/0, &packing_params);
   }
   std::vector<int8_t> c(c_elements * num_buffers);
   std::fill(c.begin(), c.end(), 0xA5);
@@ -529,6 +531,13 @@ static void ruy_st(benchmark::State& state, const char* net)
       /*mr=*/1, /*nr=*/8, /*kr=*/4, /*sr=*/1,
       benchmark::utils::CheckNEONDOT);
   }
+  static void qs8_gemm_1x8c8__neondot(benchmark::State& state, const char* net) {
+    GEMMBenchmark(state,
+      xnn_qs8_gemm_minmax_rndnu_ukernel_1x8c8__neondot,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*mr=*/1, /*nr=*/8, /*kr=*/8, /*sr=*/1,
+      benchmark::utils::CheckNEONDOT);
+  }
   static void qs8_gemm_4x8c4__neondot(benchmark::State& state, const char* net) {
     GEMMBenchmark(state,
       xnn_qs8_gemm_minmax_rndnu_ukernel_4x8c4__neondot,
@@ -557,6 +566,13 @@ static void ruy_st(benchmark::State& state, const char* net)
       /*mr=*/1, /*nr=*/16, /*kr=*/4, /*sr=*/1,
       benchmark::utils::CheckNEONDOT);
   }
+  static void qs8_gemm_1x16c8__neondot(benchmark::State& state, const char* net) {
+    GEMMBenchmark(state,
+      xnn_qs8_gemm_minmax_rndnu_ukernel_1x16c8__neondot,
+      xnn_init_qs8_conv_minmax_rndnu_neon_params,
+      /*mr=*/1, /*nr=*/16, /*kr=*/8, /*sr=*/1,
+      benchmark::utils::CheckNEONDOT);
+  }
   static void qs8_gemm_4x16c4__neondot(benchmark::State& state, const char* net) {
     GEMMBenchmark(state,
       xnn_qs8_gemm_minmax_rndnu_ukernel_4x16c4__neondot,
@@ -580,10 +596,12 @@ static void ruy_st(benchmark::State& state, const char* net)
   }
 
   BENCHMARK_GEMM(qs8_gemm_1x8c4__neondot)
+  BENCHMARK_GEMM(qs8_gemm_1x8c8__neondot)
   BENCHMARK_GEMM(qs8_gemm_4x8c4__neondot)
   BENCHMARK_GEMM(qs8_gemm_6x8c4__neondot)
   BENCHMARK_GEMM(qs8_gemm_8x8c4__neondot)
   BENCHMARK_GEMM(qs8_gemm_1x16c4__neondot)
+  BENCHMARK_GEMM(qs8_gemm_1x16c8__neondot)
   BENCHMARK_GEMM(qs8_gemm_4x16c4__neondot)
   BENCHMARK_GEMM(qs8_gemm_6x16c4__neondot)
   BENCHMARK_GEMM(qs8_gemm_8x16c4__neondot)

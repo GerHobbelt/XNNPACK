@@ -807,13 +807,25 @@ tools/xngen src/qs8-gemm/c16-neon-mlal.c.in -D MR=3 -D NR=16 -D REQUANTIZATION=R
 tools/xngen src/qs8-gemm/c16-neon-mlal.c.in -D MR=4 -D NR=16 -D REQUANTIZATION=RNDNU -o src/qs8-gemm/gen/qs8-gemm-4x16c16-minmax-rndnu-neon-mlal.c &
 
 ### C4 micro-kernels
-tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=1 -D NR=8 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x8c4-minmax-neondot.c
-tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=2 -D NR=8 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x8c4-minmax-neondot.c
-tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=4 -D NR=8 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=1 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=2 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=4 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=6 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x8c4-minmax-neondot.c
 tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=1 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x16c4-minmax-neondot.c
 tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=2 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x16c4-minmax-neondot.c
 tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=3 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-3x16c4-minmax-neondot.c
 tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=4 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x16c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=6 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QD8 -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x16c4-minmax-neondot.c
+
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=1 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=2 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-2x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=4 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-4x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=6 -D NR=8  -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-6x8c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=1 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x16c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=2 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-2x16c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=3 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-3x16c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=4 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-4x16c4-minmax-neondot.c
+tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=6 -D NR=16 -D REQUANTIZATION= -D DATATYPE=QC4 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-6x16c4-minmax-neondot.c
 
 tools/xngen src/qs8-gemm/c4-neondot.c.in -D MR=1  -D NR=8  -D REQUANTIZATION=FP32  -D DATATYPE=QS8 -o src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-fp32-neondot.c &
 
@@ -875,6 +887,11 @@ tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=8  -D REQUANTIZATION=FP3
 tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=16 -D REQUANTIZATION=FP32  -D DATATYPE=QS8 -D LD128=1 -o src/qs8-gemm/gen/qs8-gemm-1x16c8-minmax-fp32-aarch64-neondot-ld128.c &
 tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=8  -D REQUANTIZATION=RNDNU -D DATATYPE=QS8 -D LD128=1 -o src/qs8-gemm/gen/qs8-gemm-1x8c8-minmax-rndnu-aarch64-neondot-ld128.c &
 tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=16 -D REQUANTIZATION=RNDNU -D DATATYPE=QS8 -D LD128=1 -o src/qs8-gemm/gen/qs8-gemm-1x16c8-minmax-rndnu-aarch64-neondot-ld128.c &
+
+tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=8  -D REQUANTIZATION=      -D DATATYPE=QC4 -D LD128=0 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x8c8-minmax-neondot-ld64.c &
+tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=16 -D REQUANTIZATION=      -D DATATYPE=QC4 -D LD128=0 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x16c8-minmax-neondot-ld64.c &
+tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=8  -D REQUANTIZATION=      -D DATATYPE=QC4 -D LD128=1 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x8c8-minmax-aarch64-neondot-ld128.c &
+tools/xngen src/qs8-gemm/c8-neondot.c.in -D MR=1  -D NR=16 -D REQUANTIZATION=      -D DATATYPE=QC4 -D LD128=1 -o src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x16c8-minmax-aarch64-neondot-ld128.c &
 
 ############################### AArch32 assembly ##############################
 ### Cortex-A53 lane micro-kernels
@@ -1593,15 +1610,15 @@ tools/xngen src/qs8-gemm/MRx16c8-avx512skx.c.in -D MR=3 -D VARIANT=LD256 -D DATA
 tools/xngen src/qs8-gemm/MRx16c8-avx512skx.c.in -D MR=4 -D VARIANT=LD256 -D DATATYPE=QD8 -D REQUANTIZATION=     -o src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x16c8-minmax-avx512skx.c &
 
 ################################## Unit tests #################################
-tools/generate-gemm-test.py --spec test/qd8-f32-qc8w-gemm-minmax.yaml --output test/qd8-f32-qc8w-gemm-minmax.cc &
-tools/generate-gemm-test.py --spec test/qd8-f32-qc4w-gemm-minmax.yaml --output test/qd8-f32-qc4w-gemm-minmax.cc &
-tools/generate-gemm-test.py --spec test/qs8-qc8w-gemm-minmax-fp32.yaml --output test/qs8-qc8w-gemm-minmax-fp32.cc --output test/qs8-qc8w-gemm-minmax-fp32-2.cc --output test/qs8-qc8w-gemm-minmax-fp32-3.cc &
-tools/generate-gemm-test.py --spec test/qs8-gemm-minmax-fp32.yaml --output test/qs8-gemm-minmax-fp32.cc --output test/qs8-gemm-minmax-fp32-2.cc &
-tools/generate-gemm-test.py --spec test/qu8-gemm-minmax-fp32.yaml --output test/qu8-gemm-minmax-fp32.cc --output test/qu8-gemm-minmax-fp32-2.cc &
-tools/generate-gemm-test.py --spec test/qs8-qc8w-gemm-jit-fp32.yaml --output test/qs8-qc8w-gemm-jit-fp32.cc &
+tools/generate-gemm-test.py --spec test/qd8-f32-qc8w-gemm-minmax.yaml --output-test test/qd8-f32-qc8w-gemm-minmax.cc --output-bench bench/qd8-f32-qc8w-gemm.cc &
+tools/generate-gemm-test.py --spec test/qd8-f32-qc4w-gemm-minmax.yaml --output-test test/qd8-f32-qc4w-gemm-minmax.cc --output-bench bench/qd8-f32-qc4w-gemm.cc &
+tools/generate-gemm-test.py --spec test/qs8-qc8w-gemm-minmax-fp32.yaml --output-test test/qs8-qc8w-gemm-minmax-fp32.cc --output-test test/qs8-qc8w-gemm-minmax-fp32-2.cc --output-test test/qs8-qc8w-gemm-minmax-fp32-3.cc --output-bench bench/qs8-qc8w-gemm-fp32.cc &
+tools/generate-gemm-test.py --spec test/qs8-gemm-minmax-fp32.yaml --output-test test/qs8-gemm-minmax-fp32.cc --output-test test/qs8-gemm-minmax-fp32-2.cc --output-bench bench/qs8-gemm-fp32.cc &
+tools/generate-gemm-test.py --spec test/qu8-gemm-minmax-fp32.yaml --output-test test/qu8-gemm-minmax-fp32.cc --output-test test/qu8-gemm-minmax-fp32-2.cc --output-bench bench/qu8-gemm-fp32.cc &
+tools/generate-gemm-test.py --spec test/qs8-qc8w-gemm-jit-fp32.yaml --output-test test/qs8-qc8w-gemm-jit-fp32.cc &
 
-tools/generate-gemm-test.py --spec test/qs8-gemm-minmax-rndnu.yaml --output test/qs8-gemm-minmax-rndnu.cc --output test/qs8-gemm-minmax-rndnu-2.cc --output test/qs8-gemm-minmax-rndnu-3.cc --output test/qs8-gemm-minmax-rndnu-4.cc --output test/qs8-gemm-minmax-rndnu-5.cc &
-tools/generate-gemm-test.py --spec test/qu8-gemm-minmax-rndnu.yaml --output test/qu8-gemm-minmax-rndnu.cc --output test/qu8-gemm-minmax-rndnu-2.cc &
-tools/generate-gemm-test.py --spec test/qs8-gemm-jit-rndnu.yaml --output test/qs8-gemm-jit-rndnu.cc &
+tools/generate-gemm-test.py --spec test/qs8-gemm-minmax-rndnu.yaml --output-test test/qs8-gemm-minmax-rndnu.cc --output-test test/qs8-gemm-minmax-rndnu-2.cc --output-test test/qs8-gemm-minmax-rndnu-3.cc --output-test test/qs8-gemm-minmax-rndnu-4.cc --output-test test/qs8-gemm-minmax-rndnu-5.cc --output-bench bench/qs8-gemm-rndnu.cc &
+tools/generate-gemm-test.py --spec test/qu8-gemm-minmax-rndnu.yaml --output-test test/qu8-gemm-minmax-rndnu.cc --output-test test/qu8-gemm-minmax-rndnu-2.cc --output-bench bench/qu8-gemm-rndnu.cc &
+tools/generate-gemm-test.py --spec test/qs8-gemm-jit-rndnu.yaml --output-test test/qs8-gemm-jit-rndnu.cc &
 
 wait

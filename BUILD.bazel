@@ -1752,26 +1752,32 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/f32-dwconv/gen/f32-dwconv-5f5m5l4c4s4r-wasmrelaxedsimd-fma.c",
     "src/f32-dwconv/gen/f32-dwconv-5f5m5l4c4s4r-minmax-wasmrelaxedsimd-fma.c",
     "src/f32-f16-vcvt/gen/f32-f16-vcvt-wasmrelaxedsimd-x24.c",
+    "src/f32-gemm/gen/f32-gemm-1x8-minmax-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-gemm/gen/f32-gemm-1x8-minmax-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-gemm/gen/f32-gemm-1x8-relu-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-gemm/gen/f32-gemm-1x8-relu-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-gemm/gen/f32-gemm-1x8-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-gemm/gen/f32-gemm-1x8-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-4x2c4-minmax-wasmrelaxedsimd-fma.c",
     "src/f32-gemm/gen/f32-gemm-4x2c4-wasmrelaxedsimd-fma.c",
-    "src/f32-gemm/gen/f32-gemm-4x8-minmax-wasmrelaxedsimd-fma-splat.c",
-    "src/f32-gemm/gen/f32-gemm-4x8-relu-wasmrelaxedsimd-fma-splat.c",
-    "src/f32-gemm/gen/f32-gemm-4x8-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-gemm/gen/f32-gemm-4x8-minmax-wasmrelaxedsimd-fma-loadsplat.c",
+    "src/f32-gemm/gen/f32-gemm-4x8-relu-wasmrelaxedsimd-fma-loadsplat.c",
+    "src/f32-gemm/gen/f32-gemm-4x8-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-gemm/gen/f32-gemm-6x8-minmax-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-6x8-relu-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-6x8-wasmrelaxedsimd-fma-splat.c",
     "src/f32-ibilinear/gen/f32-ibilinear-wasmrelaxedsimd-c8.c",
+    "src/f32-igemm/gen/f32-igemm-1x8-minmax-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-igemm/gen/f32-igemm-1x8-minmax-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-igemm/gen/f32-igemm-1x8-relu-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-igemm/gen/f32-igemm-1x8-relu-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-igemm/gen/f32-igemm-1x8-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-igemm/gen/f32-igemm-1x8-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-4x2c4-minmax-wasmrelaxedsimd-fma.c",
     "src/f32-igemm/gen/f32-igemm-4x2c4-wasmrelaxedsimd-fma.c",
-    "src/f32-igemm/gen/f32-igemm-4x8-minmax-wasmrelaxedsimd-fma-splat.c",
-    "src/f32-igemm/gen/f32-igemm-4x8-relu-wasmrelaxedsimd-fma-splat.c",
-    "src/f32-igemm/gen/f32-igemm-4x8-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-igemm/gen/f32-igemm-4x8-minmax-wasmrelaxedsimd-fma-loadsplat.c",
+    "src/f32-igemm/gen/f32-igemm-4x8-relu-wasmrelaxedsimd-fma-loadsplat.c",
+    "src/f32-igemm/gen/f32-igemm-4x8-wasmrelaxedsimd-fma-loadsplat.c",
     "src/f32-igemm/gen/f32-igemm-6x8-minmax-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-6x8-relu-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-6x8-wasmrelaxedsimd-fma-splat.c",
@@ -1783,6 +1789,14 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/f32-vlrelu/gen/f32-vlrelu-wasmrelaxedsimd-laneselect-x4.c",
     "src/f32-vmulcaddc/gen/f32-vmulcaddc-c4-minmax-wasmrelaxedsimd-fma-2x.c",
     "src/f32-vsigmoid/gen/f32-vsigmoid-wasmrelaxedsimd-fma-rr2-p5-div-x24.c",
+    "src/qc8-gemm/gen/qc8-gemm-1x4c16-minmax-fp32-wasmsdot.c",
+    "src/qc8-gemm/gen/qc8-gemm-4x4c16-minmax-fp32-wasmsdot.c",
+    "src/qc8-igemm/gen/qc8-igemm-1x4c16-minmax-fp32-wasmsdot.c",
+    "src/qc8-igemm/gen/qc8-igemm-4x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-gemm/gen/qs8-gemm-1x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-gemm/gen/qs8-gemm-4x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-igemm/gen/qs8-igemm-1x4c16-minmax-fp32-wasmsdot.c",
+    "src/qs8-igemm/gen/qs8-igemm-4x4c16-minmax-fp32-wasmsdot.c",
     "src/qs8-vcvt/gen/qs8-vcvt-wasmrelaxedsimd-x32.c",
     "src/qs8-vlrelu/gen/qs8-vlrelu-wasmrelaxedsimd-arm-x32.c",
     "src/qs8-vlrelu/gen/qs8-vlrelu-wasmrelaxedsimd-x86-x32.c",
@@ -1799,6 +1813,7 @@ WASM32_ASM_MICROKERNEL_SRCS = [
 ]
 
 AARCH32_ASM_MICROKERNEL_SRCS = [
+    "src/qs16-qs8-vcvt/qs16-qs8-vcvt-asm-aarch32-neon-x16.S",
     "src/cs16-bfly4/cs16-bfly4-samples1-asm-aarch32-neon-x1.S",
     "src/cs16-bfly4/cs16-bfly4-samples1-asm-aarch32-neon-x2.S",
     "src/cs16-bfly4/cs16-bfly4-samples1-asm-aarch32-neon-x4.S",
@@ -5776,6 +5791,14 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
+    name = "qs16_qs8_vcvt_bench",
+    srcs = [
+        "bench/qs16-qs8-vcvt.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
     name = "qs8_vlrelu_bench",
     srcs = [
         "bench/qs8-vlrelu.cc",
@@ -6029,6 +6052,7 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":operators",
         ":indirection",
+        ":microkernel_utils",
         ":packing",
     ],
 )
@@ -6846,6 +6870,21 @@ xnnpack_cc_library(
 )
 
 xnnpack_benchmark(
+    name = "f16_dwconv_e2e_bench",
+    srcs = [
+        "bench/end2end.h",
+        "bench/f16-dwconv-e2e.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":XNNPACK",
+        ":fp16_mobilenet_v1",
+        ":fp16_mobilenet_v2",
+        ":fp16_mobilenet_v3_large",
+        ":fp16_mobilenet_v3_small",
+    ],
+)
+
+xnnpack_benchmark(
     name = "f16_gemm_e2e_bench",
     srcs = [
         "bench/end2end.h",
@@ -7141,6 +7180,7 @@ xnnpack_unit_test(
     name = "f32_exp_eval",
     srcs = [
         "eval/f32-exp.cc",
+        "eval/math-evaluation-tester.h",
     ],
     automatic = False,
     deps = ACCURACY_EVAL_DEPS,
@@ -7150,6 +7190,7 @@ xnnpack_unit_test(
     name = "f32_expm1minus_eval",
     srcs = [
         "eval/f32-expm1minus.cc",
+        "eval/math-evaluation-tester.h",
     ],
     automatic = False,
     deps = ACCURACY_EVAL_DEPS,
@@ -7159,6 +7200,7 @@ xnnpack_unit_test(
     name = "f32_expminus_eval",
     srcs = [
         "eval/f32-expminus.cc",
+        "eval/math-evaluation-tester.h",
     ],
     automatic = False,
     deps = ACCURACY_EVAL_DEPS,
@@ -7204,6 +7246,7 @@ xnnpack_unit_test(
     name = "f32_tanh_eval",
     srcs = [
         "eval/f32-tanh.cc",
+        "eval/math-evaluation-tester.h",
     ],
     automatic = False,
     deps = ACCURACY_EVAL_DEPS,
@@ -7267,6 +7310,19 @@ xnnpack_unit_test(
         "test/f16-avgpool-minmax.cc",
     ],
     deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "f16_dwconv_multipass_minmax_test",
+    srcs = [
+        "test/dwconv-microkernel-tester.h",
+        "test/f16-dwconv-multipass-minmax.cc",
+    ],
+    shard_count = 5,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":packing",
+        ":microkernel_utils",
+    ],
 )
 
 xnnpack_unit_test(
@@ -8704,6 +8760,15 @@ xnnpack_unit_test(
     name = "qs8_vcvt_test",
     srcs = [
         "test/qs8-vcvt.cc",
+        "test/vcvt-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "qs16_qs8_vcvt_test",
+    srcs = [
+        "test/qs16-qs8-vcvt.cc",
         "test/vcvt-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,

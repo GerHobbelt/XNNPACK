@@ -938,7 +938,7 @@ void xnn_f32_dwconv_minmax_ukernel_4p16c__avx(
   } while (--output_width != 0);
 }
 
-void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
+void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx(
     size_t channels,
     size_t output_width,
     const float** input,
@@ -1013,7 +1013,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         i1 += 8;
 
         const __m256 vk1x01234567 = _mm256_load_ps(w + 16);
-        __m256 vacc01234567p1 = _mm256_mul_ps(vi1x01234567, vk1x01234567);
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi1x01234567, vk1x01234567));
 
         const __m256 vi2x01234567 = _mm256_loadu_ps(i2);
         i2 += 8;
@@ -1025,7 +1025,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         i3 += 8;
 
         const __m256 vk3x01234567 = _mm256_load_ps(w + 32);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi3x01234567, vk3x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi3x01234567, vk3x01234567));
 
         const __m256 vi4x01234567 = _mm256_loadu_ps(i4);
         i4 += 8;
@@ -1037,12 +1037,10 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         i5 += 8;
 
         const __m256 vk5x01234567 = _mm256_load_ps(w + 48);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi5x01234567, vk5x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi5x01234567, vk5x01234567));
 
         w += 56;
 
-        // Add up all accumulators to vacc01234567p0
-        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, vacc01234567p1);
 
         _mm256_store_ps(b, vacc01234567p0);
         b += 8;
@@ -1063,7 +1061,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         const __m256 vi1x01234567 = _mm256_maskload_ps(i1, vmask);
 
         const __m256 vk1x01234567 = _mm256_load_ps(w + 16);
-        __m256 vacc01234567p1 = _mm256_mul_ps(vi1x01234567, vk1x01234567);
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi1x01234567, vk1x01234567));
 
         const __m256 vi2x01234567 = _mm256_maskload_ps(i2, vmask);
 
@@ -1073,7 +1071,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         const __m256 vi3x01234567 = _mm256_maskload_ps(i3, vmask);
 
         const __m256 vk3x01234567 = _mm256_load_ps(w + 32);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi3x01234567, vk3x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi3x01234567, vk3x01234567));
 
         const __m256 vi4x01234567 = _mm256_maskload_ps(i4, vmask);
 
@@ -1083,12 +1081,10 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         const __m256 vi5x01234567 = _mm256_maskload_ps(i5, vmask);
 
         const __m256 vk5x01234567 = _mm256_load_ps(w + 48);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi5x01234567, vk5x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi5x01234567, vk5x01234567));
 
         w += 56;
 
-        // Add up all accumulators to vacc01234567p0
-        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, vacc01234567p1);
 
         _mm256_store_ps(b, vacc01234567p0);
       }
@@ -1145,7 +1141,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         i1 += 8;
 
         const __m256 vk1x01234567 = _mm256_load_ps(w + 8);
-        __m256 vacc01234567p1 = _mm256_mul_ps(vi1x01234567, vk1x01234567);
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi1x01234567, vk1x01234567));
 
         const __m256 vi2x01234567 = _mm256_loadu_ps(i2);
         i2 += 8;
@@ -1157,7 +1153,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         i3 += 8;
 
         const __m256 vk3x01234567 = _mm256_load_ps(w + 24);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi3x01234567, vk3x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi3x01234567, vk3x01234567));
 
         const __m256 vi4x01234567 = _mm256_loadu_ps(i4);
         i4 += 8;
@@ -1169,12 +1165,10 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         i5 += 8;
 
         const __m256 vk5x01234567 = _mm256_load_ps(w + 40);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi5x01234567, vk5x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi5x01234567, vk5x01234567));
 
         w += 48;
 
-        // Add up all accumulators to vacc01234567p0
-        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, vacc01234567p1);
 
         _mm256_store_ps(b, vacc01234567p0);
         b += 8;
@@ -1195,7 +1189,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         const __m256 vi1x01234567 = _mm256_maskload_ps(i1, vmask);
 
         const __m256 vk1x01234567 = _mm256_load_ps(w + 8);
-        __m256 vacc01234567p1 = _mm256_mul_ps(vi1x01234567, vk1x01234567);
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi1x01234567, vk1x01234567));
 
         const __m256 vi2x01234567 = _mm256_maskload_ps(i2, vmask);
 
@@ -1205,7 +1199,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         const __m256 vi3x01234567 = _mm256_maskload_ps(i3, vmask);
 
         const __m256 vk3x01234567 = _mm256_load_ps(w + 24);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi3x01234567, vk3x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi3x01234567, vk3x01234567));
 
         const __m256 vi4x01234567 = _mm256_maskload_ps(i4, vmask);
 
@@ -1215,12 +1209,10 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         const __m256 vi5x01234567 = _mm256_maskload_ps(i5, vmask);
 
         const __m256 vk5x01234567 = _mm256_load_ps(w + 40);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi5x01234567, vk5x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi5x01234567, vk5x01234567));
 
         w += 48;
 
-        // Add up all accumulators to vacc01234567p0
-        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, vacc01234567p1);
 
         _mm256_store_ps(b, vacc01234567p0);
       }
@@ -1285,7 +1277,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
 
         __m256 vk1x01234567 = _mm256_load_ps(w + 8);
 
-        __m256 vacc01234567p1 = _mm256_mul_ps(vi1x01234567, vk1x01234567);
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi1x01234567, vk1x01234567));
 
         const __m256 vi2x01234567 = _mm256_loadu_ps(i2);
         i2 += 8;
@@ -1299,7 +1291,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
 
         __m256 vk3x01234567 = _mm256_load_ps(w + 24);
 
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi3x01234567, vk3x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi3x01234567, vk3x01234567));
 
         const __m256 vi4x01234567 = _mm256_loadu_ps(i4);
         i4 += 8;
@@ -1313,7 +1305,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
 
         __m256 vk5x01234567 = _mm256_load_ps(w + 40);
 
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi5x01234567, vk5x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi5x01234567, vk5x01234567));
 
         const __m256 vi6x01234567 = _mm256_loadu_ps(i6);
         i6 += 8;
@@ -1325,8 +1317,6 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
         w += 56;
 
 
-        // Add up all accumulators to vacc01234567p0
-        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, vacc01234567p1);
 
         __m256 vacc01234567 = _mm256_max_ps(vmin, vacc01234567p0);
 
@@ -1348,7 +1338,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
 
         const __m256 vi1x01234567 = _mm256_maskload_ps(i1, vmask);
         __m256 vk1x01234567 = _mm256_load_ps(w + 8);
-        __m256 vacc01234567p1 = _mm256_mul_ps(vi1x01234567, vk1x01234567);
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi1x01234567, vk1x01234567));
 
         const __m256 vi2x01234567 = _mm256_maskload_ps(i2, vmask);
         __m256 vk2x01234567 = _mm256_load_ps(w + 16);
@@ -1356,7 +1346,7 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
 
         const __m256 vi3x01234567 = _mm256_maskload_ps(i3, vmask);
         __m256 vk3x01234567 = _mm256_load_ps(w + 24);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi3x01234567, vk3x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi3x01234567, vk3x01234567));
 
         const __m256 vi4x01234567 = _mm256_maskload_ps(i4, vmask);
         __m256 vk4x01234567 = _mm256_load_ps(w + 32);
@@ -1364,14 +1354,12 @@ void xnn_f32_dwconv_minmax_ukernel_6f6m7l8c8s4r__avx_acc2(
 
         const __m256 vi5x01234567 = _mm256_maskload_ps(i5, vmask);
         __m256 vk5x01234567 = _mm256_load_ps(w + 40);
-        vacc01234567p1 = _mm256_add_ps(vacc01234567p1, _mm256_mul_ps(vi5x01234567, vk5x01234567));
+        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi5x01234567, vk5x01234567));
 
         const __m256 vi6x01234567 = _mm256_maskload_ps(i6, vmask);
         __m256 vk6x01234567 = _mm256_load_ps(w + 48);
         vacc01234567p0 = _mm256_add_ps(vacc01234567p0, _mm256_mul_ps(vi6x01234567, vk6x01234567));
 
-        // Add up all accumulators to vacc01234567p0
-        vacc01234567p0 = _mm256_add_ps(vacc01234567p0, vacc01234567p1);
 
         __m256 vacc01234567 = _mm256_max_ps(vmin, vacc01234567p0);
         vacc01234567 = _mm256_min_ps(vmax, vacc01234567);
@@ -15665,6 +15653,124 @@ void xnn_x32_transposec_ukernel__8x8_reuse_multi_avx(
 
     i0 = (const float*) ((uintptr_t) i0 + input_reset);
     o0 = (float*) ((uintptr_t) o0 + output_reset);
+    block_width = doz(block_width, tile_width);
+  } while (block_width != 0);
+}
+
+void xnn_x64_transposec_ukernel__4x4_reuse_multi_avx(
+    const uint64_t* input,
+    uint64_t* output,
+    size_t input_stride,
+    size_t output_stride,
+    size_t block_width,
+    size_t block_height,
+    const union xnn_x64_transpose_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+{
+  assert(output_stride >= block_height * sizeof(double));
+  assert(input_stride >= block_width * sizeof(double));
+
+  const size_t tile_height = 4;
+  const size_t tile_width = 4;
+  const size_t tile_hbytes = tile_height * sizeof(double);
+  const size_t tile_wbytes = tile_width * sizeof(double);
+  const size_t input_reset = tile_wbytes - round_down_po2(block_height, tile_height) * input_stride;
+  const size_t output_reset = tile_width * output_stride - round_down_po2(block_height, 2) * sizeof(double);
+
+  const double* i0 = (const double*) input;
+  double* o0 = (double*) output;
+
+  do {
+    double* o1 = (double*) (block_width < 2 ? o0 : (double*) ((uintptr_t) o0 + output_stride));
+    double* o2 = (double*) (block_width <= 2 ? o0 : (double*) ((uintptr_t) o1 + output_stride));
+    double* o3 = (double*) (block_width < 4 ? o0 : (double*) ((uintptr_t) o2 + output_stride));
+    const size_t rem = min(block_width - 1, 3);
+
+    __m256i vmask = _mm256_loadu_si256((const __m256i*) ((uintptr_t) &params->avx.mask_table[rem ^ 3]));
+
+    size_t bh = block_height;
+    for (; bh >= 4; bh -= 4) {
+      const __m256d v2_0 = _mm256_maskload_pd(i0, vmask);
+      i0 = (double*) ((uintptr_t) i0 + input_stride);
+      const __m256d v2_1 = _mm256_maskload_pd(i0, vmask);
+      i0 = (double*) ((uintptr_t) i0 + input_stride);
+      const __m256d v2_2 = _mm256_maskload_pd(i0, vmask);
+      i0 = (double*) ((uintptr_t) i0 + input_stride);
+      const __m256d v2_3 = _mm256_maskload_pd(i0, vmask);
+      i0 = (double*) ((uintptr_t) i0 + input_stride);
+
+      const __m256d v1_0 =  _mm256_unpacklo_pd(v2_0, v2_1);
+      const __m256d v1_1 = _mm256_unpackhi_pd(v2_0, v2_1);
+      const __m256d v1_2 =  _mm256_unpacklo_pd(v2_2, v2_3);
+      const __m256d v1_3 = _mm256_unpackhi_pd(v2_2, v2_3);
+
+      const __m256d v0_0 = _mm256_insertf128_pd(v1_0, _mm256_castpd256_pd128(v1_2), 1);
+      const __m256d v0_2 = _mm256_permute2f128_pd(v1_0, v1_2, 0x31);
+      const __m256d v0_1 = _mm256_insertf128_pd(v1_1, _mm256_castpd256_pd128(v1_3), 1);
+      const __m256d v0_3 = _mm256_permute2f128_pd(v1_1, v1_3, 0x31);
+
+      _mm256_storeu_pd(o3, v0_3);
+      o3 = (double*) ((uintptr_t) o3 + tile_hbytes);
+      _mm256_storeu_pd(o2, v0_2);
+      o2 = (double*) ((uintptr_t) o2 + tile_hbytes);
+      _mm256_storeu_pd(o1, v0_1);
+      o1 = (double*) ((uintptr_t) o1 + tile_hbytes);
+      _mm256_storeu_pd(o0, v0_0);
+      o0 = (double*) ((uintptr_t) o0 + tile_hbytes);
+    }
+    if (bh != 0) {
+      const __m256d v2_0 = _mm256_maskload_pd(i0, vmask);
+      const double *i1 = (const double*) ((uintptr_t) i0 + input_stride);
+      if XNN_UNPREDICTABLE(bh < 2) {
+        i1 = i0;
+      }
+      const __m256d v2_1 = _mm256_maskload_pd(i1, vmask);
+      const double *i2 = (const double*) ((uintptr_t) i1 + input_stride);
+      if XNN_UNPREDICTABLE(bh <= 2) {
+        i2 = i1;
+      }
+      const __m256d v2_2 = _mm256_maskload_pd(i2, vmask);
+      const __m256d v2_3 = _mm256_undefined_pd();
+
+      const __m256d v1_0 =  _mm256_unpacklo_pd(v2_0, v2_1);
+      const __m256d v1_1 = _mm256_unpackhi_pd(v2_0, v2_1);
+      const __m256d v1_2 =  _mm256_unpacklo_pd(v2_2, v2_3);
+      const __m256d v1_3 = _mm256_unpackhi_pd(v2_2, v2_3);
+
+      __m256d v0_0 = _mm256_insertf128_pd(v1_0, _mm256_castpd256_pd128(v1_2), 1);
+      __m256d v0_2 = _mm256_permute2f128_pd(v1_0, v1_2, 0x31);
+      __m256d v0_1 = _mm256_insertf128_pd(v1_1, _mm256_castpd256_pd128(v1_3), 1);
+      __m256d v0_3 = _mm256_permute2f128_pd(v1_1, v1_3, 0x31);
+
+      __m128d v0_0_lo = _mm256_castpd256_pd128(v0_0);
+      __m128d v0_1_lo = _mm256_castpd256_pd128(v0_1);
+      __m128d v0_2_lo = _mm256_castpd256_pd128(v0_2);
+      __m128d v0_3_lo = _mm256_castpd256_pd128(v0_3);
+
+      if (bh & 2) {
+        _mm_storeu_pd(o3, v0_3_lo);
+        v0_3_lo = _mm256_extractf128_pd(v0_3, 1);
+        o3 += 2;
+        _mm_storeu_pd(o2, v0_2_lo);
+        v0_2_lo = _mm256_extractf128_pd(v0_2, 1);
+        o2 += 2;
+        _mm_storeu_pd(o1, v0_1_lo);
+        v0_1_lo = _mm256_extractf128_pd(v0_1, 1);
+        o1 += 2;
+        _mm_storeu_pd(o0, v0_0_lo);
+        v0_0_lo = _mm256_extractf128_pd(v0_0, 1);
+        o0 += 2;
+      }
+
+      if (bh & 1) {
+        _mm_storel_pd(o3, v0_3_lo);
+        _mm_storel_pd(o2, v0_2_lo);
+        _mm_storel_pd(o1, v0_1_lo);
+        _mm_storel_pd(o0, v0_0_lo);
+      }
+    }
+
+    i0 = (const double*) ((uintptr_t) i0 + input_reset);
+    o0 = (double*) ((uintptr_t) o0 + output_reset);
     block_width = doz(block_width, tile_width);
   } while (block_width != 0);
 }

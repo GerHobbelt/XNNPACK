@@ -52,7 +52,6 @@ void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_4x4__wasm(
     c3 = c2;
   }
 
-  const int32_t vminus_kernel_zero_point = params->scalar.minus_kernel_zero_point;
   kc = round_up_po2(kc, 2);
   do {
     const int32_t vksum0 = ((const int32_t*) w)[0];
@@ -96,19 +95,19 @@ void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_4x4__wasm(
       const int32_t va3c1 = (int32_t) a3[1];
       a3 += 2;
 
-      const uint32_t vbi0 = (uint32_t) ((const uint8_t*) w)[0];
-      const uint32_t vbi1 = (uint32_t) ((const uint8_t*) w)[1];
-      const uint32_t vbi2 = (uint32_t) ((const uint8_t*) w)[2];
-      const uint32_t vbi3 = (uint32_t) ((const uint8_t*) w)[3];
+      const uint8_t vbi0 = ((const uint8_t*) w)[0];
+      const uint8_t vbi1 = ((const uint8_t*) w)[1];
+      const uint8_t vbi2 = ((const uint8_t*) w)[2];
+      const uint8_t vbi3 = ((const uint8_t*) w)[3];
       w = (const uint8_t*) w + 4;
-      const int32_t vb0c0 = (int32_t) (vbi0 & 0xF) + vminus_kernel_zero_point;
-      const int32_t vb1c0 = (int32_t) (vbi1 & 0xF) + vminus_kernel_zero_point;
-      const int32_t vb2c0 = (int32_t) (vbi2 & 0xF) + vminus_kernel_zero_point;
-      const int32_t vb3c0 = (int32_t) (vbi3 & 0xF) + vminus_kernel_zero_point;
-      const int32_t vb0c1 = (int32_t) (vbi0 >> 4) + vminus_kernel_zero_point;
-      const int32_t vb1c1 = (int32_t) (vbi1 >> 4) + vminus_kernel_zero_point;
-      const int32_t vb2c1 = (int32_t) (vbi2 >> 4) + vminus_kernel_zero_point;
-      const int32_t vb3c1 = (int32_t) (vbi3 >> 4) + vminus_kernel_zero_point;
+      const int32_t vb0c0 = (int32_t) (int8_t) (vbi0 << 4);
+      const int32_t vb0c1 = (int32_t) (int8_t) (vbi0 & 0xF0);
+      const int32_t vb1c0 = (int32_t) (int8_t) (vbi1 << 4);
+      const int32_t vb1c1 = (int32_t) (int8_t) (vbi1 & 0xF0);
+      const int32_t vb2c0 = (int32_t) (int8_t) (vbi2 << 4);
+      const int32_t vb2c1 = (int32_t) (int8_t) (vbi2 & 0xF0);
+      const int32_t vb3c0 = (int32_t) (int8_t) (vbi3 << 4);
+      const int32_t vb3c1 = (int32_t) (int8_t) (vbi3 & 0xF0);
 
       vacc0x0 += va0c0 * vb0c0;
       vacc0x1 += va0c0 * vb1c0;
@@ -144,22 +143,22 @@ void xnn_qd8_f32_qc4w_gemm_minmax_ukernel_4x4__wasm(
       vacc3x3 += va3c1 * vb3c1;
     }
 
-    float vout0x0 = (float) vacc0x0;
-    float vout0x1 = (float) vacc0x1;
-    float vout0x2 = (float) vacc0x2;
-    float vout0x3 = (float) vacc0x3;
-    float vout1x0 = (float) vacc1x0;
-    float vout1x1 = (float) vacc1x1;
-    float vout1x2 = (float) vacc1x2;
-    float vout1x3 = (float) vacc1x3;
-    float vout2x0 = (float) vacc2x0;
-    float vout2x1 = (float) vacc2x1;
-    float vout2x2 = (float) vacc2x2;
-    float vout2x3 = (float) vacc2x3;
-    float vout3x0 = (float) vacc3x0;
-    float vout3x1 = (float) vacc3x1;
-    float vout3x2 = (float) vacc3x2;
-    float vout3x3 = (float) vacc3x3;
+    float vout0x0 = (float) math_asr_s32(vacc0x0, 4);
+    float vout0x1 = (float) math_asr_s32(vacc0x1, 4);
+    float vout0x2 = (float) math_asr_s32(vacc0x2, 4);
+    float vout0x3 = (float) math_asr_s32(vacc0x3, 4);
+    float vout1x0 = (float) math_asr_s32(vacc1x0, 4);
+    float vout1x1 = (float) math_asr_s32(vacc1x1, 4);
+    float vout1x2 = (float) math_asr_s32(vacc1x2, 4);
+    float vout1x3 = (float) math_asr_s32(vacc1x3, 4);
+    float vout2x0 = (float) math_asr_s32(vacc2x0, 4);
+    float vout2x1 = (float) math_asr_s32(vacc2x1, 4);
+    float vout2x2 = (float) math_asr_s32(vacc2x2, 4);
+    float vout2x3 = (float) math_asr_s32(vacc2x3, 4);
+    float vout3x0 = (float) math_asr_s32(vacc3x0, 4);
+    float vout3x1 = (float) math_asr_s32(vacc3x1, 4);
+    float vout3x2 = (float) math_asr_s32(vacc3x2, 4);
+    float vout3x3 = (float) math_asr_s32(vacc3x3, 4);
 
     const float vinput_scale0 = quantization_params[0].inv_scale;
     vout0x0 *= vinput_scale0;

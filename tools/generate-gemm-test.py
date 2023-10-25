@@ -65,8 +65,10 @@ GEMM_BENCH_CODE_XW = """\
 static void ${UKERNEL_NAME}(benchmark::State& state, const char* net) {
   GEMMBenchmark(state,
     ${GEMM},
-    ${INIT_PARAMS},
-    ${PACK_FN},
+    $if INIT_PARAMS is not None:
+      ${INIT_PARAMS},
+    $if PACK_FN is not None:
+      ${PACK_FN},
     /*mr=*/${MR}, /*nr=*/${NR}, /*kr=*/${KR}, /*sr=*/${SR},
     $if ISA_CHECK:
       benchmark::utils::${ISA_CHECK},
@@ -81,8 +83,10 @@ GEMM_BENCH_CODE = """\
 static void ${UKERNEL_NAME}(benchmark::State& state, const char* net) {
   GEMMBenchmark(state,
     ${GEMM},
-    ${INIT_PARAMS},
-    ${PACK_FN},
+    $if INIT_PARAMS is not None:
+      ${INIT_PARAMS},
+    $if PACK_FN is not None:
+      ${PACK_FN},
     /*mr=*/${MR}, /*nr=*/${NR}, /*kr=*/${KR}, /*sr=*/${SR},
     $if ISA_CHECK:
       benchmark::utils::${ISA_CHECK});
@@ -1302,21 +1306,12 @@ def main(args):
 BENCHMARK_MAIN();
 #endif
 """
-    def write_output(output_name, output_str):
-      txt_changed = True
-      if os.path.exists(output_name):
-        with codecs.open(output_name, "r", encoding="utf-8") as output_file:
-          txt_changed = output_file.read() != output_str
-      if txt_changed:
-        with codecs.open(output_name, "w", encoding="utf-8") as output_file:
-          output_file.write(output_str)
-
     for output_name in options.output_test:
-      write_output(output_name, test_outputs[output_name])
+      xnncommon.overwrite_if_changed(output_name, test_outputs[output_name])
 
     if options.output_bench:
       output_name = options.output_bench
-      write_output(output_name, bench_outputs)
+      xnncommon.overwrite_if_changed(output_name, bench_outputs)
 
 
 if __name__ == "__main__":

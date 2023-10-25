@@ -1611,6 +1611,13 @@ SET(ALL_AVX512SKX_MICROKERNEL_SRCS
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x16c8-minmax-avx512skx.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-7x16c8-minmax-avx512skx.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-8x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-5x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x16c8-minmax-avx512skx.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-7x16c8-minmax-avx512skx.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l16c16s1r-minmax-fp32-avx512skx-mul32.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l32c16s1r-minmax-fp32-avx512skx-mul32.c
   src/qs8-dwconv/gen/qs8-dwconv-6f6m7l16c16s1r-minmax-fp32-avx512skx-mul32.c
@@ -2635,6 +2642,26 @@ SET(ALL_NEON_MICROKERNEL_SRCS
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x8-minmax-neon-mlal-lane.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x16-minmax-neon-mlal-lane-prfm.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x16-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x8-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x8-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x16-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x16-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x8-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x8-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x16-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x16-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x8-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x8-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x16-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x16-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x8-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x8-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x16-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x16-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x8-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x8-minmax-neon-mlal-lane.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x16-minmax-neon-mlal-lane-prfm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x16-minmax-neon-mlal-lane.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l8c8s8r-minmax-fp32-neon-mul16.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l8c8s8r-minmax-rndnu-neon-mla8-ld64.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l8c8s8r-minmax-rndnu-neon-mul8-ld64.c
@@ -3641,6 +3668,14 @@ SET(ALL_NEONDOT_MICROKERNEL_SRCS
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x16c4-minmax-neondot.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x8c4-minmax-neondot.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-6x16c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x8c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x16c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x8c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x16c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x8c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-6x16c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-8x8c4-minmax-neondot.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-8x16c4-minmax-neondot.c
   src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-fp32-neondot.c
   src/qs8-gemm/gen/qs8-gemm-1x8c4-minmax-rndnu-neondot.c
   src/qs8-gemm/gen/qs8-gemm-1x8c8-minmax-fp32-neondot-ld64.c
@@ -6710,6 +6745,8 @@ SET(ALL_SSE2_MICROKERNEL_SRCS
   src/qs8-vaddc/gen/qs8-vaddc-minmax-sse2-mul16-ld64-u32.c
   src/qs8-vcvt/gen/qs8-vcvt-sse2-u16.c
   src/qs8-vcvt/gen/qs8-vcvt-sse2-u32.c
+  src/qs8-vhswish/gen/qs8-vhswish-sse2-u16.c
+  src/qs8-vhswish/gen/qs8-vhswish-sse2-u32.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse2-u16.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse2-u32.c
   src/qs8-vmul/gen/qs8-vmul-minmax-fp32-sse2-mul16-ld64-u8.c
@@ -6794,11 +6831,12 @@ SET(ALL_SSE2_MICROKERNEL_SRCS
   src/qu8-vaddc/gen/qu8-vaddc-minmax-sse2-mul16-ld64-u16.c
   src/qu8-vcvt/gen/qu8-vcvt-sse2-u16.c
   src/qu8-vcvt/gen/qu8-vcvt-sse2-u32.c
+  src/qu8-vhswish/gen/qu8-vhswish-sse2-u16.c
+  src/qu8-vhswish/gen/qu8-vhswish-sse2-u32.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse2-u16.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse2-u32.c
   src/qu8-vmul/gen/qu8-vmul-minmax-fp32-sse2-mul16-ld64-u8.c
   src/qu8-vmul/gen/qu8-vmul-minmax-fp32-sse2-mul16-ld64-u16.c
-  src/qu8-vmul/gen/qu8-vmul-minmax-fp32-sse2-mul16-ld64-x16.c
   src/qu8-vmulc/gen/qu8-vmulc-minmax-fp32-sse2-mul16-ld64-u8.c
   src/qu8-vmulc/gen/qu8-vmulc-minmax-fp32-sse2-mul16-ld64-u16.c
   src/s8-ibilinear/gen/s8-ibilinear-sse2-c8.c
@@ -7176,6 +7214,9 @@ SET(ALL_SSE41_MICROKERNEL_SRCS
   src/qs8-vcvt/gen/qs8-vcvt-sse41-u8.c
   src/qs8-vcvt/gen/qs8-vcvt-sse41-u16.c
   src/qs8-vcvt/gen/qs8-vcvt-sse41-u32.c
+  src/qs8-vhswish/gen/qs8-vhswish-sse41-u8.c
+  src/qs8-vhswish/gen/qs8-vhswish-sse41-u16.c
+  src/qs8-vhswish/gen/qs8-vhswish-sse41-u32.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse41-u8.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse41-u16.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse41-u32.c
@@ -7273,6 +7314,9 @@ SET(ALL_SSE41_MICROKERNEL_SRCS
   src/qu8-vcvt/gen/qu8-vcvt-sse41-u8.c
   src/qu8-vcvt/gen/qu8-vcvt-sse41-u16.c
   src/qu8-vcvt/gen/qu8-vcvt-sse41-u32.c
+  src/qu8-vhswish/gen/qu8-vhswish-sse41-u8.c
+  src/qu8-vhswish/gen/qu8-vhswish-sse41-u16.c
+  src/qu8-vhswish/gen/qu8-vhswish-sse41-u32.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse41-u8.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse41-u16.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse41-u32.c
@@ -7317,6 +7361,8 @@ SET(ALL_SSSE3_MICROKERNEL_SRCS
   src/qs8-requantization/qs8-requantization-rndna-ssse3.c
   src/qs8-vcvt/gen/qs8-vcvt-ssse3-u16.c
   src/qs8-vcvt/gen/qs8-vcvt-ssse3-u32.c
+  src/qs8-vhswish/gen/qs8-vhswish-ssse3-u16.c
+  src/qs8-vhswish/gen/qs8-vhswish-ssse3-u32.c
   src/qs8-vlrelu/gen/qs8-vlrelu-ssse3-u16.c
   src/qs8-vlrelu/gen/qs8-vlrelu-ssse3-u32.c
   src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-ssse3-u4.c
@@ -7326,6 +7372,8 @@ SET(ALL_SSSE3_MICROKERNEL_SRCS
   src/qu8-requantization/qu8-requantization-rndna-ssse3.c
   src/qu8-vcvt/gen/qu8-vcvt-ssse3-u16.c
   src/qu8-vcvt/gen/qu8-vcvt-ssse3-u32.c
+  src/qu8-vhswish/gen/qu8-vhswish-ssse3-u16.c
+  src/qu8-vhswish/gen/qu8-vhswish-ssse3-u32.c
   src/qu8-vlrelu/gen/qu8-vlrelu-ssse3-u16.c
   src/qu8-vlrelu/gen/qu8-vlrelu-ssse3-u32.c
   src/x8-lut/gen/x8-lut-ssse3-u16.c
@@ -7566,6 +7614,10 @@ SET(ALL_WASM_MICROKERNEL_SRCS
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x4-minmax-wasm.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-2x8-minmax-wasm.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-4x4-minmax-wasm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x2-minmax-wasm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x2-minmax-wasm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x2-minmax-wasm.c
+  src/qd8-f32-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x2-minmax-wasm.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l1c1s1r-minmax-fp32-wasm-fmagic.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l2c1s1r-minmax-fp32-wasm-fmagic.c
   src/qs8-dwconv/gen/qs8-dwconv-5f5m5l4c1s1r-minmax-fp32-wasm-fmagic.c
@@ -8058,6 +8110,10 @@ SET(ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x4c16-minmax-fp32-wasmsdot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x4c16-minmax-fp32-wasmsdot.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x4c16-minmax-fp32-wasmsdot.c
+  src/qs8-qc8w-igemm/gen/qd8-f32-qc8w-igemm-1x4c16-minmax-wasmsdot.c
+  src/qs8-qc8w-igemm/gen/qd8-f32-qc8w-igemm-2x4c16-minmax-wasmsdot.c
+  src/qs8-qc8w-igemm/gen/qd8-f32-qc8w-igemm-3x4c16-minmax-wasmsdot.c
+  src/qs8-qc8w-igemm/gen/qd8-f32-qc8w-igemm-4x4c16-minmax-wasmsdot.c
   src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x4c16-minmax-fp32-wasmsdot.c
   src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x4c16-minmax-fp32-wasmsdot.c
   src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-3x4c16-minmax-fp32-wasmsdot.c

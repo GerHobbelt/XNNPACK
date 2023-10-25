@@ -29,11 +29,16 @@ IMM_NO_GROUP = r'\d+'
 IMM = r'(' + IMM_NO_GROUP + ')'
 REG_LANE_NO_GROUP = r'(?:' + REG_NO_GROUP + r')\[' + IMM_NO_GROUP + r'\]'
 REG_OR_IMM = r'(' + REG_LANE_NO_GROUP + '|' + REG_NO_GROUP + '|' + IMM_NO_GROUP + ')'
+REG_INDEXED = r'(?:' + REG_NO_GROUP + r')\[' + IMM_NO_GROUP + r'\]'
 
 REGLIST_CONSEC = r'\{(\w+)-(\w+)\}' + SPACES
 REGLIST_INDIV = r'\{([\w.]+(?:,\s+[\w.]+)*)\}' + SPACES
 REGLIST_INDIV_REPLICATE = r'\{(\w+(?:\[\])(,\s*\w+(?:\[\]))*)\}' + SPACES
 REGLIST_INDEX = r'\{(' + REG_LANE_NO_GROUP + ')\}' + SPACES
+# e.g. {v0.d}[1]
+REGLIST_LANE_INDEX = r'\{' + REG + '\}' + r'\[(\d+)\]' + SPACES
+# e.g. v0.d[1]
+REG_INDEX = REG + r'\[(\d+)\]' + SPACES
 
 APSR = 'APSR_nzcv'
 FPSCR = '(FPSCR)'
@@ -118,6 +123,11 @@ INSTR_REGLIST_INDIV_MEMOP = re.compile(INSTR + REGLIST_INDIV + COMMA +
 # e.g. LD1 {v16.16b, v17.16b, v18.16b}, [x5], 48
 INSTR_REGLIST_INDIV_MEMOP_IMM = re.compile(INSTR + REGLIST_INDIV + COMMA +
                                            MEMOP + COMMA + IMM + COMMENTS)
+# e.g. LD1 {v0.d}[0], [x5], 48
+INSTR_REGLIST_INDEX_MEMOP_IMM = re.compile(INSTR + REGLIST_LANE_INDEX + COMMA +
+                                           MEMOP + COMMA + IMM + COMMENTS)
+# e.g. INS v19.d[0], x4
+INSTR_REG_INDEX_REG = re.compile(INSTR + REG_INDEX + COMMA + REG + COMMENTS)
 # e.g. VST1.32 {d24-d25}, [r11]{!}
 INSTR_REGLIST_CONSEC_MEMOP = re.compile(INSTR + REGLIST_CONSEC + COMMA +
                                         MEMOP_MAYBE_WB + COMMENTS)
@@ -132,7 +142,7 @@ INSTR_REG_FPSCR = re.compile(INSTR + f'({APSR}|{REG_NO_GROUP})' + COMMA +
                              FPSCR + COMMENTS)
 
 # e.g. PRFM PLDL1KEEP, [x5]
-INSTR_PLD_MEMOP = re.compile(INSTR + f'(PLDL1KEEP)' + COMMA + MEMOP + COMMENTS)
+INSTR_PLD_MEMOP = re.compile(INSTR + f'(PLDL1KEEP|PSTL1KEEP)' + COMMA + MEMOP + COMMENTS)
 # e.g. PRFM PLDL1KEEP, [x5, 64]
 INSTR_PLD_MEMOP_OFFSET = re.compile(INSTR + f'(PLDL1KEEP)' + COMMA +
                                     MEMOP_OFFSET + COMMENTS)
@@ -311,10 +321,21 @@ def replace_template(template: str, replacements: Mapping[str, str]):
   return result
 
 
+def get_post_op_accs(vector_register_usage):
+  usage = [reg for sublist in vector_register_usage for reg in sublist];
+  assert(len(usage) == 8)
+  return f"""
+          {usage[0]}.v4s(), {usage[1]}.v4s(),
+          {usage[2]}.v4s(), {usage[3]}.v4s(),
+          {usage[4]}.v4s(), {usage[5]}.v4s(),
+          {usage[6]}.v4s(), {usage[7]}.v4s(),"""
+
+
 # We use placeholder strings rather than formatted strings due to the many braces in the template (we are generating C++
 # after all), and to avoid copious escaping.
 def get_post_operation_implementation(arch, mr: int, params_register: str,
-                                      params_offset: str, reload_params: bool):
+                                      params_offset: str, reload_params: bool,
+                                      vector_register_usage):
   if arch == AARCH32:
     if reload_params:
       return replace_template(
@@ -339,9 +360,10 @@ def get_post_operation_implementation(arch, mr: int, params_register: str,
     elif mr == 4:
       return replace_template(
           AARCH64_POST_OP, {
-              'ACCS_PLACEHOLDER': AARCH64_MR4_POST_OP_ACCS,
+              'ACCS_PLACEHOLDER': get_post_op_accs(vector_register_usage['C']),
               'TMPS_PLACEHOLDER': AARCH64_MR6_POST_OP_TMPS,
-              'PARAMS_REG_PLACEHOLDER': params_register
+              'PARAMS_REG_PLACEHOLDER': params_register,
+              'PARAMS_OFFSET_PLACEHOLDER': params_offset,
           })
     elif mr == 6:
       return replace_template(
@@ -446,7 +468,10 @@ def parse_prologue(input_file: str, lines: List[str], arch: str, minmax: bool,
       if not line.strip():
         in_a_pointers = False
         continue
-      m = re.search(r'(?:#|//)\W+(\w\d+)', line)
+      # Handle both:
+      # - A0 x1
+      # - x1 a0
+      m = re.search(r'(?:#|//)\W+(?:A\d+\W+)?(\w\d+)', line)
       if not m:
         print(f'ERROR expected to find A pointers: {line}', file=sys.stderr)
         sys.exit(1)
@@ -461,7 +486,10 @@ def parse_prologue(input_file: str, lines: List[str], arch: str, minmax: bool,
       if not line.strip():
         in_c_pointers = False
         continue
-      m = re.search(r'(?:#|//)\W+(\w\d+)', line)
+      # Handle both:
+      # - C0 x1
+      # - x1 c0
+      m = re.search(r'(?:#|//)\W+(?:C\d+\W+)?(\w\d+)', line)
       if not m:
         print(f'ERROR expected to find C pointers: {line}', file=sys.stderr)
         sys.exit(1)
@@ -482,14 +510,30 @@ def parse_prologue(input_file: str, lines: List[str], arch: str, minmax: bool,
       # Skip b vector registers.
       if re.search(r'(?:#|//)\W+B', line):
         continue
-      m = re.search(r'(?:#|//)\W+(A|C)\d?\W+(((?:v|d|q|r)\d+(?:\W*|-))+)', line)
+      m = re.search(r'(?:#|//)\W+(A|C)\d?\W+(((?:v|d|q|r|x)\d+(?:\[\d+\])?(?:\W*|-))+)', line)
       if not m:
         print(
             f'ERROR failed to parse vector register usage: {line}',
             file=sys.stderr)
         sys.exit(1)
       param_reg = m.group(1)
-      vec_regs = m.group(2).split()
+      all_regs = m.group(2).split()
+      pointer_regs = [reg for reg in all_regs if reg.startswith('r') or reg.startswith('x')]
+
+      vec_regs = [reg for reg in all_regs if reg not in pointer_regs]
+      # Support old comments where the pointers are specified separately (len ==
+      # 0), and also new comments where we should only have 1 pointer register.
+      if len(pointer_regs) > 1:
+        print(f'ERROR unexpected pointer registers: {pointer_regs}', file=sys.stderr)
+        sys.exit(1)
+      if len(pointer_regs) == 1:
+        if param_reg.startswith('A'):
+          a_pointers.append(pointer_regs[0])
+        elif param_reg.startswith('C'):
+          c_pointers.append(pointer_regs[0])
+        else:
+          print(f'ERROR unrecognized param register {param_reg}', file=sys.stderr)
+          sys.exit(1)
       vector_register_usage[param_reg].append(vec_regs)
       continue
     elif 'register usage' in line.lower():
@@ -524,12 +568,14 @@ def parse_prologue(input_file: str, lines: List[str], arch: str, minmax: bool,
         regs = v[i][j].split('-')
         for reg in regs:
           vector_register_map[reg] = i
+          if '[' in reg:  # handle cases in v0[1]
+            continue
           vector_register_map[reg.replace('v', 'q')] = i
           vector_register_map[reg.replace('v', 's')] = i
           vector_register_map[reg.replace('v', 'd')] = i
           # TODO d registers and aarch32 should use q
 
-  return prologue, vector_register_map
+  return prologue, vector_register_map, vector_register_usage
 
 
 def emit_prefetch_instruction(instr: str, prfm: bool,
@@ -564,7 +610,7 @@ def emit_instruction(instr: str,
   # - add(r6, r8, r6)
   # - vld1_32({d3}, mem[r0]++)
   # - vldm(mem[r0]++, {s6})
-  pat = re.compile(r'(\w+)\((?:mem\[)?\{?((?:v|x|q|s|d|r)\d+)')
+  pat = re.compile(r'(\w+)\((?:mem\[)?\{?((?:v|x|q|s|d|r)\d+(?:\.d\(\)\[\d\])?)')
   m = re.search(pat, instr)
   if not m:
     instructions.append(instr)
@@ -572,6 +618,19 @@ def emit_instruction(instr: str,
 
   instr_name = m.group(1)
   reg = m.group(2)
+
+  # Find instructions like this:
+  # - ins(v3.d()[1], x4) (converts this to v3[1], that's what is used in comments
+  m = re.search(r'(v\d+)\.d\(\)(\[\d\])', reg)
+  if m:
+    reg = f'{m[1]}{m[2]}'
+
+  # Find instructions like:
+  #   ld1({v0.d()}, 1, mem[x9], 8); // a1
+  # and use the destination register as the reg.
+  m = re.search(r'ld1\(\{(v\d+)\.[ds]\(\)\},\W+\d+,\W+mem\[(x\d+)\]', instr)
+  if m:
+    reg = f'{m[2]}'
 
   if instr_name in ['fmin', 'fmax', 'vmin_f32', 'vmax_f32']:
     max_mr = vector_register_map[reg]
@@ -611,16 +670,14 @@ def emit_instruction(instr: str,
                r'\1(\2, \3, max_mr * sizeof(void*));', instr))
     return
 
-  # this workaround is specifically for 4x8 A53 kernel where it loads from A low
-  # and A high into GPR then moves into vector registers.
-  if instr_name == 'ldr' and is_a53:
-    # A53 microkernels use ldr in 2 ways, load A, and load A high. If the
-    # destination register is in the vector register map, we will emit a guard.
-    # Otherwise we try to look at the source register, because it could be a
-    # load A high.
+  if instr_name == 'ldr':
+    # Some microkernels use ldr to load into a temporary register. In that case,
+    # the temporary register doesn't show up in the register usage map, so using
+    # the dest reg for max_mr guard doesn't work, we need to use the source
+    # register instead.
     if reg not in vector_register_map:
       # extract register from the load
-      ldr_m = re.search(r'mem\[(r\d+)', instr)
+      ldr_m = re.search(r'mem\[([rx]\d+)', instr)
       if ldr_m:
         reg = ldr_m[1]
 
@@ -812,6 +869,18 @@ def parse_microkernel(
     if m:
       emit_instruction(
           f'{fix_instr_name(m[1])}({{{fix_regs(m[2])}}}, mem[{m[3]}], {m[4]}){sc} {m[5]}',
+          instructions, vector_register_map)
+      continue
+    m = re.fullmatch(INSTR_REGLIST_INDEX_MEMOP_IMM, line)
+    if m:
+      emit_instruction(
+          f'{fix_instr_name(m[1])}({{{m[2]}()}}, {m[3]}, mem[{m[4]}], {m[5]}){sc} {m[6]}',
+          instructions, vector_register_map)
+      continue
+    m = re.fullmatch(INSTR_REG_INDEX_REG, line)
+    if m:
+      emit_instruction(
+          f'{fix_instr_name(m[1])}({m[2]}()[{m[3]}], {m[4]}){sc} {m[5]}',
           instructions, vector_register_map)
       continue
     m = re.fullmatch(INSTR_REGLIST_CONSEC_MEMOP, line)
@@ -1007,7 +1076,7 @@ def find_params_offset_and_register(lines: List[str]) -> Tuple[str, str]:
   return None, None
 
 
-def convert(input_file: str, post_op: bool, reload_params: bool) -> None:
+def convert(input_file: str, post_op: bool, reload_params: bool, debug: bool) -> None:
   output = []
   arch = None
   kernel_type = GEMM
@@ -1061,9 +1130,13 @@ def convert(input_file: str, post_op: bool, reload_params: bool) -> None:
   # Microkernel body does not include the BEGIN_FUNCION.
   microkernel_body = lines[begin_function_index + 1:]
 
-  prologue, vector_register_map = parse_prologue(input_file, prologue_lines,
+  prologue, vector_register_map, vector_register_usage = parse_prologue(input_file, prologue_lines,
                                                  arch, minmax, kernel_type,
                                                  prfm, mr, post_op)
+  if debug:
+    print(vector_register_map)
+    print(vector_register_usage)
+
   params_offset, params_register = find_params_offset_and_register(
       prologue_lines)
   if not params_register:
@@ -1135,7 +1208,7 @@ def convert(input_file: str, post_op: bool, reload_params: bool) -> None:
     output.append('')
     output.append(
         get_post_operation_implementation(arch, mr, params_register,
-                                          params_offset, reload_params))
+                                          params_offset, reload_params, vector_register_usage))
     output.append('')
   output.append('}  // namespace')
   output.append(f'}}  // namespace {arch}')
@@ -1224,9 +1297,14 @@ def main(sys_args):
       help='Should reload params pointer before post operation',
       default=False,
       action=argparse.BooleanOptionalAction)
+  parser.add_argument(
+      "--debug",
+      help='Output debugging information',
+      default=False,
+      action=argparse.BooleanOptionalAction)
   args = parser.parse_args(sys_args)
 
-  output = '\n'.join(convert(args.input, args.post_op, args.reload_params))
+  output = '\n'.join(convert(args.input, args.post_op, args.reload_params, args.debug))
   # Add trailing new line.
   output += '\n'
 

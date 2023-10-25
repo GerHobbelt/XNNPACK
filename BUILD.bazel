@@ -1733,6 +1733,7 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
 ]
 
 PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
+    "src/f16-f32-vcvt/gen/f16-f32-vcvt-wasmrelaxedsimd-int16-x16.c",
     "src/f32-dwconv/gen/f32-dwconv-3p8c-minmax-wasmrelaxedsimd-fma.c",
     "src/f32-dwconv/gen/f32-dwconv-3p8c-wasmrelaxedsimd-fma.c",
     "src/f32-dwconv/gen/f32-dwconv-4p8c-minmax-wasmrelaxedsimd-fma.c",
@@ -1741,6 +1742,7 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/f32-dwconv/gen/f32-dwconv-9p8c-wasmrelaxedsimd-fma.c",
     "src/f32-dwconv/gen/f32-dwconv-25p8c-minmax-wasmrelaxedsimd-fma.c",
     "src/f32-dwconv/gen/f32-dwconv-25p8c-wasmrelaxedsimd-fma.c",
+    "src/f32-f16-vcvt/gen/f32-f16-vcvt-wasmrelaxedsimd-x24.c",
     "src/f32-gemm/gen/f32-gemm-1x8-minmax-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-1x8-relu-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-1x8-wasmrelaxedsimd-fma-splat.c",
@@ -1752,6 +1754,7 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/f32-gemm/gen/f32-gemm-6x8-minmax-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-6x8-relu-wasmrelaxedsimd-fma-splat.c",
     "src/f32-gemm/gen/f32-gemm-6x8-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-ibilinear/gen/f32-ibilinear-wasmrelaxedsimd-c8.c",
     "src/f32-igemm/gen/f32-igemm-1x8-minmax-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-1x8-relu-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-1x8-wasmrelaxedsimd-fma-splat.c",
@@ -1763,6 +1766,14 @@ PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS = [
     "src/f32-igemm/gen/f32-igemm-6x8-minmax-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-6x8-relu-wasmrelaxedsimd-fma-splat.c",
     "src/f32-igemm/gen/f32-igemm-6x8-wasmrelaxedsimd-fma-splat.c",
+    "src/f32-prelu/gen/f32-prelu-wasmrelaxedsimd-iminmax-2x4.c",
+    "src/f32-prelu/gen/f32-prelu-wasmrelaxedsimd-laneselect-2x4.c",
+    "src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-wasmrelaxedsimd-rr2-p5-x16-acc2.c",
+    "src/f32-velu/gen/f32-velu-wasmrelaxedsimd-fma-rr2-p6-x24.c",
+    "src/f32-vlrelu/gen/f32-vlrelu-wasmrelaxedsimd-iminmax-x4.c",
+    "src/f32-vlrelu/gen/f32-vlrelu-wasmrelaxedsimd-laneselect-x4.c",
+    "src/f32-vmulcaddc/gen/f32-vmulcaddc-c4-minmax-wasmrelaxedsimd-fma-2x.c",
+    "src/f32-vsigmoid/gen/f32-vsigmoid-wasmrelaxedsimd-fma-rr2-p5-div-x24.c",
     "src/qs8-vcvt/gen/qs8-vcvt-wasmrelaxedsimd-x32.c",
     "src/qs8-vlrelu/gen/qs8-vlrelu-wasmrelaxedsimd-arm-x32.c",
     "src/qs8-vlrelu/gen/qs8-vlrelu-wasmrelaxedsimd-x86-x32.c",
@@ -2147,12 +2158,22 @@ JIT_AARCH32_SRCS = [
 ]
 
 JIT_AARCH64_SRCS = [
+    "src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a53.cc",
     "src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a75.cc",
+    "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a53.cc",
+    "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a55.cc",
     "src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a75.cc",
+    "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a53.cc",
+    "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a55.cc",
     "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a75.cc",
     "src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-ld128.cc",
+    "src/f32-igemm/gen/f32-igemm-1x8-aarch64-neonfma-cortex-a53.cc",
     "src/f32-igemm/gen/f32-igemm-1x8-aarch64-neonfma-cortex-a75.cc",
+    "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a53.cc",
+    "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a55.cc",
     "src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a75.cc",
+    "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a53.cc",
+    "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a55.cc",
     "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a75.cc",
     "src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-ld128.cc",
 ]
@@ -2301,6 +2322,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "microkernel_configs",
     srcs = [
+        "src/binary-elementwise-config.c",
         "src/transpose-config.c",
         "src/x8-lut-config.c",
     ],
@@ -2324,6 +2346,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "microkernel_configs_test_mode",
     srcs = [
+        "src/binary-elementwise-config.c",
         "src/transpose-config.c",
         "src/x8-lut-config.c",
     ],
@@ -6919,6 +6942,14 @@ xnnpack_benchmark(
     deps = ACCURACY_EVAL_DEPS,
 )
 
+xnnpack_benchmark(
+    name = "f32_tanh_ulp_eval",
+    srcs = [
+        "eval/f32-tanh-ulp.cc",
+    ],
+    deps = ACCURACY_EVAL_DEPS,
+)
+
 ################### Accuracy verification for math functions ##################
 
 xnnpack_unit_test(
@@ -7540,7 +7571,7 @@ xnnpack_unit_test(
     srcs = [
         "test/f32-igemm-jit.cc",
     ],
-    shard_count = 5,
+    shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
         ":jit_test_mode",
@@ -7709,7 +7740,7 @@ xnnpack_unit_test(
     srcs = [
         "test/f32-gemm-jit.cc",
     ],
-    shard_count = 5,
+    shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
         ":jit_test_mode",

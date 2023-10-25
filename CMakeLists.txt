@@ -280,7 +280,9 @@ SET(XNNPACK_SRCS
   src/params.c
   src/transpose-config.c
   src/unary-elementwise-config.c
-  src/x8-lut-config.c)
+  src/x8-lut-config.c
+  src/xx-fill-config.c
+  src/xx-pad-config.c)
 
 SET(TABLE_SRCS
   src/tables/exp2-k-over-64.c
@@ -288,6 +290,7 @@ SET(TABLE_SRCS
   src/tables/exp2minus-k-over-4.c
   src/tables/exp2minus-k-over-8.c
   src/tables/exp2minus-k-over-16.c
+  src/tables/exp2minus-k-over-32.c
   src/tables/exp2minus-k-over-64.c
   src/tables/exp2minus-k-over-2048.c
   src/tables/vlog.c)
@@ -298,11 +301,13 @@ SET(JIT_SRCS
   src/jit/assembler.cc)
 
 SET(JIT_AARCH32_SRCS
+  src/f32-gemm/gen/f32-gemm-1x8-aarch32-neon-cortex-a53.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a7.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a53.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a55.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a75.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-ld64.cc
+  src/f32-igemm/gen/f32-igemm-1x8-aarch32-neon-cortex-a53.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a7.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a53.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a55.cc
@@ -318,20 +323,25 @@ SET(JIT_AARCH32_SRCS
   src/qs8-igemm/gen/qs8-igemm-4x8c4-rndnu-aarch32-neondot-ld64.cc)
 
 SET(JIT_AARCH64_SRCS
+  src/f16-gemm/gen/f16-gemm-1x16-aarch64-neonfp16arith-ld64.cc
   src/f16-gemm/gen/f16-gemm-4x16-aarch64-neonfp16arith-ld64.cc
   src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-cortex-a55.cc
   src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-cortex-a55r0.cc
   src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-cortex-a75.cc
   src/f16-gemm/gen/f16-gemm-6x16-aarch64-neonfp16arith-ld64.cc
-  src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a53.cc
   src/f16-igemm/gen/f16-igemm-1x16-aarch64-neonfp16arith-ld64.cc
   src/f16-igemm/gen/f16-igemm-4x16-aarch64-neonfp16arith-ld64.cc
+  src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-ld64.cc
   src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-cortex-a55.cc
   src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-cortex-a55r0.cc
+  src/f16-igemm/gen/f16-igemm-6x16-aarch64-neonfp16arith-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a53.cc
   src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-ld64.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a53.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a55.cc
   src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-ld128.cc
   src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a53.cc
   src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a55.cc
   src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a75.cc
@@ -341,6 +351,7 @@ SET(JIT_AARCH64_SRCS
   src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a53.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a55.cc
   src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-ld128.cc
   src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a53.cc
   src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a55.cc
   src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a75.cc
@@ -373,7 +384,7 @@ SET(PROD_AVX512SKX_MICROKERNEL_SRCS src/amalgam/avx512skx.c)
 SET(PROD_AVX512VBMI_MICROKERNEL_SRCS src/amalgam/avx512vbmi.c)
 
 SET(PROD_MICROKERNEL_SRCS ${PROD_SCALAR_MICROKERNEL_SRCS})
-SET(ALL_MICROKERNEL_SRCS ${ALL_SCALAR_MICROKERNEL_SRCS})
+SET(ALL_MICROKERNEL_SRCS ${ALL_SCALAR_MICROKERNEL_SRCS} ${ALL_FMA_MICROKERNEL_SRCS})
 IF(XNNPACK_TARGET_PROCESSOR STREQUAL "arm")
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_SCALAR_AARCH32_MICROKERNEL_SRCS})
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_ARMSIMD32_MICROKERNEL_SRCS})
@@ -523,7 +534,7 @@ IF(XNNPACK_BUILD_LIBRARY)
 
   TARGET_LINK_LIBRARIES(memory PRIVATE logging)
   TARGET_LINK_LIBRARIES(mutex PRIVATE logging)
-  TARGET_LINK_LIBRARIES(operators PRIVATE allocator indirection logging normalization operator-utils packing post-operation)
+  TARGET_LINK_LIBRARIES(operators PRIVATE allocator indirection logging microkernel-utils normalization operator-utils packing post-operation)
   TARGET_LINK_LIBRARIES(operator-run PRIVATE logging)
   TARGET_LINK_LIBRARIES(operator-utils PRIVATE logging)
   TARGET_LINK_LIBRARIES(subgraph PRIVATE allocator logging memory mutex operators operator-run)
@@ -2935,6 +2946,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_LINK_LIBRARIES(f16-sqrt-ulp-eval PRIVATE benchmark cpuinfo fp16 pthreadpool)
   TARGET_LINK_LIBRARIES(f16-sqrt-ulp-eval PRIVATE bench-utils microkernels-all)
 
+  ADD_EXECUTABLE(f16-tanh-ulp-eval eval/f16-tanh-ulp.cc)
+  TARGET_INCLUDE_DIRECTORIES(f16-tanh-ulp-eval PRIVATE . src)
+  TARGET_LINK_LIBRARIES(f16-tanh-ulp-eval PRIVATE benchmark cpuinfo fp16 pthreadpool)
+  TARGET_LINK_LIBRARIES(f16-tanh-ulp-eval PRIVATE bench-utils microkernels-all)
+
   ADD_EXECUTABLE(f32-exp-ulp-eval eval/f32-exp-ulp.cc)
   TARGET_INCLUDE_DIRECTORIES(f32-exp-ulp-eval PRIVATE . src)
   TARGET_LINK_LIBRARIES(f32-exp-ulp-eval PRIVATE benchmark cpuinfo fp16 pthreadpool)
@@ -2976,6 +2992,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(f16-sqrt-eval PRIVATE include src)
   TARGET_LINK_LIBRARIES(f16-sqrt-eval PRIVATE fp16 pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(f16-sqrt-eval PRIVATE hardware-config logging microkernels-all)
+
+  ADD_EXECUTABLE(f16-tanh-eval eval/f16-tanh.cc)
+  TARGET_INCLUDE_DIRECTORIES(f16-tanh-eval PRIVATE include src)
+  TARGET_LINK_LIBRARIES(f16-tanh-eval PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(f16-tanh-eval PRIVATE hardware-config logging microkernels-all)
 
   ADD_EXECUTABLE(f16-f32-cvt-eval eval/f16-f32-cvt.cc)
   TARGET_INCLUDE_DIRECTORIES(f16-f32-cvt-eval PRIVATE include src)

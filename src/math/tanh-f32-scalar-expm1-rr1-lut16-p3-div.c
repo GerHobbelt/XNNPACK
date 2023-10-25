@@ -34,7 +34,7 @@ void xnn_math_f32_tanh__scalar_expm1_rr1_lut16_p3_div(
   const float vc3 = 0x1.55561Cp-1f;
   const float vc2 = -0x1.0001ECp+0f;
   const float vone = 1.0f;
-  const float vtwo = 2.0f;
+  const float vminus_two = -2.0f;
   // The largest z for which tanhf(-z) is not saturated at -1.0f.
   const float vsat_cutoff = 0x1.205966p+3f;
 
@@ -61,8 +61,8 @@ void xnn_math_f32_tanh__scalar_expm1_rr1_lut16_p3_div(
     float vn = vz * vminus_log2e + vmagic_bias;
 
     // Create a floating-point number s (scale) such that s := 2**(2n) for valid inputs, i.e. -17.328680 <= x <= 0.0. As
-    // n has 4 fractional bits, we split s == 2**(2n) = 2**int(2n) * 2**frac(2n). We create s in two steps:
-    // 1. Fetch 2**frac(2n) from the table using the 3 low bits of n, as integer. Note that the fetched values are in
+    // n has 5 fractional bits, we split s == 2**(2n) = 2**int(2n) * 2**frac(2n). We create s in two steps:
+    // 1. Fetch 2**frac(2n) from the table using the 4 low bits of n, as integer. Note that the fetched values are in
     //    the [1.0, 2.0) range, i.e. their unbiased floating-point exponent is 0.
     // 2. Adjust fetched value by addition of int(2n) to its floating-point exponent. The result is always a normalized
     //    number, because for 0 <= z <= 9.010913 we have -13 <= int(n) <= 0, and thus the adjusted exponent is not
@@ -96,10 +96,10 @@ void xnn_math_f32_tanh__scalar_expm1_rr1_lut16_p3_div(
     vt *= vs;
     const float vsm1 = vs - vone;
     vp = vp * vt + vt;
-    const float vem1 = vsm1 - vtwo * vp;
+    const float vem1 = vp * vminus_two + vsm1;
 
     // Reconstruct tanh(-z) := expm1(-2z) / (2 + expm1(-2z))
-    const float vep1 = vtwo + vem1;
+    const float vep1 = vem1 - vminus_two;
     float vabsy = vem1 / vep1;
 
     // The function saturates at +-1 for large inputs: tanhf(z) == +-1.0f for z > sat_cutoff ~= 9.010913.

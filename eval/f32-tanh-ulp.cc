@@ -61,9 +61,9 @@ static void TanhError(benchmark::State& state,
     return;
   }
 
-  // The smallest x for which sigmoidf(x) is not -1.0f (-0x1.205966p+3f).
+  // The smallest x for which tanh(x) is not -1.0f (-0x1.205966p+3f).
   const uint32_t min_input = 0xC1102CB3;
-  // The largest x for which sigmoidf(x) is not 1.0f (0x1.205966p+3f).
+  // The largest x for which tanh(x) is not 1.0f (0x1.205966p+3f).
   const uint32_t max_input = 0x41102CB3;
   // Number of elements in one block of inputs/outputs.
   // Combining multiple elements in a block reduce function call overhead.
@@ -178,11 +178,6 @@ static void TanhError(benchmark::State& state,
                     benchmark::utils::CheckAVX512F)
     ->Unit(benchmark::kMillisecond)
     ->Iterations(1);
-  BENCHMARK_CAPTURE(TanhError, avx512f_expm1_rr1_lut16_p4_perm_div,
-                    xnn_math_f32_tanh__avx512f_expm1_rr1_lut16_p4_perm_div,
-                    benchmark::utils::CheckAVX512F)
-    ->Unit(benchmark::kMillisecond)
-    ->Iterations(1);
 
   BENCHMARK_CAPTURE(TanhError, avx2_expm1_rr1_lut4_p4_perm_div,
                     xnn_math_f32_tanh__avx2_expm1_rr1_lut4_p4_perm_div,
@@ -247,6 +242,39 @@ static void TanhError(benchmark::State& state,
     ->Iterations(1);
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut4_p4_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut4_p4_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut8_p3_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut8_p3_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut8_p4_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut8_p4_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut16_p3_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut16_p3_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut16_p4_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut16_p4_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut32_p3_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut32_p3_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_lut64_p3_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_lut64_p3_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, fma_expm1_rr1_p6_div,
+                  xnn_math_f32_tanh__fma_expm1_rr1_p6_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+
 BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_lut4_p4_div,
                   xnn_math_f32_tanh__scalar_expm1_rr1_lut4_p4_div)
   ->Unit(benchmark::kMillisecond)
@@ -263,12 +291,24 @@ BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_lut8_p4_div,
                   xnn_math_f32_tanh__scalar_expm1_rr1_lut8_p4_div)
   ->Unit(benchmark::kMillisecond)
   ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr2_lut8_p4_div,
+                  xnn_math_f32_tanh__scalar_expm1_rr2_lut8_p4_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
 BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_lut16_p3_div,
                   xnn_math_f32_tanh__scalar_expm1_rr1_lut16_p3_div)
   ->Unit(benchmark::kMillisecond)
   ->Iterations(1);
 BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_lut16_p4_div,
                   xnn_math_f32_tanh__scalar_expm1_rr1_lut16_p4_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_lut32_p3_div,
+                  xnn_math_f32_tanh__scalar_expm1_rr1_lut32_p3_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
+BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_lut64_p3_div,
+                  xnn_math_f32_tanh__scalar_expm1_rr1_lut64_p3_div)
   ->Unit(benchmark::kMillisecond)
   ->Iterations(1);
 BENCHMARK_CAPTURE(TanhError, scalar_expm1_rr1_p6_div,

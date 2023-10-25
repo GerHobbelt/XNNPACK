@@ -889,6 +889,13 @@ struct average_pooling_context {
   size_t indirect_input_height_stride;
   size_t input_offset;
   size_t input_batch_stride;
+
+  // Stride to get to the next y of input. Used when we have compressed indirection buffers (i.e. indirection buffers
+  // contain only pointers to the first row of input).
+  size_t input_y_stride;
+  size_t indirect_top_height;  // Number of output rows that form the top section of indirection buffer.
+  size_t indirect_bot_start;  // Smallest output row y for the bottom section of indirection buffer.
+
   void* output;
   size_t output_batch_stride;
   size_t output_height_stride;
@@ -935,6 +942,13 @@ struct pixelwise_average_pooling_context {
   size_t indirect_input_height_stride;
   size_t input_offset;
   size_t input_batch_stride;
+
+  // Stride to get to the next y of input. Used when we have compressed indirection buffers (i.e. indirection buffers
+  // contain only pointers to the first row of input).
+  size_t input_y_stride;
+  size_t indirect_top_height;  // Number of output rows that form the top section of indirection buffer.
+  size_t indirect_bot_start;  // Smallest output row y for the bottom section of indirection buffer.
+
   const void* pixelwise_buffer;
   size_t pixelwise_buffer_height_stride;
   void* output;
@@ -1478,6 +1492,10 @@ struct floating_point_softmax_context {
     union xnn_f16_expminus_params f16;
     union xnn_f32_expminus_params f32;
   } expminus_params;
+  union {
+    union xnn_f16_default_params f16;
+    union xnn_f32_default_params f32;
+  } rmax_params;
 };
 
 #ifndef __cplusplus
@@ -1599,6 +1617,9 @@ struct scaled_dot_product_attention_context {
   union {
     union xnn_f32_minmax_params f32;
   } minmax_params;
+  union {
+    union xnn_f16_default_params f16;
+  } rmax_params;
   union {
     union xnn_f32_tanh_params f32;
   } tanh_params;

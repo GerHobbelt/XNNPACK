@@ -380,6 +380,37 @@ size_t xnn_init_qs8_conv_minmax_fp32_avx512_params(
   }
   return sizeof(params->fp32_avx512);
 }
+
+size_t xnn_init_qs8_conv_minmax_fp32_avx512vnni_params(
+  union xnn_qs8_conv_minmax_params params[XNN_MIN_ELEMENTS(1)],
+  float scale,
+  int8_t output_zero_point,
+  int8_t output_min,
+  int8_t output_max)
+{
+  assert(scale >= 0x1.0p-32f);
+  assert(scale < 256.0f);
+
+  for (uint32_t i = 0; i < 64; i++) {
+    params->fp32_avx512vnni.sign_mask[i] = 0x80;
+  }
+  const float output_max_less_zero_point = (float) ((int32_t) output_max - (int32_t) output_zero_point);
+  for (uint32_t i = 0; i < 16; i++) {
+    params->fp32_avx512vnni.scale[i] = scale;
+    params->fp32_avx512vnni.output_max_less_zero_point[i] = output_max_less_zero_point;
+  }
+  for (uint32_t i = 0; i < 16; i++) {
+    params->fp32_avx512vnni.output_zero_point[i] = output_zero_point;
+  }
+  const int8_t control_mask[16] = {0, 1, 2, 3, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15};
+  for(uint32_t i = 0; i < 16; i++) {
+    params->fp32_avx512vnni.shuffle_control_mask[i] = control_mask[i];
+  }
+  for (uint32_t i = 0; i < 16; i++) {
+    params->fp32_avx512vnni.output_min[i] = output_min;
+  }
+  return sizeof(params->fp32_avx512vnni);
+}
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 #if XNN_ARCH_ARM
@@ -1722,50 +1753,68 @@ size_t xnn_init_f32_scaleminmax_sse_params(
 }
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
-size_t xnn_init_f32_gavgpool_params(
+size_t xnn_init_f32_gavgpool_scalar_params(
   union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
   float multiplier,
   float output_min,
   float output_max,
   uint32_t width)
 {
-  #if XNN_ARCH_X86 || XNN_ARCH_X86_64
-    for (uint32_t i = 0; i < 4; i++) {
-      params->sse.multiplier[i] = multiplier;
-      params->sse.output_min[i] = output_min;
-      params->sse.output_max[i] = output_max;
-    }
+  params->scalar.multiplier = multiplier;
+  params->scalar.output_min = output_min;
+  params->scalar.output_max = output_max;
 
-    const uint32_t w = (width - 1) & 3;
-    params->sse.mask[0] = UINT32_C(0xFFFFFFFF);
-    params->sse.mask[1] = -(uint32_t) (w >= 1);
-    params->sse.mask[2] = -(uint32_t) (w >= 2);
-    params->sse.mask[3] = -(uint32_t) (w >= 3);
-    return sizeof(params->sse);
-  #elif XNN_ARCH_ARM || XNN_ARCH_ARM64
-    params->neon.multiplier = multiplier;
-    params->neon.output_min = output_min;
-    params->neon.output_max = output_max;
-
-    const uint32_t w = (width - 1) & 3;
-    params->neon.mask[0] = UINT32_C(0xFFFFFFFF);
-    params->neon.mask[1] = -(uint32_t) (w >= 1);
-    params->neon.mask[2] = -(uint32_t) (w >= 2);
-    params->neon.mask[3] = -(uint32_t) (w >= 3);
-    return sizeof(params->neon);
-  #else
-    params->scalar.multiplier = multiplier;
-    params->scalar.output_min = output_min;
-    params->scalar.output_max = output_max;
-
-    const uint32_t w = (width - 1) & 3;
-    params->scalar.mask[0] = UINT32_C(0xFFFFFFFF);
-    params->scalar.mask[1] = -(int32_t) (w >= 1);
-    params->scalar.mask[2] = -(int32_t) (w >= 2);
-    params->scalar.mask[3] = -(int32_t) (w >= 3);
-    return sizeof(params->scalar);
-  #endif
+  const uint32_t w = (width - 1) & 3;
+  params->scalar.mask[0] = UINT32_C(0xFFFFFFFF);
+  params->scalar.mask[1] = -(int32_t) (w >= 1);
+  params->scalar.mask[2] = -(int32_t) (w >= 2);
+  params->scalar.mask[3] = -(int32_t) (w >= 3);
+  return sizeof(params->scalar);
 }
+
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+size_t xnn_init_f32_gavgpool_neon_params(
+  union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
+  float multiplier,
+  float output_min,
+  float output_max,
+  uint32_t width)
+{
+  params->neon.multiplier = multiplier;
+  params->neon.output_min = output_min;
+  params->neon.output_max = output_max;
+
+  const uint32_t w = (width - 1) & 3;
+  params->neon.mask[0] = UINT32_C(0xFFFFFFFF);
+  params->neon.mask[1] = -(uint32_t) (w >= 1);
+  params->neon.mask[2] = -(uint32_t) (w >= 2);
+  params->neon.mask[3] = -(uint32_t) (w >= 3);
+  return sizeof(params->neon);
+}
+#endif
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+size_t xnn_init_f32_gavgpool_sse_params(
+  union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
+  float multiplier,
+  float output_min,
+  float output_max,
+  uint32_t width)
+{
+  for (uint32_t i = 0; i < 4; i++) {
+    params->sse.multiplier[i] = multiplier;
+    params->sse.output_min[i] = output_min;
+    params->sse.output_max[i] = output_max;
+  }
+
+  const uint32_t w = (width - 1) & 3;
+  params->sse.mask[0] = UINT32_C(0xFFFFFFFF);
+  params->sse.mask[1] = -(uint32_t) (w >= 1);
+  params->sse.mask[2] = -(uint32_t) (w >= 2);
+  params->sse.mask[3] = -(uint32_t) (w >= 3);
+  return sizeof(params->sse);
+}
+#endif
 
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
 size_t xnn_init_f16_gavgpool_neonfp16arith_params(
@@ -1845,25 +1894,6 @@ void xnn_update_f16_gavgpool_neonfp16arith_params(
   params->neonfp16arith.mask[7] = -(uint16_t) (w >= 7);
 }
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
-
-size_t xnn_init_scalar_f32_gavgpool_params(
-  union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
-  float multiplier,
-  float output_min,
-  float output_max,
-  uint32_t width)
-{
-  params->scalar.multiplier = multiplier;
-  params->scalar.output_min = output_min;
-  params->scalar.output_max = output_max;
-
-  const uint32_t w = (width - 1) & 3;
-  params->scalar.mask[0] = UINT32_C(0xFFFFFFFF);
-  params->scalar.mask[1] = -(int32_t) (w >= 1);
-  params->scalar.mask[2] = -(int32_t) (w >= 2);
-  params->scalar.mask[3] = -(int32_t) (w >= 3);
-  return sizeof(params->scalar);
-}
 
 size_t xnn_init_bf16_minmax_scalar_params(
   union xnn_bf16_minmax_params params[XNN_MIN_ELEMENTS(1)],
@@ -1993,6 +2023,38 @@ size_t xnn_init_f32_qc4w_minmax_sse_params(
     params->sse.mask[i] = 0xF0;
   }
   return sizeof(params->sse);
+}
+
+size_t xnn_init_f32_qc4w_minmax_xop_params(
+  union xnn_f32_qc4w_minmax_params params[XNN_MIN_ELEMENTS(1)],
+  float output_min,
+  float output_max,
+  uint8_t kernel_zero_point)
+{
+  assert(kernel_zero_point <= 15);
+  for (uint32_t i = 0; i < 4; i++) {
+    params->xop.min[i] = output_min;
+    params->xop.max[i] = output_max;
+    params->xop.magic_bias_c0[i] = 0x4B0000F0;
+    params->xop.magic_bias_c1[i] = 0x4900000F;
+    params->xop.magic_bias_plus_kernel_zero_point_c0[i] = 0x1.0001E0p+23f + (float) kernel_zero_point;
+    params->xop.magic_bias_plus_kernel_zero_point_c1[i] = 0x1.00001Ep+19f + (float) kernel_zero_point;
+  }
+  for (uint32_t i = 0; i < 16; i++) {
+    params->xop.mask[i] = 0xF0;
+    params->xop.shift[i] = 4;
+  }
+  for (uint32_t i = 0; i < 4; i++) {
+    params->xop.permlo[i * 2]     = i;
+    params->xop.permlo[i * 2 + 1] = i + 0xC0;
+    params->xop.permlo[i * 2 + 8] = i + 0x10;
+    params->xop.permlo[i * 2 + 9] = i + 0xD0;
+    params->xop.permhi[i * 2]     = i + 0x04;
+    params->xop.permhi[i * 2 + 1] = i + 0xC4;
+    params->xop.permhi[i * 2 + 8] = i + 0x14;
+    params->xop.permhi[i * 2 + 9] = i + 0xD4;
+  }
+  return sizeof(params->xop);
 }
 
 size_t xnn_init_f32_qc4w_minmax_avx_params(

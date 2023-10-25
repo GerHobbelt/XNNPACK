@@ -32,7 +32,6 @@
 #include <xnnpack/prelu.h>
 #include <xnnpack/raddstoreexpminusmax.h>
 #include <xnnpack/reduce.h>
-#include <xnnpack/rmax.h>
 #include <xnnpack/spmm.h>
 #include <xnnpack/transpose.h>
 #include <xnnpack/unaligned.h>
@@ -10075,7 +10074,7 @@ void xnn_f32_f16_vcvt_ukernel__wasmsimd_u24(
   }
 }
 
-void xnn_f32_gavgpool_cw_ukernel__wasmsimd_arm_x4(
+void xnn_f32_gavgpool_cw_ukernel__wasmsimd_arm_u4(
     size_t elements,
     size_t channels,
     const float* input,
@@ -10183,7 +10182,7 @@ void xnn_f32_gavgpool_cw_ukernel__wasmsimd_arm_x4(
   }
 }
 
-void xnn_f32_gavgpool_cw_ukernel__wasmsimd_x86_x4(
+void xnn_f32_gavgpool_cw_ukernel__wasmsimd_x86_u4(
     size_t elements,
     size_t channels,
     const float* input,
@@ -20880,7 +20879,7 @@ void xnn_f32_raddstoreexpminusmax_ukernel__wasmsimd_rr2_p5_u16_acc2(
   *sum = vsum;
 }
 
-void xnn_f32_rmax_ukernel__wasmsimd_arm(
+void xnn_f32_rmax_ukernel__wasmsimd_pminmax_u16_acc4(
     size_t batch,
     const float* input,
     float* output,
@@ -20896,81 +20895,38 @@ void xnn_f32_rmax_ukernel__wasmsimd_arm(
   v128_t vmax2 = vmax0;
   v128_t vmax3 = vmax0;
   for (; batch >= 16 * sizeof(float); batch -= 16 * sizeof(float)) {
-    const v128_t vx0 = wasm_v128_load(input);
-    const v128_t vx1 = wasm_v128_load(input + 4);
-    const v128_t vx2 = wasm_v128_load(input + 8);
-    const v128_t vx3 = wasm_v128_load(input + 12);
+    const v128_t vt0 = wasm_v128_load(input);
+    const v128_t vt1 = wasm_v128_load(input + 4);
+    const v128_t vt2 = wasm_v128_load(input + 8);
+    const v128_t vt3 = wasm_v128_load(input + 12);
     input += 16;
 
-    vmax0 = wasm_f32x4_max(vmax0, vx0);
-    vmax1 = wasm_f32x4_max(vmax1, vx1);
-    vmax2 = wasm_f32x4_max(vmax2, vx2);
-    vmax3 = wasm_f32x4_max(vmax3, vx3);
+    vmax0 = wasm_f32x4_pmax(vmax0, vt0);
+    vmax1 = wasm_f32x4_pmax(vmax1, vt1);
+    vmax2 = wasm_f32x4_pmax(vmax2, vt2);
+    vmax3 = wasm_f32x4_pmax(vmax3, vt3);
   }
-  v128_t vmax0123 = wasm_f32x4_max(wasm_f32x4_max(vmax0, vmax1), wasm_f32x4_max(vmax2, vmax3));
+  vmax0 = wasm_f32x4_pmax(vmax0, vmax1);
+  vmax2 = wasm_f32x4_pmax(vmax2, vmax3);
+  vmax0 = wasm_f32x4_pmax(vmax0, vmax2);
   for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
-    const v128_t vx = wasm_v128_load(input);
-    vmax0123 = wasm_f32x4_max(vmax0123, vx);
+    const v128_t vt = wasm_v128_load(input);
     input += 4;
-  }
-  vmax0123 = wasm_f32x4_max(vmax0123, wasm_v32x4_shuffle(vmax0123, vmax0123, 2, 3, 0, 1));
-  float vmax = __builtin_wasm_max_f32(wasm_f32x4_extract_lane(vmax0123, 0), wasm_f32x4_extract_lane(vmax0123, 1));
-  if XNN_UNLIKELY(batch != 0) {
-    do {
-      const float vx = *input++;
-      vmax = __builtin_wasm_max_f32(vx, vmax);
-      batch -= sizeof(float);
-    } while (batch != 0);
-  }
-  *output = vmax;
-}
 
-void xnn_f32_rmax_ukernel__wasmsimd_x86(
-    size_t batch,
-    const float* input,
-    float* output,
-    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
-{
-  assert(batch != 0);
-  assert(batch % sizeof(float) == 0);
-  assert(input != NULL);
-  assert(output != NULL);
-
-  v128_t vmax0 = wasm_v128_load32_splat(input);
-  v128_t vmax1 = vmax0;
-  v128_t vmax2 = vmax0;
-  v128_t vmax3 = vmax0;
-  for (; batch >= 16 * sizeof(float); batch -= 16 * sizeof(float)) {
-    const v128_t vx0 = wasm_v128_load(input);
-    const v128_t vx1 = wasm_v128_load(input + 4);
-    const v128_t vx2 = wasm_v128_load(input + 8);
-    const v128_t vx3 = wasm_v128_load(input + 12);
-    input += 16;
-
-    vmax0 = wasm_f32x4_pmax(vx0, vmax0);
-    vmax1 = wasm_f32x4_pmax(vx1, vmax1);
-    vmax2 = wasm_f32x4_pmax(vx2, vmax2);
-    vmax3 = wasm_f32x4_pmax(vx3, vmax3);
+    vmax0 = wasm_f32x4_pmax(vmax0, vt);
   }
-  const v128_t vmax01 = wasm_f32x4_pmax(vmax1, vmax0);
-  const v128_t vmax23 = wasm_f32x4_pmax(vmax3, vmax2);
-  v128_t vmax0123 = wasm_f32x4_pmax(vmax23, vmax01);
-  for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
-    const v128_t vx = wasm_v128_load(input);
-    vmax0123 = wasm_f32x4_pmax(vx, vmax0123);
-    input += 4;
+  vmax0 = wasm_f32x4_pmax(vmax0, wasm_v64x2_shuffle(vmax0, vmax0, 1, 1));
+  if XNN_UNLIKELY(batch & (2 * sizeof(float))) {
+    const v128_t vt = wasm_v128_load64_zero(input);
+    input += 2;
+    vmax0 = wasm_f32x4_pmax(vmax0, vt);
   }
-  const v128_t vmax2301 = wasm_v32x4_shuffle(vmax0123, vmax0123, 2, 3, 0, 1);
-  vmax0123 = wasm_f32x4_pmax(vmax2301, vmax0123);
-  float vmax = math_max_f32(wasm_f32x4_extract_lane(vmax0123, 0), wasm_f32x4_extract_lane(vmax0123, 1));
-  if XNN_UNLIKELY(batch != 0) {
-    do {
-      const float vx = *input++;
-      vmax = math_max_f32(vx, vmax);
-      batch -= sizeof(float);
-    } while (batch != 0);
+  vmax0 = wasm_f32x4_pmax(vmax0, wasm_v32x4_shuffle(vmax0, vmax0, 1, 1, 1, 1));
+  if XNN_UNLIKELY(batch & (1 * sizeof(float))) {
+    const v128_t vt = wasm_v128_load32_zero(input);
+    vmax0 = wasm_f32x4_pmax(vmax0, vt);
   }
-  *output = vmax;
+  wasm_v128_store32_lane(output, vmax0, 0);
 }
 
 void xnn_f32_rminmax_ukernel__wasmsimd_minmax_u16_acc4(
@@ -38587,7 +38543,7 @@ void xnn_x8_transposec_ukernel__16x16_reuse_mov_wasmsimd(
   } while (block_width != 0);
 }
 
-void xnn_xx_fill_ukernel__wasmsimd_x64(
+void xnn_xx_fill_ukernel__wasmsimd_u64(
     size_t rows,
     size_t channels,
     void* output,
@@ -38637,7 +38593,7 @@ void xnn_xx_fill_ukernel__wasmsimd_x64(
   } while (--rows != 0);
 }
 
-void xnn_xx_pad_ukernel__wasmsimd(
+void xnn_xx_pad_ukernel_p16__wasmsimd_u16(
     size_t rows,
     size_t channels,
     size_t pre_padding,

@@ -171,6 +171,19 @@ union xnn_f32_qc4w_minmax_params {
     XNN_ALIGN(16) float magic_bias_plus_kernel_zero_point_c1[4];
     XNN_ALIGN(16) uint8_t mask[16];
   } sse;
+  // XOP is same as SSE with shift, permlo and permhi added
+  struct {
+    XNN_ALIGN(16) float min[4];
+    XNN_ALIGN(16) float max[4];
+    XNN_ALIGN(16) uint32_t magic_bias_c0[4];
+    XNN_ALIGN(16) uint32_t magic_bias_c1[4];
+    XNN_ALIGN(16) float magic_bias_plus_kernel_zero_point_c0[4];
+    XNN_ALIGN(16) float magic_bias_plus_kernel_zero_point_c1[4];
+    XNN_ALIGN(16) uint8_t mask[16];
+    XNN_ALIGN(16) uint8_t shift[16];
+    XNN_ALIGN(16) uint8_t permlo[16];
+    XNN_ALIGN(16) uint8_t permhi[16];
+  } xop;
   struct {
     XNN_ALIGN(32) float min[8];
     XNN_ALIGN(32) float max[8];
@@ -347,6 +360,14 @@ union xnn_qs8_conv_minmax_params {
     XNN_ALIGN(64) int16_t output_zero_point[32];
     XNN_ALIGN(64) int8_t output_min[64];
   } fp32_avx512;
+  struct {
+    XNN_ALIGN(64) int8_t sign_mask[64];
+    XNN_ALIGN(64) float scale[16];
+    XNN_ALIGN(64) float output_max_less_zero_point[16];
+    XNN_ALIGN(64) int16_t output_zero_point[16];
+    XNN_ALIGN(16) int8_t shuffle_control_mask[16];
+    XNN_ALIGN(16) int8_t output_min[16];
+  } fp32_avx512vnni;
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 #if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
   struct {

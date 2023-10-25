@@ -160,6 +160,20 @@ XNN_INTERNAL void xnn_pack_qs8_gemm_goi_w(
   size_t extra_bytes,
   const struct xnn_qs8_packing_params* params);
 
+XNN_INTERNAL void xnn_pack_qs8_to_qu8_gemm_goi_w(
+  size_t g,
+  size_t nc,
+  size_t kc,
+  size_t nr,
+  size_t kr,
+  size_t sr,
+  const int8_t* k,
+  const int32_t* b,
+  const float* scale,
+  void* packed_weights,
+  size_t extra_bytes,
+  const struct xnn_qs8_packing_params* params);
+
 typedef void (*xnn_pack_qs8_qc4w_gemm_fn)(
   size_t g,
   size_t nc,
@@ -174,7 +188,7 @@ typedef void (*xnn_pack_qs8_qc4w_gemm_fn)(
   size_t extra_bytes,
   const struct xnn_qs8_qc4w_packing_params* params);
 
-XNN_INTERNAL void xnn_pack_qs8_qc4w_gemm_goi_w(
+XNN_INTERNAL void xnn_pack_qs8_qc4w_legacy_gemm_goi_w(
   size_t g,
   size_t nc,
   size_t kc,
@@ -333,7 +347,7 @@ XNN_INTERNAL void xnn_pack_qs8_gemm_gio_w(
   size_t extra_bytes,
   const struct xnn_qs8_packing_params* params);
 
-XNN_INTERNAL void xnn_pack_qs8_qc4w_gemm_gio_w(
+XNN_INTERNAL void xnn_pack_qs8_qc4w_legacy_gemm_gio_w(
   size_t g,
   size_t nc,
   size_t kc,

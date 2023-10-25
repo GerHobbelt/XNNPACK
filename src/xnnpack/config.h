@@ -45,6 +45,7 @@ struct xnn_hardware_config {
   bool use_x86_avx512f;
   bool use_x86_avx512vbmi;
   bool use_x86_avx512skx;
+  bool use_x86_avx512vnni;
 #endif
 #if XNN_ARCH_RISCV
   bool use_riscv_vector;
@@ -391,15 +392,18 @@ XNN_INTERNAL const struct xnn_gavgpool_config* xnn_init_qu8_gavgpool_config();
 struct xnn_gavgpool_cw_config {
   xnn_gavgpool_cw_ukernel_fn ukernel;
   union {
-    xnn_init_f16_gavgpool_neonfp16arith_params_fn f16;
+    xnn_init_f16_gavgpool_neon_params_fn f16;
+    xnn_init_f32_gavgpool_params_fn f32;
   } init;
   union {
     xnn_update_f16_gavgpool_neonfp16arith_params_fn f16;
+    xnn_update_f32_gavgpool_params_fn f32;
   } update;
 
-  // Number of channels in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of channels in each call.
-  uint8_t channel_tile;
+  // Number of input pixels in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of pixels in each call.
+  uint8_t pixel_tile;
+  // Channel tile is always 1.
 };
 XNN_INTERNAL const struct xnn_gavgpool_cw_config* xnn_init_f16_gavgpool_cw_config();
 XNN_INTERNAL const struct xnn_gavgpool_cw_config* xnn_init_f32_gavgpool_cw_config();
@@ -727,6 +731,10 @@ XNN_INTERNAL const struct xnn_zip_config* xnn_init_x32_zip_config();
 
 struct xnn_rmax_config {
   xnn_rmax_ukernel_fn ukernel;
+  union {
+    xnn_init_f32_default_params_fn f32;
+    xnn_init_f16_default_params_fn f16;
+  } init;
 };
 
 XNN_INTERNAL const struct xnn_rmax_config* xnn_init_f16_rmax_config();

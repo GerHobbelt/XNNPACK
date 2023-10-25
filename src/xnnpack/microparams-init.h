@@ -70,6 +70,7 @@ DECLARE_INIT_QS8_CONV_MINMAX_PARAMS_FUNCTION(xnn_init_qs8_conv_minmax_rndnu_scal
   DECLARE_INIT_QS8_CONV_MINMAX_PARAMS_FUNCTION(xnn_init_qs8_conv_minmax_fp32_sse4_params)
   DECLARE_INIT_QS8_CONV_MINMAX_PARAMS_FUNCTION(xnn_init_qs8_conv_minmax_fp32_avx2_params)
   DECLARE_INIT_QS8_CONV_MINMAX_PARAMS_FUNCTION(xnn_init_qs8_conv_minmax_fp32_avx512_params)
+  DECLARE_INIT_QS8_CONV_MINMAX_PARAMS_FUNCTION(xnn_init_qs8_conv_minmax_fp32_avx512vnni_params)
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 #if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
   DECLARE_INIT_QS8_CONV_MINMAX_PARAMS_FUNCTION(xnn_init_qs8_conv_minmax_fp32_wasmsimd_params)
@@ -308,12 +309,21 @@ XNN_INTERNAL size_t xnn_init_f16_gavgpool_neonfp16arith_params(
   uint16_t output_max,
   uint32_t width);
 
-XNN_INTERNAL size_t xnn_init_f32_gavgpool_params(
-  union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
-  float multiplier,
-  float output_min,
-  float output_max,
-  uint32_t width);
+#define DECLARE_INIT_F32_GAVGPOOL_PARAMS_FUNCITON(fn_name)     \
+  XNN_INTERNAL size_t fn_name(                                 \
+    union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)], \
+    float multiplier,                                          \
+    float output_min,                                          \
+    float output_max,                                          \
+    uint32_t width);
+
+DECLARE_INIT_F32_GAVGPOOL_PARAMS_FUNCITON(xnn_init_f32_gavgpool_scalar_params);
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+  DECLARE_INIT_F32_GAVGPOOL_PARAMS_FUNCITON(xnn_init_f32_gavgpool_neon_params);
+#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  DECLARE_INIT_F32_GAVGPOOL_PARAMS_FUNCITON(xnn_init_f32_gavgpool_sse_params);
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
 XNN_INTERNAL void xnn_update_f16_gavgpool_neonfp16arith_params(
@@ -325,13 +335,6 @@ XNN_INTERNAL void xnn_update_f16_gavgpool_neonfp16arith_params(
 XNN_INTERNAL void xnn_update_f32_gavgpool_params(
   union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
   float multiplier,
-  uint32_t width);
-
-XNN_INTERNAL size_t xnn_init_scalar_f32_gavgpool_params(
-  union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
-  float multiplier,
-  float output_min,
-  float output_max,
   uint32_t width);
 
 
@@ -393,6 +396,7 @@ DECLARE_INIT_F32_MINMAX_PARAMS_FUNCTION(xnn_init_f32_minmax_scalar_params)
 DECLARE_INIT_F32_QC4W_MINMAX_PARAMS_FUNCTION(xnn_init_f32_qc4w_minmax_scalar_params)
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   DECLARE_INIT_F32_QC4W_MINMAX_PARAMS_FUNCTION(xnn_init_f32_qc4w_minmax_sse_params)
+  DECLARE_INIT_F32_QC4W_MINMAX_PARAMS_FUNCTION(xnn_init_f32_qc4w_minmax_xop_params)
   DECLARE_INIT_F32_QC4W_MINMAX_PARAMS_FUNCTION(xnn_init_f32_qc4w_minmax_avx_params)
   DECLARE_INIT_F32_QC4W_MINMAX_PARAMS_FUNCTION(xnn_init_f32_qc4w_minmax_avx512_params)
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64

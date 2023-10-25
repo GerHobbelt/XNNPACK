@@ -467,7 +467,7 @@ xnnpack_unit_test(
     name = "f16_rmax_test",
     srcs = [
         "f16-rmax.cc",
-        "rmax-microkernel-tester.h",
+        "reduce-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
 )
@@ -1566,6 +1566,16 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "qd8_f32_qc8w_igemm_minmax_test",
+    srcs = [
+        "qd8-f32-qc8w-igemm-minmax.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
     name = "qs8_qc8w_igemm_jit_fp32_test",
     srcs = [
         "qs8-qc8w-igemm-jit-fp32.cc",
@@ -2211,7 +2221,7 @@ xnnpack_unit_test(
 xnnpack_unit_test(
     name = "u8_rmax_test",
     srcs = [
-        "rmax-microkernel-tester.h",
+        "reduce-microkernel-tester.h",
         "u8-rmax.cc",
     ],
     deps = MICROKERNEL_TEST_DEPS,

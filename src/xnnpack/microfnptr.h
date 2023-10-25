@@ -380,6 +380,21 @@ typedef void (*xnn_f32_igemm_post_operation_ukernel_fn)(
     const float* zero,
     const void* params);
 
+typedef void (*xnn_qd8_f32_qc8w_igemm_ukernel_fn)(
+    size_t mr,
+    size_t nr,
+    size_t kc,
+    size_t ks,
+    const int8_t** a,
+    const void* w,
+    float* c,
+    size_t cm_stride,
+    size_t cn_stride,
+    size_t a_offset,
+    const int8_t* zero,
+    const union xnn_f32_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)],
+    const struct xnn_qd8_quantization_params* quantization_params);
+
 typedef void (*xnn_qs8_igemm_minmax_ukernel_fn)(
     size_t mr,
     size_t nr,
@@ -1403,11 +1418,23 @@ typedef void (*xnn_reduce_ukernel_fn)(
     void* output,
     const void* params);
 
+typedef void (*xnn_f16_reduce_ukernel_fn)(
+    size_t batch,
+    const void* input,
+    void* output,
+    const union xnn_f16_default_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
 typedef void (*xnn_f32_reduce_ukernel_fn)(
     size_t batch,
     const float* input,
     float* output,
     const union xnn_f32_default_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
+typedef void (*xnn_u8_reduce_ukernel_fn)(
+    size_t batch,
+    const uint8_t* input,
+    uint8_t* output,
+    const void* params);
 
 // RSUM: Reduce-Sum
 
@@ -2482,7 +2509,7 @@ typedef void (*xnn_init_qs8_qc8w_scale_params_fn)(
   const float scale[XNN_MIN_ELEMENTS(1)],
   void* packed_w);
 
-typedef size_t (*xnn_init_f16_gavgpool_neonfp16arith_params_fn)(
+typedef size_t (*xnn_init_f16_gavgpool_neon_params_fn)(
   union xnn_f16_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
   uint16_t multiplier,
   uint16_t output_min,
@@ -2494,6 +2521,11 @@ typedef size_t (*xnn_init_f32_gavgpool_params_fn)(
   float multiplier,
   float output_min,
   float output_max,
+  uint32_t width);
+
+typedef void (*xnn_update_f32_gavgpool_params_fn)(
+  union xnn_f32_gavgpool_params params[XNN_MIN_ELEMENTS(1)],
+  float multiplier,
   uint32_t width);
 
 typedef size_t (*xnn_init_f32_chw_params_fn)(

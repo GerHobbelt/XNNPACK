@@ -30,7 +30,6 @@
 #include <xnnpack/prelu.h>
 #include <xnnpack/raddstoreexpminusmax.h>
 #include <xnnpack/reduce.h>
-#include <xnnpack/rmax.h>
 #include <xnnpack/spmm.h>
 #include <xnnpack/transpose.h>
 #include <xnnpack/unaligned.h>
@@ -5148,7 +5147,7 @@ void xnn_f32_f16_vcvt_ukernel__scalar_fabsf_u2(
   }
 }
 
-void xnn_f32_gavgpool_cw_ukernel__scalar_x1(
+void xnn_f32_gavgpool_cw_ukernel__scalar_u1(
     size_t elements,
     size_t channels,
     const float* input,
@@ -10327,7 +10326,7 @@ void xnn_f32_raddstoreexpminusmax_ukernel__scalar_rr2_p5_u4_acc2(
   *sum = vacc;
 }
 
-void xnn_f32_rmax_ukernel__scalar(
+void xnn_f32_rmax_ukernel__scalar_u4_acc4(
     size_t batch,
     const float* input,
     float* output,
@@ -10342,29 +10341,30 @@ void xnn_f32_rmax_ukernel__scalar(
   float vmax1 = vmax0;
   float vmax2 = vmax0;
   float vmax3 = vmax0;
-  for (; batch >= 16; batch -= 16) {
-    const float vx0 = input[0];
-    const float vx1 = input[1];
-    const float vx2 = input[2];
-    const float vx3 = input[3];
+  for (; batch >= 4 * sizeof(float); batch -= 4 * sizeof(float)) {
+    const float vt0 = input[0];
+    const float vt1 = input[1];
+    const float vt2 = input[2];
+    const float vt3 = input[3];
     input += 4;
 
-    vmax0 = math_max_f32(vx0, vmax0);
-    vmax1 = math_max_f32(vx1, vmax1);
-    vmax2 = math_max_f32(vx2, vmax2);
-    vmax3 = math_max_f32(vx3, vmax3);
+    vmax0 = math_max_f32(vmax0, vt0);
+    vmax1 = math_max_f32(vmax1, vt1);
+    vmax2 = math_max_f32(vmax2, vt2);
+    vmax3 = math_max_f32(vmax3, vt3);
   }
-  const float vmax01 = math_max_f32(vmax0, vmax1);
-  const float vmax23 = math_max_f32(vmax2, vmax3);
-  float vmax = math_max_f32(vmax01, vmax23);
+  vmax0 = math_max_f32(vmax0, vmax1);
+  vmax2 = math_max_f32(vmax2, vmax3);
+  vmax0 = math_max_f32(vmax0, vmax2);
+
   if XNN_UNLIKELY(batch != 0) {
     do {
-      const float vx = *input++;
-      vmax = math_max_f32(vx, vmax);
-      batch -= 4;
+      const float vt = *input++;
+      vmax0 = math_max_f32(vmax0, vt);
+      batch -= sizeof(float);
     } while (batch != 0);
   }
-  *output = vmax;
+  output[0] = vmax0;
 }
 
 void xnn_f32_rminmax_ukernel__scalar_u4_acc4(
@@ -27721,7 +27721,7 @@ void xnn_u8_maxpool_minmax_ukernel_9p8x__scalar_c1(
   } while (--output_pixels != 0);
 }
 
-void xnn_u8_rmax_ukernel__scalar(
+void xnn_u8_rmax_ukernel__scalar_u2(
     size_t batch,
     const uint8_t* input,
     uint8_t* output,
@@ -30250,7 +30250,7 @@ void xnn_xx_copy_ukernel__scalar_memcpy(size_t batch, const void* input, void* o
   memcpy(output, input, batch);
 }
 
-void xnn_xx_fill_ukernel__scalar_x16(
+void xnn_xx_fill_ukernel__scalar_u16(
     size_t rows,
     size_t channels,
     void* output,
@@ -30296,7 +30296,7 @@ void xnn_xx_fill_ukernel__scalar_x16(
   } while (--rows != 0);
 }
 
-void xnn_xx_pad_ukernel__scalar(
+void xnn_xx_pad_ukernel_p4__scalar_u16(
     size_t rows,
     size_t channels,
     size_t pre_padding,

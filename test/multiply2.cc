@@ -205,11 +205,14 @@ TEST_F(Multiply2TestQS8, matches_operator_api)
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
   ASSERT_EQ(
-    xnn_status_success, xnn_setup_multiply_nd_qs8(
+    xnn_status_success, xnn_reshape_multiply_nd_qs8(
                           op, input1_dims.size(), input1_dims.data(), input2_dims.size(), input2_dims.data(),
-                          input1.data(), input2.data(), operator_output.data(), nullptr /* thread pool */));
+                          /*threadpool=*/nullptr));
 
-  ASSERT_EQ(xnn_status_success, xnn_run_operator(op, nullptr /* thread pool */));
+  ASSERT_EQ(
+    xnn_status_success, xnn_setup_multiply_nd_qs8(op, input1.data(), input2.data(), operator_output.data()));
+
+  ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
   // Call subgraph API.
   xnn_subgraph_t subgraph = nullptr;
@@ -285,11 +288,14 @@ TEST_F(Multiply2TestQU8, matches_operator_api)
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
   ASSERT_EQ(
-    xnn_status_success, xnn_setup_multiply_nd_qu8(
+    xnn_status_success, xnn_reshape_multiply_nd_qu8(
                           op, input1_dims.size(), input1_dims.data(), input2_dims.size(), input2_dims.data(),
-                          input1.data(), input2.data(), operator_output.data(), nullptr /* thread pool */));
+                          /*threadpool=*/nullptr));
 
-  ASSERT_EQ(xnn_status_success, xnn_run_operator(op, nullptr /* thread pool */));
+  ASSERT_EQ(
+    xnn_status_success, xnn_setup_multiply_nd_qu8(op, input1.data(), input2.data(), operator_output.data()));
+
+  ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
   // Call subgraph API.
   xnn_subgraph_t subgraph = nullptr;
@@ -353,11 +359,14 @@ TEST_F(Multiply2TestF32, matches_operator_api)
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
   ASSERT_EQ(
-    xnn_status_success, xnn_setup_multiply_nd_f32(
+    xnn_status_success, xnn_reshape_multiply_nd_f32(
                           op, input1_dims.size(), input1_dims.data(), input2_dims.size(), input2_dims.data(),
-                          input1.data(), input2.data(), operator_output.data(), nullptr /* thread pool */));
+                          /*threadpool=*/nullptr));
 
-  ASSERT_EQ(xnn_status_success, xnn_run_operator(op, nullptr /* thread pool */));
+  ASSERT_EQ(
+    xnn_status_success, xnn_setup_multiply_nd_f32(op, input1.data(), input2.data(), operator_output.data()));
+
+  ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
   // Call subgraph API.
   xnn_subgraph_t subgraph = nullptr;

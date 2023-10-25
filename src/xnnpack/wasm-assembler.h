@@ -15,6 +15,7 @@
 #include <cmath>
 #include <cstdint>
 #include <functional>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -82,12 +83,38 @@ class WasmOpsBase {
 template <typename Derived>
 class I32WasmOps : public WasmOpsBase<Derived, I32WasmOps<Derived>> {
  public:
-  void i32_add() const { this->Emit8(0x6a); }
+  void i32_add() const { this->Emit8(0x6A); }
+  void i32_sub() const { this->Emit8(0x6B); }
+  void i32_and() const { this->Emit8(0x71); }
   void i32_lt_s() const { this->Emit8(0x48); }
+  void i32_le_s() const { this->Emit8(0x4C); }
   void i32_shl() const { this->Emit8(0x74); }
+  void i32_shr_u() const { this->Emit8(0x76); }
   void i32_const(int32_t value) const {
     this->Emit8(0x41);
     this->EmitEncodedS32(value);
+  }
+};
+
+template <typename Derived>
+class V128WasmOps : public WasmOpsBase<Derived, V128WasmOps<Derived>> {
+ public:
+  void f32x4_mul() const { EmitVectorOpcode(0xE6); }
+  void f32x4_add() const { EmitVectorOpcode(0xE4); }
+  void i8x16_shuffle(const std::array<uint8_t, 16>& lanes) const {
+    EmitVectorOpcode(0x0D);
+    for (auto lane : lanes) {
+      assert(lane < 32);
+      this->Emit8(lane);
+    }
+  }
+
+  void EmitVectorOpcodePrefix() const { this->Emit8(0xFD); }
+
+ private:
+  void EmitVectorOpcode(uint32_t code) const {
+    EmitVectorOpcodePrefix();
+    this->EmitEncodedU32(code);
   }
 };
 
@@ -131,14 +158,14 @@ class ControlFlowWasmOps
     If(cond, [&] { DoWhile(std::forward<Body>(body), cond); });
   }
 
-  void end() const { this->Emit8(0x0b); }
+  void end() const { this->Emit8(0x0B); }
 
  private:
   static constexpr byte kIfCode = 0x04;
   static constexpr byte kElseCode = 0x05;
   static constexpr byte kEpsilonCode = 0x40;
   static constexpr byte kLoopCode = 0x03;
-  static constexpr byte kBrIfCode = 0x0d;
+  static constexpr byte kBrIfCode = 0x0D;
 };
 
 template <typename Derived>
@@ -152,11 +179,46 @@ class MemoryWasmOps : public WasmOpsBase<Derived, MemoryWasmOps<Derived>> {
     load_or_store(0x36, offset, alignment);
   }
 
+  void v128_load(uint32_t offset = 0, uint32_t alignment = 4) const {
+    vector_load_or_store(0x00, offset, alignment);
+  }
+
+  void v128_load32_splat(uint32_t offset = 0, uint32_t alignment = 4) const {
+    vector_load_or_store(0x09, offset, alignment);
+  }
+
+  void v128_store(uint32_t offset = 0, uint32_t alignment = 4) const {
+    vector_load_or_store(0x0B, offset, alignment);
+  }
+
+  void v128_store64_lane(uint8_t lane, uint32_t offset = 0,
+                         uint32_t alignment = 4) const {
+    v128_store_lane(0x5B, lane, /*max_lane=*/4, offset, alignment);
+  }
+
+  void v128_store32_lane(uint8_t lane, uint32_t offset = 0,
+                         uint32_t alignment = 4) const {
+    v128_store_lane(0x5A, lane, /*max_lane=*/8, offset, alignment);
+  }
+
  private:
   void load_or_store(byte opcode, uint32_t offset, uint32_t alignment) const {
-    this->Emit8(opcode);
+    this->EmitEncodedU32(opcode);
     this->EmitEncodedU32(log2(alignment));
     this->EmitEncodedU32(offset);
+  }
+
+  void vector_load_or_store(byte opcode, uint32_t offset,
+                            uint32_t alignment) const {
+    this->GetDerived()->EmitVectorOpcodePrefix();
+    load_or_store(opcode, offset, alignment);
+  }
+
+  void v128_store_lane(byte opcode, uint8_t lane, uint8_t max_lane,
+                       uint32_t offset = 0, uint32_t alignment = 4) const {
+    assert(lane < max_lane);
+    vector_load_or_store(opcode, offset, alignment);
+    this->Emit8(lane);
   }
 };
 
@@ -188,6 +250,9 @@ class LocalsManager {
   ValTypesToInt next_index_;
   ValTypesToInt max_index_;
 };
+
+std::array<uint8_t, 16> MakeLanesForI8x16Shuffle(const uint8_t* lanes,
+                                                 size_t num_lanes);
 
 template <typename Derived>
 class LocalWasmOps : public LocalsManager {
@@ -280,12 +345,29 @@ class LocalWasmOps : public LocalsManager {
     return BinaryOp(a, b, &Derived::i32_add);
   }
 
+  ValueOnStack I32Sub(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::i32_sub);
+  }
+
+  ValueOnStack I32And(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::i32_and);
+  }
+
   ValueOnStack I32LtS(const ValueOnStack& a, const ValueOnStack& b) {
     return BinaryOp(a, b, &Derived::i32_lt_s);
   }
 
+  ValueOnStack I32LeS(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::i32_le_s);
+  }
+
   ValueOnStack I32Shl(const ValueOnStack& value, const ValueOnStack& bits_num) {
     return BinaryOp(value, bits_num, &Derived::i32_shl);
+  }
+
+  ValueOnStack I32ShrU(const ValueOnStack& value,
+                       const ValueOnStack& bits_num) {
+    return BinaryOp(value, bits_num, &Derived::i32_shr_u);
   }
 
   ValueOnStack I32Const(uint32_t value) {
@@ -295,8 +377,7 @@ class LocalWasmOps : public LocalsManager {
 
   ValueOnStack I32Load(const ValueOnStack& address, uint32_t offset = 0,
                        uint32_t alignment = 4) {
-    GetDerived()->i32_load(offset, alignment);
-    return MakeValueOnStack(i32);
+    return LoadOp(i32, offset, alignment, &Derived::i32_load);
   }
 
   ValueOnStack I32Load(const ValueOnStack& base,
@@ -318,16 +399,81 @@ class LocalWasmOps : public LocalsManager {
              static_offset, alignment);
   }
 
+  ValueOnStack F32x4Add(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::f32x4_add);
+  }
+
+  ValueOnStack I64x2Shuffle(const ValueOnStack& a, const ValueOnStack& b,
+                            const std::array<uint8_t, 2>& lanes) {
+    return BinaryOp(a, b, [&](const Derived* derived) {
+      derived->i8x16_shuffle(
+          MakeLanesForI8x16Shuffle(lanes.data(), lanes.size()));
+    });
+  }
+
+  ValueOnStack F32x4Mul(const ValueOnStack& a, const ValueOnStack& b) {
+    return BinaryOp(a, b, &Derived::f32x4_mul);
+  }
+
+  ValueOnStack V128Load(const ValueOnStack& address, uint32_t offset = 0,
+                        uint32_t alignment = 4) {
+    return LoadOp(v128, offset, alignment, &Derived::v128_load);
+  }
+
+  ValueOnStack V128Load32Splat(const ValueOnStack& address, uint32_t offset = 0,
+                               uint32_t alignment = 4) {
+    return LoadOp(v128, offset, alignment, &Derived::v128_load32_splat);
+  }
+
+  void V128Store(const ValueOnStack& address, const ValueOnStack& value,
+                 uint32_t offset = 0, uint32_t alignment = 4) {
+    GetDerived()->v128_store(offset, alignment);
+  }
+
+  void V128Store64Lane(const ValueOnStack& address, const ValueOnStack& value,
+                       uint8_t lane, uint32_t offset = 0,
+                       uint32_t alignment = 4) {
+    GetDerived()->v128_store64_lane(lane, offset, alignment);
+  }
+
+  void V128Store32Lane(const ValueOnStack& address, const ValueOnStack& value,
+                       uint8_t lane, uint32_t offset = 0,
+                       uint32_t alignment = 4) {
+    GetDerived()->v128_store32_lane(lane, offset, alignment);
+  }
+
  protected:
   static constexpr ValType i32{0x7F};
+  static constexpr ValType v128{0x7B};
 
  private:
   template <typename Op>
   ValueOnStack BinaryOp(const ValueOnStack& a, const ValueOnStack& b, Op&& op) {
     assert((a.type == b.type) &&
            "Binary operation on locals of different types");
-    std::mem_fn(op)(*GetDerived());
-    return MakeValueOnStack(i32);
+    CallOnDerived(std::forward<Op>(op));
+    return MakeValueOnStack(a.type);
+  }
+
+  template <typename Op, typename = std::enable_if_t<
+                             std::is_member_function_pointer<Op>::value>>
+  void CallOnDerived(Op&& op) {
+    std::mem_fn(std::forward<Op>(op))(*GetDerived());
+  }
+
+  template <
+      typename Op,
+      typename = std::enable_if_t<!std::is_member_function_pointer<Op>::value>,
+      typename = void>
+  void CallOnDerived(Op&& op) {
+    op(GetDerived());
+  }
+
+  template <typename Op>
+  ValueOnStack LoadOp(const ValType& type, uint32_t offset, uint32_t alignment,
+                      Op&& op) {
+    std::mem_fn(op)(*GetDerived(), offset, alignment);
+    return MakeValueOnStack(type);
   }
 
   const Derived* GetDerived() const {
@@ -343,6 +489,7 @@ class LocalWasmOps : public LocalsManager {
 
 class WasmOps : public LocalWasmOps<WasmOps>,
                 public I32WasmOps<WasmOps>,
+                public V128WasmOps<WasmOps>,
                 public MemoryWasmOps<WasmOps>,
                 public ControlFlowWasmOps<WasmOps> {
  public:
@@ -390,7 +537,7 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
   }
 
   void Emit() {
-    EmitMagicVersionAndDlynkSection();
+    EmitMagicVersion();
     EmitTypeSection();
     EmitImportSection();
     EmitFunctionSection();
@@ -399,20 +546,17 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
   }
 
  private:
-  static constexpr std::array<byte, 4> kMagic = {0x00, 0x61, 0x73, 0x6d};
+  static constexpr std::array<byte, 4> kMagic = {0x00, 0x61, 0x73, 0x6D};
   static constexpr std::array<byte, 4> kVersion = {0x01, 0x00, 0x00, 0x00};
-  static constexpr std::array<byte, 17> kDLynk = {
-      0x00, 0x0f, 0x08, 0x64, 0x79, 0x6c, 0x69, 0x6e, 0x6b,
-      0x2e, 0x30, 0x01, 0x04, 0x00, 0x00, 0x00, 0x00};
   static constexpr std::array<byte, 17> kImportSection = {
-      0x02, 0x0f, 0x01, 0x03, 0x65, 0x6e, 0x76, 0x06, 0x6d,
-      0x65, 0x6d, 0x6f, 0x72, 0x79, 0x02, 0x00, 0x00};
+      0x02, 0x0F, 0x01, 0x03, 0x65, 0x6E, 0x76, 0x06, 0x6D,
+      0x65, 0x6D, 0x6F, 0x72, 0x79, 0x02, 0x00, 0x00};
 
   constexpr static byte kTypeSectionCode = 0x01;
   constexpr static byte kFunctionSectionCode = 0x03;
   constexpr static byte kFunctionExportCode = 0x0;
   constexpr static byte kExportsSectionCode = 0x07;
-  constexpr static byte kCodeSectionCode = 0x0a;
+  constexpr static byte kCodeSectionCode = 0x0A;
 
   void RegisterFunction(const std::vector<ValType>& result, const char* name,
                         const std::vector<ValType>& param,
@@ -441,7 +585,7 @@ class WasmAssembler : public AssemblerBase, protected internal::WasmOps {
     EmitByteArray(out);
   }
 
-  void EmitMagicVersionAndDlynkSection();
+  void EmitMagicVersion();
 
   void EmitTypeSection();
 

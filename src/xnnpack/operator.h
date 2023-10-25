@@ -100,7 +100,10 @@ struct xnn_ukernel {
     struct xnn_ukernel_conv2d conv2d;
     struct xnn_ukernel_dwconv dwconv;
     struct xnn_ukernel_dwconv2d dwconv2d;
-    struct xnn_ukernel_gemm gemm;
+    struct {
+      struct xnn_ukernel_gemm gemm;
+      struct xnn_ukernel_gemm gemm2;
+    };
     struct xnn_ukernel_igemm igemm;
     struct xnn_ukernel_spmm spmm;
     struct xnn_ukernel_vmulcaddc vmulcaddc;
@@ -297,6 +300,11 @@ struct xnn_operator {
     union xnn_s8_minmax_params s8_minmax;
     union xnn_u8_minmax_params u8_minmax;
   } params;
+  // Second set of params. Operators like Dynamic Fully Connected only decides on the specific config to use during
+  // reshape, so it needs to keep two sets of params around. Configs can have different initialization functions.
+  union {
+    union xnn_f32_minmax_params f32_minmax;
+  } params2;
   size_t num_post_operation_params;
   void* post_operation_params;
   enum xnn_operator_type type;

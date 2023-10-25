@@ -61,6 +61,7 @@ MICROKERNEL_TEST_DEPS = [
     ":microkernels_h",
     ":microparams",
     ":microparams_init",
+    ":memory",
     ":params",
     ":requantization",
     ":test_microkernels",
@@ -2007,11 +2008,15 @@ INTERNAL_MICROKERNEL_HDRS = MICROKERNEL_HDRS + [
 
 WASM_JIT_LINKOPTS = select({
     "emscripten": [
-        "-sMAIN_MODULE=2",
-        "-sDYNAMIC_EXECUTION=1",
+        "-sDEFAULT_LIBRARY_FUNCS_TO_INCLUDE=$addFunction",
+        "-sALLOW_TABLE_GROWTH=1",
     ],
     "//conditions:default": [],
 })
+
+JIT_WASM32_SRCS = [
+    "src/f32-vrelu/f32-vrelu-ukernel-jit-wasm32-shr.cc",
+]
 
 filegroup(
     name = "microkernel_source_files",
@@ -5172,6 +5177,9 @@ xnnpack_cc_library(
     aarch32_srcs = JIT_AARCH32_SRCS,
     aarch64_srcs = JIT_AARCH64_SRCS,
     msvc_copts = xnnpack_msvc_std_copts(),
+    wasm_srcs = JIT_WASM32_SRCS,
+    wasmrelaxedsimd_srcs = JIT_WASM32_SRCS,
+    wasmsimd_srcs = JIT_WASM32_SRCS,
     deps = [
         ":common",
         ":logging",
@@ -6149,7 +6157,8 @@ xnnpack_benchmark(
     srcs = [
         "bench/f32-vrelu.cc",
     ],
-    deps = MICROKERNEL_BENCHMARK_DEPS,
+    linkopts = WASM_JIT_LINKOPTS,
+    deps = MICROKERNEL_BENCHMARK_DEPS + [":jit"],
 )
 
 xnnpack_benchmark(
@@ -6429,6 +6438,14 @@ xnnpack_benchmark(
 xnnpack_benchmark(
     name = "floor_bench",
     srcs = ["bench/floor.cc"],
+    copts = xnnpack_optional_tflite_copts(),
+    tags = ["nowin32"],
+    deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
+)
+
+xnnpack_benchmark(
+    name = "fully_connected_bench",
+    srcs = ["bench/fully-connected.cc"],
     copts = xnnpack_optional_tflite_copts(),
     tags = ["nowin32"],
     deps = OPERATOR_BENCHMARK_DEPS + xnnpack_optional_tflite_deps(),
@@ -8461,7 +8478,8 @@ xnnpack_unit_test(
         "test/f32-vrelu.cc",
         "test/vunary-microkernel-tester.h",
     ],
-    deps = MICROKERNEL_TEST_DEPS,
+    linkopts = WASM_JIT_LINKOPTS,
+    deps = MICROKERNEL_TEST_DEPS + [":jit"],
 )
 
 xnnpack_unit_test(

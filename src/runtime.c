@@ -570,7 +570,7 @@ enum xnn_status xnn_setup_runtime(
 
   enum xnn_status status = track_operator_workspace(runtime, &mem_alloc_tracker);
   if (status != xnn_status_success) {
-    return status;
+    goto error;
   }
 
   optimize_tensor_allocation_for_in_place_operations(&mem_alloc_tracker, runtime);
@@ -578,8 +578,7 @@ enum xnn_status xnn_setup_runtime(
 
   status = initialize_workspace_values(runtime, &mem_alloc_tracker, old_persistent_size);
   if (status != xnn_status_success) {
-    xnn_release_value_allocation_tracker(&mem_alloc_tracker);
-    return status;
+    goto error;
   }
 
   xnn_release_value_allocation_tracker(&mem_alloc_tracker);
@@ -625,6 +624,9 @@ enum xnn_status xnn_setup_runtime(
           xnn_log_error("failed to setup runtime: error in reshaping operator #%zu", i);
           return status;
         }
+        assert(
+          opdata->operator_objects[j]->state == xnn_run_state_skip ||
+          opdata->operator_objects[j]->state == xnn_run_state_needs_setup);
         status = opdata->setup(opdata, runtime->values, runtime->num_values, runtime->threadpool);
         if (status != xnn_status_success) {
           xnn_log_error("failed to setup runtime: error in setting pointers of operator #%zu", i);
@@ -643,6 +645,10 @@ enum xnn_status xnn_setup_runtime(
   runtime->has_been_setup = true;
 
   return xnn_status_success;
+
+error:
+  xnn_release_value_allocation_tracker(&mem_alloc_tracker);
+  return status;
 }
 
 static xnn_timestamp xnn_read_timer() {

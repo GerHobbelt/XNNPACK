@@ -2132,11 +2132,816 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
   xnn_finalize_code_memory(&code_cache.cache.code);
 #endif
 
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op0,
+    /*batch_size=*/1, /*input_height=*/224, /*input_width=*/224,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #0" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op2,
+    /*batch_size=*/1, /*input_height=*/112, /*input_width=*/112,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #2" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op4,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #4" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op5,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #5" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 56, 56, 16 };
+    const size_t b_shape[] = { 1, 1, 1, 16 };
+    status = xnn_reshape_multiply_nd_f32(
+      op6,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #6" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op7,
+    /*batch_size=*/1, /*input_height=*/56, /*input_width=*/56,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #7" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op8,
+    /*batch_size=*/1, /*input_height=*/56, /*input_width=*/56,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #8" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op9,
+    /*batch_size=*/1, /*input_height=*/56, /*input_width=*/56,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #9" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op10,
+    /*batch_size=*/1, /*input_height=*/28, /*input_width=*/28,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #10" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op11,
+    /*batch_size=*/1, /*input_height=*/28, /*input_width=*/28,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #11" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op12,
+    /*batch_size=*/1, /*input_height=*/28, /*input_width=*/28,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #12" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op13,
+    /*batch_size=*/1, /*input_height=*/28, /*input_width=*/28,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #13" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 28, 28, 24 };
+    const size_t b_shape[] = { 1, 28, 28, 24 };
+    status = xnn_reshape_add_nd_f32(
+      op14,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #14" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op15,
+    /*batch_size=*/1, /*input_height=*/28, /*input_width=*/28,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #15" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op17,
+    /*batch_size=*/1, /*input_height=*/28, /*input_width=*/28,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #17" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op18,
+    /*batch_size=*/196,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #18" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op20,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #20" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op21,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #21" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 96 };
+    const size_t b_shape[] = { 1, 1, 1, 96 };
+    status = xnn_reshape_multiply_nd_f32(
+      op22,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #22" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op23,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #23" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op24,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #24" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op26,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #26" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op27,
+    /*batch_size=*/196,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #27" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op29,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #29" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op30,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #30" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 240 };
+    const size_t b_shape[] = { 1, 1, 1, 240 };
+    status = xnn_reshape_multiply_nd_f32(
+      op31,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #31" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op32,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #32" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 40 };
+    const size_t b_shape[] = { 1, 14, 14, 40 };
+    status = xnn_reshape_add_nd_f32(
+      op33,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #33" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op34,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #34" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op36,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #36" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op37,
+    /*batch_size=*/196,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #37" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op39,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #39" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op40,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #40" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 240 };
+    const size_t b_shape[] = { 1, 1, 1, 240 };
+    status = xnn_reshape_multiply_nd_f32(
+      op41,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #41" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op42,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #42" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 40 };
+    const size_t b_shape[] = { 1, 14, 14, 40 };
+    status = xnn_reshape_add_nd_f32(
+      op43,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #43" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op44,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #44" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op46,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #46" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op47,
+    /*batch_size=*/196,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #47" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op49,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #49" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op50,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #50" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 120 };
+    const size_t b_shape[] = { 1, 1, 1, 120 };
+    status = xnn_reshape_multiply_nd_f32(
+      op51,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #51" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op52,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #52" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op53,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #53" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op55,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #55" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op56,
+    /*batch_size=*/196,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #56" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op58,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #58" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op59,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #59" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 144 };
+    const size_t b_shape[] = { 1, 1, 1, 144 };
+    status = xnn_reshape_multiply_nd_f32(
+      op60,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #60" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op61,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #61" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 14, 14, 48 };
+    const size_t b_shape[] = { 1, 14, 14, 48 };
+    status = xnn_reshape_add_nd_f32(
+      op62,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #62" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op63,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #63" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op65,
+    /*batch_size=*/1, /*input_height=*/14, /*input_width=*/14,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #65" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op66,
+    /*batch_size=*/49,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #66" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op68,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #68" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op69,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #69" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 7, 7, 288 };
+    const size_t b_shape[] = { 1, 1, 1, 288 };
+    status = xnn_reshape_multiply_nd_f32(
+      op70,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #70" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op71,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #71" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op72,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #72" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op74,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #74" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op75,
+    /*batch_size=*/49,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #75" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op77,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #77" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op78,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #78" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 7, 7, 576 };
+    const size_t b_shape[] = { 1, 1, 1, 576 };
+    status = xnn_reshape_multiply_nd_f32(
+      op79,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #79" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op80,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #80" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 7, 7, 96 };
+    const size_t b_shape[] = { 1, 7, 7, 96 };
+    status = xnn_reshape_add_nd_f32(
+      op81,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #81" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op82,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #82" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op84,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #84" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_hardswish_nc_f32(
+    op85,
+    /*batch_size=*/49,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #85" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op87,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #87" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op88,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #88" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 7, 7, 576 };
+    const size_t b_shape[] = { 1, 1, 1, 576 };
+    status = xnn_reshape_multiply_nd_f32(
+      op89,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #89" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op90,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #90" << std::endl;
+    return ExecutionPlan();
+  }
+
+  {
+    const size_t a_shape[] = { 1, 7, 7, 96 };
+    const size_t b_shape[] = { 1, 7, 7, 96 };
+    status = xnn_reshape_add_nd_f32(
+      op91,
+      4, a_shape, 4, b_shape,
+      /*threadpool=*/threadpool);
+  }
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #91" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op92,
+    /*batch_size=*/1, /*input_height=*/7, /*input_width=*/7,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #92" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op95,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #95" << std::endl;
+    return ExecutionPlan();
+  }
+
+  status = xnn_reshape_convolution2d_nhwc_f32(
+    op98,
+    /*batch_size=*/1, /*input_height=*/1, /*input_width=*/1,
+    /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+    /*threadpool=*/threadpool);
+  if (status != xnn_status_success) {
+    std::cerr << "failed to reshape operation #98" << std::endl;
+    return ExecutionPlan();
+  }
+
   status = xnn_setup_convolution2d_nhwc_f32(
     op0,
-    1 /* batch size */, 224 /* input height */, 224 /* input width */,
-    v0.data() /* input */, v2.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v0.data(), /*output=*/v2.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #0" << std::endl;
     return ExecutionPlan();
@@ -2144,9 +2949,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op2,
-    1 /* batch size */, 112 /* input height */, 112 /* input width */,
-    v2.data() /* input */, v3.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v2.data(), /*output=*/v3.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #2" << std::endl;
     return ExecutionPlan();
@@ -2154,9 +2957,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op3,
-    1 /* batch size */, 3136 /* width */,
-    v3.data() /* input */, v4.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 3136 /* width */,
+    /*input=*/v3.data(), /*output=*/v4.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #3" << std::endl;
     return ExecutionPlan();
@@ -2164,9 +2967,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op4,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v4.data() /* input */, v5.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v4.data(), /*output=*/v5.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #4" << std::endl;
     return ExecutionPlan();
@@ -2174,23 +2975,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op5,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v5.data() /* input */, v6.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v5.data(), /*output=*/v6.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #5" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 56, 56, 16 };
-    const size_t b_shape[] = { 1, 1, 1, 16 };
-    status = xnn_setup_multiply_nd_f32(
-      op6,
-      4, a_shape, 4, b_shape,
-      v3.data() /* a */, v6.data() /* b */, v7.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op6,
+    v3.data() /* a */, v6.data() /* b */, /*output=*/v7.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #6" << std::endl;
     return ExecutionPlan();
@@ -2198,9 +2991,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op7,
-    1 /* batch size */, 56 /* input height */, 56 /* input width */,
-    v7.data() /* input */, v8.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v7.data(), /*output=*/v8.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #7" << std::endl;
     return ExecutionPlan();
@@ -2208,9 +2999,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op8,
-    1 /* batch size */, 56 /* input height */, 56 /* input width */,
-    v8.data() /* input */, v9.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v8.data(), /*output=*/v9.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #8" << std::endl;
     return ExecutionPlan();
@@ -2218,9 +3007,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op9,
-    1 /* batch size */, 56 /* input height */, 56 /* input width */,
-    v9.data() /* input */, v10.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v9.data(), /*output=*/v10.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #9" << std::endl;
     return ExecutionPlan();
@@ -2228,9 +3015,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op10,
-    1 /* batch size */, 28 /* input height */, 28 /* input width */,
-    v10.data() /* input */, v11.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v10.data(), /*output=*/v11.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #10" << std::endl;
     return ExecutionPlan();
@@ -2238,9 +3023,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op11,
-    1 /* batch size */, 28 /* input height */, 28 /* input width */,
-    v11.data() /* input */, v12.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v11.data(), /*output=*/v12.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #11" << std::endl;
     return ExecutionPlan();
@@ -2248,9 +3031,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op12,
-    1 /* batch size */, 28 /* input height */, 28 /* input width */,
-    v12.data() /* input */, v13.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v12.data(), /*output=*/v13.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #12" << std::endl;
     return ExecutionPlan();
@@ -2258,23 +3039,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op13,
-    1 /* batch size */, 28 /* input height */, 28 /* input width */,
-    v13.data() /* input */, v14.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v13.data(), /*output=*/v14.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #13" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 28, 28, 24 };
-    const size_t b_shape[] = { 1, 28, 28, 24 };
-    status = xnn_setup_add_nd_f32(
-      op14,
-      4, a_shape, 4, b_shape,
-      v14.data() /* a */, v11.data() /* b */, v15.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_add_nd_f32(
+    op14,
+    v14.data() /* a */, v11.data() /* b */, /*output=*/v15.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #14" << std::endl;
     return ExecutionPlan();
@@ -2282,9 +3055,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op15,
-    1 /* batch size */, 28 /* input height */, 28 /* input width */,
-    v15.data() /* input */, v17.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v15.data(), /*output=*/v17.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #15" << std::endl;
     return ExecutionPlan();
@@ -2292,9 +3063,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op17,
-    1 /* batch size */, 28 /* input height */, 28 /* input width */,
-    v17.data() /* input */, v18.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v17.data(), /*output=*/v18.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #17" << std::endl;
     return ExecutionPlan();
@@ -2302,9 +3071,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op18,
-    196 /* batch size */,
-    v18.data() /* input */, v19.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v18.data(), /*output=*/v19.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #18" << std::endl;
     return ExecutionPlan();
@@ -2312,9 +3079,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op19,
-    1 /* batch size */, 196 /* width */,
-    v19.data() /* input */, v20.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 196 /* width */,
+    /*input=*/v19.data(), /*output=*/v20.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #19" << std::endl;
     return ExecutionPlan();
@@ -2322,9 +3089,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op20,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v20.data() /* input */, v21.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v20.data(), /*output=*/v21.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #20" << std::endl;
     return ExecutionPlan();
@@ -2332,23 +3097,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op21,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v21.data() /* input */, v22.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v21.data(), /*output=*/v22.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #21" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 96 };
-    const size_t b_shape[] = { 1, 1, 1, 96 };
-    status = xnn_setup_multiply_nd_f32(
-      op22,
-      4, a_shape, 4, b_shape,
-      v19.data() /* a */, v22.data() /* b */, v23.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op22,
+    v19.data() /* a */, v22.data() /* b */, /*output=*/v23.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #22" << std::endl;
     return ExecutionPlan();
@@ -2356,9 +3113,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op23,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v23.data() /* input */, v24.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v23.data(), /*output=*/v24.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #23" << std::endl;
     return ExecutionPlan();
@@ -2366,9 +3121,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op24,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v24.data() /* input */, v26.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v24.data(), /*output=*/v26.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #24" << std::endl;
     return ExecutionPlan();
@@ -2376,9 +3129,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op26,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v26.data() /* input */, v27.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v26.data(), /*output=*/v27.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #26" << std::endl;
     return ExecutionPlan();
@@ -2386,9 +3137,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op27,
-    196 /* batch size */,
-    v27.data() /* input */, v28.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v27.data(), /*output=*/v28.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #27" << std::endl;
     return ExecutionPlan();
@@ -2396,9 +3145,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op28,
-    1 /* batch size */, 196 /* width */,
-    v28.data() /* input */, v29.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 196 /* width */,
+    /*input=*/v28.data(), /*output=*/v29.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #28" << std::endl;
     return ExecutionPlan();
@@ -2406,9 +3155,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op29,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v29.data() /* input */, v30.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v29.data(), /*output=*/v30.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #29" << std::endl;
     return ExecutionPlan();
@@ -2416,23 +3163,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op30,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v30.data() /* input */, v31.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v30.data(), /*output=*/v31.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #30" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 240 };
-    const size_t b_shape[] = { 1, 1, 1, 240 };
-    status = xnn_setup_multiply_nd_f32(
-      op31,
-      4, a_shape, 4, b_shape,
-      v28.data() /* a */, v31.data() /* b */, v32.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op31,
+    v28.data() /* a */, v31.data() /* b */, /*output=*/v32.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #31" << std::endl;
     return ExecutionPlan();
@@ -2440,23 +3179,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op32,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v32.data() /* input */, v33.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v32.data(), /*output=*/v33.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #32" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 40 };
-    const size_t b_shape[] = { 1, 14, 14, 40 };
-    status = xnn_setup_add_nd_f32(
-      op33,
-      4, a_shape, 4, b_shape,
-      v33.data() /* a */, v24.data() /* b */, v34.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_add_nd_f32(
+    op33,
+    v33.data() /* a */, v24.data() /* b */, /*output=*/v34.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #33" << std::endl;
     return ExecutionPlan();
@@ -2464,9 +3195,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op34,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v34.data() /* input */, v36.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v34.data(), /*output=*/v36.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #34" << std::endl;
     return ExecutionPlan();
@@ -2474,9 +3203,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op36,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v36.data() /* input */, v37.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v36.data(), /*output=*/v37.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #36" << std::endl;
     return ExecutionPlan();
@@ -2484,9 +3211,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op37,
-    196 /* batch size */,
-    v37.data() /* input */, v38.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v37.data(), /*output=*/v38.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #37" << std::endl;
     return ExecutionPlan();
@@ -2494,9 +3219,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op38,
-    1 /* batch size */, 196 /* width */,
-    v38.data() /* input */, v39.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 196 /* width */,
+    /*input=*/v38.data(), /*output=*/v39.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #38" << std::endl;
     return ExecutionPlan();
@@ -2504,9 +3229,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op39,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v39.data() /* input */, v40.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v39.data(), /*output=*/v40.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #39" << std::endl;
     return ExecutionPlan();
@@ -2514,23 +3237,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op40,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v40.data() /* input */, v41.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v40.data(), /*output=*/v41.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #40" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 240 };
-    const size_t b_shape[] = { 1, 1, 1, 240 };
-    status = xnn_setup_multiply_nd_f32(
-      op41,
-      4, a_shape, 4, b_shape,
-      v38.data() /* a */, v41.data() /* b */, v42.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op41,
+    v38.data() /* a */, v41.data() /* b */, /*output=*/v42.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #41" << std::endl;
     return ExecutionPlan();
@@ -2538,23 +3253,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op42,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v42.data() /* input */, v43.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v42.data(), /*output=*/v43.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #42" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 40 };
-    const size_t b_shape[] = { 1, 14, 14, 40 };
-    status = xnn_setup_add_nd_f32(
-      op43,
-      4, a_shape, 4, b_shape,
-      v43.data() /* a */, v34.data() /* b */, v44.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_add_nd_f32(
+    op43,
+    v43.data() /* a */, v34.data() /* b */, /*output=*/v44.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #43" << std::endl;
     return ExecutionPlan();
@@ -2562,9 +3269,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op44,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v44.data() /* input */, v46.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v44.data(), /*output=*/v46.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #44" << std::endl;
     return ExecutionPlan();
@@ -2572,9 +3277,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op46,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v46.data() /* input */, v47.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v46.data(), /*output=*/v47.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #46" << std::endl;
     return ExecutionPlan();
@@ -2582,9 +3285,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op47,
-    196 /* batch size */,
-    v47.data() /* input */, v48.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v47.data(), /*output=*/v48.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #47" << std::endl;
     return ExecutionPlan();
@@ -2592,9 +3293,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op48,
-    1 /* batch size */, 196 /* width */,
-    v48.data() /* input */, v49.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 196 /* width */,
+    /*input=*/v48.data(), /*output=*/v49.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #48" << std::endl;
     return ExecutionPlan();
@@ -2602,9 +3303,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op49,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v49.data() /* input */, v50.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v49.data(), /*output=*/v50.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #49" << std::endl;
     return ExecutionPlan();
@@ -2612,23 +3311,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op50,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v50.data() /* input */, v51.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v50.data(), /*output=*/v51.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #50" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 120 };
-    const size_t b_shape[] = { 1, 1, 1, 120 };
-    status = xnn_setup_multiply_nd_f32(
-      op51,
-      4, a_shape, 4, b_shape,
-      v48.data() /* a */, v51.data() /* b */, v52.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op51,
+    v48.data() /* a */, v51.data() /* b */, /*output=*/v52.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #51" << std::endl;
     return ExecutionPlan();
@@ -2636,9 +3327,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op52,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v52.data() /* input */, v53.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v52.data(), /*output=*/v53.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #52" << std::endl;
     return ExecutionPlan();
@@ -2646,9 +3335,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op53,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v53.data() /* input */, v55.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v53.data(), /*output=*/v55.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #53" << std::endl;
     return ExecutionPlan();
@@ -2656,9 +3343,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op55,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v55.data() /* input */, v56.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v55.data(), /*output=*/v56.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #55" << std::endl;
     return ExecutionPlan();
@@ -2666,9 +3351,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op56,
-    196 /* batch size */,
-    v56.data() /* input */, v57.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v56.data(), /*output=*/v57.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #56" << std::endl;
     return ExecutionPlan();
@@ -2676,9 +3359,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op57,
-    1 /* batch size */, 196 /* width */,
-    v57.data() /* input */, v58.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 196 /* width */,
+    /*input=*/v57.data(), /*output=*/v58.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #57" << std::endl;
     return ExecutionPlan();
@@ -2686,9 +3369,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op58,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v58.data() /* input */, v59.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v58.data(), /*output=*/v59.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #58" << std::endl;
     return ExecutionPlan();
@@ -2696,23 +3377,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op59,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v59.data() /* input */, v60.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v59.data(), /*output=*/v60.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #59" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 144 };
-    const size_t b_shape[] = { 1, 1, 1, 144 };
-    status = xnn_setup_multiply_nd_f32(
-      op60,
-      4, a_shape, 4, b_shape,
-      v57.data() /* a */, v60.data() /* b */, v61.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op60,
+    v57.data() /* a */, v60.data() /* b */, /*output=*/v61.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #60" << std::endl;
     return ExecutionPlan();
@@ -2720,23 +3393,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op61,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v61.data() /* input */, v62.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v61.data(), /*output=*/v62.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #61" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 14, 14, 48 };
-    const size_t b_shape[] = { 1, 14, 14, 48 };
-    status = xnn_setup_add_nd_f32(
-      op62,
-      4, a_shape, 4, b_shape,
-      v62.data() /* a */, v53.data() /* b */, v63.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_add_nd_f32(
+    op62,
+    v62.data() /* a */, v53.data() /* b */, /*output=*/v63.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #62" << std::endl;
     return ExecutionPlan();
@@ -2744,9 +3409,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op63,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v63.data() /* input */, v65.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v63.data(), /*output=*/v65.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #63" << std::endl;
     return ExecutionPlan();
@@ -2754,9 +3417,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op65,
-    1 /* batch size */, 14 /* input height */, 14 /* input width */,
-    v65.data() /* input */, v66.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v65.data(), /*output=*/v66.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #65" << std::endl;
     return ExecutionPlan();
@@ -2764,9 +3425,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op66,
-    49 /* batch size */,
-    v66.data() /* input */, v67.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v66.data(), /*output=*/v67.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #66" << std::endl;
     return ExecutionPlan();
@@ -2774,9 +3433,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op67,
-    1 /* batch size */, 49 /* width */,
-    v67.data() /* input */, v68.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 49 /* width */,
+    /*input=*/v67.data(), /*output=*/v68.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #67" << std::endl;
     return ExecutionPlan();
@@ -2784,9 +3443,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op68,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v68.data() /* input */, v69.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v68.data(), /*output=*/v69.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #68" << std::endl;
     return ExecutionPlan();
@@ -2794,23 +3451,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op69,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v69.data() /* input */, v70.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v69.data(), /*output=*/v70.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #69" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 7, 7, 288 };
-    const size_t b_shape[] = { 1, 1, 1, 288 };
-    status = xnn_setup_multiply_nd_f32(
-      op70,
-      4, a_shape, 4, b_shape,
-      v67.data() /* a */, v70.data() /* b */, v71.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op70,
+    v67.data() /* a */, v70.data() /* b */, /*output=*/v71.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #70" << std::endl;
     return ExecutionPlan();
@@ -2818,9 +3467,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op71,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v71.data() /* input */, v72.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v71.data(), /*output=*/v72.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #71" << std::endl;
     return ExecutionPlan();
@@ -2828,9 +3475,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op72,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v72.data() /* input */, v74.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v72.data(), /*output=*/v74.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #72" << std::endl;
     return ExecutionPlan();
@@ -2838,9 +3483,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op74,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v74.data() /* input */, v75.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v74.data(), /*output=*/v75.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #74" << std::endl;
     return ExecutionPlan();
@@ -2848,9 +3491,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op75,
-    49 /* batch size */,
-    v75.data() /* input */, v76.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v75.data(), /*output=*/v76.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #75" << std::endl;
     return ExecutionPlan();
@@ -2858,9 +3499,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op76,
-    1 /* batch size */, 49 /* width */,
-    v76.data() /* input */, v77.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 49 /* width */,
+    /*input=*/v76.data(), /*output=*/v77.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #76" << std::endl;
     return ExecutionPlan();
@@ -2868,9 +3509,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op77,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v77.data() /* input */, v78.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v77.data(), /*output=*/v78.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #77" << std::endl;
     return ExecutionPlan();
@@ -2878,23 +3517,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op78,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v78.data() /* input */, v79.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v78.data(), /*output=*/v79.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #78" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 7, 7, 576 };
-    const size_t b_shape[] = { 1, 1, 1, 576 };
-    status = xnn_setup_multiply_nd_f32(
-      op79,
-      4, a_shape, 4, b_shape,
-      v76.data() /* a */, v79.data() /* b */, v80.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op79,
+    v76.data() /* a */, v79.data() /* b */, /*output=*/v80.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #79" << std::endl;
     return ExecutionPlan();
@@ -2902,23 +3533,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op80,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v80.data() /* input */, v81.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v80.data(), /*output=*/v81.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #80" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 7, 7, 96 };
-    const size_t b_shape[] = { 1, 7, 7, 96 };
-    status = xnn_setup_add_nd_f32(
-      op81,
-      4, a_shape, 4, b_shape,
-      v81.data() /* a */, v72.data() /* b */, v82.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_add_nd_f32(
+    op81,
+    v81.data() /* a */, v72.data() /* b */, /*output=*/v82.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #81" << std::endl;
     return ExecutionPlan();
@@ -2926,9 +3549,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op82,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v82.data() /* input */, v84.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v82.data(), /*output=*/v84.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #82" << std::endl;
     return ExecutionPlan();
@@ -2936,9 +3557,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op84,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v84.data() /* input */, v85.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v84.data(), /*output=*/v85.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #84" << std::endl;
     return ExecutionPlan();
@@ -2946,9 +3565,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_hardswish_nc_f32(
     op85,
-    49 /* batch size */,
-    v85.data() /* input */, v86.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v85.data(), /*output=*/v86.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #85" << std::endl;
     return ExecutionPlan();
@@ -2956,9 +3573,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op86,
-    1 /* batch size */, 49 /* width */,
-    v86.data() /* input */, v87.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 49 /* width */,
+    /*input=*/v86.data(), /*output=*/v87.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #86" << std::endl;
     return ExecutionPlan();
@@ -2966,9 +3583,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op87,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v87.data() /* input */, v88.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v87.data(), /*output=*/v88.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #87" << std::endl;
     return ExecutionPlan();
@@ -2976,23 +3591,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op88,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v88.data() /* input */, v89.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v88.data(), /*output=*/v89.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #88" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 7, 7, 576 };
-    const size_t b_shape[] = { 1, 1, 1, 576 };
-    status = xnn_setup_multiply_nd_f32(
-      op89,
-      4, a_shape, 4, b_shape,
-      v86.data() /* a */, v89.data() /* b */, v90.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_multiply_nd_f32(
+    op89,
+    v86.data() /* a */, v89.data() /* b */, /*output=*/v90.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #89" << std::endl;
     return ExecutionPlan();
@@ -3000,23 +3607,15 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op90,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v90.data() /* input */, v91.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v90.data(), /*output=*/v91.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #90" << std::endl;
     return ExecutionPlan();
   }
 
-  {
-    const size_t a_shape[] = { 1, 7, 7, 96 };
-    const size_t b_shape[] = { 1, 7, 7, 96 };
-    status = xnn_setup_add_nd_f32(
-      op91,
-      4, a_shape, 4, b_shape,
-      v91.data() /* a */, v82.data() /* b */, v92.data() /* output */,
-      threadpool /* threadpool */);
-  }
+  status = xnn_setup_add_nd_f32(
+    op91,
+    v91.data() /* a */, v82.data() /* b */, /*output=*/v92.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #91" << std::endl;
     return ExecutionPlan();
@@ -3024,9 +3623,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op92,
-    1 /* batch size */, 7 /* input height */, 7 /* input width */,
-    v92.data() /* input */, v94.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v92.data(), /*output=*/v94.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #92" << std::endl;
     return ExecutionPlan();
@@ -3034,9 +3631,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op94,
-    1 /* batch size */, 49 /* width */,
-    v94.data() /* input */, v95.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 49 /* width */,
+    /*input=*/v94.data(), /*output=*/v95.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #94" << std::endl;
     return ExecutionPlan();
@@ -3044,9 +3641,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op95,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v95.data() /* input */, v97.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v95.data(), /*output=*/v97.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #95" << std::endl;
     return ExecutionPlan();
@@ -3054,9 +3649,9 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_global_average_pooling_nwc_f32(
     op97,
-    1 /* batch size */, 1 /* width */,
-    v97.data() /* input */, v98.data() /* output */,
-    threadpool /* threadpool */);
+    /*batch_size=*/1, 1 /* width */,
+    /*input=*/v97.data(), /*output=*/v98.data(),
+    /*threadpool=*/threadpool);
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #97" << std::endl;
     return ExecutionPlan();
@@ -3064,9 +3659,7 @@ ExecutionPlan FP32MobileNetV3SmallFused(pthreadpool_t threadpool) {
 
   status = xnn_setup_convolution2d_nhwc_f32(
     op98,
-    1 /* batch size */, 1 /* input height */, 1 /* input width */,
-    v98.data() /* input */, v99.data() /* output */,
-    threadpool /* threadpool */);
+    /*input=*/v98.data(), /*output=*/v99.data());
   if (status != xnn_status_success) {
     std::cerr << "failed to setup operation #98" << std::endl;
     return ExecutionPlan();

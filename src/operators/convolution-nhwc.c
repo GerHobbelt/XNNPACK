@@ -57,9 +57,11 @@ static inline const struct xnn_dwconv_config* find_dwconv_ukernel(
       if (best_ukernel == NULL || ukernel->primary_tile < best_ukernel->primary_tile) {
         best_ukernel = ukernel;
       }
-    } else if (ukernel->last_tile != 0 && kernel_size >= 25) {
-      // Use multi-pass for large kernel sizes.
-      best_ukernel = ukernel;
+    } else if (ukernel->last_tile != 0) {
+      // Use multi-pass if it fits the kernel size nicely, or if kernel_size is large.
+      if (ukernel->primary_tile + ukernel->middle_tile + ukernel->last_tile == kernel_size || kernel_size >= 25) {
+        best_ukernel = ukernel;
+      }
     }
     ukernel++;
   }
@@ -1439,12 +1441,12 @@ enum xnn_status xnn_create_fused_convolution2d_nhwc_f32(
     xnn_caches_t caches,
     xnn_operator_t* convolution_op_out)
 {
-  #if !XNN_ENABLE_JIT
+  if (caches != NULL && caches->code_cache == NULL) {
     xnn_log_error(
       "failed to create %s operator: convolution with post operations available only if JIT is enabled",
       xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_f32));
     return xnn_status_invalid_parameter;
-  #endif
+  }
 
   // Convolution is specified with linear activation, any clamping should be specified as a post operator.
   const float output_max = INFINITY;

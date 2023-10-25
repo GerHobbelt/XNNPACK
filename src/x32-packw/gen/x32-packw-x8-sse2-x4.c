@@ -53,6 +53,10 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__sse2_x4(
 
         _mm_store_ps(packed_w, vb0123);
         _mm_store_ps(packed_w + 4, vb4567);
+      } else {
+        const __m128 vzero = _mm_setzero_ps();
+        _mm_store_ps(packed_w, vzero);
+        _mm_store_ps(packed_w + 4, vzero);
       }
       packed_w += 8;
 
@@ -64,8 +68,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__sse2_x4(
       const float* w6 = w5 + kc;
       const float* w7 = w6 + kc;
 
-      // KC main loop multiple of 8x4
       size_t k = kc;
+
+      // KC multiple of 4
       for (; k >= 4; k -= 4) {
         const __m128 v0x0123 = _mm_loadu_ps(w0);
         w0 += 4;
@@ -92,7 +97,6 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__sse2_x4(
         const __m128 v67x0_67x1 = _mm_unpacklo_ps(v6x0123, v7x0123);
         const __m128 v45x2_45x3 = _mm_unpackhi_ps(v4x0123, v5x0123);
         const __m128 v67x2_67x3 = _mm_unpackhi_ps(v6x0123, v7x0123);
-
         const __m128 v0123x0 = _mm_movelh_ps(v01x0_01x1, v23x0_23x1);
         const __m128 v0123x1 = _mm_movehl_ps(v23x0_23x1, v01x0_01x1);
         const __m128 v0123x2 = _mm_movelh_ps(v01x2_01x3, v23x2_23x3);
@@ -268,6 +272,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__sse2_x4(
         } while (--nb != 0);
         packed_w += (8 - n);
       } else {
+        const __m128 vzero = _mm_setzero_ps();
+        _mm_store_ps(packed_w, vzero);
+        _mm_store_ps(packed_w + 4, vzero);
         packed_w += 8;
       }
 
@@ -296,8 +303,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__sse2_x4(
         w6 = w5;
       }
 
-      // KC main loop multiple of 8x4
       size_t k = kc;
+
+      // KC multiple of 4
       for (; k >= 4; k -= 4) {
         const __m128 v0x0123 = _mm_loadu_ps(w0);
         w0 += 4;
@@ -322,7 +330,6 @@ void xnn_x32_packw_gemm_goi_ukernel_x8__sse2_x4(
         const __m128 v67x0_67x1 = _mm_unpacklo_ps(v6x0123, v6x0123);
         const __m128 v45x2_45x3 = _mm_unpackhi_ps(v4x0123, v5x0123);
         const __m128 v67x2_67x3 = _mm_unpackhi_ps(v6x0123, v6x0123);
-
         const __m128 v0123x0 = _mm_movelh_ps(v01x0_01x1, v23x0_23x1);
         const __m128 v0123x1 = _mm_movehl_ps(v23x0_23x1, v01x0_01x1);
         const __m128 v0123x2 = _mm_movelh_ps(v01x2_01x3, v23x2_23x3);

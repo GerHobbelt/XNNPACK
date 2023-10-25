@@ -57,6 +57,12 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         _mm_store_ps(packed_w + 4, vb4567);
         _mm_store_ps(packed_w + 8, vb89AB);
         _mm_store_ps(packed_w + 12, vbCDEF);
+      } else {
+        const __m128 vzero = _mm_setzero_ps();
+        _mm_store_ps(packed_w, vzero);
+        _mm_store_ps(packed_w + 4, vzero);
+        _mm_store_ps(packed_w + 8, vzero);
+        _mm_store_ps(packed_w + 12, vzero);
       }
       packed_w += 16;
 
@@ -69,15 +75,16 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
       const float* w7 = w6 + kc;
       const float* w8 = w7 + kc;
       const float* w9 = w8 + kc;
-      const float* wA = w9 + kc;
-      const float* wB = wA + kc;
-      const float* wC = wB + kc;
-      const float* wD = wC + kc;
-      const float* wE = wD + kc;
-      const float* wF = wE + kc;
+      const float* w10 = w9 + kc;
+      const float* w11 = w10 + kc;
+      const float* w12 = w11 + kc;
+      const float* w13 = w12 + kc;
+      const float* w14 = w13 + kc;
+      const float* w15 = w14 + kc;
 
-      // KC main loop multiple of 16x4
       size_t k = kc;
+
+      // KC multiple of 4
       for (; k >= 4; k -= 4) {
         const __m128 v0x0123 = _mm_loadu_ps(w0);
         w0 += 4;
@@ -99,18 +106,18 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         w8 += 4;
         const __m128 v9x0123 = _mm_loadu_ps(w9);
         w9 += 4;
-        const __m128 vAx0123 = _mm_loadu_ps(wA);
-        wA += 4;
-        const __m128 vBx0123 = _mm_loadu_ps(wB);
-        wB += 4;
-        const __m128 vCx0123 = _mm_loadu_ps(wC);
-        wC += 4;
-        const __m128 vDx0123 = _mm_loadu_ps(wD);
-        wD += 4;
-        const __m128 vEx0123 = _mm_loadu_ps(wE);
-        wE += 4;
-        const __m128 vFx0123 = _mm_loadu_ps(wF);
-        wF += 4;
+        const __m128 vAx0123 = _mm_loadu_ps(w10);
+        w10 += 4;
+        const __m128 vBx0123 = _mm_loadu_ps(w11);
+        w11 += 4;
+        const __m128 vCx0123 = _mm_loadu_ps(w12);
+        w12 += 4;
+        const __m128 vDx0123 = _mm_loadu_ps(w13);
+        w13 += 4;
+        const __m128 vEx0123 = _mm_loadu_ps(w14);
+        w14 += 4;
+        const __m128 vFx0123 = _mm_loadu_ps(w15);
+        w15 += 4;
 
         const __m128 v01x0_01x1 = _mm_unpacklo_ps(v0x0123, v1x0123);
         const __m128 v23x0_23x1 = _mm_unpacklo_ps(v2x0123, v3x0123);
@@ -128,7 +135,6 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         const __m128 vEFx0_EFx1 = _mm_unpacklo_ps(vEx0123, vFx0123);
         const __m128 vCDx2_CDx3 = _mm_unpackhi_ps(vCx0123, vDx0123);
         const __m128 vEFx2_EFx3 = _mm_unpackhi_ps(vEx0123, vFx0123);
-
         const __m128 v0123x0 = _mm_movelh_ps(v01x0_01x1, v23x0_23x1);
         const __m128 v0123x1 = _mm_movehl_ps(v23x0_23x1, v01x0_01x1);
         const __m128 v0123x2 = _mm_movelh_ps(v01x2_01x3, v23x2_23x3);
@@ -193,18 +199,18 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             w8 += 1;
             const __m128 v9x0 = _mm_load_ss(w9);
             w9 += 1;
-            const __m128 vAx0 = _mm_load_ss(wA);
-            wA += 1;
-            const __m128 vBx0 = _mm_load_ss(wB);
-            wB += 1;
-            const __m128 vCx0 = _mm_load_ss(wC);
-            wC += 1;
-            const __m128 vDx0 = _mm_load_ss(wD);
-            wD += 1;
-            const __m128 vEx0 = _mm_load_ss(wE);
-            wE += 1;
-            const __m128 vFx0 = _mm_load_ss(wF);
-            wF += 1;
+            const __m128 vAx0 = _mm_load_ss(w10);
+            w10 += 1;
+            const __m128 vBx0 = _mm_load_ss(w11);
+            w11 += 1;
+            const __m128 vCx0 = _mm_load_ss(w12);
+            w12 += 1;
+            const __m128 vDx0 = _mm_load_ss(w13);
+            w13 += 1;
+            const __m128 vEx0 = _mm_load_ss(w14);
+            w14 += 1;
+            const __m128 vFx0 = _mm_load_ss(w15);
+            w15 += 1;
 
             const __m128 v01x0 = _mm_unpacklo_ps(v0x0, v1x0);
             const __m128 v23x0 = _mm_unpacklo_ps(v2x0, v3x0);
@@ -249,18 +255,18 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             w8 += 2;
             const __m128 v9x01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w9));
             w9 += 2;
-            const __m128 vAx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wA));
-            wA += 2;
-            const __m128 vBx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wB));
-            wB += 2;
-            const __m128 vCx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wC));
-            wC += 2;
-            const __m128 vDx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wD));
-            wD += 2;
-            const __m128 vEx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wE));
-            wE += 2;
-            const __m128 vFx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wF));
-            wF += 2;
+            const __m128 vAx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w10));
+            w10 += 2;
+            const __m128 vBx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w11));
+            w11 += 2;
+            const __m128 vCx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w12));
+            w12 += 2;
+            const __m128 vDx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w13));
+            w13 += 2;
+            const __m128 vEx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w14));
+            w14 += 2;
+            const __m128 vFx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w15));
+            w15 += 2;
 
             const __m128 v01x0_01x1 = _mm_unpacklo_ps(v0x01, v1x01);
             const __m128 v23x0_23x1 = _mm_unpacklo_ps(v2x01, v3x01);
@@ -303,12 +309,12 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             __m128 v7x012 = _mm_load_ss(w7 + 2);
             __m128 v8x012 = _mm_load_ss(w8 + 2);
             __m128 v9x012 = _mm_load_ss(w9 + 2);
-            __m128 vAx012 = _mm_load_ss(wA + 2);
-            __m128 vBx012 = _mm_load_ss(wB + 2);
-            __m128 vCx012 = _mm_load_ss(wC + 2);
-            __m128 vDx012 = _mm_load_ss(wD + 2);
-            __m128 vEx012 = _mm_load_ss(wE + 2);
-            __m128 vFx012 = _mm_load_ss(wF + 2);
+            __m128 vAx012 = _mm_load_ss(w10 + 2);
+            __m128 vBx012 = _mm_load_ss(w11 + 2);
+            __m128 vCx012 = _mm_load_ss(w12 + 2);
+            __m128 vDx012 = _mm_load_ss(w13 + 2);
+            __m128 vEx012 = _mm_load_ss(w14 + 2);
+            __m128 vFx012 = _mm_load_ss(w15 + 2);
 
             v0x012 = _mm_movelh_ps(v0x012, v0x012);
             v1x012 = _mm_movelh_ps(v1x012, v1x012);
@@ -347,18 +353,18 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             w8 += 3;
             v9x012 = _mm_loadl_pi(v9x012, (const __m64*) w9);
             w9 += 3;
-            vAx012 = _mm_loadl_pi(vAx012, (const __m64*) wA);
-            wA += 3;
-            vBx012 = _mm_loadl_pi(vBx012, (const __m64*) wB);
-            wB += 3;
-            vCx012 = _mm_loadl_pi(vCx012, (const __m64*) wC);
-            wC += 3;
-            vDx012 = _mm_loadl_pi(vDx012, (const __m64*) wD);
-            wD += 3;
-            vEx012 = _mm_loadl_pi(vEx012, (const __m64*) wE);
-            wE += 3;
-            vFx012 = _mm_loadl_pi(vFx012, (const __m64*) wF);
-            wF += 3;
+            vAx012 = _mm_loadl_pi(vAx012, (const __m64*) w10);
+            w10 += 3;
+            vBx012 = _mm_loadl_pi(vBx012, (const __m64*) w11);
+            w11 += 3;
+            vCx012 = _mm_loadl_pi(vCx012, (const __m64*) w12);
+            w12 += 3;
+            vDx012 = _mm_loadl_pi(vDx012, (const __m64*) w13);
+            w13 += 3;
+            vEx012 = _mm_loadl_pi(vEx012, (const __m64*) w14);
+            w14 += 3;
+            vFx012 = _mm_loadl_pi(vFx012, (const __m64*) w15);
+            w15 += 3;
 
             const __m128 v01x0_01x1 = _mm_unpacklo_ps(v0x012, v1x012);
             const __m128 v23x0_23x1 = _mm_unpacklo_ps(v2x012, v3x012);
@@ -410,7 +416,7 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         }
       }
       packed_w = (float*) ((uintptr_t) packed_w + extra_bytes);
-      w0 = wF;
+      w0 = w15;
     }
 
     // NC remainder (1..15)
@@ -424,6 +430,11 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         } while (--nb != 0);
         packed_w += (16 - n);
       } else {
+        const __m128 vzero = _mm_setzero_ps();
+        _mm_store_ps(packed_w, vzero);
+        _mm_store_ps(packed_w + 4, vzero);
+        _mm_store_ps(packed_w + 8, vzero);
+        _mm_store_ps(packed_w + 12, vzero);
         packed_w += 16;
       }
 
@@ -463,29 +474,30 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
       if XNN_UNPREDICTABLE(n < 10) {
         w9 = w8;
       }
-      const float* wA = w9 + kc;
+      const float* w10 = w9 + kc;
       if XNN_UNPREDICTABLE(n <= 10) {
-        wA = w9;
+        w10 = w9;
       }
-      const float* wB = wA + kc;
+      const float* w11 = w10 + kc;
       if XNN_UNPREDICTABLE(n < 12) {
-        wB = wA;
+        w11 = w10;
       }
-      const float* wC = wB + kc;
+      const float* w12 = w11 + kc;
       if XNN_UNPREDICTABLE(n <= 12) {
-        wC = wB;
+        w12 = w11;
       }
-      const float* wD = wC + kc;
+      const float* w13 = w12 + kc;
       if XNN_UNPREDICTABLE(n < 14) {
-        wD = wC;
+        w13 = w12;
       }
-      const float* wE = wD + kc;
+      const float* w14 = w13 + kc;
       if XNN_UNPREDICTABLE(n <= 14) {
-        wE = wD;
+        w14 = w13;
       }
 
-      // KC main loop multiple of 16x4
       size_t k = kc;
+
+      // KC multiple of 4
       for (; k >= 4; k -= 4) {
         const __m128 v0x0123 = _mm_loadu_ps(w0);
         w0 += 4;
@@ -507,16 +519,16 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         w8 += 4;
         const __m128 v9x0123 = _mm_loadu_ps(w9);
         w9 += 4;
-        const __m128 vAx0123 = _mm_loadu_ps(wA);
-        wA += 4;
-        const __m128 vBx0123 = _mm_loadu_ps(wB);
-        wB += 4;
-        const __m128 vCx0123 = _mm_loadu_ps(wC);
-        wC += 4;
-        const __m128 vDx0123 = _mm_loadu_ps(wD);
-        wD += 4;
-        const __m128 vEx0123 = _mm_loadu_ps(wE);
-        wE += 4;
+        const __m128 vAx0123 = _mm_loadu_ps(w10);
+        w10 += 4;
+        const __m128 vBx0123 = _mm_loadu_ps(w11);
+        w11 += 4;
+        const __m128 vCx0123 = _mm_loadu_ps(w12);
+        w12 += 4;
+        const __m128 vDx0123 = _mm_loadu_ps(w13);
+        w13 += 4;
+        const __m128 vEx0123 = _mm_loadu_ps(w14);
+        w14 += 4;
 
         const __m128 v01x0_01x1 = _mm_unpacklo_ps(v0x0123, v1x0123);
         const __m128 v23x0_23x1 = _mm_unpacklo_ps(v2x0123, v3x0123);
@@ -534,7 +546,6 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
         const __m128 vEFx0_EFx1 = _mm_unpacklo_ps(vEx0123, vEx0123);
         const __m128 vCDx2_CDx3 = _mm_unpackhi_ps(vCx0123, vDx0123);
         const __m128 vEFx2_EFx3 = _mm_unpackhi_ps(vEx0123, vEx0123);
-
         const __m128 v0123x0 = _mm_movelh_ps(v01x0_01x1, v23x0_23x1);
         const __m128 v0123x1 = _mm_movehl_ps(v23x0_23x1, v01x0_01x1);
         const __m128 v0123x2 = _mm_movelh_ps(v01x2_01x3, v23x2_23x3);
@@ -589,11 +600,11 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             const __m128 v7x0 = _mm_load_ss(w7);
             const __m128 v8x0 = _mm_load_ss(w8);
             const __m128 v9x0 = _mm_load_ss(w9);
-            const __m128 vAx0 = _mm_load_ss(wA);
-            const __m128 vBx0 = _mm_load_ss(wB);
-            const __m128 vCx0 = _mm_load_ss(wC);
-            const __m128 vDx0 = _mm_load_ss(wD);
-            const __m128 vEx0 = _mm_load_ss(wE);
+            const __m128 vAx0 = _mm_load_ss(w10);
+            const __m128 vBx0 = _mm_load_ss(w11);
+            const __m128 vCx0 = _mm_load_ss(w12);
+            const __m128 vDx0 = _mm_load_ss(w13);
+            const __m128 vEx0 = _mm_load_ss(w14);
 
             const __m128 v01x0 = _mm_unpacklo_ps(v0x0, v1x0);
             const __m128 v23x0 = _mm_unpacklo_ps(v2x0, v3x0);
@@ -628,11 +639,11 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             const __m128 v7x01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w7));
             const __m128 v8x01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w8));
             const __m128 v9x01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w9));
-            const __m128 vAx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wA));
-            const __m128 vBx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wB));
-            const __m128 vCx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wC));
-            const __m128 vDx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wD));
-            const __m128 vEx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) wE));
+            const __m128 vAx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w10));
+            const __m128 vBx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w11));
+            const __m128 vCx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w12));
+            const __m128 vDx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w13));
+            const __m128 vEx01 = _mm_castsi128_ps(_mm_loadl_epi64((const __m128i*) w14));
 
             const __m128 v01x0_01x1 = _mm_unpacklo_ps(v0x01, v1x01);
             const __m128 v23x0_23x1 = _mm_unpacklo_ps(v2x01, v3x01);
@@ -675,11 +686,11 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             __m128 v7x012 = _mm_load_ss(w7 + 2);
             __m128 v8x012 = _mm_load_ss(w8 + 2);
             __m128 v9x012 = _mm_load_ss(w9 + 2);
-            __m128 vAx012 = _mm_load_ss(wA + 2);
-            __m128 vBx012 = _mm_load_ss(wB + 2);
-            __m128 vCx012 = _mm_load_ss(wC + 2);
-            __m128 vDx012 = _mm_load_ss(wD + 2);
-            __m128 vEx012 = _mm_load_ss(wE + 2);
+            __m128 vAx012 = _mm_load_ss(w10 + 2);
+            __m128 vBx012 = _mm_load_ss(w11 + 2);
+            __m128 vCx012 = _mm_load_ss(w12 + 2);
+            __m128 vDx012 = _mm_load_ss(w13 + 2);
+            __m128 vEx012 = _mm_load_ss(w14 + 2);
 
             v0x012 = _mm_movelh_ps(v0x012, v0x012);
             v1x012 = _mm_movelh_ps(v1x012, v1x012);
@@ -707,11 +718,11 @@ void xnn_x32_packw_gemm_goi_ukernel_x16__sse2_x4(
             v7x012 = _mm_loadl_pi(v7x012, (const __m64*) w7);
             v8x012 = _mm_loadl_pi(v8x012, (const __m64*) w8);
             v9x012 = _mm_loadl_pi(v9x012, (const __m64*) w9);
-            vAx012 = _mm_loadl_pi(vAx012, (const __m64*) wA);
-            vBx012 = _mm_loadl_pi(vBx012, (const __m64*) wB);
-            vCx012 = _mm_loadl_pi(vCx012, (const __m64*) wC);
-            vDx012 = _mm_loadl_pi(vDx012, (const __m64*) wD);
-            vEx012 = _mm_loadl_pi(vEx012, (const __m64*) wE);
+            vAx012 = _mm_loadl_pi(vAx012, (const __m64*) w10);
+            vBx012 = _mm_loadl_pi(vBx012, (const __m64*) w11);
+            vCx012 = _mm_loadl_pi(vCx012, (const __m64*) w12);
+            vDx012 = _mm_loadl_pi(vDx012, (const __m64*) w13);
+            vEx012 = _mm_loadl_pi(vEx012, (const __m64*) w14);
 
             const __m128 v01x0_01x1 = _mm_unpacklo_ps(v0x012, v1x012);
             const __m128 v23x0_23x1 = _mm_unpacklo_ps(v2x012, v3x012);

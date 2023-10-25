@@ -15,9 +15,10 @@
 #include <emmintrin.h>
 
 #include <xnnpack/packw.h>
+#include <xnnpack/prefetch.h>
 
 
-void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_x1(
+void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_prfm_x4(
   size_t g,
   size_t nc,
   size_t kc,
@@ -53,6 +54,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_x1(
         packed_w[0] = b[0];
         packed_w[1] = b[1];
         b += 2;
+      } else {
+        packed_w[0] = 0.0f;
+        packed_w[1] = 0.0f;
       }
       packed_w += 2;
 
@@ -68,7 +72,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_x1(
         w0 += 4;
         v1 = _mm_loadu_ps(w1);
         w1 += 4;
-
+        xnn_prefetch_to_l1((const int8_t*) w0 + 128);
+        xnn_prefetch_to_l1((const int8_t*) w1 + 128);
         _mm_storeu_ps(packed_w, v0);
         _mm_storeu_ps(packed_w + 4, v1);
         packed_w += 8;
@@ -134,11 +139,12 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_x1(
         } while (--nb != 0);
         packed_w += (2 - n);
       } else {
+        packed_w[0] = 0.0f;
+        packed_w[1] = 0.0f;
         packed_w += 2;
       }
 
       // NR remainder has less than 2 rows so last row is not loaded
-
 
       // KC main loop multiple of 2x4
       size_t k = kc;
@@ -148,10 +154,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_x1(
         // e f g h
         v0 = _mm_loadu_ps(w0);
         w0 += 4;
-        v1 = _mm_setzero_ps();
-
+        xnn_prefetch_to_l1((const int8_t*) w0 + 128);
         _mm_storeu_ps(packed_w, v0);
-        _mm_storeu_ps(packed_w + 4, v1);
+        _mm_storeu_ps(packed_w + 4, v0);
         packed_w += 8;
       }
 
@@ -185,9 +190,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_x1(
           default:
             XNN_UNREACHABLE;
         }
-        v1 = _mm_setzero_ps();
         _mm_storeu_ps(packed_w, v0);
-        _mm_storeu_ps(packed_w + 4, v1);
+        _mm_storeu_ps(packed_w + 4, v0);
         packed_w += 8;
       }
       packed_w = (float*) ((uintptr_t) packed_w + extra_bytes);

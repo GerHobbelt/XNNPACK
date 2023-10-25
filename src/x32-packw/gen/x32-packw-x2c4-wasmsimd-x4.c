@@ -17,7 +17,7 @@
 #include <xnnpack/packw.h>
 
 
-void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
+void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x4(
   size_t g,
   size_t nc,
   size_t kc,
@@ -49,6 +49,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
         packed_weights[0] = bias[0];
         packed_weights[1] = bias[1];
         bias += 2;
+      } else {
+        packed_weights[0] = 0;
+        packed_weights[1] = 0;
       }
       packed_weights += 2;
 
@@ -138,6 +141,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
         } while (--nb != 0);
         packed_weights += (2 - n);
       } else {
+        packed_weights[0] = 0;
+        packed_weights[1] = 0;
         packed_weights += 2;
       }
 
@@ -152,10 +157,9 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
         // e f g h
         const v128_t v0 = wasm_v128_load(w0);
         w0 += 4;
-        const v128_t v1 = wasm_i32x4_const_splat(0);
 
         wasm_v128_store(packed_weights, v0);
-        wasm_v128_store(packed_weights + 4, v1);
+        wasm_v128_store(packed_weights + 4, v0);
         packed_weights += 8;
       }
 
@@ -170,9 +174,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
             // a
             const v128_t v0 = wasm_v128_load32_zero(w0);
             ++w0;
-            const v128_t v1 = wasm_i32x4_const_splat(0);
             wasm_v128_store(packed_weights, v0);
-            wasm_v128_store(packed_weights + 4, v1);
+            wasm_v128_store(packed_weights + 4, v0);
             packed_weights += 8;
             break;
           }
@@ -182,9 +185,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
             // a b
             const v128_t v0 = wasm_v128_load64_zero(w0);
             w0 += 2;
-            const v128_t v1 = wasm_i32x4_const_splat(0);
             wasm_v128_store(packed_weights, v0);
-            wasm_v128_store(packed_weights + 4, v1);
+            wasm_v128_store(packed_weights + 4, v0);
             packed_weights += 8;
             break;
           }
@@ -195,9 +197,8 @@ void xnn_x32_packw_gemm_goi_ukernel_x2c4__wasmsimd_x1(
             v128_t v0 = wasm_v128_load64_zero(w0);
             v0 = wasm_v128_load32_lane(w0 + 2, v0, 2);
             w0 += 3;
-            const v128_t v1 = wasm_i32x4_const_splat(0);
             wasm_v128_store(packed_weights, v0);
-            wasm_v128_store(packed_weights + 4, v1);
+            wasm_v128_store(packed_weights + 4, v0);
             packed_weights += 8;
             break;
           }

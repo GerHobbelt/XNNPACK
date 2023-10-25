@@ -29,6 +29,7 @@ MICROKERNEL_BENCHMARK_DEPS = [
     ":common",
     ":enable_assembly",
     ":microkernels_h",
+    ":packing",
     ":params",
     ":microparams",
     ":microparams_init",
@@ -90,6 +91,7 @@ OPERATOR_SRCS = [
     "src/operators/convolution-nchw.c",
     "src/operators/convolution-nhwc.c",
     "src/operators/deconvolution-nhwc.c",
+    "src/operators/dynamic-fully-connected-nc.c",
     "src/operators/fully-connected-nc.c",
     "src/operators/global-average-pooling-ncw.c",
     "src/operators/global-average-pooling-nwc.c",
@@ -1137,10 +1139,8 @@ PROD_SSE2_MICROKERNEL_SRCS = [
     "src/x8-zip/x8-zip-x3-sse2.c",
     "src/x8-zip/x8-zip-x4-sse2.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-multi-sse2.c",
-    "src/x32-packw/gen/x32-packw-x2c4-sse2-x1.c",
+    "src/x32-packw/gen/x32-packw-x2c4-sse2-x4.c",
     "src/x32-packw/gen/x32-packw-x8-sse2-x4.c",
-    "src/x32-packw/gen/x32-packw-x16-sse2-x4.c",
-    "src/x32-packw/gen/x32-packw-x16s4-sse2-x4.c",
     "src/x32-unpool/x32-unpool-sse2.c",
     "src/x32-zip/x32-zip-xm-sse2.c",
     "src/x32-zip/x32-zip-x2-sse2.c",
@@ -1294,6 +1294,8 @@ PROD_AVX_MICROKERNEL_SRCS = [
     "src/qu8-vmul/gen/qu8-vmul-minmax-fp32-avx-mul16-ld64-x16.c",
     "src/qu8-vmulc/gen/qu8-vmulc-minmax-fp32-avx-mul16-ld64-x16.c",
     "src/x8-lut/gen/x8-lut-avx-x64.c",
+    "src/x32-packw/gen/x32-packw-x16-avx-x4.c",
+    "src/x32-packw/gen/x32-packw-x16s4-avx-x4.c",
     "src/x32-transposec/gen/x32-transposec-8x8-reuse-multi-avx.c",
 ]
 
@@ -1474,6 +1476,7 @@ PROD_AVX512F_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-avx512f-x16.c",
     "src/f32-vunary/gen/f32-vneg-avx512f-x16.c",
     "src/f32-vunary/gen/f32-vsqr-avx512f-x16.c",
+    "src/x32-packw/gen/x32-packw-x16-avx512f-x4.c",
 ]
 
 PROD_AVX512SKX_MICROKERNEL_SRCS = [
@@ -1600,6 +1603,10 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/f32-dwconv/gen/f32-dwconv-4p4c-wasmsimd.c",
     "src/f32-dwconv/gen/f32-dwconv-4p8c-minmax-wasmsimd-x86.c",
     "src/f32-dwconv/gen/f32-dwconv-4p8c-wasmsimd.c",
+    "src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-minmax-wasmsimd-arm.c",
+    "src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-minmax-wasmsimd-x86.c",
+    "src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-wasmsimd.c",
+    "src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-wasmsimd.c",
     "src/f32-dwconv/gen/f32-dwconv-5f5m5l4c4s4r-minmax-wasmsimd-arm.c",
     "src/f32-dwconv/gen/f32-dwconv-5f5m5l4c4s4r-wasmsimd.c",
     "src/f32-dwconv/gen/f32-dwconv-9p4c-minmax-wasmsimd-arm.c",
@@ -1778,7 +1785,7 @@ PROD_WASMSIMD_MICROKERNEL_SRCS = [
     "src/x8-lut/gen/x8-lut-wasmsimd-x32.c",
     "src/x8-transposec/gen/x8-transposec-16x16-reuse-mov-wasmsimd.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-mov-wasmsimd.c",
-    "src/x32-packw/gen/x32-packw-x2c4-wasmsimd-x1.c",
+    "src/x32-packw/gen/x32-packw-x2c4-wasmsimd-x4.c",
     "src/x32-packw/gen/x32-packw-x8-wasmsimd-x4.c",
     "src/x32-transposec/gen/x32-transposec-4x4-reuse-mov-wasmsimd.c",
     "src/x32-unpool/x32-unpool-wasmsimd.c",
@@ -2288,6 +2295,7 @@ MICROKERNEL_HDRS = [
     "src/xnnpack/igemm.h",
     "src/xnnpack/lut.h",
     "src/xnnpack/maxpool.h",
+    "src/xnnpack/packb.h",
     "src/xnnpack/packw.h",
     "src/xnnpack/packx.h",
     "src/xnnpack/pad.h",
@@ -2315,6 +2323,7 @@ MICROKERNEL_HDRS = [
     "src/xnnpack/vsquareabs.h",
     "src/xnnpack/vunary.h",
     "src/xnnpack/window.h",
+    "src/xnnpack/zerob.h",
     "src/xnnpack/zip.h",
 ]
 
@@ -5703,21 +5712,6 @@ xnnpack_cc_library(
         ":xnn_enable_hmp_explicit_false": ["-DXNN_MAX_UARCH_TYPES=1"],
         "//conditions:default": [],
     }),
-    defines = select({
-        ":xnn_enable_qu8_explicit_true": [],
-        ":xnn_enable_qu8_explicit_false": [
-            "XNN_NO_QU8_OPERATORS",
-            "XNN_NO_U8_OPERATORS",
-        ],
-        "//conditions:default": [],
-    }) + select({
-        ":xnn_enable_qs8_explicit_true": [],
-        ":xnn_enable_qs8_explicit_false": [
-            "XNN_NO_QS8_OPERATORS",
-            "XNN_NO_S8_OPERATORS",
-        ],
-        "//conditions:default": [],
-    }),
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
     visibility = xnnpack_visibility(),
@@ -5757,14 +5751,6 @@ xnnpack_cc_library(
         ":xnn_enable_hmp_explicit_false": ["-DXNN_MAX_UARCH_TYPES=1"],
         "//conditions:default": [],
     }),
-    defines = [
-        "XNN_NO_QS8_OPERATORS",
-        "XNN_NO_QU8_OPERATORS",
-        "XNN_NO_S8_OPERATORS",
-        "XNN_NO_U8_OPERATORS",
-        "XNN_NO_X8_OPERATORS",
-        "XNN_NO_NCHW_OPERATORS",
-    ],
     gcc_copts = xnnpack_gcc_std_copts(),
     msvc_copts = xnnpack_msvc_std_copts(),
     visibility = xnnpack_visibility(),
@@ -5811,7 +5797,6 @@ xnnpack_benchmark(
         ":indirection",
         ":microkernel_utils",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -5833,7 +5818,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":enable_jit",
         ":math",
-        ":packing",
     ] + xnnpack_optional_ruy_deps() + xnnpack_optional_gemmlowp_deps(),
 )
 
@@ -5918,7 +5902,6 @@ xnnpack_benchmark(
     copts = xnnpack_optional_ruy_copts() + xnnpack_optional_gemmlowp_copts(),
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":math",
-        ":packing",
     ] + xnnpack_optional_ruy_deps() + xnnpack_optional_gemmlowp_deps(),
 )
 
@@ -5986,7 +5969,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":math",
-        ":packing",
     ],
 )
 
@@ -5999,7 +5981,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":indirection",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6012,7 +5993,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":indirection",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6024,7 +6004,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":math",
-        ":packing",
     ],
 )
 
@@ -6036,7 +6015,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":math",
-        ":packing",
     ],
 )
 
@@ -6090,7 +6068,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":indirection",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6101,7 +6078,6 @@ xnnpack_benchmark(
         "bench/f32-conv-hwc.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
-        ":packing",
     ],
 )
 
@@ -6112,7 +6088,6 @@ xnnpack_benchmark(
         "bench/f16-conv-hwc2chw.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
-        ":packing",
     ],
 )
 
@@ -6139,7 +6114,6 @@ xnnpack_benchmark(
         "bench/f32-conv-hwc2chw.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
-        ":packing",
     ],
 )
 
@@ -6153,7 +6127,6 @@ xnnpack_benchmark(
         ":indirection",
         ":microkernel_utils",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6167,7 +6140,6 @@ xnnpack_benchmark(
         ":indirection",
         ":microkernel_utils",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6180,7 +6152,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":indirection",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6193,7 +6164,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":indirection",
         ":operators",
-        ":packing",
     ],
 )
 
@@ -6263,7 +6233,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
         ":math",
-        ":packing",
     ] + xnnpack_optional_ruy_deps(),
 )
 
@@ -6277,7 +6246,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
         ":math",
-        ":packing",
     ] + xnnpack_optional_ruy_deps(),
 )
 
@@ -6444,7 +6412,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":im2col",
         ":math",
-        ":packing",
     ],
 )
 
@@ -6553,7 +6520,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
         ":math",
-        ":packing",
     ],
 )
 
@@ -6566,7 +6532,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":allocator",
         ":math",
-        ":packing",
     ],
 )
 
@@ -9505,6 +9470,17 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "x32_packb_test",
+    srcs = [
+        "test/packb-microkernel-tester.h",
+        "test/x32-packb.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":packing",
+    ],
+)
+
+xnnpack_unit_test(
     name = "x16_packw_test",
     srcs = [
         "test/packw-microkernel-tester.h",
@@ -9596,6 +9572,17 @@ xnnpack_unit_test(
         "test/x32-unpool.cc",
     ],
     deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "x32_zerob_test",
+    srcs = [
+        "test/packb-microkernel-tester.h",
+        "test/x32-zerob.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":packing",
+    ],
 )
 
 xnnpack_unit_test(
@@ -9891,6 +9878,15 @@ xnnpack_unit_test(
     srcs = [
         "test/binary-elementwise-operator-tester.h",
         "test/divide-nd-eager.cc",
+    ],
+    deps = OPERATOR_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "dynamic_fully_connected_nc_test",
+    srcs = [
+        "test/dynamic-fully-connected-nc.cc",
+        "test/dynamic-fully-connected-operator-tester.h",
     ],
     deps = OPERATOR_TEST_DEPS,
 )
@@ -11129,11 +11125,13 @@ xnnpack_unit_test(
 xnnpack_unit_test(
     name = "subgraph_fp16_test",
     srcs = [
+        "test/mock-allocator.h",
         "test/subgraph-fp16.cc",
         "test/subgraph-tester.h",
     ],
     deps = [
         ":XNNPACK",
+        ":allocator",
         ":node_type",
         ":subgraph_test_mode",
         "@FP16",

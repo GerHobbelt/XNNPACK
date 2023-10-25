@@ -202,6 +202,7 @@ SET(OPERATOR_SRCS
   src/operators/convolution-nchw.c
   src/operators/convolution-nhwc.c
   src/operators/deconvolution-nhwc.c
+  src/operators/dynamic-fully-connected-nc.c
   src/operators/fully-connected-nc.c
   src/operators/global-average-pooling-ncw.c
   src/operators/global-average-pooling-nwc.c
@@ -1122,6 +1123,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(divide-nd-eager-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME divide-nd-eager-test COMMAND divide-nd-eager-test)
 
+    ADD_EXECUTABLE(dynamic-fully-connected-nc-test test/dynamic-fully-connected-nc.cc)
+    TARGET_INCLUDE_DIRECTORIES(dynamic-fully-connected-nc-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(dynamic-fully-connected-nc-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    ADD_TEST(NAME dynamic-fully-connected-nc-test COMMAND dynamic-fully-connected-nc-test)
+
     ADD_EXECUTABLE(elu-nc-test test/elu-nc.cc)
     TARGET_INCLUDE_DIRECTORIES(elu-nc-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(elu-nc-test PRIVATE XNNPACK fp16 gtest gtest_main)
@@ -1360,7 +1366,7 @@ IF(XNNPACK_BUILD_TESTS)
 
     ADD_EXECUTABLE(subgraph-fp16-test test/subgraph-fp16.cc)
     TARGET_INCLUDE_DIRECTORIES(subgraph-fp16-test PRIVATE src test)
-    TARGET_LINK_LIBRARIES(subgraph-fp16-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    TARGET_LINK_LIBRARIES(subgraph-fp16-test PRIVATE XNNPACK fp16 gmock gtest gtest_main)
     ADD_TEST(NAME subgraph-fp16-test COMMAND subgraph-fp16-test)
 
     ADD_EXECUTABLE(subgraph-test test/subgraph.cc)
@@ -2906,6 +2912,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(x24-transpose-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME x24-transpose-test COMMAND x24-transpose-test)
 
+  ADD_EXECUTABLE(x32-packb-test test/x32-packb.cc)
+  TARGET_INCLUDE_DIRECTORIES(x32-packb-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(x32-packb-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(x32-packb-test PRIVATE hardware-config logging microkernels-all packing)
+  ADD_TEST(NAME x32-packb-test COMMAND x32-packb-test)
+
   ADD_EXECUTABLE(x16-packw-test test/x16-packw.cc)
   TARGET_INCLUDE_DIRECTORIES(x16-packw-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(x16-packw-test PRIVATE pthreadpool gtest gtest_main)
@@ -2935,6 +2947,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(x32-transpose-test PRIVATE pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(x32-transpose-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME x32-transpose-test COMMAND x32-transpose-test)
+
+  ADD_EXECUTABLE(x32-zerob-test test/x32-zerob.cc)
+  TARGET_INCLUDE_DIRECTORIES(x32-zerob-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(x32-zerob-test PRIVATE pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(x32-zerob-test PRIVATE hardware-config logging microkernels-all packing)
+  ADD_TEST(NAME x32-zerob-test COMMAND x32-zerob-test)
 
   ADD_EXECUTABLE(x32-zip-test test/x32-zip.cc)
   TARGET_INCLUDE_DIRECTORIES(x32-zip-test PRIVATE include src test)

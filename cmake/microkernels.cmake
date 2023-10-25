@@ -532,9 +532,13 @@ SET(ALL_AVX_MICROKERNEL_SRCS
   src/x8-lut/gen/x8-lut-avx-x32.c
   src/x8-lut/gen/x8-lut-avx-x48.c
   src/x8-lut/gen/x8-lut-avx-x64.c
+  src/x32-packw/gen/x32-packw-x8-avx-prfm-x4.c
   src/x32-packw/gen/x32-packw-x8-avx-x4.c
+  src/x32-packw/gen/x32-packw-x8s4-avx-prfm-x4.c
   src/x32-packw/gen/x32-packw-x8s4-avx-x4.c
+  src/x32-packw/gen/x32-packw-x16-avx-prfm-x4.c
   src/x32-packw/gen/x32-packw-x16-avx-x4.c
+  src/x32-packw/gen/x32-packw-x16s4-avx-prfm-x4.c
   src/x32-packw/gen/x32-packw-x16s4-avx-x4.c
   src/x32-transposec/gen/x32-transposec-8x8-multi-mov-avx.c
   src/x32-transposec/gen/x32-transposec-8x8-multi-switch-avx.c
@@ -1088,9 +1092,7 @@ SET(ALL_AVX2_MICROKERNEL_SRCS
   src/x8-transposec/gen/x8-transposec-32x32-reuse-mov-avx2.c
   src/x8-transposec/gen/x8-transposec-32x32-reuse-switch-avx2.c
   src/x16-transposec/gen/x16-transposec-16x16-reuse-mov-avx2.c
-  src/x16-transposec/gen/x16-transposec-16x16-reuse-switch-avx2.c
-  src/x32-packw/gen/x32-packw-x8-avx2-x4.c
-  src/x32-packw/gen/x32-packw-x16-avx2-x4.c)
+  src/x16-transposec/gen/x16-transposec-16x16-reuse-switch-avx2.c)
 
 SET(ALL_AVX512F_MICROKERNEL_SRCS
   src/f32-dwconv/gen/f32-dwconv-3p16c-minmax-avx512f-acc2.c
@@ -1356,6 +1358,7 @@ SET(ALL_AVX512F_MICROKERNEL_SRCS
   src/math/f32-sqrt-avx512f-nr1fma1adj.c
   src/math/f32-sqrt-avx512f-nr1fma.c
   src/math/f32-sqrt-avx512f-nr2fma.c
+  src/x32-packw/gen/x32-packw-x16-avx512f-prfm-x4.c
   src/x32-packw/gen/x32-packw-x16-avx512f-x4.c)
 
 SET(ALL_AVX512SKX_MICROKERNEL_SRCS
@@ -4480,6 +4483,8 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/f32-dwconv/gen/f32-dwconv-2f2m2l4c1s1r-minmax-scalar.c
   src/f32-dwconv/gen/f32-dwconv-2f2m2l4c1s1r-scalar-acc2.c
   src/f32-dwconv/gen/f32-dwconv-2f2m2l4c1s1r-scalar.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l1c1s1r-scalar-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l1c1s1r-scalar.c
   src/f32-dwconv/gen/f32-dwconv-3p1c-minmax-scalar-acc2.c
   src/f32-dwconv/gen/f32-dwconv-3p1c-minmax-scalar.c
   src/f32-dwconv/gen/f32-dwconv-3p1c-scalar-acc2.c
@@ -5440,12 +5445,22 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/x24-transposec/gen/x24-transposec-4x1-scalar.c
   src/x24-transposec/gen/x24-transposec-4x2-scalar.c
   src/x24-transposec/gen/x24-transposec-4x4-scalar.c
+  src/x32-packb/gen/x32-packb-2c1s1r-scalar-float.c
+  src/x32-packb/gen/x32-packb-2c1s1r-scalar-int.c
+  src/x32-packb/gen/x32-packb-2c2s1r-scalar-float.c
+  src/x32-packb/gen/x32-packb-2c2s1r-scalar-int.c
+  src/x32-packb/gen/x32-packb-4c1s1r-scalar-float.c
+  src/x32-packb/gen/x32-packb-4c1s1r-scalar-int.c
+  src/x32-packb/gen/x32-packb-4c4s1r-scalar-float.c
+  src/x32-packb/gen/x32-packb-4c4s1r-scalar-int.c
   src/x32-packw/gen/x32-packw-x2-scalar-float-x4.c
   src/x32-packw/gen/x32-packw-x2-scalar-int-x4.c
   src/x32-packw/gen/x32-packw-x4-scalar-float-x4.c
   src/x32-packw/gen/x32-packw-x4-scalar-int-x4.c
   src/x32-packw/gen/x32-packw-x8-scalar-float-x4.c
   src/x32-packw/gen/x32-packw-x8-scalar-int-x4.c
+  src/x32-packw/gen/x32-packw-x16-scalar-float-x4.c
+  src/x32-packw/gen/x32-packw-x16-scalar-int-x4.c
   src/x32-packx/x32-packx-x2-scalar.c
   src/x32-packx/x32-packx-x3-scalar.c
   src/x32-packx/x32-packx-x4-scalar.c
@@ -5466,6 +5481,14 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/x32-transposec/gen/x32-transposec-4x4-scalar-float.c
   src/x32-transposec/gen/x32-transposec-4x4-scalar-int.c
   src/x32-unpool/x32-unpool-scalar.c
+  src/x32-zerob/gen/x32-zerob-2c1s1r-scalar-float.c
+  src/x32-zerob/gen/x32-zerob-2c1s1r-scalar-int.c
+  src/x32-zerob/gen/x32-zerob-2c2s1r-scalar-float.c
+  src/x32-zerob/gen/x32-zerob-2c2s1r-scalar-int.c
+  src/x32-zerob/gen/x32-zerob-4c1s1r-scalar-float.c
+  src/x32-zerob/gen/x32-zerob-4c1s1r-scalar-int.c
+  src/x32-zerob/gen/x32-zerob-4c4s1r-scalar-float.c
+  src/x32-zerob/gen/x32-zerob-4c4s1r-scalar-int.c
   src/x32-zip/x32-zip-x2-scalar.c
   src/x32-zip/x32-zip-x3-scalar.c
   src/x32-zip/x32-zip-x4-scalar.c
@@ -6087,11 +6110,24 @@ SET(ALL_SSE2_MICROKERNEL_SRCS
   src/x16-transposec/gen/x16-transposec-8x8-reuse-multi-sse2.c
   src/x16-transposec/gen/x16-transposec-8x8-reuse-switch-sse2.c
   src/x16-transposec/x16-transposec-4x8-sse2.c
-  src/x32-packw/gen/x32-packw-x2c4-sse2-x1.c
+  src/x32-packw/gen/x32-packw-x2c4-sse2-prfm-x4.c
+  src/x32-packw/gen/x32-packw-x2c4-sse2-x4.c
+  src/x32-packw/gen/x32-packw-x8-sse2-prfm-x4.c
+  src/x32-packw/gen/x32-packw-x8-sse2-prfm-x8.c
   src/x32-packw/gen/x32-packw-x8-sse2-x4.c
+  src/x32-packw/gen/x32-packw-x8-sse2-x8.c
+  src/x32-packw/gen/x32-packw-x8s4-sse2-prfm-x4.c
+  src/x32-packw/gen/x32-packw-x8s4-sse2-prfm-x8.c
   src/x32-packw/gen/x32-packw-x8s4-sse2-x4.c
+  src/x32-packw/gen/x32-packw-x8s4-sse2-x8.c
+  src/x32-packw/gen/x32-packw-x16-sse2-prfm-x4.c
+  src/x32-packw/gen/x32-packw-x16-sse2-prfm-x8.c
   src/x32-packw/gen/x32-packw-x16-sse2-x4.c
+  src/x32-packw/gen/x32-packw-x16-sse2-x8.c
+  src/x32-packw/gen/x32-packw-x16s4-sse2-prfm-x4.c
+  src/x32-packw/gen/x32-packw-x16s4-sse2-prfm-x8.c
   src/x32-packw/gen/x32-packw-x16s4-sse2-x4.c
+  src/x32-packw/gen/x32-packw-x16s4-sse2-x8.c
   src/x32-transposec/gen/x32-transposec-4x4-multi-mov-sse2.c
   src/x32-transposec/gen/x32-transposec-4x4-multi-multi-sse2.c
   src/x32-transposec/gen/x32-transposec-4x4-multi-switch-sse2.c
@@ -6549,6 +6585,8 @@ SET(ALL_SSSE3_MICROKERNEL_SRCS
 SET(ALL_WASM_MICROKERNEL_SRCS
   src/f32-avgpool/f32-avgpool-9p8x-minmax-wasm-c1.c
   src/f32-avgpool/f32-avgpool-9x-minmax-wasm-c1.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l1c1s1r-minmax-wasm-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l1c1s1r-minmax-wasm.c
   src/f32-dwconv/gen/f32-dwconv-3p1c-minmax-wasm-acc2.c
   src/f32-dwconv/gen/f32-dwconv-3p1c-minmax-wasm.c
   src/f32-dwconv/gen/f32-dwconv-3p2c-minmax-wasm-acc2.c
@@ -7355,6 +7393,18 @@ SET(ALL_WASMSIMD_MICROKERNEL_SRCS
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-wasmsimd-x86-splat-2x4.c
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-wasmsimd-x86-splat-3x4-acc2.c
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-wasmsimd-x86-splat-3x4.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-minmax-wasmsimd-arm-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-minmax-wasmsimd-arm.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-minmax-wasmsimd-x86-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-minmax-wasmsimd-x86.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-wasmsimd-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l4c4s4r-wasmsimd.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-minmax-wasmsimd-arm-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-minmax-wasmsimd-arm.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-minmax-wasmsimd-x86-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-minmax-wasmsimd-x86.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-wasmsimd-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-3f3m3l8c4s4r-wasmsimd.c
   src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-wasmsimd-arm-acc2.c
   src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-wasmsimd-arm.c
   src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-wasmsimd-x86-acc2.c
@@ -8248,7 +8298,7 @@ SET(ALL_WASMSIMD_MICROKERNEL_SRCS
   src/x16-transposec/gen/x16-transposec-8x8-reuse-mov-wasmsimd.c
   src/x16-transposec/gen/x16-transposec-8x8-reuse-multi-wasmsimd.c
   src/x16-transposec/gen/x16-transposec-8x8-reuse-switch-wasmsimd.c
-  src/x32-packw/gen/x32-packw-x2c4-wasmsimd-x1.c
+  src/x32-packw/gen/x32-packw-x2c4-wasmsimd-x4.c
   src/x32-packw/gen/x32-packw-x8-wasmsimd-x4.c
   src/x32-packw/gen/x32-packw-x8s4-wasmsimd-x1.c
   src/x32-packx/x32-packx-x4-wasmsimd.c

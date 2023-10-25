@@ -54,6 +54,7 @@ struct xnn_hardware_config {
   bool is_x86;
 #endif  // XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 #if XNN_ARCH_WASMRELAXEDSIMD
+  bool use_wasm_blendvps;
   bool use_wasm_pshufb;
   bool use_wasm_sdot;
 #endif  // XNN_ARCH_WASMRELAXEDSIMD
@@ -72,6 +73,14 @@ static inline bool xnn_is_f16_compatible_config(const struct xnn_hardware_config
 }
 
 static inline bool xnn_is_f16_chw_compatible_config(const struct xnn_hardware_config hardware_config[XNN_MIN_ELEMENTS(1)]) {
+  #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || (XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR)
+    return hardware_config->use_arm_neon_fp16_arith;
+  #else
+    return false;
+  #endif
+}
+
+static inline bool xnn_is_f16_supported_natively(const struct xnn_hardware_config hardware_config[XNN_MIN_ELEMENTS(1)]) {
   #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || (XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR)
     return hardware_config->use_arm_neon_fp16_arith;
   #else

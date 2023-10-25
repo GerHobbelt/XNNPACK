@@ -459,8 +459,6 @@ static void init_f32_dwconv_config(void) {
       #endif  // XNN_ENABLE_DWCONV_MULTIPASS
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
-    assert(hardware_config != NULL);
     #if XNN_ARCH_WASMRELAXEDSIMD
       f32_dwconv_config[0].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_3p8c__wasmrelaxedsimd_fma;
       f32_dwconv_config[0].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_3p8c__wasmrelaxedsimd_fma;
@@ -486,6 +484,8 @@ static void init_f32_dwconv_config(void) {
       f32_dwconv_config[2].channel_round = 1;
       f32_dwconv_config[2].primary_tile = 9;
     #else
+      const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+      assert(hardware_config != NULL);
       if (hardware_config->is_x86) {
         f32_dwconv_config[0].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_3p8c__wasmsimd_x86;
         f32_dwconv_config[0].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_3p8c__wasmsimd;
@@ -503,13 +503,25 @@ static void init_f32_dwconv_config(void) {
         f32_dwconv_config[1].channel_round = 1;
         f32_dwconv_config[1].primary_tile = 4;
 
-        f32_dwconv_config[2].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_9p8c__wasmsimd_x86;
-        f32_dwconv_config[2].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_9p8c__wasmsimd;
-        f32_dwconv_config[2].init.f32 = xnn_init_f32_minmax_wasmsimd_params;
-        f32_dwconv_config[2].channel_tile = 8;
-        f32_dwconv_config[2].channel_subtile = 8;
-        f32_dwconv_config[2].channel_round = 1;
-        f32_dwconv_config[2].primary_tile = 9;
+        #if XNN_ENABLE_DWCONV_MULTIPASS
+          f32_dwconv_config[2].minmax.multipass = (xnn_dwconv_multipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_3f3m3l8c4s4r__wasmsimd_x86;
+          f32_dwconv_config[2].linear.multipass = (xnn_dwconv_multipass_ukernel_fn) xnn_f32_dwconv_ukernel_3f3m3l8c4s4r__wasmsimd;
+          f32_dwconv_config[2].init.f32 = xnn_init_f32_minmax_wasmsimd_params;
+          f32_dwconv_config[2].channel_tile = 4;
+          f32_dwconv_config[2].channel_subtile = 4;
+          f32_dwconv_config[2].channel_round = 4;
+          f32_dwconv_config[2].primary_tile = 3;
+          f32_dwconv_config[2].middle_tile = 3;
+          f32_dwconv_config[2].last_tile = 3;
+        #else
+          f32_dwconv_config[2].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_9p8c__wasmsimd_x86;
+          f32_dwconv_config[2].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_9p8c__wasmsimd;
+          f32_dwconv_config[2].init.f32 = xnn_init_f32_minmax_wasmsimd_params;
+          f32_dwconv_config[2].channel_tile = 8;
+          f32_dwconv_config[2].channel_subtile = 8;
+          f32_dwconv_config[2].channel_round = 1;
+          f32_dwconv_config[2].primary_tile = 9;
+        #endif  // XNN_ENABLE_DWCONV_MULTIPASS
       } else {
         f32_dwconv_config[0].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_3p4c__wasmsimd_arm;
         f32_dwconv_config[0].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_3p4c__wasmsimd;
@@ -527,13 +539,25 @@ static void init_f32_dwconv_config(void) {
         f32_dwconv_config[1].channel_round = 1;
         f32_dwconv_config[1].primary_tile = 4;
 
-        f32_dwconv_config[2].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_9p4c__wasmsimd_arm;
-        f32_dwconv_config[2].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_9p4c__wasmsimd;
-        f32_dwconv_config[2].init.f32 = xnn_init_f32_minmax_wasmsimd_params;
-        f32_dwconv_config[2].channel_tile = 4;
-        f32_dwconv_config[2].channel_subtile = 4;
-        f32_dwconv_config[2].channel_round = 1;
-        f32_dwconv_config[2].primary_tile = 9;
+        #if XNN_ENABLE_DWCONV_MULTIPASS
+          f32_dwconv_config[2].minmax.multipass = (xnn_dwconv_multipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_3f3m3l4c4s4r__wasmsimd_arm;
+          f32_dwconv_config[2].linear.multipass = (xnn_dwconv_multipass_ukernel_fn) xnn_f32_dwconv_ukernel_3f3m3l4c4s4r__wasmsimd;
+          f32_dwconv_config[2].init.f32 = xnn_init_f32_minmax_wasmsimd_params;
+          f32_dwconv_config[2].channel_tile = 4;
+          f32_dwconv_config[2].channel_subtile = 4;
+          f32_dwconv_config[2].channel_round = 4;
+          f32_dwconv_config[2].primary_tile = 3;
+          f32_dwconv_config[2].middle_tile = 3;
+          f32_dwconv_config[2].last_tile = 3;
+        #else
+          f32_dwconv_config[2].minmax.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_minmax_ukernel_9p4c__wasmsimd_arm;
+          f32_dwconv_config[2].linear.unipass = (xnn_dwconv_unipass_ukernel_fn) xnn_f32_dwconv_ukernel_9p4c__wasmsimd;
+          f32_dwconv_config[2].init.f32 = xnn_init_f32_minmax_wasmsimd_params;
+          f32_dwconv_config[2].channel_tile = 4;
+          f32_dwconv_config[2].channel_subtile = 4;
+          f32_dwconv_config[2].channel_round = 1;
+          f32_dwconv_config[2].primary_tile = 9;
+        #endif  // XNN_ENABLE_DWCONV_MULTIPASS
       }
     #endif
 

@@ -5581,6 +5581,19 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
+    name = "qd8_f32_qc4w_gemm_bench",
+    srcs = [
+        "bench/gemm.h",
+        "bench/qd8-f32-qc4w-gemm.cc",
+    ],
+    copts = xnnpack_optional_ruy_copts(),
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":allocator",
+        ":math",
+    ] + xnnpack_optional_ruy_deps(),
+)
+
+xnnpack_benchmark(
     name = "qs8_dwconv_bench",
     srcs = [
         "bench/dwconv.h",
@@ -8940,6 +8953,18 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "qd8_f32_qc4w_gemm_minmax_test",
+    timeout = "moderate",
+    srcs = [
+        "test/qd8-f32-qc4w-gemm-minmax.cc",
+    ],
+    shard_count = 10,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
     name = "qs8_qc8w_dwconv_minmax_multipass_fp32_test",
     timeout = "moderate",
     srcs = [
@@ -9166,6 +9191,7 @@ xnnpack_unit_test(
         "test/qs8-igemm-minmax-rndnu.cc",
         "test/qs8-igemm-minmax-rndnu-2.cc",
         "test/qs8-igemm-minmax-rndnu-3.cc",
+        "test/qs8-igemm-minmax-rndnu-4.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -9895,7 +9921,9 @@ xnnpack_unit_test(
         "test/argmax-pooling-nhwc.cc",
         "test/argmax-pooling-operator-tester.h",
     ],
-    deps = OPERATOR_TEST_DEPS,
+    deps = OPERATOR_TEST_DEPS + [
+        ":aligned_allocator",
+    ],
 )
 
 xnnpack_unit_test(
@@ -10702,6 +10730,8 @@ xnnpack_unit_test(
     ],
     deps = [
         ":XNNPACK_test_mode",
+        ":aligned_allocator",
+        ":common",
         ":node_type",
         ":operators_test_mode",
         ":subgraph_test_mode",

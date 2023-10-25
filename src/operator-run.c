@@ -823,8 +823,28 @@ void xnn_compute_dwconv_multipass(
   const size_t input_offset = context->input_offset + batch_index * context->input_batch_stride;
   void* output = (void*) ((uintptr_t) context->output +
     batch_index * context->output_batch_stride + output_y * context->output_height_stride);
+  void* multipass_buffer =
+      (void*) ((uintptr_t) context->multipass_buffer + (batch_index * context->output_height + output_y) *
+               context->buffer_size);
 
-  void* multipass_buffer = XNN_SIMD_ALLOCA(context->buffer_size);
+  context->multipass_ukernel(
+    context->groups, context->output_width, indirect_input, context->packed_weights, output,
+    context->indirect_input_width_stride, context->output_increment, input_offset, context->zero, context->kernel_size,
+    multipass_buffer, &context->params);
+}
+
+void xnn_compute_dwconv_multipass_with_thread(
+    const struct dwconv_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t thread_index,
+    size_t batch_index,
+    size_t output_y)
+{
+  const void** indirect_input =
+    (const void**) ((uintptr_t) context->indirect_input + output_y * context->indirect_input_height_stride);
+  const size_t input_offset = context->input_offset + batch_index * context->input_batch_stride;
+  void* output = (void*) ((uintptr_t) context->output +
+    batch_index * context->output_batch_stride + output_y * context->output_height_stride);
+  void* multipass_buffer = (void*) ((uintptr_t) context->multipass_buffer + thread_index * context->buffer_size);
 
   context->multipass_ukernel(
     context->groups, context->output_width, indirect_input, context->packed_weights, output,
@@ -880,8 +900,35 @@ void xnn_compute_argmax_pooling_multipass(
   uint32_t* index = (uint32_t*) ((uintptr_t) context->index +
     batch_index * context->index_batch_stride + output_y * context->index_height_stride);
 
-  void* multipass_accumulation_buffer = XNN_SIMD_ALLOCA(context->accumulation_buffer_size);
-  void* multipass_index_buffer = XNN_SIMD_ALLOCA(context->index_buffer_size);
+  void* multipass_accumulation_buffer =
+    (void*) ((uintptr_t) context->multipass_buffer + (batch_index * context->output_height + output_y) *
+      context->accumulation_and_index_buffer_size);
+  void* multipass_index_buffer =
+    (void*) ((uintptr_t) multipass_accumulation_buffer + context->accumulation_buffer_size);
+
+  context->multipass_ukernel(
+    context->output_width, context->pooling_size, context->channels,
+    indirect_input, input_offset, multipass_accumulation_buffer, multipass_index_buffer, output, index,
+    context->input_increment, context->output_increment);
+}
+
+void xnn_compute_argmax_pooling_multipass_with_thread(
+    const struct argmax_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t thread_index,
+    size_t batch_index,
+    size_t output_y)
+{
+  const void** indirect_input = (const void**) ((uintptr_t) context->indirect_input +
+    output_y * context->indirect_input_height_stride);
+  const size_t input_offset = context->input_offset + batch_index * context->input_batch_stride;
+  void* output = (void*) ((uintptr_t) context->output +
+    batch_index * context->output_batch_stride + output_y * context->output_height_stride);
+  uint32_t* index = (uint32_t*) ((uintptr_t) context->index +
+    batch_index * context->index_batch_stride + output_y * context->index_height_stride);
+
+  void* multipass_accumulation_buffer = (void*) (
+    (uintptr_t) context->multipass_buffer + thread_index * context->accumulation_and_index_buffer_size);
+  void* multipass_index_buffer = (void*) ((uintptr_t) multipass_accumulation_buffer + context->accumulation_buffer_size);
 
   context->multipass_ukernel(
     context->output_width, context->pooling_size, context->channels,
@@ -955,12 +1002,35 @@ void xnn_compute_average_pooling_multipass(
   const size_t input_offset = context->input_offset + batch_index * context->input_batch_stride;
   void* output = (void*) ((uintptr_t) context->output +
     batch_index * context->output_batch_stride + output_y * context->output_height_stride);
-
-  void* multipass_buffer = XNN_SIMD_ALLOCA(context->buffer_size);
+  void* multipass_buffer = (void*) ((uintptr_t) context->multipass_buffer +
+    (batch_index * context->multipass_batch_stride) + output_y * context->multipass_pixel_stride);
 
   context->multipass_ukernel(
     context->output_width, context->pooling_size, context->channels,
-    indirect_input, input_offset, context->zero, multipass_buffer, output,
+    indirect_input, input_offset, context->zero,
+    multipass_buffer,
+    output,
+    context->input_increment, context->output_increment,
+    &context->params);
+}
+
+void xnn_compute_average_pooling_multipass_with_thread(
+    const struct average_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t thread_index,
+    size_t batch_index,
+    size_t output_y)
+{
+  const void** indirect_input =
+    (const void**) ((uintptr_t) context->indirect_input + output_y * context->indirect_input_height_stride);
+  const size_t input_offset = context->input_offset + batch_index * context->input_batch_stride;
+  void* output = (void*) ((uintptr_t) context->output +
+    batch_index * context->output_batch_stride + output_y * context->output_height_stride);
+
+  context->multipass_ukernel(
+    context->output_width, context->pooling_size, context->channels,
+    indirect_input, input_offset, context->zero,
+    (void*) ((uintptr_t) context->multipass_buffer + thread_index * context->multipass_pixel_stride),
+    output,
     context->input_increment, context->output_increment,
     &context->params);
 }
@@ -997,12 +1067,37 @@ void xnn_compute_pixelwise_average_pooling_multipass(
     (const void*) ((uintptr_t) context->pixelwise_buffer + output_y * context->pixelwise_buffer_height_stride);
   void* output = (void*) ((uintptr_t) context->output +
     batch_index * context->output_batch_stride + output_y * context->output_height_stride);
-
-  void* multipass_buffer = XNN_SIMD_ALLOCA(context->buffer_size);
+  void* multipass_buffer = (void*) ((uintptr_t) context->multipass_buffer +
+    batch_index * context->multipass_batch_stride + output_y * context->multipass_pixel_stride);
 
   context->multipass_ukernel(
     context->output_width, context->pooling_size, context->channels,
-    indirect_input, input_offset, context->zero, pixelwise_buffer, multipass_buffer, output,
+    indirect_input, input_offset, context->zero, pixelwise_buffer,
+    multipass_buffer,
+    output,
+    context->input_increment, context->output_increment,
+    &context->params);
+}
+
+void xnn_compute_pixelwise_average_pooling_multipass_with_thread(
+    const struct pixelwise_average_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t thread_index,
+    size_t batch_index,
+    size_t output_y)
+{
+  const void** indirect_input =
+    (const void**) ((uintptr_t) context->indirect_input + output_y * context->indirect_input_height_stride);
+  const size_t input_offset = context->input_offset + batch_index * context->input_batch_stride;
+  const void* pixelwise_buffer =
+    (const void*) ((uintptr_t) context->pixelwise_buffer + output_y * context->pixelwise_buffer_height_stride);
+  void* output = (void*) ((uintptr_t) context->output +
+    batch_index * context->output_batch_stride + output_y * context->output_height_stride);
+
+  context->multipass_ukernel(
+    context->output_width, context->pooling_size, context->channels,
+    indirect_input, input_offset, context->zero, pixelwise_buffer,
+    (void*) ((uintptr_t) context->multipass_buffer + thread_index * context->multipass_pixel_stride),
+    output,
     context->input_increment, context->output_increment,
     &context->params);
 }
@@ -1026,15 +1121,16 @@ void xnn_compute_global_average_pooling_nwc_unipass(
     &context->params);
 }
 
-void xnn_compute_global_average_pooling_nwc_multipass_with_thread(
+void xnn_compute_global_average_pooling_nwc_multipass(
     const struct global_average_pooling_nwc_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t thread_index,
     size_t batch_index)
 {
   const void* input =
     (const void*) ((uintptr_t) context->input + batch_index * context->input_batch_stride);
   void* output =
     (void*) ((uintptr_t) context->output + batch_index * context->output_batch_stride);
+  void* multipass_buffer =
+    (void*) ((uintptr_t) context->multipass_buffer + batch_index * context->multipass_batch_stride);
 
   assert(context->multipass_buffer != NULL);
 
@@ -1044,7 +1140,32 @@ void xnn_compute_global_average_pooling_nwc_multipass_with_thread(
     input,
     context->input_pixel_stride,
     context->zero,
-    (void*) ((uintptr_t) context->multipass_buffer + thread_index * context->buffer_size),
+    multipass_buffer,
+    output,
+    &context->params);
+}
+
+void xnn_compute_global_average_pooling_nwc_multipass_with_thread(
+    const struct global_average_pooling_nwc_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t thread_index,
+    size_t batch_index)
+{
+  const void* input =
+    (const void*) ((uintptr_t) context->input + batch_index * context->input_batch_stride);
+  void* output =
+    (void*) ((uintptr_t) context->output + batch_index * context->output_batch_stride);
+  void* multipass_buffer =
+    (void*) ((uintptr_t) context->multipass_buffer + thread_index * context->multipass_batch_stride);
+
+  assert(context->multipass_buffer != NULL);
+
+  context->multipass_ukernel(
+    context->input_elements,
+    context->channels,
+    input,
+    context->input_pixel_stride,
+    context->zero,
+    multipass_buffer,
     output,
     &context->params);
 }
@@ -2364,6 +2485,16 @@ enum xnn_status xnn_run_operator_with_index(
         pthreadpool_parallelize_2d(
             threadpool,
             op->compute[i].task_2d,
+            (void*) ((uintptr_t) &op->context + op->compute[i].context_offset),
+            op->compute[i].range[0], op->compute[i].range[1],
+            flags);
+        break;
+      case xnn_parallelization_type_2d_with_thread:
+        assert(op->compute[i].range[0] != 0);
+        assert(op->compute[i].range[1] != 0);
+        pthreadpool_parallelize_2d_with_thread(
+            threadpool,
+            op->compute[i].task_2d_with_thread,
             (void*) ((uintptr_t) &op->context + op->compute[i].context_offset),
             op->compute[i].range[0], op->compute[i].range[1],
             flags);

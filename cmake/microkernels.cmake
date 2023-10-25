@@ -2546,10 +2546,10 @@ SET(ALL_NEON_MICROKERNEL_SRCS
   src/f32-vunary/gen/f32-vneg-neon-u8.c
   src/f32-vunary/gen/f32-vsqr-neon-u4.c
   src/f32-vunary/gen/f32-vsqr-neon-u8.c
-  src/i16-vlshift/gen/i16-vlshift-neon-x8.c
-  src/i16-vlshift/gen/i16-vlshift-neon-x16.c
-  src/i16-vlshift/gen/i16-vlshift-neon-x24.c
-  src/i16-vlshift/gen/i16-vlshift-neon-x32.c
+  src/i16-vlshift/gen/i16-vlshift-neon-u8.c
+  src/i16-vlshift/gen/i16-vlshift-neon-u16.c
+  src/i16-vlshift/gen/i16-vlshift-neon-u24.c
+  src/i16-vlshift/gen/i16-vlshift-neon-u32.c
   src/math/f16-f32-cvt-neon-int16.c
   src/math/f16-f32-cvt-neon-int32.c
   src/math/f32-expm1minus-neon-rr2-lut16-p3.c
@@ -3421,18 +3421,18 @@ SET(ALL_NEON_MICROKERNEL_SRCS
   src/s16-rmaxabs/gen/s16-rmaxabs-neon-x16.c
   src/s16-rmaxabs/gen/s16-rmaxabs-neon-x24.c
   src/s16-rmaxabs/gen/s16-rmaxabs-neon-x32.c
-  src/s16-window/gen/s16-window-neon-x8.c
-  src/s16-window/gen/s16-window-neon-x16.c
-  src/s16-window/gen/s16-window-neon-x24.c
-  src/s16-window/gen/s16-window-neon-x32.c
-  src/s16-window/gen/s16-window-shift12-neon-x8.c
-  src/s16-window/gen/s16-window-shift12-neon-x16.c
-  src/s16-window/gen/s16-window-shift12-neon-x24.c
-  src/s16-window/gen/s16-window-shift12-neon-x32.c
-  src/s16-window/gen/s16-window-shift15-neon-x8.c
-  src/s16-window/gen/s16-window-shift15-neon-x16.c
-  src/s16-window/gen/s16-window-shift15-neon-x24.c
-  src/s16-window/gen/s16-window-shift15-neon-x32.c
+  src/s16-window/gen/s16-window-neon-u8.c
+  src/s16-window/gen/s16-window-neon-u16.c
+  src/s16-window/gen/s16-window-neon-u24.c
+  src/s16-window/gen/s16-window-neon-u32.c
+  src/s16-window/gen/s16-window-shift12-neon-u8.c
+  src/s16-window/gen/s16-window-shift12-neon-u16.c
+  src/s16-window/gen/s16-window-shift12-neon-u24.c
+  src/s16-window/gen/s16-window-shift12-neon-u32.c
+  src/s16-window/gen/s16-window-shift15-neon-u8.c
+  src/s16-window/gen/s16-window-shift15-neon-u16.c
+  src/s16-window/gen/s16-window-shift15-neon-u24.c
+  src/s16-window/gen/s16-window-shift15-neon-u32.c
   src/u8-ibilinear/gen/u8-ibilinear-neon-c8.c
   src/u8-ibilinear/gen/u8-ibilinear-neon-c16.c
   src/u8-maxpool/u8-maxpool-9p8x-minmax-neon-c16.c
@@ -4484,6 +4484,22 @@ SET(ALL_NEONI8MM_MICROKERNEL_SRCS
   src/qs8-gemm/gen/qs8-gemm-8x8c8-minmax-rndnu-neoni8mm.c
   src/qs8-gemm/gen/qs8-gemm-8x16c8-minmax-fp32-neoni8mm.c
   src/qs8-gemm/gen/qs8-gemm-8x16c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-2x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-2x8c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-2x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-2x16c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-4x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-4x8c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-4x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-4x16c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-6x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-6x8c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-6x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-6x16c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-8x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-8x8c8-minmax-rndnu-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-8x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-igemm/gen/qs8-igemm-8x16c8-minmax-rndnu-neoni8mm.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x8c8-minmax-fp32-neoni8mm.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x16c8-minmax-fp32-neoni8mm.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c8-minmax-fp32-neoni8mm.c
@@ -4491,7 +4507,15 @@ SET(ALL_NEONI8MM_MICROKERNEL_SRCS
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-6x8c8-minmax-fp32-neoni8mm.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-6x16c8-minmax-fp32-neoni8mm.c
   src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-8x8c8-minmax-fp32-neoni8mm.c
-  src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-8x16c8-minmax-fp32-neoni8mm.c)
+  src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-8x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-6x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-6x16c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-8x8c8-minmax-fp32-neoni8mm.c
+  src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-8x16c8-minmax-fp32-neoni8mm.c)
 
 SET(ALL_NEONV8_MICROKERNEL_SRCS
   src/f32-qs8-vcvt/gen/f32-qs8-vcvt-neonv8-u8.c
@@ -5251,10 +5275,10 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/f32-vunary/gen/f32-vsqr-scalar-u1.c
   src/f32-vunary/gen/f32-vsqr-scalar-u2.c
   src/f32-vunary/gen/f32-vsqr-scalar-u4.c
-  src/i16-vlshift/gen/i16-vlshift-scalar-x1.c
-  src/i16-vlshift/gen/i16-vlshift-scalar-x2.c
-  src/i16-vlshift/gen/i16-vlshift-scalar-x3.c
-  src/i16-vlshift/gen/i16-vlshift-scalar-x4.c
+  src/i16-vlshift/gen/i16-vlshift-scalar-u1.c
+  src/i16-vlshift/gen/i16-vlshift-scalar-u2.c
+  src/i16-vlshift/gen/i16-vlshift-scalar-u3.c
+  src/i16-vlshift/gen/i16-vlshift-scalar-u4.c
   src/math/f32-expm1minus-scalar-rr2-lut4-p4.c
   src/math/f32-expm1minus-scalar-rr2-lut8-p3.c
   src/math/f32-expm1minus-scalar-rr2-lut8-p4.c
@@ -5369,6 +5393,7 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/math/u64-sqrt-scalar-cvtu32-sqrt-cvtsatu32f64.c
   src/math/u64-sqrt-scalar-cvtu32-sqrt-llrint.c
   src/math/u64-sqrt-scalar-cvtu64-sqrt-llrint.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x1-minmax-scalar.c
   src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x2-minmax-scalar.c
   src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x4-minmax-scalar.c
   src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x8-minmax-scalar.c
@@ -5826,10 +5851,10 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/s16-rmaxabs/gen/s16-rmaxabs-scalar-x2.c
   src/s16-rmaxabs/gen/s16-rmaxabs-scalar-x3.c
   src/s16-rmaxabs/gen/s16-rmaxabs-scalar-x4.c
-  src/s16-window/gen/s16-window-scalar-x1.c
-  src/s16-window/gen/s16-window-scalar-x2.c
-  src/s16-window/gen/s16-window-scalar-x3.c
-  src/s16-window/gen/s16-window-scalar-x4.c
+  src/s16-window/gen/s16-window-scalar-u1.c
+  src/s16-window/gen/s16-window-scalar-u2.c
+  src/s16-window/gen/s16-window-scalar-u3.c
+  src/s16-window/gen/s16-window-scalar-u4.c
   src/u8-ibilinear/gen/u8-ibilinear-scalar-c1.c
   src/u8-ibilinear/gen/u8-ibilinear-scalar-c2.c
   src/u8-ibilinear/gen/u8-ibilinear-scalar-c4.c
@@ -5843,7 +5868,7 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/u32-vlog/gen/u32-vlog-scalar-x2.c
   src/u32-vlog/gen/u32-vlog-scalar-x3.c
   src/u32-vlog/gen/u32-vlog-scalar-x4.c
-  src/u64-u32-vsqrtshift/u64-u32-vsqrtshift-scalar-cvtu32-sqrt-cvtu32f64-x1.c
+  src/u64-u32-vsqrtshift/u64-u32-vsqrtshift-scalar-cvtu32-sqrt-cvtu32f64-u1.c
   src/x8-lut/gen/x8-lut-scalar-u1.c
   src/x8-lut/gen/x8-lut-scalar-u2.c
   src/x8-lut/gen/x8-lut-scalar-u4.c
@@ -7346,6 +7371,13 @@ SET(ALL_WASM_MICROKERNEL_SRCS
   src/f32-vtanh/gen/f32-vtanh-wasm-expm1minus-rr1-p6h5ts-div-u4.c
   src/math/gen/f32-tanh-wasm-expm1minus-rr1-lut8-p4h3ps-div.c
   src/math/gen/f32-tanh-wasm-expm1minus-rr1-p6h5ts-div.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x2-minmax-wasm.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x4-minmax-wasm.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-1x8-minmax-wasm.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-2x2-minmax-wasm.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-2x4-minmax-wasm.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-2x8-minmax-wasm.c
+  src/qd8-f32-qc4w-gemm/gen/qd8-f32-qc4w-gemm-4x4-minmax-wasm.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x2-minmax-wasm.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x4-minmax-wasm.c
   src/qd8-f32-qc8w-gemm/gen/qd8-f32-qc8w-gemm-1x8-minmax-wasm.c
@@ -9798,8 +9830,7 @@ SET(AARCH64_JIT_MICROKERNEL_SRCS
   src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a75.cc
   src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-ld128.cc)
 
-SET(WASM32_JIT_MICROKERNEL_SRCS
-  src/f32-vrelu/f32-vrelu-ukernel-jit-wasm32-shr.cc)
+SET(WASM32_JIT_MICROKERNEL_SRCS)
 
 SET(WASMRELAXEDSIMD32_JIT_MICROKERNEL_SRCS)
 

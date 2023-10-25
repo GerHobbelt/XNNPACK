@@ -1939,10 +1939,13 @@ enum xnn_status xnn_reshape_argmax_pooling2d_nhwc_f32(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_argmax_pooling2d_nhwc_f32(
   xnn_operator_t argmax_pooling_op,
+  void* workspace,
   const float* input,
   float* output,
   uint32_t* index);
@@ -2150,10 +2153,10 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_f32(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
-  size_t* output_height_out,
-  size_t* output_width_out,
   size_t* workspace_size,
   size_t* workspace_alignment,
+  size_t* output_height_out,
+  size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_f32(
@@ -3463,10 +3466,10 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_f16(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
-  size_t* output_height_out,
-  size_t* output_width_out,
   size_t* workspace_size,
   size_t* workspace_alignment,
+  size_t* output_height_out,
+  size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_f16(
@@ -4320,10 +4323,10 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8_qc8w(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
-  size_t* output_height_out,
-  size_t* output_width_out,
   size_t* workspace_size,
   size_t* workspace_alignment,
+  size_t* output_height_out,
+  size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_qs8_qc8w(
@@ -4412,10 +4415,10 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
-  size_t* output_height_out,
-  size_t* output_width_out,
   size_t* workspace_size,
   size_t* workspace_alignment,
+  size_t* output_height_out,
+  size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_qs8(
@@ -4827,10 +4830,10 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qu8(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
-  size_t* output_height_out,
-  size_t* output_width_out,
   size_t* workspace_size,
   size_t* workspace_alignment,
+  size_t* output_height_out,
+  size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_qu8(

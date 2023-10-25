@@ -7,17 +7,16 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <algorithm>
-#include <cfloat>
 #include <cmath>
 #include <functional>
 #include <limits>
 #include <memory>
-#include <ostream>
 #include <random>
 #include <string>
 #include <vector>
 
 #include <xnnpack.h>
+#include <xnnpack/common.h>
 
 #include <benchmark/benchmark.h>
 #include <fp16/fp16.h>
@@ -61,7 +60,7 @@ void xnnpack_convolution_qu8(benchmark::State& state, const char* net) {
   const size_t output_height = (input_height + padding_height - effective_kernel_height) / subsampling + 1;
   const size_t output_width = (input_width + padding_width - effective_kernel_width) / subsampling + 1;
 
-  std::vector<uint8_t> input(batch_size * input_height * input_width * input_pixel_stride);
+  std::vector<uint8_t> input(batch_size * input_height * input_width * input_pixel_stride + XNN_EXTRA_BYTES / sizeof(uint8_t));
   std::generate(input.begin(), input.end(), std::ref(u8rng));
   std::vector<uint8_t> kernel(groups * group_output_channels * kernel_height * kernel_width * group_input_channels);
   std::generate(kernel.begin(), kernel.end(), std::ref(u8rng));
@@ -100,17 +99,33 @@ void xnnpack_convolution_qu8(benchmark::State& state, const char* net) {
     }
   }
 
+  size_t max_workspace_size = 0;
+
   for (size_t i = 0; i < convolution_operators.size(); i++) {
-    size_t workspace_size, workspace_alignment;
+    size_t workspace_size = 0;
+    size_t workspace_alignment = 0;
     status = xnn_reshape_convolution2d_nhwc_qu8(
       convolution_operators[i],
       batch_size, input_height, input_width,
-      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
       &workspace_size, &workspace_alignment,
-      nullptr /* thread pool */);
+      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+      /*threadpool=*/nullptr);
+
+    if (status != xnn_status_success) {
+      state.SkipWithError("failed to reshape QUINT8 Convolution operator");
+      return;
+    }
+
+    max_workspace_size = std::max(max_workspace_size, workspace_size);
+  }
+
+  std::vector<char> workspace(max_workspace_size);
+
+  for (size_t i = 0; i < convolution_operators.size(); i++) {
     status = xnn_setup_convolution2d_nhwc_qu8(
       convolution_operators[i],
-      /*workspace=*/nullptr, input.data(), output.data() + i * output_elements);
+      workspace.data(),
+      input.data(), output.data() + i * output_elements);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to setup QUINT8 Convolution operator");
       return;
@@ -125,7 +140,7 @@ void xnnpack_convolution_qu8(benchmark::State& state, const char* net) {
     state.ResumeTiming();
 
     status = xnn_run_operator(convolution_operators[buffer_index],
-      nullptr /* thread pool */);
+      /*threadpool=*/nullptr);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to run QUINT8 Convolution operator");
       return;
@@ -185,7 +200,7 @@ void xnnpack_convolution_qs8(benchmark::State& state, const char* net) {
   const size_t output_height = (input_height + padding_height - effective_kernel_height) / subsampling + 1;
   const size_t output_width = (input_width + padding_width - effective_kernel_width) / subsampling + 1;
 
-  std::vector<int8_t> input(batch_size * input_height * input_width * input_pixel_stride);
+  std::vector<int8_t> input(batch_size * input_height * input_width * input_pixel_stride + XNN_EXTRA_BYTES / sizeof(int8_t));
   std::generate(input.begin(), input.end(), std::ref(i8rng));
   std::vector<int8_t> kernel(groups * group_output_channels * kernel_height * kernel_width * group_input_channels);
   std::generate(kernel.begin(), kernel.end(), std::ref(i8rng));
@@ -223,17 +238,33 @@ void xnnpack_convolution_qs8(benchmark::State& state, const char* net) {
     }
   }
 
+  size_t max_workspace_size = 0;
+
   for (size_t i = 0; i < convolution_operators.size(); i++) {
-    size_t workspace_size, workspace_alignment;
+    size_t workspace_size = 0;
+    size_t workspace_alignment = 0;
     status = xnn_reshape_convolution2d_nhwc_qs8(
       convolution_operators[i],
       batch_size, input_height, input_width,
-      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
       &workspace_size, &workspace_alignment,
-      nullptr /* thread pool */);
+      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+      /*threadpool=*/nullptr);
+
+    if (status != xnn_status_success) {
+      state.SkipWithError("failed to reshape QINT8 Convolution operator");
+      return;
+    }
+
+    max_workspace_size = std::max(max_workspace_size, workspace_size);
+  }
+
+  std::vector<char> workspace(max_workspace_size);
+
+  for (size_t i = 0; i < convolution_operators.size(); i++) {
     status = xnn_setup_convolution2d_nhwc_qs8(
       convolution_operators[i],
-      /*workspace=*/nullptr, input.data(), output.data() + i * output_elements);
+      workspace.data(),
+      input.data(), output.data() + i * output_elements);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to setup QINT8 Convolution operator");
       return;
@@ -248,7 +279,7 @@ void xnnpack_convolution_qs8(benchmark::State& state, const char* net) {
     state.ResumeTiming();
 
     status = xnn_run_operator(convolution_operators[buffer_index],
-      nullptr /* thread pool */);
+      /*threadpool=*/nullptr);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to run QINT8 Convolution operator");
       return;
@@ -344,17 +375,33 @@ void xnnpack_convolution_f16(benchmark::State& state, const char* net) {
     }
   }
 
+  size_t max_workspace_size = 0;
+
   for (size_t i = 0; i < convolution_operators.size(); i++) {
-    size_t workspace_size, workspace_alignment;
+    size_t workspace_size = 0;
+    size_t workspace_alignment = 0;
     status = xnn_reshape_convolution2d_nhwc_f16(
       convolution_operators[i],
       batch_size, input_height, input_width,
-      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
       &workspace_size, &workspace_alignment,
-      nullptr /* thread pool */);
+      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+      /*threadpool=*/nullptr);
+
+    if (status != xnn_status_success) {
+      state.SkipWithError("failed to reshape FP16 Convolution operator");
+      return;
+    }
+
+    max_workspace_size = std::max(max_workspace_size, workspace_size);
+  }
+
+  std::vector<char> workspace(max_workspace_size);
+
+  for (size_t i = 0; i < convolution_operators.size(); i++) {
     status = xnn_setup_convolution2d_nhwc_f16(
       convolution_operators[i],
-      /*workspace=*/nullptr, input.data(), output.data() + i * output_elements);
+      workspace.data(),
+      input.data(), output.data() + i * output_elements);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to setup FP16 Convolution operator");
       return;
@@ -368,7 +415,7 @@ void xnnpack_convolution_f16(benchmark::State& state, const char* net) {
     buffer_index = (buffer_index + 1) % num_buffers;
     state.ResumeTiming();
 
-    status = xnn_run_operator(convolution_operators[buffer_index], nullptr /* thread pool */);
+    status = xnn_run_operator(convolution_operators[buffer_index], /*threadpool=*/nullptr);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to run FP16 Convolution operator");
       return;
@@ -463,17 +510,33 @@ void xnnpack_convolution_f32(benchmark::State& state, const char* net) {
     }
   }
 
+  size_t max_workspace_size = 0;
+
   for (size_t i = 0; i < convolution_operators.size(); i++) {
-    size_t workspace_size, workspace_alignment;
+    size_t workspace_size = 0;
+    size_t workspace_alignment = 0;
     status = xnn_reshape_convolution2d_nhwc_f32(
       convolution_operators[i],
       batch_size, input_height, input_width,
-      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
       &workspace_size, &workspace_alignment,
-      nullptr /* thread pool */);
+      /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+      /*threadpool=*/nullptr);
+
+    if (status != xnn_status_success) {
+      state.SkipWithError("failed to reshape FP32 Convolution operator");
+      return;
+    }
+
+    max_workspace_size = std::max(max_workspace_size, workspace_size);
+  }
+
+  std::vector<char> workspace(max_workspace_size);
+
+  for (size_t i = 0; i < convolution_operators.size(); i++) {
     status = xnn_setup_convolution2d_nhwc_f32(
       convolution_operators[i],
-      /*workspace=*/nullptr, input.data(), output.data() + i * output_elements);
+      workspace.data(),
+      input.data(), output.data() + i * output_elements);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to setup FP32 Convolution operator");
       return;
@@ -487,7 +550,7 @@ void xnnpack_convolution_f32(benchmark::State& state, const char* net) {
     buffer_index = (buffer_index + 1) % num_buffers;
     state.ResumeTiming();
 
-    status = xnn_run_operator(convolution_operators[buffer_index], nullptr /* thread pool */);
+    status = xnn_run_operator(convolution_operators[buffer_index], /*threadpool=*/nullptr);
     if (status != xnn_status_success) {
       state.SkipWithError("failed to run FP32 Convolution operator");
       return;

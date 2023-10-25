@@ -68,6 +68,7 @@ static void GEMMBenchmark(benchmark::State& state,
 
   std::vector<char, AlignedAllocator<char, 64>> w(w_size * num_buffers);
   std::fill(w.begin(), w.end(), 0);
+
   const xnn_qs8_packing_params packing_params = { 127 };
   if (extended_weights) {
     xnn_pack_qs8_gemm_xw_goi_w(/*groups=*/1, nc, kc, nr, kr, sr,

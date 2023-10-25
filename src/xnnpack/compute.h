@@ -21,6 +21,7 @@ enum xnn_parallelization_type {
   xnn_parallelization_type_1d_with_thread,
   xnn_parallelization_type_1d_tile_1d,
   xnn_parallelization_type_2d,
+  xnn_parallelization_type_2d_with_thread,
   xnn_parallelization_type_2d_tile_1d,
   xnn_parallelization_type_2d_tile_2d,
   xnn_parallelization_type_3d,
@@ -49,6 +50,7 @@ struct compute_parameters {
     pthreadpool_task_1d_with_thread_t task_1d_with_thread;
     pthreadpool_task_1d_tile_1d_t task_1d_tile_1d;
     pthreadpool_task_2d_t task_2d;
+    pthreadpool_task_2d_with_thread_t task_2d_with_thread;
     pthreadpool_task_2d_tile_1d_t task_2d_tile_1d;
     pthreadpool_task_2d_tile_2d_t task_2d_tile_2d;
     pthreadpool_task_3d_t task_3d;
@@ -715,6 +717,7 @@ struct dwconv_context {
   void* output;
   size_t output_batch_stride;
   size_t output_height_stride;
+  size_t output_height;
   size_t output_width;
   size_t groups;
   const void* zero;
@@ -730,6 +733,9 @@ struct dwconv_context {
     xnn_dwconv_multipass_ukernel_fn multipass_ukernel;
   };
   size_t buffer_size;
+  void* multipass_buffer;
+  // Offset into workspace denoting area usable by multipass buffer.
+  size_t multipass_buffer_offset;
 };
 
 #ifndef __cplusplus
@@ -743,6 +749,11 @@ struct dwconv_context {
       size_t output_y);
   XNN_PRIVATE void xnn_compute_dwconv_multipass(
       const struct dwconv_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index,
+      size_t output_y);
+  XNN_PRIVATE void xnn_compute_dwconv_multipass_with_thread(
+      const struct dwconv_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t thread_index,
       size_t batch_index,
       size_t output_y);
 #endif
@@ -833,6 +844,7 @@ struct argmax_pooling_context {
   void* output;
   size_t output_batch_stride;
   size_t output_height_stride;
+  size_t output_height;
   size_t output_width;
   uint32_t* index;
   size_t index_batch_stride;
@@ -845,8 +857,11 @@ struct argmax_pooling_context {
     xnn_argmaxpool_unipass_ukernel_fn unipass_ukernel;
     xnn_argmaxpool_multipass_ukernel_fn multipass_ukernel;
   };
+  // Size of accumulation buffer, in bytes, per thread, only for multipass.
   size_t accumulation_buffer_size;
-  size_t index_buffer_size;
+  // Size of accumulation and index buffer, in bytes, only used for multipass.
+  size_t accumulation_and_index_buffer_size;
+  void* multipass_buffer;
 };
 
 #ifndef __cplusplus
@@ -855,8 +870,16 @@ struct argmax_pooling_context {
       size_t batch_index,
       size_t output_y);
 
+  // Workspace sized based on batch size * output height.
   XNN_PRIVATE void xnn_compute_argmax_pooling_multipass(
       const struct argmax_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index,
+      size_t output_y);
+
+  // Workspace sized based on number of threads.
+  XNN_PRIVATE void xnn_compute_argmax_pooling_multipass_with_thread(
+      const struct argmax_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t thread_index,
       size_t batch_index,
       size_t output_y);
 #endif
@@ -884,7 +907,8 @@ struct average_pooling_context {
     xnn_avgpool_unipass_ukernel_fn unipass_ukernel;
     xnn_avgpool_multipass_ukernel_fn multipass_ukernel;
   };
-  size_t buffer_size;
+  size_t multipass_batch_stride;
+  size_t multipass_pixel_stride;
   void* multipass_buffer;
 };
 
@@ -896,6 +920,12 @@ struct average_pooling_context {
 
   XNN_PRIVATE void xnn_compute_average_pooling_multipass(
       const struct average_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index,
+      size_t output_y);
+
+  XNN_PRIVATE void xnn_compute_average_pooling_multipass_with_thread(
+      const struct average_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t thread_index,
       size_t batch_index,
       size_t output_y);
 #endif
@@ -925,7 +955,8 @@ struct pixelwise_average_pooling_context {
     xnn_pavgpool_unipass_ukernel_fn unipass_ukernel;
     xnn_pavgpool_multipass_ukernel_fn multipass_ukernel;
   };
-  size_t buffer_size;
+  size_t multipass_batch_stride;
+  size_t multipass_pixel_stride;
   void* multipass_buffer;
 };
 
@@ -937,6 +968,12 @@ struct pixelwise_average_pooling_context {
 
   XNN_PRIVATE void xnn_compute_pixelwise_average_pooling_multipass(
       const struct pixelwise_average_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index,
+      size_t output_y);
+
+  XNN_PRIVATE void xnn_compute_pixelwise_average_pooling_multipass_with_thread(
+      const struct pixelwise_average_pooling_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t thread_index,
       size_t batch_index,
       size_t output_y);
 #endif
@@ -960,12 +997,16 @@ struct global_average_pooling_nwc_context {
     xnn_gavgpool_unipass_ukernel_fn unipass_ukernel;
     xnn_gavgpool_multipass_ukernel_fn multipass_ukernel;
   };
-  size_t buffer_size;
+  size_t multipass_batch_stride;
   void* multipass_buffer;
 };
 
 #ifndef __cplusplus
   XNN_PRIVATE void xnn_compute_global_average_pooling_nwc_unipass(
+      const struct global_average_pooling_nwc_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t batch_index);
+
+  XNN_PRIVATE void xnn_compute_global_average_pooling_nwc_multipass(
       const struct global_average_pooling_nwc_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t batch_index);
 

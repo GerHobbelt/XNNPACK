@@ -617,7 +617,7 @@ XNN_INTERNAL void xnn_pack_qs8_dwconv_hwg_w(
 // might exceed the padding that we have.
 
 // Weights layout is channels/(g)roups, (h)eight, (w)idth.
-XNN_INTERNAL void xnn_pack_f32_multipass_dwconv_ghw_w(
+XNN_INTERNAL void xnn_pack_f32_dwconv_multipass_ghw_w(
   size_t first_pass_tile,
   size_t middle_pass_tile,
   size_t last_pass_tile,
@@ -634,7 +634,7 @@ XNN_INTERNAL void xnn_pack_f32_multipass_dwconv_ghw_w(
   const void* params);
 
 // Weights layout is (h)eight, (w)idth, channels/(g)roups.
-XNN_INTERNAL void xnn_pack_f32_multipass_dwconv_hwg_w(
+XNN_INTERNAL void xnn_pack_f32_dwconv_multipass_hwg_w(
   size_t first_pass_tile,
   size_t middle_pass_tile,
   size_t last_pass_tile,
@@ -835,6 +835,53 @@ XNN_INTERNAL void xnn_pack_f32_to_f16_prelu_w(
   size_t c,
   const float* s,
   uint16_t* packed_weights);
+
+// Sparse packing functions.
+XNN_INTERNAL void xnn_analyze_f32_spmm(
+  size_t group_output_channels,
+  size_t group_input_channels,
+  const float* kernel,
+  size_t num_nonzeros[XNN_MIN_ELEMENTS(1)]);
+
+XNN_INTERNAL void xnn_analyze_f16_spmm(
+  size_t group_output_channels,
+  size_t group_input_channels,
+  const uint16_t* kernel,
+  size_t num_nonzeros[XNN_MIN_ELEMENTS(1)]);
+
+XNN_INTERNAL enum xnn_status xnn_pack_f32_spmm(
+  size_t group_output_channels,
+  size_t output_channels_block_size,
+  size_t group_input_channels,
+  const float* kernel,
+  const float* bias,
+  int32_t* input_channel_diffs,
+  uint32_t* output_channel_nonzeros,
+  float* nonzero_values,
+  size_t* first_input_channel);
+
+XNN_INTERNAL enum xnn_status xnn_pack_f32_to_f16_spmm(
+  size_t group_output_channels,
+  size_t output_channels_block_size,
+  size_t group_input_channels,
+  const float* kernel,
+  const float* bias,
+  int32_t* input_channel_diffs,
+  uint32_t* output_channel_nonzeros,
+  uint16_t* nonzero_values,
+  size_t* first_input_channel);
+
+XNN_INTERNAL enum xnn_status xnn_pack_f16_spmm(
+  size_t group_output_channels,
+  size_t output_channels_block_size,
+  size_t group_input_channels,
+  const uint16_t* kernel,
+  const uint16_t* bias,
+  int32_t* input_channel_diffs,
+  uint32_t* output_channel_nonzeros,
+  uint16_t* nonzero_values,
+  size_t* first_input_channel);
+
 
 #ifdef __cplusplus
 }  // extern "C"

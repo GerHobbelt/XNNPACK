@@ -6,7 +6,9 @@
 #include <stdbool.h>
 #include <math.h>  // For INFINITY
 
-#ifdef _WIN32
+#include <xnnpack/common.h>
+
+#if XNN_PLATFORM_WINDOWS
   #include <windows.h>
 
   #ifndef PF_ARM_V82_DP_INSTRUCTIONS_AVAILABLE
@@ -16,11 +18,20 @@
   #include <pthread.h>
 #endif
 
-#ifndef __EMSCRIPTEN__
+#if !XNN_PLATFORM_WEB
   #include <cpuinfo.h>
 #endif
 
-#include <xnnpack/common.h>
+#if XNN_ARCH_RISCV
+  #include <sys/auxv.h>
+
+  #define COMPAT_HWCAP_ISA_V (1 << ('V' - 'A'))
+#endif
+
+#if XNN_ARCH_WASMRELAXEDSIMD
+  #include <wasm_simd128.h>
+#endif
+
 #include <xnnpack/config.h>
 #include <xnnpack/log.h>
 
@@ -84,6 +95,10 @@ static void init_hardware_config(void) {
     hardware_config.use_x86_avx512vbmi = hardware_config.use_x86_avx512skx && cpuinfo_has_x86_avx512vbmi();
   #endif  // !XNN_ARCH_X86 && !XNN_ARCH_X86_64
 
+  #if XNN_ARCH_RISCV
+    hardware_config.use_rvv = (getauxval(AT_HWCAP) & COMPAT_HWCAP_ISA_V) != 0;
+  #endif
+
   #if XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     // Unlike most other architectures, on x86/x86-64 when floating-point instructions
     // have no NaN arguments, but produce NaN output, the output NaN has sign bit set.
@@ -92,6 +107,22 @@ static void init_hardware_config(void) {
     static const volatile float inf = INFINITY;
     hardware_config.is_x86 = signbit(inf - inf);
   #endif  // XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+
+  #if XNN_ARCH_WASMRELAXEDSIMD
+    // Check if out-of-bounds behavior of Relaxed Swizzle is consistent with PSHUFB.
+    const v128_t table = wasm_i8x16_const(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16);
+    const v128_t index_mask = wasm_i8x16_const_splat(INT8_C(0x8F));
+    const volatile v128_t index_increment = wasm_i8x16_const_splat(16);  // volatile to confuse Clang which otherwise mis-compiles
+    v128_t index = wasm_i8x16_const(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15);
+    v128_t diff = wasm_i8x16_const_splat(0);
+    for (uint32_t i = 16; i != 0; i--) {
+      const v128_t pshufb_result = wasm_i8x16_swizzle(table, wasm_v128_and(index, index_mask));
+      const v128_t relaxed_result = __builtin_wasm_relaxed_swizzle_i8x16(table, index);
+      diff = wasm_v128_or(diff, wasm_v128_xor(pshufb_result, relaxed_result));
+      index = wasm_i8x16_add(index, index_increment);
+    }
+    hardware_config.use_wasm_pshufb = !wasm_v128_any_true(diff);
+  #endif  // XNN_ARCH_WASMRELAXEDSIMD
 }
 
 #if XNN_PLATFORM_WINDOWS

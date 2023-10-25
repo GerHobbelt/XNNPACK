@@ -9,160 +9,6 @@
 #   Generator: tools/update-microkernels.py
 
 
-SET(ALL_AARCH64_NEON_MICROKERNEL_SRCS
-  src/f32-vbinary/gen/f32-vdiv-minmax-aarch64-neon-x4.c
-  src/f32-vbinary/gen/f32-vdiv-minmax-aarch64-neon-x8.c
-  src/f32-vbinary/gen/f32-vdivc-minmax-aarch64-neon-x4.c
-  src/f32-vbinary/gen/f32-vdivc-minmax-aarch64-neon-x8.c
-  src/f32-vbinary/gen/f32-vrdivc-minmax-aarch64-neon-x4.c
-  src/f32-vbinary/gen/f32-vrdivc-minmax-aarch64-neon-x8.c
-  src/f32-vsqrt/gen/f32-vsqrt-aarch64-neon-sqrt-x4.c
-  src/f32-vsqrt/gen/f32-vsqrt-aarch64-neon-sqrt-x8.c
-  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x16.c
-  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x32.c
-  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x48.c
-  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x64.c
-  src/x24-transposec/x24-transposec-4x4-aarch64-neon-tbl128.c
-  src/x32-transposec/x32-transposec-4x4-aarch64-neon-tbl128.c)
-
-SET(ALL_AARCH64_NEONBF16_MICROKERNEL_SRCS)
-
-SET(ALL_AARCH64_NEONFMA_MICROKERNEL_SRCS
-  src/bf16-gemm/gen/bf16-gemm-1x4c8-minmax-aarch64-neonfma-zip.c
-  src/bf16-gemm/gen/bf16-gemm-2x4c8-minmax-aarch64-neonfma-zip.c
-  src/bf16-gemm/gen/bf16-gemm-3x4c8-minmax-aarch64-neonfma-zip.c
-  src/bf16-gemm/gen/bf16-gemm-4x4c8-minmax-aarch64-neonfma-zip.c
-  src/bf16-gemm/gen/bf16-gemm-5x4c8-minmax-aarch64-neonfma-zip.c
-  src/f32-conv-hwc2chw/f32-conv-hwc2chw-3x3s2p1c3x4-aarch64-neonfma-2x2.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x4-aarch64-neonfma-2x1.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x4-aarch64-neonfma-2x2.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x8-aarch64-neonfma-2x1.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x8-aarch64-neonfma-2x2.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x4-aarch64-neonfma-2x1.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x4-aarch64-neonfma-2x2.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x8-aarch64-neonfma-2x1.c
-  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x8-aarch64-neonfma-2x2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4-acc3.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4-acc4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-2x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-2x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-3x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-4x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-5x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-6x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4-acc3.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4-acc4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-2x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-2x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-3x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-4x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc3.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc5.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-2x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-2x4-acc3.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-2x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-3x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-3x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-4x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-4x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-5x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc3.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc5.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-2x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-2x4-acc3.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-2x4.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-3x4-acc2.c
-  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-3x4.c
-  src/f32-gemm/gen/f32-gemm-1x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemm-4x2-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemm-4x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemm-4x8-minmax-aarch64-neonfma-lane-ld128.c
-  src/f32-gemm/gen/f32-gemm-5x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemm-6x2-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemm-6x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemm-6x8-minmax-aarch64-neonfma-lane-ld128.c
-  src/f32-gemm/gen/f32-gemminc-1x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemminc-4x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemminc-4x8-minmax-aarch64-neonfma-lane-ld128.c
-  src/f32-gemm/gen/f32-gemminc-5x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemminc-6x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-gemm/gen/f32-gemminc-6x8-minmax-aarch64-neonfma-lane-ld128.c
-  src/f32-igemm/gen/f32-igemm-1x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-igemm/gen/f32-igemm-4x2-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-igemm/gen/f32-igemm-4x4-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-igemm/gen/f32-igemm-4x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-igemm/gen/f32-igemm-4x8-minmax-aarch64-neonfma-lane-ld128.c
-  src/f32-igemm/gen/f32-igemm-6x2-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-igemm/gen/f32-igemm-6x8-minmax-aarch64-neonfma-lane-ld64.c
-  src/f32-igemm/gen/f32-igemm-6x8-minmax-aarch64-neonfma-lane-ld128.c
-  src/f32-spmm/gen/f32-spmm-4x2-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-4x4-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-8x2-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-8x4-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-12x2-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-12x4-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-16x2-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-16x4-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-32x2-minmax-aarch64-neonfma.c
-  src/f32-spmm/gen/f32-spmm-32x4-minmax-aarch64-neonfma.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x4.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x8.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x12.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x16.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x20.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x24.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x4.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x8.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x12.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x16.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x20.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x24.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x4.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x8.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x12.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x16.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x20.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x24.c
-  src/math/sigmoid-f32-aarch64-neonfma-rr1-lut64-p2-div.c
-  src/math/sigmoid-f32-aarch64-neonfma-rr1-lut2048-p1-div.c
-  src/math/sigmoid-f32-aarch64-neonfma-rr1-p5-div.c
-  src/math/sigmoid-f32-aarch64-neonfma-rr2-lut64-p2-div.c
-  src/math/sigmoid-f32-aarch64-neonfma-rr2-lut2048-p1-div.c
-  src/math/sigmoid-f32-aarch64-neonfma-rr2-p5-div.c)
-
-SET(ALL_AARCH64_NEONFP16ARITH_MICROKERNEL_SRCS
-  src/f16-vbinary/gen/f16-vdiv-minmax-aarch64-neonfp16arith-x8.c
-  src/f16-vbinary/gen/f16-vdiv-minmax-aarch64-neonfp16arith-x16.c
-  src/f16-vbinary/gen/f16-vdivc-minmax-aarch64-neonfp16arith-x8.c
-  src/f16-vbinary/gen/f16-vdivc-minmax-aarch64-neonfp16arith-x16.c
-  src/f16-vbinary/gen/f16-vrdivc-minmax-aarch64-neonfp16arith-x8.c
-  src/f16-vbinary/gen/f16-vrdivc-minmax-aarch64-neonfp16arith-x16.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x8.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x16.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x24.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x32.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x40.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x48.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x56.c
-  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x64.c
-  src/f16-vsqrt/gen/f16-vsqrt-aarch64-neonfp16arith-sqrt-x8.c
-  src/f16-vsqrt/gen/f16-vsqrt-aarch64-neonfp16arith-sqrt-x16.c
-  src/math/sigmoid-f16-aarch64-neonfp16arith-rr1-p2-div.c
-  src/math/sigmoid-f16-aarch64-neonfp16arith-rr1-p3-div.c
-  src/math/sigmoid-f16-aarch64-neonfp16arith-rr2-p2-div.c
-  src/math/sigmoid-f16-aarch64-neonfp16arith-rr2-p3-div.c
-  src/math/sqrt-f16-aarch64-neonfp16arith-sqrt.c)
-
 SET(ALL_ARMSIMD32_MICROKERNEL_SRCS
   src/qc8-gemm/gen/qc8-gemm-1x1c4-minmax-fp32-armsimd32.c
   src/qc8-gemm/gen/qc8-gemm-1x2c4-minmax-fp32-armsimd32.c
@@ -2695,6 +2541,22 @@ SET(ALL_NEON_MICROKERNEL_SRCS
   src/xx-fill/xx-fill-neon-x64.c
   src/xx-pad/xx-pad-neon.c)
 
+SET(ALL_NEON_AARCH64_MICROKERNEL_SRCS
+  src/f32-vbinary/gen/f32-vdiv-minmax-aarch64-neon-x4.c
+  src/f32-vbinary/gen/f32-vdiv-minmax-aarch64-neon-x8.c
+  src/f32-vbinary/gen/f32-vdivc-minmax-aarch64-neon-x4.c
+  src/f32-vbinary/gen/f32-vdivc-minmax-aarch64-neon-x8.c
+  src/f32-vbinary/gen/f32-vrdivc-minmax-aarch64-neon-x4.c
+  src/f32-vbinary/gen/f32-vrdivc-minmax-aarch64-neon-x8.c
+  src/f32-vsqrt/gen/f32-vsqrt-aarch64-neon-sqrt-x4.c
+  src/f32-vsqrt/gen/f32-vsqrt-aarch64-neon-sqrt-x8.c
+  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x16.c
+  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x32.c
+  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x48.c
+  src/x8-lut/gen/x8-lut-aarch64-neon-tbx128x4-x64.c
+  src/x24-transposec/x24-transposec-4x4-aarch64-neon-tbl128.c
+  src/x32-transposec/x32-transposec-4x4-aarch64-neon-tbl128.c)
+
 SET(ALL_NEONBF16_MICROKERNEL_SRCS
   src/bf16-gemm/gen/bf16-gemm-1x4c8-minmax-neonbf16-bfdot.c
   src/bf16-gemm/gen/bf16-gemm-1x4c8-minmax-neonbf16-bfmlal.c
@@ -2710,6 +2572,8 @@ SET(ALL_NEONBF16_MICROKERNEL_SRCS
   src/bf16-gemm/gen/bf16-gemm-5x4c8-minmax-neonbf16-bfmlal.c
   src/bf16-gemm/gen/bf16-gemm-5x8c2-minmax-neonbf16-bfdot-lane-ld128.c
   src/bf16-gemm/gen/bf16-gemm-6x8c2-minmax-neonbf16-bfdot-lane-ld128.c)
+
+SET(ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS)
 
 SET(ALL_NEONDOT_MICROKERNEL_SRCS
   src/qc8-gemm/gen/qc8-gemm-1x8c4-minmax-fp32-neondot.c
@@ -2789,10 +2653,15 @@ SET(ALL_NEONDOT_MICROKERNEL_SRCS
 
 SET(ALL_NEONFMA_MICROKERNEL_SRCS
   src/bf16-gemm/gen/bf16-gemm-1x4c8-minmax-neonfma-shland.c
+  src/bf16-gemm/gen/bf16-gemm-1x4c8-minmax-neonfma-zip.c
   src/bf16-gemm/gen/bf16-gemm-2x4c8-minmax-neonfma-shland.c
+  src/bf16-gemm/gen/bf16-gemm-2x4c8-minmax-neonfma-zip.c
   src/bf16-gemm/gen/bf16-gemm-3x4c8-minmax-neonfma-shland.c
+  src/bf16-gemm/gen/bf16-gemm-3x4c8-minmax-neonfma-zip.c
   src/bf16-gemm/gen/bf16-gemm-4x4c8-minmax-neonfma-shland.c
+  src/bf16-gemm/gen/bf16-gemm-4x4c8-minmax-neonfma-zip.c
   src/bf16-gemm/gen/bf16-gemm-5x4c8-minmax-neonfma-shland.c
+  src/bf16-gemm/gen/bf16-gemm-5x4c8-minmax-neonfma-zip.c
   src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-neonfma-acc2.c
   src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-neonfma.c
   src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-neonfma-acc2.c
@@ -3012,6 +2881,114 @@ SET(ALL_NEONFMA_MICROKERNEL_SRCS
   src/math/sqrt-f32-neonfma-nr2fma1adj.c
   src/math/sqrt-f32-neonfma-nr2fma.c
   src/math/sqrt-f32-neonfma-nr3fma.c)
+
+SET(ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS
+  src/f32-conv-hwc2chw/f32-conv-hwc2chw-3x3s2p1c3x4-aarch64-neonfma-2x2.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x4-aarch64-neonfma-2x1.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x4-aarch64-neonfma-2x2.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x8-aarch64-neonfma-2x1.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p0p1c3x8-aarch64-neonfma-2x2.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x4-aarch64-neonfma-2x1.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x4-aarch64-neonfma-2x2.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x8-aarch64-neonfma-2x1.c
+  src/f32-conv-hwc/gen/f32-conv-hwc-3x3s2p1c3x8-aarch64-neonfma-2x2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4-acc3.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4-acc4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-1x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-2x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-2x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-3x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-4x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-5x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-6x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4-acc3.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4-acc4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-1x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-2x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-2x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-3x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-4x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc3.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4-acc5.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-1x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-2x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-2x4-acc3.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-2x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-3x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-3x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-4x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-4x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5p2-minmax-aarch64-neonfma-5x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc3.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4-acc5.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-1x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-2x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-2x4-acc3.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-2x4.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-3x4-acc2.c
+  src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-aarch64-neonfma-3x4.c
+  src/f32-gemm/gen/f32-gemm-1x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemm-4x2-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemm-4x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemm-4x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-gemm/gen/f32-gemm-5x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemm-6x2-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemm-6x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemm-6x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-gemm/gen/f32-gemminc-1x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemminc-4x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemminc-4x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-gemm/gen/f32-gemminc-5x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemminc-6x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-gemm/gen/f32-gemminc-6x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-igemm/gen/f32-igemm-1x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-igemm/gen/f32-igemm-4x2-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-igemm/gen/f32-igemm-4x4-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-igemm/gen/f32-igemm-4x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-igemm/gen/f32-igemm-4x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-igemm/gen/f32-igemm-6x2-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-igemm/gen/f32-igemm-6x8-minmax-aarch64-neonfma-lane-ld64.c
+  src/f32-igemm/gen/f32-igemm-6x8-minmax-aarch64-neonfma-lane-ld128.c
+  src/f32-spmm/gen/f32-spmm-4x2-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-4x4-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-8x2-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-8x4-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-12x2-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-12x4-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-16x2-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-16x4-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-32x2-minmax-aarch64-neonfma.c
+  src/f32-spmm/gen/f32-spmm-32x4-minmax-aarch64-neonfma.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x4.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x8.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x12.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x16.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x20.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut64-p2-div-x24.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x4.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x8.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x12.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x16.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x20.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-lut2048-p1-div-x24.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x4.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x8.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x12.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x16.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x20.c
+  src/f32-vsigmoid/gen/f32-vsigmoid-aarch64-neonfma-rr1-p5-div-x24.c
+  src/math/sigmoid-f32-aarch64-neonfma-rr1-lut64-p2-div.c
+  src/math/sigmoid-f32-aarch64-neonfma-rr1-lut2048-p1-div.c
+  src/math/sigmoid-f32-aarch64-neonfma-rr1-p5-div.c
+  src/math/sigmoid-f32-aarch64-neonfma-rr2-lut64-p2-div.c
+  src/math/sigmoid-f32-aarch64-neonfma-rr2-lut2048-p1-div.c
+  src/math/sigmoid-f32-aarch64-neonfma-rr2-p5-div.c)
 
 SET(ALL_NEONFP16_MICROKERNEL_SRCS
   src/f16-f32-vcvt/gen/f16-f32-vcvt-neonfp16-x8.c
@@ -3253,6 +3230,29 @@ SET(ALL_NEONFP16ARITH_MICROKERNEL_SRCS
   src/math/sqrt-f16-neonfp16arith-nr1fma1adj.c
   src/math/sqrt-f16-neonfp16arith-nr1fma.c
   src/math/sqrt-f16-neonfp16arith-nr1rsqrts.c)
+
+SET(ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS
+  src/f16-vbinary/gen/f16-vdiv-minmax-aarch64-neonfp16arith-x8.c
+  src/f16-vbinary/gen/f16-vdiv-minmax-aarch64-neonfp16arith-x16.c
+  src/f16-vbinary/gen/f16-vdivc-minmax-aarch64-neonfp16arith-x8.c
+  src/f16-vbinary/gen/f16-vdivc-minmax-aarch64-neonfp16arith-x16.c
+  src/f16-vbinary/gen/f16-vrdivc-minmax-aarch64-neonfp16arith-x8.c
+  src/f16-vbinary/gen/f16-vrdivc-minmax-aarch64-neonfp16arith-x16.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x8.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x16.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x24.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x32.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x40.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x48.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x56.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-aarch64-neonfp16arith-rr2-p2-div-x64.c
+  src/f16-vsqrt/gen/f16-vsqrt-aarch64-neonfp16arith-sqrt-x8.c
+  src/f16-vsqrt/gen/f16-vsqrt-aarch64-neonfp16arith-sqrt-x16.c
+  src/math/sigmoid-f16-aarch64-neonfp16arith-rr1-p2-div.c
+  src/math/sigmoid-f16-aarch64-neonfp16arith-rr1-p3-div.c
+  src/math/sigmoid-f16-aarch64-neonfp16arith-rr2-p2-div.c
+  src/math/sigmoid-f16-aarch64-neonfp16arith-rr2-p3-div.c
+  src/math/sqrt-f16-aarch64-neonfp16arith-sqrt.c)
 
 SET(ALL_NEONV8_MICROKERNEL_SRCS
   src/f32-qs8-vcvt/gen/f32-qs8-vcvt-neonv8-x8.c
@@ -4402,12 +4402,6 @@ SET(ALL_SSE_MICROKERNEL_SRCS
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-sse-2x4.c
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-sse-3x4-acc2.c
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-sse-3x4.c
-  src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-sse-acc2.c
-  src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-sse.c
-  src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-sse-acc2.c
-  src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-sse.c
-  src/f32-dwconv/gen/f32-dwconv-2f2m2l16c4s4r-minmax-sse-acc2.c
-  src/f32-dwconv/gen/f32-dwconv-2f2m2l16c4s4r-minmax-sse.c
   src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-sse-acc2.c
   src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-sse.c
   src/f32-dwconv/gen/f32-dwconv-3p8c-minmax-sse-acc2.c
@@ -4416,6 +4410,10 @@ SET(ALL_SSE_MICROKERNEL_SRCS
   src/f32-dwconv/gen/f32-dwconv-4p4c-minmax-sse.c
   src/f32-dwconv/gen/f32-dwconv-4p8c-minmax-sse-acc2.c
   src/f32-dwconv/gen/f32-dwconv-4p8c-minmax-sse.c
+  src/f32-dwconv/gen/f32-dwconv-5f5m5l8c4s4r-minmax-sse-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-5f5m5l8c4s4r-minmax-sse.c
+  src/f32-dwconv/gen/f32-dwconv-7f6m6l8c4s4r-minmax-sse-acc2.c
+  src/f32-dwconv/gen/f32-dwconv-7f6m6l8c4s4r-minmax-sse.c
   src/f32-dwconv/gen/f32-dwconv-9p4c-minmax-sse-acc2.c
   src/f32-dwconv/gen/f32-dwconv-9p4c-minmax-sse.c
   src/f32-dwconv/gen/f32-dwconv-9p8c-minmax-sse-acc2.c
@@ -5852,7 +5850,11 @@ SET(ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS
   src/qu8-vlrelu/gen/qu8-vlrelu-wasmrelaxedsimd-arm-x32.c
   src/qu8-vlrelu/gen/qu8-vlrelu-wasmrelaxedsimd-x86-x8.c
   src/qu8-vlrelu/gen/qu8-vlrelu-wasmrelaxedsimd-x86-x16.c
-  src/qu8-vlrelu/gen/qu8-vlrelu-wasmrelaxedsimd-x86-x32.c)
+  src/qu8-vlrelu/gen/qu8-vlrelu-wasmrelaxedsimd-x86-x32.c
+  src/x8-lut/gen/x8-lut-wasmpshufb-x16.c
+  src/x8-lut/gen/x8-lut-wasmpshufb-x32.c
+  src/x8-lut/gen/x8-lut-wasmpshufb-x48.c
+  src/x8-lut/gen/x8-lut-wasmpshufb-x64.c)
 
 SET(ALL_WASMSIMD_MICROKERNEL_SRCS
   src/f16-f32-vcvt/gen/f16-f32-vcvt-wasmsimd-int16-x8.c

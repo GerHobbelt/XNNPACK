@@ -294,36 +294,36 @@ SET(JIT_SRCS
   src/jit/assembler.cc)
 
 SET(JIT_AARCH32_SRCS
-  src/f32-gemm/f32-gemm-4x8-aarch32-neon-cortex-a7.cc
-  src/f32-gemm/f32-gemm-4x8-aarch32-neon-cortex-a53.cc
-  src/f32-gemm/f32-gemm-4x8-aarch32-neon-cortex-a55.cc
-  src/f32-gemm/f32-gemm-4x8-aarch32-neon-cortex-a75.cc
-  src/f32-gemm/f32-gemm-4x8-aarch32-neon-ld64.cc
-  src/f32-igemm/f32-igemm-4x8-aarch32-neon-cortex-a7.cc
-  src/f32-igemm/f32-igemm-4x8-aarch32-neon-cortex-a53.cc
-  src/f32-igemm/f32-igemm-4x8-aarch32-neon-cortex-a55.cc
-  src/f32-igemm/f32-igemm-4x8-aarch32-neon-cortex-a75.cc
-  src/f32-igemm/f32-igemm-4x8-aarch32-neon-ld64.cc
-  src/qc8-gemm/qc8-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
-  src/qc8-gemm/qc8-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc
-  src/qc8-igemm/qc8-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
-  src/qc8-igemm/qc8-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc
-  src/qs8-gemm/qs8-gemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc
-  src/qs8-gemm/qs8-gemm-4x8c4-rndnu-aarch32-neondot-ld64.cc
-  src/qs8-igemm/qs8-igemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc
-  src/qs8-igemm/qs8-igemm-4x8c4-rndnu-aarch32-neondot-ld64.cc)
+  src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a7.cc
+  src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a53.cc
+  src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a55.cc
+  src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-4x8-aarch32-neon-ld64.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a7.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a53.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a55.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-cortex-a75.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch32-neon-ld64.cc
+  src/qc8-gemm/gen/qc8-gemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
+  src/qc8-gemm/gen/qc8-gemm-4x8c4-fp32-aarch32-neondot-ld64.cc
+  src/qc8-igemm/gen/qc8-igemm-4x8-fp32-aarch32-neonv8-mlal-lane-ld64.cc
+  src/qc8-igemm/gen/qc8-igemm-4x8c4-fp32-aarch32-neondot-ld64.cc
+  src/qs8-gemm/gen/qs8-gemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc
+  src/qs8-gemm/gen/qs8-gemm-4x8c4-rndnu-aarch32-neondot-ld64.cc
+  src/qs8-igemm/gen/qs8-igemm-4x8-rndnu-aarch32-neon-mlal-lane-ld64.cc
+  src/qs8-igemm/gen/qs8-igemm-4x8c4-rndnu-aarch32-neondot-ld64.cc)
 
 SET(JIT_AARCH64_SRCS
-  src/f32-gemm/f32-gemm-1x8-aarch64-neonfma-cortex-a75.cc
-  src/f32-gemm/f32-gemm-4x8-aarch64-neonfma-cortex-a75.cc
-  src/f32-gemm/f32-gemm-6x8-aarch64-neonfma-cortex-a75.cc
-  src/f32-gemm/f32-gemm-6x8-aarch64-neonfma-ld128.cc
-  src/f32-igemm/f32-igemm-1x8-aarch64-neonfma-cortex-a75.cc
-  src/f32-igemm/f32-igemm-4x8-aarch64-neonfma-cortex-a75.cc
-  src/f32-igemm/f32-igemm-6x8-aarch64-neonfma-cortex-a75.cc
-  src/f32-igemm/f32-igemm-6x8-aarch64-neonfma-ld128.cc)
+  src/f32-gemm/gen/f32-gemm-1x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-4x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-gemm/gen/f32-gemm-6x8-aarch64-neonfma-ld128.cc
+  src/f32-igemm/gen/f32-igemm-1x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-igemm/gen/f32-igemm-4x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-cortex-a75.cc
+  src/f32-igemm/gen/f32-igemm-6x8-aarch64-neonfma-ld128.cc)
 
-SET(PROD_SCALAR_PORTABLE_MICROKERNEL_SRCS
+SET(PROD_SCALAR_MICROKERNEL_SRCS
   src/u8-lut32norm/u8-lut32norm-scalar.c
   src/xx-copy/xx-copy-scalar-memcpy.c
   src/xx-transpose/xx-transpose-1x1-scalar-memcpy.c
@@ -817,7 +817,7 @@ SET(PROD_NEONFMA_MICROKERNEL_SRCS
   src/f32-vmulcaddc/gen/f32-vmulcaddc-c4-minmax-neonfma-2x.c
   src/f32-vsigmoid/gen/f32-vsigmoid-neonfma-rr1-lut64-p2-nr2recps-x16.c)
 
-SET(PROD_AARCH64_NEON_MICROKERNEL_SRCS
+SET(PROD_NEON_AARCH64_MICROKERNEL_SRCS
   src/f32-conv-hwc2chw/f32-conv-hwc2chw-3x3s2p1c3x4-aarch64-neonfma-2x2.c
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3p1-minmax-aarch64-neonfma-3x4.c
   src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-3x3s2p1-minmax-aarch64-neonfma-2x4-acc2.c
@@ -932,7 +932,7 @@ SET(PROD_NEONFP16ARITH_MICROKERNEL_SRCS
   src/f16-vunary/gen/f16-vneg-neonfp16arith-x16.c
   src/f16-vunary/gen/f16-vsqr-neonfp16arith-x16.c)
 
-SET(PROD_AARCH64_NEONFP16ARITH_MICROKERNEL_SRCS
+SET(PROD_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS
   src/f16-vbinary/gen/f16-vdiv-minmax-aarch64-neonfp16arith-x8.c
   src/f16-vbinary/gen/f16-vdivc-minmax-aarch64-neonfp16arith-x8.c
   src/f16-vbinary/gen/f16-vrdivc-minmax-aarch64-neonfp16arith-x8.c
@@ -1442,7 +1442,7 @@ SET(PROD_AVX512SKX_MICROKERNEL_SRCS
 SET(PROD_AVX512VBMI_MICROKERNEL_SRCS
   src/x8-lut/gen/x8-lut-avx512vbmi-vpermx2b-x128.c)
 
-SET(PROD_MICROKERNEL_SRCS ${PROD_SCALAR_PORTABLE_MICROKERNEL_SRCS})
+SET(PROD_MICROKERNEL_SRCS ${PROD_SCALAR_MICROKERNEL_SRCS})
 SET(ALL_MICROKERNEL_SRCS ${ALL_SCALAR_MICROKERNEL_SRCS})
 IF(XNNPACK_TARGET_PROCESSOR STREQUAL "arm")
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_SCALAR_AARCH32_MICROKERNEL_SRCS})
@@ -1488,10 +1488,10 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^arm64")
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONFP16_MICROKERNEL_SRCS})
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONFMA_MICROKERNEL_SRCS})
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONV8_MICROKERNEL_SRCS})
-  LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AARCH64_NEON_MICROKERNEL_SRCS})
+  LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEON_AARCH64_MICROKERNEL_SRCS})
   IF(XNNPACK_ENABLE_ARM_FP16_VECTOR)
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONFP16ARITH_MICROKERNEL_SRCS})
-    LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AARCH64_NEONFP16ARITH_MICROKERNEL_SRCS})
+    LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_ARM_DOTPROD)
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_NEONDOT_MICROKERNEL_SRCS})
@@ -1500,14 +1500,14 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^arm64")
   LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONFP16_MICROKERNEL_SRCS})
   LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONFMA_MICROKERNEL_SRCS})
   LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONV8_MICROKERNEL_SRCS})
-  LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_AARCH64_NEON_MICROKERNEL_SRCS})
-  LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_AARCH64_NEONFMA_MICROKERNEL_SRCS})
+  LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEON_AARCH64_MICROKERNEL_SRCS})
+  LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS})
   IF(XNNPACK_ENABLE_ARM_FP16_SCALAR)
     LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_FP16ARITH_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_ARM_FP16_VECTOR)
     LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONFP16ARITH_MICROKERNEL_SRCS})
-    LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_AARCH64_NEONFP16ARITH_MICROKERNEL_SRCS})
+    LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_ARM_BF16)
     LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_NEONBF16_MICROKERNEL_SRCS})
@@ -1636,7 +1636,7 @@ ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "^arm64" AND NOT MSVC)
   SET_PROPERTY(SOURCE ${ALL_FP16ARITH_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+fp16 ")
   SET_PROPERTY(SOURCE ${ALL_NEONFP16ARITH_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+fp16 ")
-  SET_PROPERTY(SOURCE ${ALL_AARCH64_NEONFP16ARITH_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+fp16 ")
+  SET_PROPERTY(SOURCE ${ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+fp16 ")
   SET_PROPERTY(SOURCE ${ALL_NEONBF16_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+bf16 ")
   SET_PROPERTY(SOURCE ${ALL_NEONDOT_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+dotprod ")
   SET_PROPERTY(SOURCE ${AARCH64_ASM_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -march=armv8.2-a+fp16+dotprod ")
@@ -1704,6 +1704,7 @@ IF(XNNPACK_BUILD_LIBRARY)
   TARGET_COMPILE_DEFINITIONS(operators PRIVATE "XNN_LOG_LEVEL=$<$<CONFIG:Debug>:5>$<$<NOT:$<CONFIG:Debug>>:0>")
   TARGET_COMPILE_DEFINITIONS(operator-run PRIVATE "XNN_LOG_LEVEL=$<$<CONFIG:Debug>:5>$<$<NOT:$<CONFIG:Debug>>:0>")
   TARGET_COMPILE_DEFINITIONS(operator-utils PRIVATE "XNN_LOG_LEVEL=$<$<CONFIG:Debug>:5>$<$<NOT:$<CONFIG:Debug>>:0>")
+  TARGET_COMPILE_DEFINITIONS(packing PRIVATE "XNN_LOG_LEVEL=$<$<CONFIG:Debug>:5>$<$<NOT:$<CONFIG:Debug>>:0>")
   TARGET_COMPILE_DEFINITIONS(mutex PRIVATE "XNN_LOG_LEVEL=$<$<CONFIG:Debug>:5>$<$<NOT:$<CONFIG:Debug>>:0>")
   TARGET_COMPILE_DEFINITIONS(memory PRIVATE "XNN_LOG_LEVEL=$<$<CONFIG:Debug>:5>$<$<NOT:$<CONFIG:Debug>>:0>")
 ENDIF()

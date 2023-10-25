@@ -25,7 +25,7 @@ template <class T, class BiasType = T> class DeconvolutionTestBase : public ::te
 protected:
   DeconvolutionTestBase()
   {
-    random_device = std::unique_ptr<std::random_device>(new std::random_device());
+    random_device = std::make_unique<std::random_device>();
     rng = std::mt19937((*random_device)());
     input_size_dist = std::uniform_int_distribution<uint32_t>(10, 15);
     kernel_size_dist = std::uniform_int_distribution<uint32_t>(1, 5);
@@ -436,7 +436,7 @@ TEST_F(DeconvolutionTestQS8, matches_operator_api)
     upsampling_width, dilation_height, dilation_width, groups, group_input_channels, group_output_channels,
     groups * group_input_channels, groups * group_output_channels, input_zero_point, input_scale, kernel_scale,
     kernel.data(), bias.data(), output_zero_point, output_scale, quantized_output_min, quantized_output_max,
-    /*flags=*/0, nullptr, &op);
+    /*flags=*/0, nullptr, nullptr, &op);
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
   if (status == xnn_status_unsupported_hardware) {
@@ -577,7 +577,7 @@ TEST_F(DeconvolutionTestQU8, matches_operator_api)
     upsampling_width, dilation_height, dilation_width, groups, group_input_channels, group_output_channels,
     groups * group_input_channels, groups * group_output_channels, input_zero_point, input_scale, kernel_zero_point,
     kernel_scale, kernel.data(), bias.data(), output_zero_point, output_scale, quantized_output_min,
-    quantized_output_max, /*flags=*/0, nullptr, &op);
+    quantized_output_max, /*flags=*/0, nullptr, nullptr, &op);
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
   if (status == xnn_status_unsupported_hardware) {
@@ -664,7 +664,7 @@ TEST_F(DeconvolutionTestF32, matches_operator_api)
     padding_top, padding_right, padding_bottom, padding_left, kernel_height, kernel_width, upsampling_height,
     upsampling_width, dilation_height, dilation_width, groups, group_input_channels, group_output_channels,
     groups * group_input_channels, groups * group_output_channels, kernel.data(), bias.data(), output_min, output_max,
-    /*flags=*/0, nullptr, &op);
+    /*flags=*/0, nullptr, nullptr, &op);
   std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_op(op, xnn_delete_operator);
 
   if (status == xnn_status_unsupported_hardware) {

@@ -802,8 +802,8 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/x8-zip/x8-zip-x2-neon.c",
     "src/x8-zip/x8-zip-x3-neon.c",
     "src/x8-zip/x8-zip-x4-neon.c",
-    "src/x16-packw/gen/x16-packw-x8-neon-ld4lane-prfm-x4.c",
-    "src/x16-packw/gen/x16-packw-x16-neon-ld4lane-prfm-x4.c",
+    "src/x16-packw/gen/x16-packw-x8-neon-ld4lane-prfm-x8.c",
+    "src/x16-packw/gen/x16-packw-x16-neon-ld4lane-prfm-x8.c",
     "src/x16-transposec/gen/x16-transposec-8x8-reuse-dec-zip-neon.c",
     "src/x24-transposec/x24-transposec-2x2-neon-tbl64.c",
     "src/x32-packw/gen/x32-packw-x2-neon-ld2lane-prfm-x2.c",
@@ -1389,6 +1389,10 @@ PROD_FMA3_MICROKERNEL_SRCS = [
 ]
 
 PROD_AVX2_MICROKERNEL_SRCS = [
+    "src/x16-packw/gen/x16-packw-x8-avx2-x16.c",
+    "src/x16-packw/gen/x16-packw-x8-avx2-prfm-x16.c",
+    "src/x16-packw/gen/x16-packw-x16-avx2-x16.c",
+    "src/x16-packw/gen/x16-packw-x16-avx2-prfm-x16.c",
     "src/f16-gemm/gen/f16-gemm-1x16-minmax-avx2-broadcast.c",
     "src/f16-gemm/gen/f16-gemm-4x16-minmax-avx2-broadcast.c",
     "src/f16-igemm/gen/f16-igemm-1x16-minmax-avx2-broadcast.c",
@@ -1476,7 +1480,7 @@ PROD_AVX512F_MICROKERNEL_SRCS = [
     "src/f32-vunary/gen/f32-vabs-avx512f-x16.c",
     "src/f32-vunary/gen/f32-vneg-avx512f-x16.c",
     "src/f32-vunary/gen/f32-vsqr-avx512f-x16.c",
-    "src/x32-packw/gen/x32-packw-x16-avx512f-x4.c",
+    "src/x32-packw/gen/x32-packw-x16-avx512f-prfm-x4.c",
 ]
 
 PROD_AVX512SKX_MICROKERNEL_SRCS = [
@@ -7239,6 +7243,18 @@ xnnpack_benchmark(
         "eval/f32-tanh-ulp.cc",
     ],
     deps = ACCURACY_EVAL_DEPS,
+)
+
+############################### Other benchmarks ###############################
+
+xnnpack_benchmark(
+    name = "jit_bench",
+    srcs = ["bench/jit.cc"],
+    deps = OPERATOR_BENCHMARK_DEPS + [
+        ":memory",
+        ":microkernels_h",
+        ":microparams",
+    ],
 )
 
 ################### Accuracy verification for math functions ##################

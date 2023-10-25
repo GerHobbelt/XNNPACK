@@ -13,6 +13,12 @@
 - name: xnn_x32_packw_gemm_goi_ukernel_x8s4__neon_ld4lane_x4
 - name: xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_prfm_x4
 - name: xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_x4
+- name: xnn_x32_packw_gemm_goi_ukernel_x8__neon_ld4lane_prfm_x8
+- name: xnn_x32_packw_gemm_goi_ukernel_x8__neon_ld4lane_x8
+- name: xnn_x32_packw_gemm_goi_ukernel_x8s4__neon_ld4lane_prfm_x8
+- name: xnn_x32_packw_gemm_goi_ukernel_x8s4__neon_ld4lane_x8
+- name: xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_prfm_x8
+- name: xnn_x32_packw_gemm_goi_ukernel_x12__neon_ld4lane_x8
 
 # x86 SSE2
 - name: xnn_x32_packw_gemm_goi_ukernel_x2c4__sse2_prfm_x4
@@ -56,6 +62,8 @@
 # Scalar
 - name: xnn_x32_packw_gemm_goi_ukernel_x2__scalar_float_x4
 - name: xnn_x32_packw_gemm_goi_ukernel_x2__scalar_int_x4
+- name: xnn_x32_packw_gemm_goi_ukernel_x3__scalar_float_x4
+- name: xnn_x32_packw_gemm_goi_ukernel_x3__scalar_int_x4
 - name: xnn_x32_packw_gemm_goi_ukernel_x4__scalar_float_x4
 - name: xnn_x32_packw_gemm_goi_ukernel_x4__scalar_int_x4
 - name: xnn_x32_packw_gemm_goi_ukernel_x8__scalar_float_x4

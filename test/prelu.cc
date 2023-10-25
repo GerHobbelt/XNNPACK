@@ -23,7 +23,7 @@ class PreluTestF32 : public ::testing::Test {
 protected:
   void SetUp() override
   {
-    random_device = std::unique_ptr<std::random_device>(new std::random_device());
+    random_device = std::make_unique<std::random_device>();
     rng = std::mt19937((*random_device)());
     dim_dist = std::uniform_int_distribution<size_t>(1, 9);
     input_dims = RandomShape(4);
@@ -121,7 +121,7 @@ TEST_F(PreluTestF32, matches_operator_api)
   // Call operator API.
   xnn_operator_t op = nullptr;
   const xnn_status status =
-    xnn_create_prelu_nc_f32(channels, channels, channels, slope.data(), /*flags=*/0, nullptr, &op);
+    xnn_create_prelu_nc_f32(channels, channels, channels, slope.data(), /*flags=*/0, nullptr, nullptr, &op);
   if (status == xnn_status_unsupported_hardware) {
     GTEST_SKIP();
   }

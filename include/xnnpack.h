@@ -1326,14 +1326,21 @@ enum xnn_status xnn_define_bankers_rounding(
 /// @param subgraph - a Subgraph object that will own the created Node.
 /// @param input1_id - Value ID for the first input tensor. The input tensor must be an N-dimensional tensor defined in
 ///                    the @a subgraph. It must be at least 3D. The first N-2 dimensions must match the second input
-///                    tensor. The last 2 dimensions are [M, K]. The last dimension must match the second input tensor.
+///                    tensor. The last 2 dimensions are [M, K]. If XNN_FLAG_TRANSPOSE_B is not specified, the last
+///                    dimension must match the second last dimension of the second input tensor. If
+///                    XNN_FLAG_TRANSPOSE_B is specified, the last dimension must match the last dimension of the
+///                    second input tensor.
 /// @param input2_id - Value ID for the second input tensor. The input tensor must be an N-dimensional tensor defined
 ///                    in the @a subgraph. It must be at least 3D. The first N-2 dimensions must match the first input
-///                    tensor. The last 2 dimensions are [N, K]. The last dimension must match the first input tensor.
+///                    tensor. If XNN_FLAG_TRANSPOSE_B is not specified, the last 2 dimensions are [K, N], and the
+///                    second last dimension must match the last dimension of the first input tensor. If
+///                    XNN_FLAG_TRANSPOSE_B is specified, the last 2 dimensions are [N, K], and the last dimension must
+///                    match the last dimension of the first input tensor.
 /// @param output_id - Value ID for the output tensor. The output tensor must be an N-dimensional tensor defined in the
 ///                    @a subgraph. It must be at least 3D. The first N-2 dimensions must match the first and second
 ///                    input tensors . The last 2 dimensions must be [M, N].
-/// @param flags - binary features of the Batch Matrix Multiply Node. No supported flags are currently defined.
+/// @param flags - binary features of the Batch Matrix Multiply Node. The only currently supported value is
+///                XNN_FLAG_TRANSPOSE_B.
 enum xnn_status xnn_define_batch_matrix_multiply(
   xnn_subgraph_t subgraph,
   uint32_t input1_id,
@@ -2197,6 +2204,32 @@ enum xnn_status xnn_reshape_fully_connected_nc_f32(
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_fully_connected_nc_f32(
+  xnn_operator_t fully_connected_op,
+  const float* input,
+  float* output);
+
+enum xnn_status xnn_create_fully_connected_nc_f32_qc4w(
+  size_t input_channels,
+  size_t output_channels,
+  size_t input_stride,
+  size_t output_stride,
+  const float* kernel_scale,
+  const uint8_t* kernel,
+  uint8_t kernel_zero_point,
+  const float* bias,
+  float output_min,
+  float output_max,
+  uint32_t flags,
+  xnn_code_cache_t code_cache,
+  xnn_weights_cache_t weights_cache,
+  xnn_operator_t* fully_connected_op_out);
+
+enum xnn_status xnn_reshape_fully_connected_nc_f32_qc4w(
+  xnn_operator_t fully_connected_op,
+  size_t batch_size,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_fully_connected_nc_f32_qc4w(
   xnn_operator_t fully_connected_op,
   const float* input,
   float* output);
@@ -3984,7 +4017,7 @@ enum xnn_status xnn_run_transpose_nd_x16(
     uint32_t flags,
     pthreadpool_t threadpool);
 
-enum xnn_status xnn_create_convolution2d_nhwc_qc8(
+enum xnn_status xnn_create_convolution2d_nhwc_qs8_qc8w(
   uint32_t input_padding_top,
   uint32_t input_padding_right,
   uint32_t input_padding_bottom,
@@ -4014,7 +4047,7 @@ enum xnn_status xnn_create_convolution2d_nhwc_qc8(
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
-enum xnn_status xnn_reshape_convolution2d_nhwc_qc8(
+enum xnn_status xnn_reshape_convolution2d_nhwc_qs8_qc8w(
   xnn_operator_t convolution_op,
   size_t batch_size,
   size_t input_height,
@@ -4023,7 +4056,7 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qc8(
   size_t* output_width_out,
   pthreadpool_t threadpool);
 
-enum xnn_status xnn_setup_convolution2d_nhwc_qc8(
+enum xnn_status xnn_setup_convolution2d_nhwc_qs8_qc8w(
   xnn_operator_t convolution_op,
   const int8_t* input,
   int8_t* output);

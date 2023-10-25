@@ -101,7 +101,8 @@ void xnn_math_f32_tanh__avx2_expm1minus_rr1_lut8_p4h3_perm_nr1(
     // Compute degree-4 polynomial approximation for exp(2t) - 1 on [-log(2)/32, log(2)/32].
     //   P(t) = t * (2 + t * (c2 + t * (c3 + t * c4)))
     //        = t * p
-    __m256 vp = _mm256_fmadd_ps(vc4, vt, vc3);
+    __m256 vp = vc4;
+    vp = _mm256_fmadd_ps(vp, vt, vc3);
     vp = _mm256_fmadd_ps(vp, vt, vc2);
     vp = _mm256_fmadd_ps(vp, vt, vtwo);
 
@@ -116,7 +117,7 @@ void xnn_math_f32_tanh__avx2_expm1minus_rr1_lut8_p4h3_perm_nr1(
     // Denominator of the tanh fraction: exp(2z) + 1 = expm1(2z) + 2
     const __m256 vepo = _mm256_add_ps(vemo, vtwo);
 
-    // Use Newton-Raphson method (1 iteration) to compute reciprocal of denominator.
+    // Use Newton-Raphson method (1 iteration) to compute reciprocal of the denominator.
     // Note: 2 < exp(2z) + 1 <= 3, because z <= 0 and 0 < exp(2z) <= 1.
     // Thus the reciprocal of the denominator never overflows.
     __m256 vrepo = _mm256_rcp_ps(vepo);

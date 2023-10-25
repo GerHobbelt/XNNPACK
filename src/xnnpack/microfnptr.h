@@ -506,6 +506,48 @@ typedef void (*xnn_f32_dwconv_multipass_minmax_ukernel_fn)(
     float* buffer,
     const union xnn_f32_minmax_params* params);
 
+typedef void (*xnn_qs8_dwconv_minmax_multipass_ukernel_fn)(
+    size_t channels,
+    size_t output_width,
+    const int8_t** input,
+    const void* weights,
+    int8_t* output,
+    intptr_t input_stride,
+    size_t output_increment,
+    size_t input_offset,
+    const int8_t* zero,
+    size_t kernel_size,
+    uint32_t* buffer,
+    const union xnn_qs8_conv_minmax_params* params);
+
+typedef void (*xnn_qu8_dwconv_minmax_multipass_ukernel_fn)(
+    size_t channels,
+    size_t output_width,
+    const uint8_t** input,
+    const void* weights,
+    uint8_t* output,
+    intptr_t input_stride,
+    size_t output_increment,
+    size_t input_offset,
+    const uint8_t* zero,
+    size_t kernel_size,
+    uint32_t* buffer,
+    const union xnn_qu8_conv_minmax_params* params);
+
+typedef void (*xnn_qc8_dwconv_minmax_multipass_ukernel_fn)(
+    size_t channels,
+    size_t output_width,
+    const int8_t** input,
+    const void* weights,
+    int8_t* output,
+    intptr_t input_stride,
+    size_t output_increment,
+    size_t input_offset,
+    const int8_t* zero,
+    size_t kernel_size,
+    uint32_t* buffer,
+    const union xnn_qc8_conv_minmax_params* params);
+
 // VMULCADDC: Vector MULtiply-by-Constant, ADD-Constant
 
 typedef void (*xnn_vmulcaddc_ukernel_fn)(
@@ -1456,6 +1498,14 @@ typedef void (*xnn_u64_u32_vsqrtshift_ukernel_fn)(
     uint32_t* output,
     uint32_t shift);
 
+// VTANH: Vector TANH elementwise
+
+typedef void (*xnn_f32_vtanh_ukernel_fn)(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_tanh_params* params);
+
 // LUT: vector LookUp Table elementwise
 
 typedef void (*xnn_x8_lut_ukernel_fn)(
@@ -2132,6 +2182,9 @@ typedef size_t (*xnn_init_f16_sqrt_params_fn)(
 
 typedef size_t (*xnn_init_f32_sqrt_params_fn)(
   union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)]);
+
+typedef size_t (*xnn_init_f32_tanh_params_fn)(
+  union xnn_f32_tanh_params params[XNN_MIN_ELEMENTS(1)]);
 
 typedef void (*xnn_init_qc8_scale_params_fn)(
   size_t channels,

@@ -92,8 +92,10 @@ static void DWConvBenchmark(benchmark::State& state,
   std::fill(w.begin(), w.end(), 0);
   struct xnn_qs8_packing_params packing_params;
   packing_params.input_zero_point = 0;
-  xnn_pack_qs8_dwconv_ghw_w(primary_tile, kernel_height, kernel_width, channels, channel_tile,
-      k.data(), b.data(), w.data(), 0 /* extra bytes */, &packing_params);
+  xnn_pack_qs8_dwconv_ghw_w(primary_tile, 0, 0, kernel_height, kernel_width, channels,
+                            channel_tile, channel_tile, /*channel_round=*/1,
+                            k.data(), b.data(), w.data(),
+                            /*per_tile_extra_bytes=*/0, /*per_subtile_extra_bytes=*/0, &packing_params);
   for (size_t n = 1; n < num_buffers; n++) {
     std::copy(w.cbegin(), w.cbegin() + w_size, w.begin() + n * w_size);
   }
@@ -210,12 +212,6 @@ static void DWConvBenchmark(benchmark::State& state,
       xnn_init_qs8_conv_minmax_rndnu_neon_params,
       16 /* channel tile */, 9 /* primary tile */, benchmark::utils::CheckNEON);
   }
-  static void qs8_dwconv_9p24c__neon_mul16(benchmark::State& state, const char* net) {
-    DWConvBenchmark(state,
-      xnn_qs8_dwconv_minmax_rndnu_ukernel_9p24c__neon_mul16,
-      xnn_init_qs8_conv_minmax_rndnu_neon_params,
-      24 /* channel tile */, 9 /* primary tile */, benchmark::utils::CheckNEON);
-  }
   static void qs8_dwconv_9p32c__neon_mul16(benchmark::State& state, const char* net) {
     DWConvBenchmark(state,
       xnn_qs8_dwconv_minmax_rndnu_ukernel_9p32c__neon_mul16,
@@ -270,12 +266,6 @@ static void DWConvBenchmark(benchmark::State& state,
       xnn_init_qs8_conv_minmax_rndnu_neon_params,
       16 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckNEON);
   }
-  static void qs8_dwconv_25p24c__neon_mul16(benchmark::State& state, const char* net) {
-    DWConvBenchmark(state,
-      xnn_qs8_dwconv_minmax_rndnu_ukernel_25p24c__neon_mul16,
-      xnn_init_qs8_conv_minmax_rndnu_neon_params,
-      24 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckNEON);
-  }
   static void qs8_dwconv_25p32c__neon_mul16(benchmark::State& state, const char* net) {
     DWConvBenchmark(state,
       xnn_qs8_dwconv_minmax_rndnu_ukernel_25p32c__neon_mul16,
@@ -291,7 +281,6 @@ static void DWConvBenchmark(benchmark::State& state,
   BENCHMARK_DWCONV(qs8_dwconv_9p16c__neon_mla8_ld128);
   BENCHMARK_DWCONV(qs8_dwconv_9p8c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_9p16c__neon_mul16);
-  BENCHMARK_DWCONV(qs8_dwconv_9p24c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_9p32c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_25p8c__neon_mul8_ld64);
   BENCHMARK_DWCONV(qs8_dwconv_25p16c__neon_mul8_ld64);
@@ -301,7 +290,6 @@ static void DWConvBenchmark(benchmark::State& state,
   BENCHMARK_DWCONV(qs8_dwconv_25p16c__neon_mla8_ld128);
   BENCHMARK_DWCONV(qs8_dwconv_25p8c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_25p16c__neon_mul16);
-  BENCHMARK_DWCONV(qs8_dwconv_25p24c__neon_mul16);
   BENCHMARK_DWCONV(qs8_dwconv_25p32c__neon_mul16);
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 

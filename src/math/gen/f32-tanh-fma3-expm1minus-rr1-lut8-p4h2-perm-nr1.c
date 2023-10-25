@@ -117,12 +117,12 @@ void xnn_math_f32_tanh__fma3_expm1minus_rr1_lut8_p4h2_nr1(
       vl_hi = _mm_insert_epi32(vl_hi, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx5], 1);
       const uint32_t vidx2 = (uint32_t) _mm_extract_epi32(vidx_lo, 2);
       const uint32_t vidx6 = (uint32_t) _mm_extract_epi32(vidx_hi, 2);
-      vl_lo = _mm_insert_epi32(vl_lo, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx1], 2);
-      vl_hi = _mm_insert_epi32(vl_hi, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx5], 2);
+      vl_lo = _mm_insert_epi32(vl_lo, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx2], 2);
+      vl_hi = _mm_insert_epi32(vl_hi, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx6], 2);
       const uint32_t vidx3 = (uint32_t) _mm_extract_epi32(vidx_lo, 3);
       const uint32_t vidx7 = (uint32_t) _mm_extract_epi32(vidx_hi, 3);
-      vl_lo = _mm_insert_epi32(vl_lo, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx1], 3);
-      vl_hi = _mm_insert_epi32(vl_hi, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx5], 3);
+      vl_lo = _mm_insert_epi32(vl_lo, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx3], 3);
+      vl_hi = _mm_insert_epi32(vl_hi, (int) xnn_table_exp2minus_k_over_8[(uint32_t) vidx7], 3);
     #endif
 
     // Adjust exponent of the value l fetched from the table to get the final s value.
@@ -139,7 +139,8 @@ void xnn_math_f32_tanh__fma3_expm1minus_rr1_lut8_p4h2_nr1(
     // Compute degree-4 polynomial approximation for exp(2t) - 1 on [-log(2)/32, log(2)/32].
     //   P(t) = 2 * (t + t * (t * (c2 + t * (c3 + t * c4))))
     //        = 2 * (t + t * p)
-    __m256 vp = _mm256_fmadd_ps(vc4, vt, vc3);
+    __m256 vp = vc4;
+    vp = _mm256_fmadd_ps(vp, vt, vc3);
     vp = _mm256_fmadd_ps(vp, vt, vc2);
     vp = _mm256_mul_ps(vp, vt);
 
@@ -155,7 +156,7 @@ void xnn_math_f32_tanh__fma3_expm1minus_rr1_lut8_p4h2_nr1(
     // Denominator of the tanh fraction: exp(2z) + 1 = expm1(2z) + 2
     const __m256 vepo = _mm256_add_ps(vemo, vtwo);
 
-    // Use Newton-Raphson method (1 iteration) to compute reciprocal of denominator.
+    // Use Newton-Raphson method (1 iteration) to compute reciprocal of the denominator.
     // Note: 2 < exp(2z) + 1 <= 3, because z <= 0 and 0 < exp(2z) <= 1.
     // Thus the reciprocal of the denominator never overflows.
     __m256 vrepo = _mm256_rcp_ps(vepo);

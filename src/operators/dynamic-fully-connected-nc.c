@@ -10,7 +10,7 @@
 #include <string.h>
 #include <math.h>
 
-#include <fp16.h>
+#include <fp16/fp16.h>
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
@@ -279,7 +279,7 @@ static enum xnn_status reshape_dynamic_fully_connected_nc(
   assert(dynamic_fully_connected_op->ukernel.gemm.packw_gemm_goi != NULL);
   dynamic_fully_connected_op->context.packw_gemm_goi = (struct packw_gemm_goi_context) {
     .g = 1,
-    .k = input_channels,
+    .kc = input_channels,
     .nr = nr,
     .kr = kr,
     .sr = sr,

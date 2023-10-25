@@ -13,10 +13,10 @@
 #     size_t mr,                (x0) - unused.  mr = 1
 #     size_t nc,                x1
 #     size_t kc,                x2 / x0
-#     const uint8_t*restrict a, x3
+#     const float* a,           x3
 #     size_t a_stride,          (x4) - unused
-#     const void*restrict w,    x5
-#     uint8_t*restrict c,       x6
+#     const void* w,            x5
+#     float* c,                 x6
 #     size_t cm_stride,         (x7) - unused
 #     size_t cn_stride,         [sp] -> x14
 #     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])  [sp + 8] -> (x8)
@@ -26,7 +26,7 @@
 # Register usage
 # A0  x3 v0
 # B   x5 v20 v21 v22 v23
-# C0  x6 v16 v17 v18 v19
+# C0  x6 v16 v17
 # Clamp  v4, v5
 
 BEGIN_FUNCTION xnn_f32_qc8w_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_ld64
@@ -39,13 +39,8 @@ BEGIN_FUNCTION xnn_f32_qc8w_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_ld64
 0:
         # Load initial bias from w into accumulators
         LDP     q16, q17, [x5], 32
-
-        MOVI    v18.4s, 0               // second set of C for pipelining FMLA
-        MOVI    v19.4s, 0
-
-        # Is there at least 2 floats (8 bytes)
         SUBS    x0, x2, 8               // k = kc - 8
-
+        # Is there at least 2 floats (8 bytes)
         B.LO    3f
 
         # Main loop - 2 floats of A (8 bytes)
@@ -65,8 +60,8 @@ BEGIN_FUNCTION xnn_f32_qc8w_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_ld64
         SUBS    x0, x0, 8
         FMLA    v16.4s, v20.4s, v0.s[0]
         FMLA    v17.4s, v21.4s, v0.s[0]
-        FMLA    v18.4s, v22.4s, v0.s[1]
-        FMLA    v19.4s, v23.4s, v0.s[1]
+        FMLA    v16.4s, v22.4s, v0.s[1]
+        FMLA    v17.4s, v23.4s, v0.s[1]
         B.HS    1b
 
         # Is there a remainder?- 1 float of A (4 bytes)
@@ -77,8 +72,6 @@ BEGIN_FUNCTION xnn_f32_qc8w_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_ld64
         LDP     q20, q21, [x5], 32
         FMUL    v16.4s, v16.4s, v20.4s
         FMUL    v17.4s, v17.4s, v21.4s
-        FMLA    v16.4s, v18.4s, v20.4s
-        FMLA    v17.4s, v19.4s, v21.4s
         SUBS    x1, x1, 8
 
         # Clamp
@@ -94,9 +87,7 @@ BEGIN_FUNCTION xnn_f32_qc8w_gemm_minmax_ukernel_1x8__asm_aarch64_neonfma_ld64
         ADD     x6, x6, x14
 
         SUB     x3,  x3, x2             // a0 -= kc
-
         B.HI    0b
-
         RET
 
 3:

@@ -171,18 +171,30 @@ XNN_PRIVATE void xnn_compute_transposev_6d(
     size_t tile_m,
     size_t tile_n);
 
+// Context for Packing Weights (packw) for GEMM microkernels in Group-OutputChannels-InputChannels layout.
+// Kernel has shape GxNxK, bias has shape GxN.
 struct packw_gemm_goi_context {
+  // Number of groups, used for grouped convolutions.
   size_t g;
-  size_t k;
+  // Number of input channels.
+  size_t kc;
+  // Number of output channels the GEMM is optimized for.
   size_t nr;
   size_t kr;
   size_t sr;
+  // Pointer to kernel.
   const void* kernel;
+  // Stride, in bytes, between each N of the kernel.
   size_t k_stride;
+  // Pointer to bias.
   const void* bias;
+  // Stride, in bytes, between each bias.
   size_t b_stride;
+  // Output pointer to write packed kernel and bias.
   void* packed_weights;
+  // Stride, in bytes, between each packed kernel and bias.
   size_t w_stride;
+  // Microkernel to preform packing.
   xnn_packw_gemm_goi_ukernel_fn packw_gemm_goi;
 };
 
@@ -193,20 +205,40 @@ struct packw_gemm_goi_context {
       size_t n_block_size);
 #endif
 
+// Context for Dense Matrix Multiplication.
+// C [GxMxN] := A [GxMxK] * B[GxKxN] + bias [GxN]
+// Where B and bias have been packed into packed_w.
 struct gemm_context {
+  // K dimension of matrix A, scaled by size of an element in A.
+  // Corresponds to the number of input channels.
   size_t k_scaled;
+  // Input matrix A.
   const void* a;
+  // Stride, in bytes, between each row (M) of A.
   size_t a_stride;
+  // Stride, in bytes, between each group (G) of A.
+  size_t ga_stride;
+  // Pointer to weights (kernel and bias) that have been packed.
   const void* packed_w;
+  // Stride, in bytes, between output channel (N) of weights.
   size_t w_stride;
-  size_t wg_stride;
+  // Stride, in bytes, between each group (G) of weights.
+  size_t gw_stride;
+  // Output matrix C.
   void* c;
+  // Stride, in bytes, between each row (M) of C.
   size_t cm_stride;
+  // Stride, in bytes, between columns (N) of C written.
   size_t cn_stride;
-  size_t cg_stride;
+  // Stride, in bytes, between each group (G) of C.
+  size_t gc_stride;
+  // Size, in bytes, of each element of C.
   uint32_t log2_csize;
+  // GEMM microkernels.
   struct xnn_hmp_gemm_ukernel ukernel;
+  // Parameters for fused GEMM.
   void* fused_params;
+  // Parameters for fused activations.
   union {
     union xnn_qs8_conv_minmax_params qs8;
     union xnn_qu8_conv_minmax_params qu8;
@@ -291,25 +323,45 @@ struct spmm_context {
     size_t mr_block_size);
 #endif
 
+// Context for Indirect Dense Matrix Multiplication.
+// C [BxGxMxN] := A [BxGxMxK] * B[BxGxKxN] + bias [BxGxN]
+// Where B and bias have been packed into packed_w.
 struct igemm_context {
   size_t ks;
   size_t ks_scaled;
+  // Number of input channels (K).
   size_t kc;
+  // Stride, in bytes, between output channel (N) of weights.
   size_t w_stride;
+  // Indirection buffer for input matrix A.
   const void** indirect_a;
+  // Offset of each pointer in indirection buffer.
   size_t a_offset;
+  // Zero buffer.
   void* zero;
+  // Pointer to weights (kernel and bias) that have been packed.
   const void* packed_w;
+  // Output matrix C.
   void* c;
+  // Stride, in bytes, between each row (M) of C.
   size_t cm_stride;
+  // Stride, in bytes, between columns (N) of C written.
   size_t cn_stride;
+  // Stride, in bytes, between each group (G) of A.
   size_t ga_stride;
+  // Stride, in bytes, between each group (G) of packed weights.
   size_t gw_stride;
+  // Stride, in bytes, between each group (G) of C.
   size_t gc_stride;
+  // Stride, in bytes, between each batch (B) of A.
   size_t ba_stride;
+  // Stride, in bytes, between each batch (B) of C.
   size_t bc_stride;
+  // Size, in bytes, of each element of C.
   uint32_t log2_csize;
+  // IGEMM microkernels.
   struct xnn_hmp_igemm_ukernel ukernel;
+  // Parameters for fused activations.
   union {
     union xnn_qs8_conv_minmax_params qs8;
     union xnn_qu8_conv_minmax_params qu8;
@@ -985,9 +1037,11 @@ struct univector_strided_context {
     union xnn_qs8_cvt_params qs8_cvt;
     union xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
     union xnn_qs8_f32_cvt_params qs8_f32_cvt;
+    union xnn_qs8_hswish_params qs8_hswish;
     union xnn_qs8_lrelu_params qs8_lrelu;
     union xnn_qu8_cvt_params qu8_cvt;
     union xnn_qu8_f32_cvt_params qu8_f32_cvt;
+    union xnn_qu8_hswish_params qu8_hswish;
     union xnn_qu8_lrelu_params qu8_lrelu;
     union xnn_s8_minmax_params s8_minmax;
     union xnn_u8_minmax_params u8_minmax;
@@ -1032,9 +1086,11 @@ struct univector_contiguous_context {
     union xnn_qs8_cvt_params qs8_cvt;
     union xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
     union xnn_qs8_f32_cvt_params qs8_f32_cvt;
+    union xnn_qs8_hswish_params qs8_hswish;
     union xnn_qs8_lrelu_params qs8_lrelu;
     union xnn_qu8_cvt_params qu8_cvt;
     union xnn_qu8_f32_cvt_params qu8_f32_cvt;
+    union xnn_qu8_hswish_params qu8_hswish;
     union xnn_qu8_lrelu_params qu8_lrelu;
     union xnn_s8_minmax_params s8_minmax;
     union xnn_u8_minmax_params u8_minmax;

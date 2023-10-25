@@ -198,6 +198,7 @@ SET(OPERATOR_SRCS
   src/operators/argmax-pooling-nhwc.c
   src/operators/average-pooling-nhwc.c
   src/operators/binary-elementwise-nd.c
+  src/operators/batch-matrix-multiply-nc.c
   src/operators/channel-shuffle-nc.c
   src/operators/constant-pad-nd.c
   src/operators/convolution-nchw.c
@@ -1033,6 +1034,11 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_INCLUDE_DIRECTORIES(bankers-rounding-nc-eager-test PRIVATE src test)
     TARGET_LINK_LIBRARIES(bankers-rounding-nc-eager-test PRIVATE XNNPACK fp16 gtest gtest_main)
     ADD_TEST(NAME bankers-rounding-nc-eager-test COMMAND bankers-rounding-nc-eager-test)
+
+    ADD_EXECUTABLE(batch-matrix-multiply-nc-test test/batch-matrix-multiply-nc.cc)
+    TARGET_INCLUDE_DIRECTORIES(batch-matrix-multiply-nc-test PRIVATE src test)
+    TARGET_LINK_LIBRARIES(batch-matrix-multiply-nc-test PRIVATE XNNPACK fp16 gtest gtest_main)
+    ADD_TEST(NAME batch-matrix-multiply-nc-test COMMAND batch-matrix-multiply-nc-test)
 
     ADD_EXECUTABLE(ceiling-nc-test test/ceiling-nc.cc)
     TARGET_INCLUDE_DIRECTORIES(ceiling-nc-test PRIVATE src test)
@@ -2709,6 +2715,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(qs16-qs8-vcvt-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME qs16-qs8-vcvt-test COMMAND qs16-qs8-vcvt-test)
 
+  ADD_EXECUTABLE(qs8-vhswish-test test/qs8-vhswish.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-vhswish-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-vhswish-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qs8-vhswish-test PRIVATE hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME qs8-vhswish-test COMMAND qs8-vhswish-test)
+
   ADD_EXECUTABLE(qs8-vlrelu-test test/qs8-vlrelu.cc)
   TARGET_INCLUDE_DIRECTORIES(qs8-vlrelu-test PRIVATE include src test)
   TARGET_LINK_LIBRARIES(qs8-vlrelu-test PRIVATE fp16 pthreadpool gtest gtest_main)
@@ -2825,6 +2837,12 @@ IF(XNNPACK_BUILD_TESTS)
   TARGET_LINK_LIBRARIES(qu8-vcvt-test PRIVATE fp16 pthreadpool gtest gtest_main)
   TARGET_LINK_LIBRARIES(qu8-vcvt-test PRIVATE hardware-config logging microkernels-all microparams-init)
   ADD_TEST(NAME qu8-vcvt-test COMMAND qu8-vcvt-test)
+
+  ADD_EXECUTABLE(qu8-vhswish-test test/qu8-vhswish.cc)
+  TARGET_INCLUDE_DIRECTORIES(qu8-vhswish-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qu8-vhswish-test PRIVATE fp16 pthreadpool gtest gtest_main)
+  TARGET_LINK_LIBRARIES(qu8-vhswish-test PRIVATE hardware-config logging microkernels-all microparams-init)
+  ADD_TEST(NAME qu8-vhswish-test COMMAND qu8-vhswish-test)
 
   ADD_EXECUTABLE(qu8-vlrelu-test test/qu8-vlrelu.cc)
   TARGET_INCLUDE_DIRECTORIES(qu8-vlrelu-test PRIVATE include src test)
@@ -3747,6 +3765,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_LINK_LIBRARIES(qs16-qs8-vcvt-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(qs16-qs8-vcvt-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
+  ADD_EXECUTABLE(qs8-vhswish-bench bench/qs8-vhswish.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-vhswish-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(qs8-vhswish-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(qs8-vhswish-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
   ADD_EXECUTABLE(qs8-vlrelu-bench bench/qs8-vlrelu.cc)
   TARGET_INCLUDE_DIRECTORIES(qs8-vlrelu-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(qs8-vlrelu-bench PRIVATE benchmark pthreadpool)
@@ -3792,6 +3815,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(qu8-vcvt-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(qu8-vcvt-bench PRIVATE benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(qu8-vcvt-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
+
+  ADD_EXECUTABLE(qu8-vhswish-bench bench/qu8-vhswish.cc)
+  TARGET_INCLUDE_DIRECTORIES(qu8-vhswish-bench PRIVATE . include src)
+  TARGET_LINK_LIBRARIES(qu8-vhswish-bench PRIVATE benchmark pthreadpool)
+  TARGET_LINK_LIBRARIES(qu8-vhswish-bench PRIVATE bench-utils hardware-config logging microkernels-all microparams-init)
 
   ADD_EXECUTABLE(qu8-vlrelu-bench bench/qu8-vlrelu.cc)
   TARGET_INCLUDE_DIRECTORIES(qu8-vlrelu-bench PRIVATE . include src)

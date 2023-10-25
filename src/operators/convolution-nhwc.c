@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <fp16.h>
+#include <fp16/fp16.h>
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
@@ -1597,13 +1597,14 @@ static enum xnn_status setup_gemm(
       .k_scaled = group_input_channels << log2_input_element_size,
       .a = convolution_op->input,
       .a_stride = convolution_op->input_pixel_stride << log2_input_element_size,
+      .ga_stride = group_input_channels << log2_input_element_size,
       .packed_w = packed_weights(convolution_op),
       .w_stride = w_stride,
-      .wg_stride = w_stride * round_up(group_output_channels, nr),
+      .gw_stride = w_stride * round_up(group_output_channels, nr),
       .c = convolution_op->output,
       .cm_stride = convolution_op->output_pixel_stride << log2_output_element_size,
       .cn_stride = nr << log2_output_element_size,
-      .cg_stride = group_output_channels << log2_output_element_size,
+      .gc_stride = group_output_channels << log2_output_element_size,
       .log2_csize = log2_output_element_size,
       .ukernel = gemm_ukernel,
   };

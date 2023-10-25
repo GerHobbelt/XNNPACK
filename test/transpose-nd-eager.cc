@@ -1,6 +1,12 @@
-#include <gtest/gtest.h>
+// Copyright 2022 Google LLC
+//
+// This source code is licensed under the BSD-style license found in the
+// LICENSE file in the root directory of this source tree.
 
 #include <algorithm>
+#include <vector>
+
+#include <gtest/gtest.h>
 
 #include "transpose-operator-tester.h"
 

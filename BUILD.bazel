@@ -85,6 +85,7 @@ OPERATOR_SRCS = [
     "src/operator-run.c",
     "src/operators/argmax-pooling-nhwc.c",
     "src/operators/average-pooling-nhwc.c",
+    "src/operators/batch-matrix-multiply-nc.c",
     "src/operators/binary-elementwise-nd.c",
     "src/operators/channel-shuffle-nc.c",
     "src/operators/constant-pad-nd.c",
@@ -765,6 +766,9 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/qs8-vaddc/gen/qs8-vaddc-minmax-neon-ld64-x16.c",
     "src/qs8-vaddc/gen/qs8-vaddc-minmax-neon-ld64-x32.c",
     "src/qs8-vcvt/gen/qs8-vcvt-neon-x32.c",
+    "src/qs8-vhswish/gen/qs8-vhswish-neon-x8.c",
+    "src/qs8-vhswish/gen/qs8-vhswish-neon-x16.c",
+    "src/qs8-vhswish/gen/qs8-vhswish-neon-x32.c",
     "src/qs8-vlrelu/gen/qs8-vlrelu-neon-x32.c",
     "src/qs8-vmul/gen/qs8-vmul-minmax-rndnu-neon-ld64-x16.c",
     "src/qs8-vmulc/gen/qs8-vmulc-minmax-rndnu-neon-ld64-x16.c",
@@ -789,6 +793,9 @@ PROD_NEON_MICROKERNEL_SRCS = [
     "src/qu8-vaddc/gen/qu8-vaddc-minmax-neon-ld64-x16.c",
     "src/qu8-vaddc/gen/qu8-vaddc-minmax-neon-ld64-x32.c",
     "src/qu8-vcvt/gen/qu8-vcvt-neon-x32.c",
+    "src/qu8-vhswish/gen/qu8-vhswish-neon-x8.c",
+    "src/qu8-vhswish/gen/qu8-vhswish-neon-x16.c",
+    "src/qu8-vhswish/gen/qu8-vhswish-neon-x32.c",
     "src/qu8-vlrelu/gen/qu8-vlrelu-neon-x32.c",
     "src/qu8-vmul/gen/qu8-vmul-minmax-rndnu-neon-ld64-x16.c",
     "src/qu8-vmulc/gen/qu8-vmulc-minmax-rndnu-neon-ld64-x16.c",
@@ -1969,6 +1976,7 @@ MICROKERNEL_HDRS = [
     "src/xnnpack/vadd.h",
     "src/xnnpack/vbinary.h",
     "src/xnnpack/vcvt.h",
+    "src/xnnpack/vhswish.h",
     "src/xnnpack/vlog.h",
     "src/xnnpack/vlrelu.h",
     "src/xnnpack/vlshift.h",
@@ -5572,6 +5580,14 @@ xnnpack_benchmark(
 )
 
 xnnpack_benchmark(
+    name = "qs8_vhswish_bench",
+    srcs = [
+        "bench/qs8-vhswish.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
     name = "qs8_vlrelu_bench",
     srcs = [
         "bench/qs8-vlrelu.cc",
@@ -5643,6 +5659,14 @@ xnnpack_benchmark(
     name = "qu8_vcvt_bench",
     srcs = [
         "bench/qu8-vcvt.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS,
+)
+
+xnnpack_benchmark(
+    name = "qu8_vhswish_bench",
+    srcs = [
+        "bench/qu8-vhswish.cc",
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS,
 )
@@ -6478,7 +6502,7 @@ xnnpack_benchmark(
 xnnpack_cc_library(
     name = "fp16_mobilenet_v1",
     srcs = ["models/fp16-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6491,7 +6515,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_mobilenet_v1",
     srcs = ["models/fp32-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6503,7 +6527,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_sparse_mobilenet_v1",
     srcs = ["models/fp16-sparse-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6515,7 +6539,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_sparse_mobilenet_v1",
     srcs = ["models/fp32-sparse-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6527,7 +6551,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "qs8_qc8w_mobilenet_v1",
     srcs = ["models/qs8-qc8w-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6539,7 +6563,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "qs8_qc8w_mobilenet_v2",
     srcs = ["models/qs8-qc8w-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6551,7 +6575,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "qs8_mobilenet_v1",
     srcs = ["models/qs8-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6563,7 +6587,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "qs8_mobilenet_v2",
     srcs = ["models/qs8-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6575,7 +6599,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "qu8_mobilenet_v1",
     srcs = ["models/qu8-mobilenet-v1.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6587,7 +6611,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "qu8_mobilenet_v2",
     srcs = ["models/qu8-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6599,7 +6623,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_mobilenet_v2",
     srcs = ["models/fp16-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6612,7 +6636,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_mobilenet_v2",
     srcs = ["models/fp32-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6624,7 +6648,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_sparse_mobilenet_v2",
     srcs = ["models/fp16-sparse-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6636,7 +6660,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_sparse_mobilenet_v2",
     srcs = ["models/fp32-sparse-mobilenet-v2.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6648,7 +6672,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_mobilenet_v3_large",
     srcs = ["models/fp16-mobilenet-v3-large.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6661,7 +6685,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_mobilenet_v3_large",
     srcs = ["models/fp32-mobilenet-v3-large.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6673,7 +6697,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_sparse_mobilenet_v3_large",
     srcs = ["models/fp16-sparse-mobilenet-v3-large.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6685,7 +6709,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_sparse_mobilenet_v3_large",
     srcs = ["models/fp32-sparse-mobilenet-v3-large.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6697,7 +6721,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_mobilenet_v3_small",
     srcs = ["models/fp16-mobilenet-v3-small.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6710,7 +6734,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_mobilenet_v3_small",
     srcs = ["models/fp32-mobilenet-v3-small.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6722,7 +6746,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_mobilenet_v3_small_fused",
     srcs = ["models/fp32-mobilenet-v3-small-fused.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6735,7 +6759,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp16_sparse_mobilenet_v3_small",
     srcs = ["models/fp16-sparse-mobilenet-v3-small.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -6747,7 +6771,7 @@ xnnpack_cc_library(
 xnnpack_cc_library(
     name = "fp32_sparse_mobilenet_v3_small",
     srcs = ["models/fp32-sparse-mobilenet-v3-small.cc"],
-    hdrs = ["models/models.h"],
+    hdrs = ["src/xnnpack/models.h"],
     copts = xnnpack_std_cxxopts(),
     deps = [
         ":XNNPACK",
@@ -7769,6 +7793,7 @@ xnnpack_unit_test(
         "test/f32-igemm-jit.cc",
     ],
     shard_count = 10,
+    tags = ["not_run:arm"],
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
         ":jit_test_mode",
@@ -7969,6 +7994,7 @@ xnnpack_unit_test(
         "test/f32-gemm-jit.cc",
     ],
     shard_count = 10,
+    tags = ["not_run:arm"],
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
         ":jit_test_mode",
@@ -8883,6 +8909,15 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "qs8_vhswish_test",
+    srcs = [
+        "test/qs8-vhswish.cc",
+        "test/vhswish-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
     name = "qs8_vlrelu_test",
     srcs = [
         "test/qs8-vlrelu.cc",
@@ -9094,6 +9129,15 @@ xnnpack_unit_test(
     srcs = [
         "test/qu8-vcvt.cc",
         "test/vcvt-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "qu8_vhswish_test",
+    srcs = [
+        "test/qu8-vhswish.cc",
+        "test/vhswish-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
 )
@@ -9569,6 +9613,15 @@ xnnpack_unit_test(
         "test/bankers-rounding-operator-tester.h",
     ],
     deps = OPERATOR_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "batch_matrix_multiply_nc_test",
+    srcs = [
+        "test/batch-matrix-multiply-nc.cc",
+        "test/batch-matrix-multiply-operator-tester.h",
+    ],
+    deps = OPERATOR_TEST_DEPS + [":aligned_allocator"],
 )
 
 xnnpack_unit_test(
@@ -11045,6 +11098,14 @@ xnnpack_unit_test(
     srcs = [
         "test/jit.cc",
     ],
+    copts = ["-fpic"],
+    linkopts = select({
+        "emscripten": [
+            "-sMAIN_MODULE=2",
+            "-sDYNAMIC_EXECUTION=1",
+        ],
+        "//conditions:default": [],
+    }),
     deps = [
         ":common",
         ":jit_test_mode",

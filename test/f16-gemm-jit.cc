@@ -497,6 +497,23 @@
       }
     }
   }
+
+  #if XNN_ENABLE_ASSEMBLY
+    TEST(GENERATE_F16_GEMM_1X16__AARCH64_NEONFP16ARITH_LD64, matches_assembly) {
+      TEST_REQUIRES_ARM_NEON_FP16_ARITH;
+      GemmMicrokernelTester()
+        .mr(1)
+        .nr(16)
+        .kr(1)
+        .sr(1)
+        .m(1)
+        .n(16)
+        .k(4)
+        .Test(
+            xnn_generate_f16_gemm_ukernel_1x16__aarch64_neonfp16arith_ld64, xnn_init_f16_minmax_fp16arith_params,
+            &xnn_f16_gemm_minmax_ukernel_1x16__asm_aarch64_neonfp16arith_ld64);
+    }
+  #endif // XNN_ENABLE_ASSEMBLY
 #endif  // XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64 && XNN_PLATFORM_JIT
 
 
@@ -973,6 +990,23 @@
       }
     }
   }
+
+  #if XNN_ENABLE_ASSEMBLY
+    TEST(GENERATE_F16_GEMM_4X16__AARCH64_NEONFP16ARITH_LD64, matches_assembly) {
+      TEST_REQUIRES_ARM_NEON_FP16_ARITH;
+      GemmMicrokernelTester()
+        .mr(4)
+        .nr(16)
+        .kr(1)
+        .sr(1)
+        .m(4)
+        .n(16)
+        .k(4)
+        .Test(
+            xnn_generate_f16_gemm_ukernel_4x16__aarch64_neonfp16arith_ld64, xnn_init_f16_minmax_fp16arith_params,
+            &xnn_f16_gemm_minmax_ukernel_4x16__asm_aarch64_neonfp16arith_ld64);
+    }
+  #endif // XNN_ENABLE_ASSEMBLY
 #endif  // XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64 && XNN_PLATFORM_JIT
 
 
@@ -1449,6 +1483,23 @@
       }
     }
   }
+
+  #if XNN_ENABLE_ASSEMBLY
+    TEST(GENERATE_F16_GEMM_6X16__AARCH64_NEONFP16ARITH_CORTEX_A55, matches_assembly) {
+      TEST_REQUIRES_ARM_NEON_FP16_ARITH;
+      GemmMicrokernelTester()
+        .mr(6)
+        .nr(16)
+        .kr(1)
+        .sr(1)
+        .m(6)
+        .n(16)
+        .k(4)
+        .Test(
+            xnn_generate_f16_gemm_ukernel_6x16__aarch64_neonfp16arith_cortex_a55, xnn_init_f16_minmax_fp16arith_params,
+            &xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a55);
+    }
+  #endif // XNN_ENABLE_ASSEMBLY
 #endif  // XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64 && XNN_PLATFORM_JIT
 
 
@@ -1925,6 +1976,23 @@
       }
     }
   }
+
+  #if XNN_ENABLE_ASSEMBLY
+    TEST(GENERATE_F16_GEMM_6X16__AARCH64_NEONFP16ARITH_CORTEX_A55R0, matches_assembly) {
+      TEST_REQUIRES_ARM_NEON_FP16_ARITH;
+      GemmMicrokernelTester()
+        .mr(6)
+        .nr(16)
+        .kr(1)
+        .sr(1)
+        .m(6)
+        .n(16)
+        .k(4)
+        .Test(
+            xnn_generate_f16_gemm_ukernel_6x16__aarch64_neonfp16arith_cortex_a55r0, xnn_init_f16_minmax_fp16arith_params,
+            &xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a55r0);
+    }
+  #endif // XNN_ENABLE_ASSEMBLY
 #endif  // XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64 && XNN_PLATFORM_JIT
 
 
@@ -2401,6 +2469,23 @@
       }
     }
   }
+
+  #if XNN_ENABLE_ASSEMBLY
+    TEST(GENERATE_F16_GEMM_6X16__AARCH64_NEONFP16ARITH_CORTEX_A75, matches_assembly) {
+      TEST_REQUIRES_ARM_NEON_FP16_ARITH;
+      GemmMicrokernelTester()
+        .mr(6)
+        .nr(16)
+        .kr(1)
+        .sr(1)
+        .m(6)
+        .n(16)
+        .k(4)
+        .Test(
+            xnn_generate_f16_gemm_ukernel_6x16__aarch64_neonfp16arith_cortex_a75, xnn_init_f16_minmax_fp16arith_params,
+            &xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_cortex_a75);
+    }
+  #endif // XNN_ENABLE_ASSEMBLY
 #endif  // XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64 && XNN_PLATFORM_JIT
 
 
@@ -2877,4 +2962,21 @@
       }
     }
   }
+
+  #if XNN_ENABLE_ASSEMBLY
+    TEST(GENERATE_F16_GEMM_6X16__AARCH64_NEONFP16ARITH_LD64, matches_assembly) {
+      TEST_REQUIRES_ARM_NEON_FP16_ARITH;
+      GemmMicrokernelTester()
+        .mr(6)
+        .nr(16)
+        .kr(1)
+        .sr(1)
+        .m(6)
+        .n(16)
+        .k(4)
+        .Test(
+            xnn_generate_f16_gemm_ukernel_6x16__aarch64_neonfp16arith_ld64, xnn_init_f16_minmax_fp16arith_params,
+            &xnn_f16_gemm_minmax_ukernel_6x16__asm_aarch64_neonfp16arith_ld64);
+    }
+  #endif // XNN_ENABLE_ASSEMBLY
 #endif  // XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64 && XNN_PLATFORM_JIT

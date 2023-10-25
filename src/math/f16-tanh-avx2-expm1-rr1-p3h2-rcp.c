@@ -57,7 +57,7 @@ void xnn_math_f16_tanh__avx2_expm1_rr1_p3h2_rcp(
     // Inverted mask for the sign of input: 0x00000000 for negative x, 0x80000000 for positive x.
     const __m128i vinvsignx = _mm_xor_si128(vx, vabsx);
 
-    // The function f[z] saturates at -1 for large inputs: tanhf(x) == -1.0f for x <= sat_cutoff ~= -4.5078125.
+    // Mask for tanh[z] saturation at -1 for large inputs: tanhf(z) == -1.0f for z <= sat_cutoff ~= -4.5078125.
     const __m256 vm = _mm256_cmp_ps(vz, vsat_cutoff, _CMP_LE_OS);
 
     // Compute reduced argument n := round(z / log(2), 1).
@@ -93,18 +93,18 @@ void xnn_math_f16_tanh__avx2_expm1_rr1_p3h2_rcp(
     const __m256 vsm1 = _mm256_add_ps(vs, vminus_one);
     const __m256 vem1 = _mm256_fmadd_ps(vp, vts, vsm1);
 
-    // Denominator of the tanh fraction: expm1(-2z) + 2
+    // Denominator of the tanh fraction: 1.0 + exp(2z) = 2.0 + expm1(2z)
     const __m256 vep1 = _mm256_add_ps(vem1, vtwo);
 
     // Compute approximate reciprocal of denominator.
-    // Note: 2 < exp(-2z) + 1 <= 3, because z >= 0.0 and 0 < exp(-2z) <= 1.0.
+    // Note: 2 < exp(2z) + 1 <= 3, because z >= 0.0 and 0 < exp(2z) <= 1.0.
     // Thus the reciprocal of the denominator never overflows.
     const __m256 vrep1 = _mm256_rcp_ps(vep1);
 
-    // Reconstruct tanh(-z) := expm1(-2z) / (2 + expm1(-2z))
+    // Reconstruct tanh(z) := expm1(2z) / (2 + expm1(2z))
     __m256 vabsy = _mm256_mul_ps(vem1, vrep1);
 
-    // Saturate tanh(-z) at -1 for large inputs.
+    // Saturate tanh(z) at -1 for large inputs.
     vabsy = _mm256_blendv_ps(vabsy, vminus_one, vm);
 
     // Reconstruct tanh[x] = sign(x) * tanh[-abs(x)].

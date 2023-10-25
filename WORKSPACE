@@ -58,9 +58,9 @@ http_archive(
 # pthreadpool library, used for parallelization
 http_archive(
     name = "pthreadpool",
-    sha256 = "30cb30fb77cd903eda901651e63be8db5e2e33b1d06e4bbdd3f90a9a4432ae9a",
-    strip_prefix = "pthreadpool-b1b6536539d5ec04416d41a04af636f50a2f2b7a",
-    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/b1b6536539d5ec04416d41a04af636f50a2f2b7a.zip"],
+    sha256 = "2b4bd93beb478e1919ca81262e9f4998ceaa798bac1c3185ee64be907be1babd",
+    strip_prefix = "pthreadpool-0a4b81c950fa4fb08037ceeaa54d008efdf4e739",
+    urls = ["https://github.com/Maratyszcza/pthreadpool/archive/0a4b81c950fa4fb08037ceeaa54d008efdf4e739.zip"],
 )
 # LINT.ThenChange(cmake/DownloadPThreadPool.cmake)
 
@@ -83,19 +83,6 @@ http_archive(
         "https://github.com/google/ruy/archive/9f53ba413e6fc879236dcaa3e008915973d67a4f.zip",
     ],
 )
-
-RULES_ANDROID_NDK_COMMIT = "72ca32741f27c3de69fdcb7a1aaf3ca59919ad8c"
-
-RULES_ANDROID_NDK_SHA = "73eac2cf5f2fd009e8fb197346a2ca39f320b786985658de63a1dff0f12c53d5"
-
-http_archive(
-    name = "rules_android_ndk",
-    sha256 = RULES_ANDROID_NDK_SHA,
-    strip_prefix = "rules_android_ndk-%s" % RULES_ANDROID_NDK_COMMIT,
-    url = "https://github.com/bazelbuild/rules_android_ndk/archive/%s.zip" % RULES_ANDROID_NDK_COMMIT,
-)
-
-load("@rules_android_ndk//:rules.bzl", "android_ndk_repository")
 
 # Android NDK location and version is auto-detected from $ANDROID_NDK_HOME environment variable
 android_ndk_repository(name = "androidndk")

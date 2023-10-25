@@ -287,7 +287,7 @@ struct xnn_node {
     } depthwise_convolution_2d;
     struct {
       uint32_t block_size;
-    } depth_to_space;
+    } depth_to_space_2d;
     struct {
       size_t axis;
     } even_split;
@@ -322,7 +322,7 @@ struct xnn_node {
       size_t new_width;
     } static_resize;
     struct {
-      size_t max_sequence_size;
+      size_t max_tokens;
     } rope;
     struct {
       size_t num_dims;

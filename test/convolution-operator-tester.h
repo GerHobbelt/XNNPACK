@@ -14,8 +14,10 @@
 #include <cassert>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <numeric>
 #include <random>
 #include <vector>
 
@@ -23,6 +25,7 @@
 #include <fp16/fp16.h>
 
 #include <xnnpack.h>
+#include <xnnpack/aligned-allocator.h>
 #include <xnnpack/cache.h>
 #include <xnnpack/allocator.h>
 
@@ -226,6 +229,15 @@ class ConvolutionOperatorTester {
     this->kernel_height_ = kernel_height;
     this->kernel_width_ = kernel_width;
     return *this;
+  }
+
+  inline ConvolutionOperatorTester& transient_indirection_buffer(bool use_transient_buffer) {
+    this->transient_indirection_buffer_ = use_transient_buffer;
+    return *this;
+  }
+
+  inline bool transient_indirection_buffer() const {
+    return this->transient_indirection_buffer_;
   }
 
   inline ConvolutionOperatorTester& kernel_height(uint32_t kernel_height) {
@@ -674,6 +686,16 @@ class ConvolutionOperatorTester {
         auto_weights_cache.reset(&weights_cache);
       }
 
+      uint32_t flags = 0;
+      if (depthwise_layout()) {
+        flags |= XNN_FLAG_DEPTHWISE_CONVOLUTION;
+      }
+      if (padding_tf_same()) {
+        flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
+      }
+      if (transient_indirection_buffer()) {
+        flags |= XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER;
+      }
       xnn_status status = xnn_create_convolution2d_nhwc_qs8_qc8w(
           padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
           padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
@@ -685,7 +707,7 @@ class ConvolutionOperatorTester {
           input_zero_point, 1.0f /* input scale */, requantization_scales.data(),
           kernel.data(), has_bias() ? bias.data() : nullptr,
           output_zero_point, 1.0f /* output scale */, int8_t(qmin() - 0x80), int8_t(qmax() - 0x80),
-          (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+          flags,
           /*code_cache=*/nullptr,
           auto_weights_cache.get(),
           &convolution_op);
@@ -701,12 +723,24 @@ class ConvolutionOperatorTester {
 
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
-
+      size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qs8_qc8w(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      std::iota(workspace.begin(), workspace.end(), 0);
+      if (transient_indirection_buffer()) {
+        ASSERT_NE(workspace_size, 0);
+        ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, workspace.data(), input.data(), output.data()));
+      } else {
+        ASSERT_EQ(workspace_size, 0);
+        ASSERT_EQ(workspace_alignment, 1);
+        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
+      }
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results.
@@ -727,7 +761,7 @@ class ConvolutionOperatorTester {
             input_zero_point, 1.0f /* input scale */, requantization_scales.data(),
             kernel.data(), has_bias() ? bias.data() : nullptr,
             output_zero_point, 1.0f /* output scale */, int8_t(qmin() - 0x80), int8_t(qmax() - 0x80),
-            (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+            flags,
             /*code_cache=*/nullptr,
             auto_weights_cache.get(),
             &convolution_op2);
@@ -737,12 +771,25 @@ class ConvolutionOperatorTester {
         // Smart pointer to automatically delete convolution_op2.
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op2, xnn_delete_operator);
         std::vector<int8_t> output2(output.size(), INT8_C(0xA5));
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_qs8_qc8w(
             convolution_op2, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op2, input.data(), output2.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op2, workspace.data(), input.data(), output2.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op2, /*workspace=*/nullptr, input.data(), output2.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op2, nullptr /* thread pool */));
 
         VerifyNHWCxQC8(output2, output_ref);
@@ -884,6 +931,16 @@ class ConvolutionOperatorTester {
         auto_weights_cache.reset(&weights_cache);
       }
 
+      uint32_t flags = 0;
+      if (depthwise_layout()) {
+        flags |= XNN_FLAG_DEPTHWISE_CONVOLUTION;
+      }
+      if (padding_tf_same()) {
+        flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
+      }
+      if (transient_indirection_buffer()) {
+        flags |= XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER;
+      }
       xnn_status status = xnn_create_convolution2d_nhwc_qs8(
           padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
           padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
@@ -895,7 +952,7 @@ class ConvolutionOperatorTester {
           input_zero_point, 1.0f /* input scale */, 1.0f /* kernel scale */,
           kernel.data(), has_bias() ? bias.data() : nullptr,
           output_zero_point, output_scale, int8_t(qmin() - 0x80), int8_t(qmax() - 0x80),
-          (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+          flags,
           /*code_cache=*/nullptr,
           auto_weights_cache.get(),
           &convolution_op);
@@ -912,11 +969,24 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qs8(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      std::iota(workspace.begin(), workspace.end(), 0);
+      if (transient_indirection_buffer()) {
+        ASSERT_NE(workspace_size, 0);
+        ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, workspace.data(), input.data(), output.data()));
+      } else {
+        ASSERT_EQ(workspace_size, 0);
+        ASSERT_EQ(workspace_alignment, 1);
+        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
+      }
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       VerifyNHWCxQS8(output, output_ref, output_zero_point);
@@ -940,8 +1010,7 @@ class ConvolutionOperatorTester {
                 1.0f /* kernel scale */, kernel.data(),
                 has_bias() ? bias.data() : nullptr, output_zero_point,
                 output_scale, int8_t(qmin() - 0x80), int8_t(qmax() - 0x80),
-                (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) |
-                    (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+                flags,
                 /*code_cache=*/nullptr, auto_weights_cache.get(),
                 &convolution_op2));
         ASSERT_NE(nullptr, convolution_op2);
@@ -951,12 +1020,25 @@ class ConvolutionOperatorTester {
             auto_convolution_op(convolution_op2, xnn_delete_operator);
 
         std::vector<int8_t> output2(output.size(), INT8_C(0xA5));
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_qs8(
             convolution_op2, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op2, input.data(), output2.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op2, workspace.data(), input.data(), output2.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op2, /*workspace=*/nullptr, input.data(), output2.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op2, nullptr /* thread pool */));
 
         VerifyNHWCxQS8(output2, output_ref, output_zero_point);
@@ -1117,6 +1199,16 @@ class ConvolutionOperatorTester {
         auto_weights_cache.reset(&weights_cache);
       }
 
+      uint32_t flags = 0;
+      if (depthwise_layout()) {
+        flags |= XNN_FLAG_DEPTHWISE_CONVOLUTION;
+      }
+      if (padding_tf_same()) {
+        flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
+      }
+      if (transient_indirection_buffer()) {
+        flags |= XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER;
+      }
       xnn_status status = xnn_create_convolution2d_nhwc_qu8(
           padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
           padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
@@ -1129,7 +1221,7 @@ class ConvolutionOperatorTester {
           kernel_zero_point, 1.0f /* kernel scale */,
           kernel.data(), has_bias() ? bias.data() : nullptr,
           output_zero_point, output_scale, qmin(), qmax(),
-          (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+          flags,
           /*code_cache=*/nullptr,
           auto_weights_cache.get(),
           &convolution_op);
@@ -1146,11 +1238,24 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qu8(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      std::iota(workspace.begin(), workspace.end(), 0);
+      if (transient_indirection_buffer()) {
+        ASSERT_NE(workspace_size, 0);
+        ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, workspace.data(), input.data(), output.data()));
+      } else {
+        ASSERT_EQ(workspace_size, 0);
+        ASSERT_EQ(workspace_alignment, 1);
+        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
+      }
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results.
@@ -1175,8 +1280,7 @@ class ConvolutionOperatorTester {
                 1.0f /* kernel scale */, kernel.data(),
                 has_bias() ? bias.data() : nullptr, output_zero_point,
                 output_scale, qmin(), qmax(),
-                (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) |
-                    (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+                flags,
                 /*code_cache=*/nullptr, auto_weights_cache.get(),
                 &convolution_op2));
         ASSERT_NE(nullptr, convolution_op2);
@@ -1186,12 +1290,25 @@ class ConvolutionOperatorTester {
             auto_convolution_op2(convolution_op2, xnn_delete_operator);
         std::vector<uint8_t> output2(output.size(), UINT8_C(0xA5));
 
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_qu8(
             convolution_op2, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op2, input.data(), output2.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op2, workspace.data(), input.data(), output2.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op2, /*workspace=*/nullptr, input.data(), output2.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op2, nullptr /* thread pool */));
 
         // Verify results.
@@ -1350,6 +1467,16 @@ class ConvolutionOperatorTester {
         auto_weights_cache.reset(&weights_cache);
       }
 
+      uint32_t flags = 0;
+      if (depthwise_layout()) {
+        flags |= XNN_FLAG_DEPTHWISE_CONVOLUTION;
+      }
+      if (padding_tf_same()) {
+        flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
+      }
+      if (transient_indirection_buffer()) {
+        flags |= XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER;
+      }
       xnn_status status = xnn_create_convolution2d_nhwc_f32(
           padding_tf_same() ? 0 : padding_top(), padding_tf_same() ? 0 : padding_right(),
           padding_tf_same() ? 0 : padding_bottom(), padding_tf_same() ? 0 : padding_left(),
@@ -1360,7 +1487,7 @@ class ConvolutionOperatorTester {
           input_channel_stride(), output_channel_stride(),
           kernel.data(), has_bias() ? bias.data() : nullptr,
           output_min, output_max,
-          (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+          flags,
           auto_code_cache.get(),
           auto_weights_cache.get(),
           &convolution_op);
@@ -1385,12 +1512,25 @@ class ConvolutionOperatorTester {
         }
       #endif
 
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_f32(
             convolution_op, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, input.data(), output.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, workspace.data(), input.data(), output.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
         VerifyNHWCxF32(output, output_ref, output_min, output_max);
@@ -1420,7 +1560,7 @@ class ConvolutionOperatorTester {
             input_channel_stride(), output_channel_stride(),
             kernel.data(), has_bias() ? bias.data() : nullptr,
             output_min, output_max,
-            (depthwise_layout() ? XNN_FLAG_DEPTHWISE_CONVOLUTION : 0) | (padding_tf_same() ? XNN_FLAG_TENSORFLOW_SAME_PADDING : 0),
+            flags,
             auto_inner_code_cache.get(), auto_weights_cache.get(),
             &convolution_op2));
 
@@ -1435,12 +1575,25 @@ class ConvolutionOperatorTester {
         #endif
 
         std::vector<float> output2(output.size(), nanf(""));
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_f32(
             convolution_op2, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op2, input.data(), output2.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op2, workspace.data(), input.data(), output2.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op2, /*workspace=*/nullptr, input.data(), output2.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op2, nullptr /* thread pool */));
 
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op2(convolution_op2, xnn_delete_operator);
@@ -1625,6 +1778,9 @@ class ConvolutionOperatorTester {
       if (padding_tf_same()) {
         flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
       }
+      if (transient_indirection_buffer()) {
+        flags |= XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER;
+      }
       if (weights_type() == WeightsType::FP32) {
         flags |= XNN_FLAG_FP32_STATIC_WEIGHTS;
       }
@@ -1663,12 +1819,25 @@ class ConvolutionOperatorTester {
         }
       #endif
 
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_f16(
             convolution_op, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, input.data(), output.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, workspace.data(), input.data(), output.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
         VerifyNHWCxF16(output, output_ref, output_min, output_max);
@@ -1713,12 +1882,25 @@ class ConvolutionOperatorTester {
         #endif
 
         std::vector<uint16_t> output2(output.size(), UINT16_C(0x7E00) /* NaN */);
+        size_t workspace_size = transient_indirection_buffer() ? 0 : SIZE_MAX;
+        size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
           xnn_status_success,
           xnn_reshape_convolution2d_nhwc_f16(
             convolution_op2, batch_size(), input_height(), input_width(),
-            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-        ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op2, input.data(), output2.data()));
+            /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+            &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        std::iota(workspace.begin(), workspace.end(), 0);
+        if (transient_indirection_buffer()) {
+          ASSERT_NE(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op2, workspace.data(), input.data(), output2.data()));
+        } else {
+          ASSERT_EQ(workspace_size, 0);
+          ASSERT_EQ(workspace_alignment, 1);
+          ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op2, /*workspace=*/nullptr, input.data(), output2.data()));
+        }
         ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op2, nullptr /* thread pool */));
 
         VerifyNHWCxF16(output2, output_ref, output_min, output_max);
@@ -2411,11 +2593,16 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qs8_qc8w(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the first run.
@@ -2497,11 +2684,16 @@ class ConvolutionOperatorTester {
         });
 
       // Setup and run Convolution operator the second time, and destroy the operator.
+      workspace_size = SIZE_MAX;
+      workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qs8_qc8w(
                               convolution_op, next_batch_size(), next_input_height(), next_input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8_qc8w(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the second run.
@@ -2643,11 +2835,16 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qs8(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the first run.
@@ -2722,12 +2919,17 @@ class ConvolutionOperatorTester {
           return std::max<double>(std::min<double>(double(x) / output_scale, double(qmax() - 0x80) - output_zero_point), double(qmin() - 0x80) - output_zero_point);
         });
 
+      workspace_size = SIZE_MAX;
+      workspace_alignment = SIZE_MAX;
       // Setup and run Convolution operator the second time, and destroy the operator.
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qs8(
                               convolution_op, next_batch_size(), next_input_height(), next_input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qs8(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the second run.
@@ -2869,11 +3071,16 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qu8(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the first run.
@@ -2948,12 +3155,17 @@ class ConvolutionOperatorTester {
           return std::max<double>(std::min<double>(double(x) / output_scale, double(qmax()) - output_zero_point), double(qmin()) - output_zero_point);
         });
 
+      workspace_size = SIZE_MAX;
+      workspace_alignment = SIZE_MAX;
       // Setup and run Convolution operator the second time, and destroy the operator.
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_qu8(
                               convolution_op, next_batch_size(), next_input_height(), next_input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_qu8(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the second run.
@@ -3084,11 +3296,16 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_f16(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the first run.
@@ -3159,12 +3376,17 @@ class ConvolutionOperatorTester {
         value = std::max(std::min(value, output_max), output_min);
       }
 
+      workspace_size = SIZE_MAX;
+      workspace_alignment = SIZE_MAX;
       // Setup and run Convolution operator the second time, and destroy the operator.
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_f16(
                               convolution_op, next_batch_size(), next_input_height(), next_input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f16(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the second run.
@@ -3291,11 +3513,16 @@ class ConvolutionOperatorTester {
       // Smart pointer to automatically delete convolution_op.
       std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op, xnn_delete_operator);
 
+      size_t workspace_size = SIZE_MAX;
+      size_t workspace_alignment = SIZE_MAX;
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_f32(
                               convolution_op, batch_size(), input_height(), input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the first run.
@@ -3369,12 +3596,17 @@ class ConvolutionOperatorTester {
         value = std::max(std::min(value, output_max), output_min);
       }
 
+      workspace_size = SIZE_MAX;
+      workspace_alignment = SIZE_MAX;
       // Setup and run Convolution operator the second time, and destroy the operator.
       ASSERT_EQ(
         xnn_status_success, xnn_reshape_convolution2d_nhwc_f32(
                               convolution_op, next_batch_size(), next_input_height(), next_input_width(),
-                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr, nullptr /* thread pool */));
-      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, input.data(), output.data()));
+                              /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
+                              &workspace_size, &workspace_alignment, nullptr /* thread pool */));
+      ASSERT_EQ(workspace_size, 0);
+      ASSERT_EQ(workspace_alignment, 1);
+      ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(convolution_op, /*workspace=*/nullptr, input.data(), output.data()));
       ASSERT_EQ(xnn_status_success, xnn_run_operator(convolution_op, nullptr /* thread pool */));
 
       // Verify results of the second run.
@@ -3454,4 +3686,5 @@ class ConvolutionOperatorTester {
   bool use_jit_{false};
 #endif
   bool use_weights_cache_{false};
+  bool transient_indirection_buffer_{false};
 };

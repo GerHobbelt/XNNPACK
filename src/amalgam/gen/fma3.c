@@ -1352,7 +1352,7 @@ void xnn_f16_vmulcaddc_minmax_ukernel_c8__fma3_2x(
   } while (rows != 0);
 }
 
-void xnn_f16_vtanh_ukernel__fma3_polynomial_p19h9t2_x32(
+void xnn_f16_vtanh_ukernel__fma3_polynomial_p19h9t2_u32(
     size_t batch,
     const void* input,
     void* output,
@@ -1477,7 +1477,7 @@ void xnn_f16_vtanh_ukernel__fma3_polynomial_p19h9t2_x32(
     o += 8;
   }
   if (batch != 0) {
-    __m256 vx = _mm256_cvtph_ps(_mm_load_si128((const __m128i*) i));
+    __m256 vx = _mm256_cvtph_ps(_mm_loadu_si128((const __m128i*) i));
 
     vx = _mm256_max_ps(vneg_sat_cutoff, vx);
     vx = _mm256_min_ps(vpos_sat_cutoff, vx);
@@ -5288,7 +5288,7 @@ void xnn_f32_qc8w_gemm_minmax_ukernel_5x16__fma3_broadcast(
   } while (nc != 0);
 }
 
-void xnn_f32_vhswish_ukernel__fma3_x16(
+void xnn_f32_vhswish_ukernel__fma3_u16(
     size_t batch,
     const float* input,
     float* output,
@@ -5363,7 +5363,7 @@ void xnn_f32_vhswish_ukernel__fma3_x16(
   }
 }
 
-void xnn_f32_vtanh_ukernel__fma3_expm1minus_rr1_lut4_p4h3ts_perm_div_x40(
+void xnn_f32_vtanh_ukernel__fma3_expm1minus_rr1_lut4_p4h3ts_perm_div_u40(
     size_t batch,
     const float* input,
     float* output,

@@ -161,7 +161,7 @@ struct xnn_operator {
   size_t group_input_channels;
   size_t group_output_channels;
   size_t channels;
-  size_t max_sequence_size;
+  size_t max_tokens;
 
   uint32_t pad_value;
 
@@ -169,7 +169,6 @@ struct xnn_operator {
   size_t input_width;
   size_t input_pixel_stride;
   const void* input;
-  const void* input2;
   const void** indirection_buffer;
 
   size_t output_height;
@@ -380,7 +379,10 @@ struct xnn_operator {
     struct channel_shuffle_context channel_shuffle;
     struct conv2d_context conv2d;
     struct dwconv2d_context dwconv2d;
-    struct dwconv_context dwconv;
+    struct {
+      struct dwconv_context dwconv;
+      struct dwconv_indirection_init_context dwconv_indirection_init;
+    };
     struct elementwise_binary_context elementwise_binary;
     // PACKW GEMM GOI + GEMM are used together in Dynamic Fully Connected.
     struct {
@@ -393,7 +395,10 @@ struct xnn_operator {
     };
     struct global_average_pooling_nwc_context global_average_pooling_nwc;
     struct global_average_pooling_ncw_context global_average_pooling_ncw;
-    struct igemm_context igemm;
+    struct {
+      struct igemm_context igemm;
+      struct conv2d_igemm_indirection_init_context conv2d_igemm_indirection_init;
+    };
     struct lut_contiguous_context lut_contiguous;
     struct lut_strided_context lut_strided;
     struct max_pooling_context max_pooling;

@@ -543,20 +543,27 @@ enum xnn_status xnn_define_depthwise_convolution_2d(
   uint32_t output_id,
   uint32_t flags);
 
-/// Define a Depth To Space Node and add it to a Subgraph.
+/// Define a Depth To Space Node 2D and add it to a Subgraph.
 ///
-/// The Depth To Space Node rearranges data from depth into blocks of spatial data (a reverse transform to
+/// The Depth To Space 2D Node rearranges data from depth into blocks of spatial data (a reverse transform to
 /// Space To Depth). For a given input pixel, an output square of pixels with side @a block_size is formed from values
 /// in the corresponding number of its channels. The output depth is therefore @a block_size x @a block_size times
 /// smaller than that of the input.
 ///
 /// @param subgraph - a Subgraph object that will own the created Node.
+/// @param block_size - the size of the spatial block.
 /// @param input_id - Value ID for the input tensor. The input tensor must be a 4D tensor defined in the @a subgraph
 ///                   with [N, IH, IW, OC * block_size * block_size] dimensions.
 /// @param output_id - Value ID for the output tensor. The output tensor must be a 4D tensor defined in the @a subgraph
 ///                    with [N, IH * block_size, IW * block_size, OC] dimensions.
-/// @param block_size - the size of the spatial block.
 /// @param flags - binary features of the input_channels Node. No supported flags are currently defined.
+enum xnn_status xnn_define_depth_to_space_2d(
+  xnn_subgraph_t subgraph,
+  uint32_t block_size,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags);
+
 enum xnn_status xnn_define_depth_to_space(
   xnn_subgraph_t subgraph,
   uint32_t input_id,
@@ -1396,13 +1403,13 @@ enum xnn_status xnn_define_prelu(
 /// Define a RoPE (Rotary Positional Embeddings) Node and add it to a Subgraph.
 ///
 /// @param subgraph - a Subgraph object that will own the created Node.
-/// @param max_sequence_size - maximum possible sequence length of the input/output tensors.
+/// @param max_tokens - maximum possible number of tokens (maximum sequence length) of the input/output tensors.
 /// @param input_id - Value ID for the input tensor. The input tensor must be a 4D tensor defined in the @a subgraph
-///                   with [batch, sequence_length, heads, channels] dimensions.
+///                   with [batch, tokens, heads, channels] dimensions.
 /// @param weights_id - Value ID for the weights tensor. The weights tensor must be a 2D tensor defined in the
-///                     @a subgraph with [max_sequence_length, channels] dimensions.
+///                     @a subgraph with [max_tokens, channels] dimensions.
 /// @param output_id - Value ID for the output tensor. The output tensor must be a 4D tensor defined in the @a subgraph
-///                    with [batch, sequence_length, heads, channels] dimensions.
+///                    with [batch, tokens, heads, channels] dimensions.
 /// @param flags - binary features of the RoPE Node. No supported flags are currently defined.
 enum xnn_status xnn_define_rope(
   xnn_subgraph_t subgraph,
@@ -1782,9 +1789,12 @@ enum xnn_status xnn_get_runtime_profiling_info(xnn_runtime_t runtime,
 /// @param threadpool - the thread pool to be used for parallelisation of computations in the runtime. If the thread
 ///                     pool is NULL, the computation would run on the caller thread without parallelization.
 /// @param flags - binary features of the runtime. The only currently supported values are
-///                XNN_FLAG_HINT_SPARSE_INFERENCE, XNN_FLAG_HINT_FP16_INFERENCE, XNN_FLAG_FORCE_FP16_INFERENCE, and
-///                XNN_FLAG_YIELD_WORKERS. If XNN_FLAG_YIELD_WORKERS is specified, worker threads would be yielded to
-///                the system scheduler after processing the last operator in the Runtime.
+///                XNN_FLAG_HINT_SPARSE_INFERENCE, XNN_FLAG_HINT_FP16_INFERENCE, XNN_FLAG_FORCE_FP16_INFERENCE,
+///                XNN_FLAG_YIELD_WORKERS, and XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER. If XNN_FLAG_YIELD_WORKERS is
+///                specified, worker threads would be yielded to the system scheduler after processing the last operator
+///                in the Runtime. If XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER is specified, convolution operators will
+///                initialize indirection buffers on each inference run using temporary memory in the workspace, instead
+///                of initializing persistent indirection buffers once.
 /// @param runtime_out - pointer to the variable that will be initialized with a handle to the Runtime object upon
 ///                      successful return. Once constructed, the Runtime object is independent of the Subgraph object
 ///                      used to create it.
@@ -2139,10 +2149,13 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_f32(
   size_t input_width,
   size_t* output_height_out,
   size_t* output_width_out,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_f32(
   xnn_operator_t convolution_op,
+  void* workspace,
   const float* input,
   float* output);
 
@@ -2708,22 +2721,22 @@ enum xnn_status xnn_setup_resize_bilinear2d_nhwc_f32(
   float* output);
 
 enum xnn_status xnn_create_rope_nthc_f32(
-  size_t max_sequence_size,
-  size_t channels,
-  const float* weights,
+  size_t max_tokens,
   uint32_t flags,
   xnn_operator_t* rope_op_out);
 
 enum xnn_status xnn_reshape_rope_nthc_f32(
   xnn_operator_t rope_op,
   size_t batch_size,
-  size_t sequence_size,
+  size_t tokens,
   size_t heads,
+  size_t channels,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_rope_nthc_f32(
   xnn_operator_t rope_op,
   const float* input,
+  const float* weights,
   float* output);
 
 enum xnn_status xnn_create_sigmoid_nc_f32(
@@ -3434,10 +3447,13 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_f16(
   size_t input_width,
   size_t* output_height_out,
   size_t* output_width_out,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_f16(
   xnn_operator_t convolution_op,
+  void* workspace,
   const void* input,
   void* output);
 
@@ -4276,10 +4292,13 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8_qc8w(
   size_t input_width,
   size_t* output_height_out,
   size_t* output_width_out,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_qs8_qc8w(
   xnn_operator_t convolution_op,
+  void* workspace,
   const int8_t* input,
   int8_t* output);
 
@@ -4365,10 +4384,13 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8(
   size_t input_width,
   size_t* output_height_out,
   size_t* output_width_out,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_qs8(
   xnn_operator_t convolution_op,
+  void* workspace,
   const int8_t* input,
   int8_t* output);
 
@@ -4771,10 +4793,13 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qu8(
   size_t input_width,
   size_t* output_height_out,
   size_t* output_width_out,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_convolution2d_nhwc_qu8(
   xnn_operator_t convolution_op,
+  void* workspace,
   const uint8_t* input,
   uint8_t* output);
 

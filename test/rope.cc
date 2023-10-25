@@ -31,16 +31,16 @@ protected:
     dim_dist = std::uniform_int_distribution<size_t>(5, 15);
 
     batch_size = dim_dist(rng);
-    sequence_size = dim_dist(rng);
+    tokens = dim_dist(rng);
     do {
-      max_sequence_size = dim_dist(rng);
-    } while (max_sequence_size < sequence_size);
+      max_tokens = dim_dist(rng);
+    } while (max_tokens < tokens);
     heads = dim_dist(rng);
     channels = dim_dist(rng) * 2;  // ensure the number of channels is even
 
-    input = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * sequence_size * heads * channels);
-    weights = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + max_sequence_size * channels);
-    operator_output = std::vector<T>(batch_size * sequence_size * heads * channels);
+    input = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * tokens * heads * channels);
+    weights = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + max_tokens * channels);
+    operator_output = std::vector<T>(batch_size * tokens * heads * channels);
     subgraph_output = std::vector<T>(operator_output.size());
   }
 
@@ -50,8 +50,8 @@ protected:
   std::uniform_int_distribution<size_t> dim_dist;
 
   size_t batch_size;
-  size_t max_sequence_size;
-  size_t sequence_size;
+  size_t max_tokens;
+  size_t tokens;
   size_t heads;
   size_t channels;
 
@@ -72,20 +72,20 @@ TEST_F(RoPETestF32, define)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
 
   uint32_t input_id = XNN_INVALID_NODE_ID;
-  const std::array<size_t, 4> input_dims{{batch_size, sequence_size, heads, channels}};
+  const std::array<size_t, 4> input_dims{{batch_size, tokens, heads, channels}};
   ASSERT_EQ(xnn_status_success,
     xnn_define_tensor_value(subgraph, xnn_datatype_fp32, input_dims.size(), input_dims.data(),
                             /*data=*/nullptr, /*external_id=*/0, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
   uint32_t weights_id = XNN_INVALID_NODE_ID;
-  const std::array<size_t, 2> weights_dims{{max_sequence_size, channels}};
+  const std::array<size_t, 2> weights_dims{{max_tokens, channels}};
   ASSERT_EQ(xnn_status_success,
     xnn_define_tensor_value(subgraph, xnn_datatype_fp32, weights_dims.size(), weights_dims.data(),
                             weights.data(), /*external_id=*/1, /*flags=*/0, &weights_id));
 
   uint32_t output_id = XNN_INVALID_NODE_ID;
-  const std::array<size_t, 4> output_dims{{batch_size, sequence_size, heads, channels}};
+  const std::array<size_t, 4> output_dims{{batch_size, tokens, heads, channels}};
   ASSERT_EQ(
     xnn_status_success, xnn_define_tensor_value(
                           subgraph, xnn_datatype_fp32, output_dims.size(), output_dims.data(), nullptr,
@@ -93,13 +93,13 @@ TEST_F(RoPETestF32, define)
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
   ASSERT_EQ(xnn_status_success,
-    xnn_define_rope(subgraph, max_sequence_size, input_id, weights_id, output_id, /*flags=*/0));
+    xnn_define_rope(subgraph, max_tokens, input_id, weights_id, output_id, /*flags=*/0));
 
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_rope);
   ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
-  ASSERT_EQ(node->params.rope.max_sequence_size, max_sequence_size);
+  ASSERT_EQ(node->params.rope.max_tokens, max_tokens);
   ASSERT_EQ(node->num_inputs, 2);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->inputs[1], weights_id);
@@ -119,7 +119,7 @@ TEST_F(RoPETestF32, matches_operator_api)
   std::fill(operator_output.begin(), operator_output.end(), nanf(""));
   std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
 
-  const xnn_status status = xnn_create_rope_nthc_f32(max_sequence_size, channels, weights.data(), /*flags=*/0, &op);
+  const xnn_status status = xnn_create_rope_nthc_f32(max_tokens, /*flags=*/0, &op);
   if (status == xnn_status_unsupported_hardware) {
     GTEST_SKIP();
   }
@@ -130,12 +130,12 @@ TEST_F(RoPETestF32, matches_operator_api)
 
   ASSERT_EQ(xnn_status_success,
     xnn_reshape_rope_nthc_f32(op,
-      batch_size, sequence_size, heads,
+      batch_size, tokens, heads, channels,
       /*threadpool=*/nullptr));
 
   ASSERT_EQ(xnn_status_success,
     xnn_setup_rope_nthc_f32(op,
-      input.data(), operator_output.data()));
+      input.data(), weights.data(), operator_output.data()));
 
   ASSERT_EQ(xnn_status_success, xnn_run_operator(op, /*threadpool=*/nullptr));
 
@@ -145,20 +145,20 @@ TEST_F(RoPETestF32, matches_operator_api)
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)> auto_subgraph(subgraph, xnn_delete_subgraph);
 
   uint32_t input_id = XNN_INVALID_NODE_ID;
-  const std::array<size_t, 4> input_dims{{batch_size, sequence_size, heads, channels}};
+  const std::array<size_t, 4> input_dims{{batch_size, tokens, heads, channels}};
   ASSERT_EQ(xnn_status_success,
     xnn_define_tensor_value(subgraph, xnn_datatype_fp32, input_dims.size(), input_dims.data(),
                             /*data=*/nullptr, /*external_id=*/0, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
   uint32_t weights_id = XNN_INVALID_NODE_ID;
-  const std::array<size_t, 2> weights_dims{{max_sequence_size, channels}};
+  const std::array<size_t, 2> weights_dims{{max_tokens, channels}};
   ASSERT_EQ(xnn_status_success,
     xnn_define_tensor_value(subgraph, xnn_datatype_fp32, weights_dims.size(), weights_dims.data(),
                             weights.data(), /*external_id=*/1, /*flags=*/0, &weights_id));
 
   uint32_t output_id = XNN_INVALID_NODE_ID;
-  const std::array<size_t, 4> output_dims{{batch_size, sequence_size, heads, channels}};
+  const std::array<size_t, 4> output_dims{{batch_size, tokens, heads, channels}};
   ASSERT_EQ(
     xnn_status_success, xnn_define_tensor_value(
                           subgraph, xnn_datatype_fp32, output_dims.size(), output_dims.data(),
@@ -166,7 +166,7 @@ TEST_F(RoPETestF32, matches_operator_api)
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
   ASSERT_EQ(xnn_status_success,
-    xnn_define_rope(subgraph, max_sequence_size, input_id, weights_id, output_id, /*flags=*/0));
+    xnn_define_rope(subgraph, max_tokens, input_id, weights_id, output_id, /*flags=*/0));
 
   xnn_runtime_t runtime = nullptr;
   ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));

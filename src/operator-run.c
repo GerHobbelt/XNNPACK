@@ -20,6 +20,7 @@
 #include <xnnpack/microkernel-type.h>
 #include <xnnpack/params.h>
 #include <xnnpack/compute.h>
+#include <xnnpack/indirection.h>
 #include <xnnpack/quantization.h>
 
 
@@ -576,6 +577,28 @@ void xnn_compute_igemm(
       &context->params);
 }
 
+// `output_tile_start` should be a multiple of igemm.mr (tile size).
+void xnn_compute_conv2d_igemm_indirection(
+    const struct conv2d_igemm_indirection_init_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t output_tile_start,
+    size_t output_tile_size)
+{
+  xnn_indirection_init_conv2d(
+    output_tile_size,
+    output_tile_start,
+    output_tile_start + output_tile_size,
+    context->indirection_buffer,
+    context->input,
+    context->zero_buffer,
+    context->input_pixel_stride,
+    context->input_height, context->input_width,
+    context->output_height, context->output_width,
+    context->kernel_height, context->kernel_width,
+    context->stride_height, context->stride_width,
+    context->dilation_height, context->dilation_width,
+    context->input_padding_top, context->input_padding_left);
+}
+
 void xnn_compute_grouped_subgemm2d(
       const struct subgemm_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t batch_index,
@@ -748,6 +771,27 @@ void xnn_compute_conv2d_hwc2chw(
       context->output_height_stride,
       context->output_channel_stride,
       &context->params);
+}
+
+void xnn_compute_dwconv_indirection(
+  const struct dwconv_indirection_init_context context[restrict XNN_MIN_ELEMENTS(1)],
+  size_t output_y_start,
+  size_t output_y_tile)
+{
+  xnn_indirection_init_dwconv2d(
+    output_y_start,
+    output_y_start + output_y_tile,
+    context->indirection_buffer,
+    context->input,
+    context->input_pixel_stride,
+    context->zero_buffer,
+    context->input_height, context->input_width,
+    context->output_height, context->output_width,
+    context->kernel_height, context->kernel_width,
+    context->stride_height, context->stride_width,
+    context->dilation_height, context->dilation_width,
+    context->input_padding_top, context->input_padding_left,
+    context->step_height, context->step_width, context->tile_size);
 }
 
 void xnn_compute_dwconv_unipass(
@@ -1111,6 +1155,7 @@ void xnn_compute_pad_5d(
 
 void xnn_compute_scaled_dot_product_attention(
   const struct scaled_dot_product_attention_context* context,
+  size_t thread_index,
   size_t batch_index,
   size_t head_index,
   size_t tokens_start,
@@ -1771,6 +1816,7 @@ void xnn_compute_rope(
 void xnn_compute_hmp_scaled_dot_product_attention(
   const struct scaled_dot_product_attention_context* context,
   uint32_t uarch_index,
+  size_t thread_index,
   size_t batch_index,
   size_t head_index,
   size_t tokens_start,
@@ -2042,6 +2088,19 @@ enum xnn_status xnn_run_operator_with_index(
             op->compute[i].tile[0],
             flags);
         break;
+      case xnn_parallelization_type_3d_tile_1d_with_thread:
+        assert(op->compute[i].range[0] != 0);
+        assert(op->compute[i].range[1] != 0);
+        assert(op->compute[i].range[2] != 0);
+        assert(op->compute[i].tile[0] != 0);
+        pthreadpool_parallelize_3d_tile_1d_with_thread(
+            threadpool,
+            op->compute[i].task_3d_tile_1d_with_thread,
+            (void*) ((uintptr_t) &op->context + op->compute[i].context_offset),
+            op->compute[i].range[0], op->compute[i].range[1], op->compute[i].range[2],
+            op->compute[i].tile[0],
+            flags);
+        break;
       case xnn_parallelization_type_3d_tile_2d:
         assert(op->compute[i].range[0] != 0);
         assert(op->compute[i].range[1] != 0);
@@ -2168,6 +2227,20 @@ enum xnn_status xnn_run_operator_with_index(
         pthreadpool_parallelize_3d_tile_1d_with_uarch(
             threadpool,
             op->compute[i].task_3d_tile_1d_with_id,
+            (void*) ((uintptr_t) &op->context + op->compute[i].context_offset),
+            0 /* default uarch index */, XNN_MAX_UARCH_TYPES - 1,
+            op->compute[i].range[0], op->compute[i].range[1], op->compute[i].range[2],
+            op->compute[i].tile[0],
+            flags);
+        break;
+      case xnn_parallelization_type_3d_tile_1d_with_uarch_with_thread:
+        assert(op->compute[i].range[0] != 0);
+        assert(op->compute[i].range[1] != 0);
+        assert(op->compute[i].range[2] != 0);
+        assert(op->compute[i].tile[0] != 0);
+        pthreadpool_parallelize_3d_tile_1d_with_uarch_with_thread(
+            threadpool,
+            op->compute[i].task_3d_tile_1d_with_id_with_thread,
             (void*) ((uintptr_t) &op->context + op->compute[i].context_offset),
             0 /* default uarch index */, XNN_MAX_UARCH_TYPES - 1,
             op->compute[i].range[0], op->compute[i].range[1], op->compute[i].range[2],

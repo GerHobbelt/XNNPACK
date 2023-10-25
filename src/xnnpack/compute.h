@@ -24,6 +24,7 @@ enum xnn_parallelization_type {
   xnn_parallelization_type_2d_tile_2d,
   xnn_parallelization_type_3d,
   xnn_parallelization_type_3d_tile_1d,
+  xnn_parallelization_type_3d_tile_1d_with_thread,
   xnn_parallelization_type_3d_tile_2d,
   xnn_parallelization_type_4d,
   xnn_parallelization_type_4d_tile_2d,
@@ -34,6 +35,7 @@ enum xnn_parallelization_type {
   xnn_parallelization_type_2d_tile_1d_with_uarch,
   xnn_parallelization_type_2d_tile_2d_with_uarch,
   xnn_parallelization_type_3d_tile_1d_with_uarch,
+  xnn_parallelization_type_3d_tile_1d_with_uarch_with_thread,
   xnn_parallelization_type_3d_tile_2d_with_uarch,
   xnn_parallelization_type_4d_tile_2d_with_uarch,
 #endif  // XNN_MAX_UARCH_TYPES > 1
@@ -49,6 +51,7 @@ struct compute_parameters {
     pthreadpool_task_2d_tile_2d_t task_2d_tile_2d;
     pthreadpool_task_3d_t task_3d;
     pthreadpool_task_3d_tile_1d_t task_3d_tile_1d;
+    pthreadpool_task_3d_tile_1d_with_thread_t task_3d_tile_1d_with_thread;
     pthreadpool_task_3d_tile_2d_t task_3d_tile_2d;
     pthreadpool_task_4d_t task_4d;
     pthreadpool_task_4d_tile_2d_t task_4d_tile_2d;
@@ -59,6 +62,7 @@ struct compute_parameters {
     pthreadpool_task_2d_tile_1d_with_id_t task_2d_tile_1d_with_id;
     pthreadpool_task_2d_tile_2d_with_id_t task_2d_tile_2d_with_id;
     pthreadpool_task_3d_tile_1d_with_id_t task_3d_tile_1d_with_id;
+    pthreadpool_task_3d_tile_1d_with_id_with_thread_t task_3d_tile_1d_with_id_with_thread;
     pthreadpool_task_3d_tile_2d_with_id_t task_3d_tile_2d_with_id;
     pthreadpool_task_4d_tile_2d_with_id_t task_4d_tile_2d_with_id;
 #endif  // XNN_MAX_UARCH_TYPES > 1
@@ -409,6 +413,26 @@ struct spmm_context {
     size_t mr_block_size);
 #endif
 
+// Context for initializing the indirection buffer for conv2d igemm.
+struct conv2d_igemm_indirection_init_context {
+  const void** indirection_buffer;
+  const void* input;
+  const void* zero_buffer;
+  size_t input_pixel_stride;
+  size_t input_height;
+  size_t input_width;
+  size_t output_height;
+  size_t output_width;
+  size_t kernel_height;
+  size_t kernel_width;
+  size_t stride_height;
+  size_t stride_width;
+  size_t dilation_height;
+  size_t dilation_width;
+  size_t input_padding_top;
+  size_t input_padding_left;
+};
+
 // Context for Indirect Dense Matrix Multiplication.
 // C [BxGxMxN] := A [BxGxMxK] * B[BxGxKxN] + bias [BxGxN]
 // Where B and bias have been packed into packed_w.
@@ -480,6 +504,11 @@ struct igemm_context {
       size_t nr_block_start,
       size_t mr_block_size,
       size_t nr_block_size);
+
+  XNN_PRIVATE void xnn_compute_conv2d_igemm_indirection(
+   const struct conv2d_igemm_indirection_init_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t output_tile_start,
+    size_t output_tile_size);
 
   XNN_PRIVATE void xnn_compute_batch_igemm(
       const struct igemm_context context[restrict XNN_MIN_ELEMENTS(1)],
@@ -650,6 +679,29 @@ struct conv2d_context {
       size_t output_y_slice);
 #endif
 
+// Context for initializing the indirection buffer for dwconv.
+struct dwconv_indirection_init_context {
+  const void** indirection_buffer;
+  const void* input;
+  const void* zero_buffer;
+  size_t input_pixel_stride;
+  size_t input_height;
+  size_t input_width;
+  size_t output_height;
+  size_t output_width;
+  size_t kernel_height;
+  size_t kernel_width;
+  size_t stride_height;
+  size_t stride_width;
+  size_t dilation_height;
+  size_t dilation_width;
+  size_t input_padding_top;
+  size_t input_padding_left;
+  size_t step_height;
+  size_t step_width;
+  size_t tile_size;
+};
+
 struct dwconv_context {
   size_t kernel_size;
   const void** indirect_input;
@@ -679,6 +731,10 @@ struct dwconv_context {
 };
 
 #ifndef __cplusplus
+  XNN_PRIVATE void xnn_compute_dwconv_indirection(
+    const struct dwconv_indirection_init_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t output_y_start,
+    size_t output_y_tile);
   XNN_PRIVATE void xnn_compute_dwconv_unipass(
       const struct dwconv_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t batch_index,
@@ -1489,6 +1545,7 @@ struct scaled_dot_product_attention_context {
 #ifndef __cplusplus
   XNN_PRIVATE void xnn_compute_scaled_dot_product_attention(
       const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t thread_index,
       size_t batch_index,
       size_t head_index,
       size_t tokens_start,
@@ -1496,6 +1553,7 @@ struct scaled_dot_product_attention_context {
   XNN_PRIVATE void xnn_compute_hmp_scaled_dot_product_attention(
       const struct scaled_dot_product_attention_context context[restrict XNN_MIN_ELEMENTS(1)],
       uint32_t uarch_index,
+      size_t thread_index,
       size_t batch_index,
       size_t head_index,
       size_t tokens_start,

@@ -274,22 +274,34 @@ SET(LOGGING_SRCS
   src/log.c)
 
 SET(XNNPACK_SRCS
+  src/argmaxpool-config.c
   src/avgpool-config.c
   src/binary-elementwise-config.c
+  src/conv-hwc2chw-config.c
   src/dwconv-config.c
+  src/dwconv2d-chw-config.c
+  src/gavgpool-config.c
+  src/gavgpool-cw-config.c
+  src/gemm-config.c
   src/ibilinear-chw-config.c
   src/ibilinear-config.c
   src/init.c
-  src/gavgpool-config.c
-  src/gavgpool-cw-config.c
+  src/maxpool-config.c
   src/params.c
   src/pavgpool-config.c
   src/prelu-config.c
+  src/raddstoreexpminusmax-config.c
+  src/rmax-config.c
+  src/spmm-config.c
+  src/lut32norm-config.c
   src/transpose-config.c
   src/unary-elementwise-config.c
+  src/unpool-config.c
+  src/vmulcaddc-config.c
   src/x8-lut-config.c
   src/xx-fill-config.c
-  src/xx-pad-config.c)
+  src/xx-pad-config.c
+  src/zip-config.c)
 
 SET(TABLE_SRCS
   src/tables/exp2-k-over-64.c

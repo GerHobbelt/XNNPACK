@@ -16,7 +16,9 @@
 
 #include <xnnpack.h>
 #include <xnnpack/allocator.h>
+#include <xnnpack/config.h>
 #include <xnnpack/operator.h>
+#include <xnnpack/operator-type.h>
 #include <xnnpack/log.h>
 #include <xnnpack/microparams-init.h>
 #include <xnnpack/config.h>
@@ -121,12 +123,20 @@ enum xnn_status xnn_create_softmax_nc_qu8(
     lookup_table[(uint32_t) i] = (uint32_t) lrint(scaled_exp_xi);
   }
 
+  const struct xnn_lut32norm_config* lut32norm_config = xnn_init_u8_lut32norm_config();
+  assert(lut32norm_config != NULL);
+
+  const struct xnn_rmax_config* rmax_config = xnn_init_u8_rmax_config();
+  assert(rmax_config != NULL);
+
   softmax_op->channels = channels;
   softmax_op->input_pixel_stride = input_stride;
   softmax_op->output_pixel_stride = output_stride;
 
   softmax_op->type = xnn_operator_type_softmax_nc_qu8;
   softmax_op->flags = flags;
+  softmax_op->lut32norm_config = lut32norm_config;
+  softmax_op->rmax_config = rmax_config;
 
   softmax_op->state = xnn_run_state_invalid;
 
@@ -175,8 +185,8 @@ enum xnn_status xnn_setup_softmax_nc_qu8(
     .t = softmax_op->lookup_table,
     .y = output,
     .y_stride = softmax_op->output_pixel_stride * sizeof(uint8_t),
-    .rmax_ukernel = xnn_params.u8.rmax,
-    .lut_norm_ukernel = xnn_params.u8.lut32norm,
+    .rmax_ukernel = softmax_op->rmax_config->rmax.u8,
+    .lut_norm_ukernel = softmax_op->lut32norm_config->lut32norm,
   };
   softmax_op->compute.type = xnn_parallelization_type_1d;
   softmax_op->compute.task_1d = (pthreadpool_task_1d_t) xnn_compute_u8_softmax;
@@ -192,6 +202,8 @@ static enum xnn_status create_softmax_nc_floating_point(
     size_t output_stride,
     uint32_t flags,
     uint32_t datatype_init_flags,
+    const struct xnn_raddstoreexpminusmax_config* raddstoreexpminusmax_config,
+    const struct xnn_rmax_config* rmax_config,
     enum xnn_operator_type operator_type,
     xnn_operator_t* softmax_op_out)
 {
@@ -253,6 +265,8 @@ static enum xnn_status create_softmax_nc_floating_point(
 
   softmax_op->type = operator_type;
   softmax_op->flags = flags;
+  softmax_op->raddstoreexpminusmax_config = raddstoreexpminusmax_config;
+  softmax_op->rmax_config = rmax_config;
 
   softmax_op->state = xnn_run_state_invalid;
 
@@ -271,10 +285,26 @@ enum xnn_status xnn_create_softmax_nc_f16(
     uint32_t flags,
     xnn_operator_t* softmax_op_out)
 {
+  const struct xnn_raddstoreexpminusmax_config* raddstoreexpminusmax_config =
+    xnn_init_f16_raddstoreexpminusmax_config();
+  if (raddstoreexpminusmax_config == NULL) {
+    xnn_log_error("failed to create %s operator: unsupported hardware configuration",
+                  xnn_operator_type_to_string(xnn_operator_type_softmax_nc_f16));
+    return xnn_status_unsupported_hardware;
+  }
+
+  const struct xnn_rmax_config* rmax_config = xnn_init_f16_rmax_config();
+  if (rmax_config == NULL) {
+    xnn_log_error("failed to create %s operator: unsupported hardware configuration",
+                  xnn_operator_type_to_string(xnn_operator_type_softmax_nc_f16));
+    return xnn_status_unsupported_hardware;
+  }
   return create_softmax_nc_floating_point(
     channels, input_stride, output_stride,
     flags,
     XNN_INIT_FLAG_F16,
+    raddstoreexpminusmax_config,
+    rmax_config,
     xnn_operator_type_softmax_nc_f16,
     softmax_op_out);
 }
@@ -286,10 +316,17 @@ enum xnn_status xnn_create_softmax_nc_f32(
     uint32_t flags,
     xnn_operator_t* softmax_op_out)
 {
+  const struct xnn_raddstoreexpminusmax_config* raddstoreexpminusmax_config =
+    xnn_init_f32_raddstoreexpminusmax_config();
+  assert(raddstoreexpminusmax_config != NULL);
+  const struct xnn_rmax_config* rmax_config = xnn_init_f32_rmax_config();
+  assert(rmax_config != NULL);
   return create_softmax_nc_floating_point(
     channels, input_stride, output_stride,
     flags,
     XNN_INIT_FLAG_F32,
+    raddstoreexpminusmax_config,
+    rmax_config,
     xnn_operator_type_softmax_nc_f32,
     softmax_op_out);
 }
@@ -302,7 +339,7 @@ static enum xnn_status setup_softmax_nc_floating_point(
     void* output,
     uint32_t log2_element_size,
     xnn_rmax_ukernel_fn rmax,
-    const struct raddstoreexpminusmax_parameters raddstoreexpminusmax[restrict XNN_MIN_ELEMENTS(1)],
+    const struct xnn_raddstoreexpminusmax_config raddstoreexpminusmax[restrict XNN_MIN_ELEMENTS(1)],
     const struct xnn_binary_elementwise_config* vmul,
     xnn_compute_reciprocal_fn compute_reciprocal,
     const void* expminus_params,
@@ -375,8 +412,8 @@ enum xnn_status xnn_setup_softmax_nc_f16(
     pthreadpool_t threadpool)
 {
   union xnn_f16_expminus_params expminus_params;
-  if (xnn_params.f16.raddstoreexpminusmax.init.f16 != NULL) {
-    xnn_params.f16.raddstoreexpminusmax.init.f16(&expminus_params);
+  if (softmax_op->raddstoreexpminusmax_config->init.f16 != NULL) {
+    softmax_op->raddstoreexpminusmax_config->init.f16(&expminus_params);
   }
   const struct xnn_binary_elementwise_config* f16_vmul_config = xnn_init_f16_vmul_config();
   if (f16_vmul_config == NULL) {
@@ -391,7 +428,7 @@ enum xnn_status xnn_setup_softmax_nc_f16(
     softmax_op, xnn_operator_type_softmax_nc_f16,
     batch_size, input, output,
     1 /* log2(sizeof(uint16_t)) */,
-    xnn_params.f16.rmax, &xnn_params.f16.raddstoreexpminusmax, f16_vmul_config,
+    softmax_op->rmax_config->rmax.f16, softmax_op->raddstoreexpminusmax_config, f16_vmul_config,
     (xnn_compute_reciprocal_fn) compute_reciprocal_f16,
     &expminus_params, sizeof(expminus_params),
     &minmax_params, sizeof(minmax_params));
@@ -417,8 +454,8 @@ enum xnn_status xnn_setup_softmax_nc_f32(
   }
 
   union xnn_f32_expminus_params expminus_params;
-  if (xnn_params.f32.raddstoreexpminusmax.init.f32 != NULL) {
-    xnn_params.f32.raddstoreexpminusmax.init.f32(&expminus_params);
+  if (softmax_op->raddstoreexpminusmax_config->init.f32 != NULL) {
+    softmax_op->raddstoreexpminusmax_config->init.f32(&expminus_params);
   }
   union xnn_f32_minmax_params minmax_params;
   if (f32_vmul_config->init.f32_minmax != NULL) {
@@ -428,7 +465,7 @@ enum xnn_status xnn_setup_softmax_nc_f32(
     softmax_op, xnn_operator_type_softmax_nc_f32,
     batch_size, input, output,
     2 /* log2(sizeof(float)) */,
-    xnn_params.f32.rmax, &xnn_params.f32.raddstoreexpminusmax, f32_vmul_config,
+    softmax_op->rmax_config->rmax.f16, softmax_op->raddstoreexpminusmax_config, f32_vmul_config,
     (xnn_compute_reciprocal_fn) compute_reciprocal_f32,
     &expminus_params, sizeof(expminus_params),
     &minmax_params, sizeof(minmax_params));

@@ -29,20 +29,6 @@ struct xnn_qs8_packing_params {
   int8_t input_zero_point;
 };
 
-
-typedef void (*xnn_pack_gemm_goi_w_fn)(
-  size_t g,
-  size_t nc,
-  size_t kc,
-  size_t nr,
-  size_t kr,
-  size_t sr,
-  const void* k,
-  const void* b,
-  void* packed_weights,
-  size_t extra_bytes,
-  const void* params);
-
 XNN_INTERNAL void xnn_pack_f32_gemm_goi_w(
   size_t g,
   size_t nc,
@@ -147,20 +133,6 @@ XNN_INTERNAL void xnn_pack_qs8_gemm_xw_goi_w(
   size_t extra_bytes,
   const struct xnn_qs8_packing_params* params);
 
-
-typedef void (*xnn_pack_gemm_gio_w_fn)(
-  size_t g,
-  size_t nc,
-  size_t kc,
-  size_t nr,
-  size_t kr,
-  size_t sr,
-  const void* k,
-  const void* b,
-  void* packed_weights,
-  size_t extra_bytes,
-  const void* params);
-
 XNN_INTERNAL void xnn_pack_f32_gemm_gio_w(
   size_t g,
   size_t nc,
@@ -168,6 +140,7 @@ XNN_INTERNAL void xnn_pack_f32_gemm_gio_w(
   size_t nr,
   size_t kr,
   size_t sr,
+  size_t k_stride,
   const float* k,
   const float* b,
   float* packed_weights,
@@ -181,6 +154,7 @@ XNN_INTERNAL void xnn_pack_f16_gemm_gio_w(
   size_t nr,
   size_t kr,
   size_t sr,
+  size_t k_stride,
   const uint16_t* k,
   const uint16_t* b,
   uint16_t* packed_weights,
@@ -194,6 +168,7 @@ XNN_INTERNAL void xnn_pack_f32_to_f16_gemm_gio_w(
   size_t nr,
   size_t kr,
   size_t sr,
+  size_t k_stride,
   const float* k,
   const float* b,
   uint16_t* packed_weights,
@@ -207,6 +182,7 @@ XNN_INTERNAL void xnn_pack_qu8_gemm_gio_w(
   size_t nr,
   size_t kr,
   size_t sr,
+  size_t k_stride,
   const uint8_t* k,
   const int32_t* b,
   void* packed_weights,
@@ -220,6 +196,7 @@ XNN_INTERNAL void xnn_pack_qs8_gemm_gio_w(
   size_t nr,
   size_t kr,
   size_t sr,
+  size_t k_stride,
   const int8_t* k,
   const int32_t* b,
   void* packed_weights,
@@ -233,6 +210,7 @@ XNN_INTERNAL void xnn_pack_f32_qs8w_gemm_gio_w(
   size_t nr,
   size_t kr,
   size_t sr,
+  size_t k_stride,
   const int8_t* k,
   const float* bias,
   void* packed_weights,

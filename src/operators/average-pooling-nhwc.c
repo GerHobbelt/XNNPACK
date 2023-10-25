@@ -416,11 +416,13 @@ enum xnn_status xnn_create_average_pooling2d_nhwc_f16(
 
   average_pooling_op->type = xnn_operator_type_average_pooling_nhwc_f16;
 
+  status = xnn_status_unsupported_hardware;
+
   const struct xnn_avgpool_config* avgpool_config = xnn_init_f16_avgpool_config();
   if (avgpool_config == NULL) {
     xnn_log_error("failed to create %s operator: unsupported hardware configuration",
                   xnn_operator_type_to_string(xnn_operator_type_average_pooling_nhwc_f16));
-    return xnn_status_unsupported_hardware;
+    goto error;
   }
   average_pooling_op->avgpool_config = avgpool_config;
 
@@ -428,7 +430,7 @@ enum xnn_status xnn_create_average_pooling2d_nhwc_f16(
   if (pavgpool_config == NULL) {
     xnn_log_error("failed to create %s operator: unsupported hardware configuration",
                   xnn_operator_type_to_string(xnn_operator_type_average_pooling_nhwc_f16));
-    return xnn_status_unsupported_hardware;
+    goto error;
   }
   average_pooling_op->pavgpool_config = pavgpool_config;
 
@@ -436,7 +438,7 @@ enum xnn_status xnn_create_average_pooling2d_nhwc_f16(
   if (gavgpool_config == NULL) {
     xnn_log_error("failed to create %s operator: unsupported hardware configuration",
                   xnn_operator_type_to_string(xnn_operator_type_average_pooling_nhwc_f16));
-    return xnn_status_unsupported_hardware;
+    goto error;
   }
   average_pooling_op->gavgpool_config = gavgpool_config;
 

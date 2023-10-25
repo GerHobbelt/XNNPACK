@@ -16,6 +16,42 @@ namespace aarch64 {
 
 constexpr size_t kInstructionSizeInBytesLog2 = 2;
 
+struct WRegister {
+  uint8_t code;
+};
+
+constexpr WRegister w0{0};
+constexpr WRegister w1{1};
+constexpr WRegister w2{2};
+constexpr WRegister w3{3};
+constexpr WRegister w4{4};
+constexpr WRegister w5{5};
+constexpr WRegister w6{6};
+constexpr WRegister w7{7};
+constexpr WRegister w8{8};
+constexpr WRegister w9{9};
+constexpr WRegister w10{10};
+constexpr WRegister w11{11};
+constexpr WRegister w12{12};
+constexpr WRegister w13{13};
+constexpr WRegister w14{14};
+constexpr WRegister w15{15};
+constexpr WRegister w16{16};
+constexpr WRegister w17{17};
+constexpr WRegister w18{18};
+constexpr WRegister w19{19};
+constexpr WRegister w20{20};
+constexpr WRegister w21{21};
+constexpr WRegister w22{22};
+constexpr WRegister w23{23};
+constexpr WRegister w24{24};
+constexpr WRegister w25{25};
+constexpr WRegister w26{26};
+constexpr WRegister w27{27};
+constexpr WRegister w28{28};
+constexpr WRegister w29{29};
+constexpr WRegister w30{30};
+
 struct XRegister {
   uint8_t code;
 };
@@ -384,6 +420,8 @@ class Assembler : public AssemblerBase {
   // Base instructions.
   void add(XRegister xd, XRegister xn, uint16_t imm12);
   void add(XRegister xd, XRegister xn, XRegister xm);
+  void adds(XRegister xd, XRegister xn, uint16_t imm12);
+  void ands(XRegister xd, XRegister xn, uint16_t imm12);
   void b(Label& l);
   void b_eq(Label& l) { return b(kEQ, l); }
   void b_hi(Label& l) { return b(kHI, l); }
@@ -397,6 +435,7 @@ class Assembler : public AssemblerBase {
   void ldp(XRegister xt1, XRegister xt2, MemOperand xn);
   void ldp(XRegister xt1, XRegister xt2, MemOperand xn, int32_t imm);
   void ldr(XRegister xt, MemOperand xn);
+  void ldr(WRegister xt, MemOperand xn, int32_t imm);
   void ldr(XRegister xt, MemOperand xn, int32_t imm);
   void mov(XRegister xd, XRegister xn);
   void nop();
@@ -437,6 +476,7 @@ class Assembler : public AssemblerBase {
   void ldp(QRegister qt1, QRegister qt2, MemOperand xn, int32_t imm);
   void ldr(DRegister dt, MemOperand xn);
   void ldr(SRegister dt, MemOperand xn);
+  void ldr(QRegister dt, MemOperand xn);
   void ldr(DRegister dt, MemOperand xn, int32_t imm);
   void ldr(HRegister dt, MemOperand xn, int32_t imm);
   void ldr(QRegister qt, MemOperand xn, int32_t imm);

@@ -172,10 +172,10 @@ inline uint32_t branch_imm(ptrdiff_t offset, BranchType bt) {
 
 inline uint32_t hl(VRegisterLane vl) {
   if (vl.is_s()) {
-    return (vl.lane & 1) << 21 | ((vl.lane & 2) << 10);
+    return (vl.lane & 1) << 21 | (vl.lane & 2) << 10;
   } else if (vl.is_h()) {
     // set L, M, H bits.
-    return (vl.lane & 0b010) << 21 | (vl.lane & 0b001) << 20 | (vl.lane & 0b100) >> 3;
+    return (vl.lane & 0b011) << 20 | (vl.lane & 0b100) << 9;
   } else {
     return (vl.lane & 1) << 11;
   }
@@ -240,6 +240,26 @@ void Assembler::add(XRegister xd, XRegister xn, XRegister xm) {
   emit32(0x8B000000 | rd(xd) | rn(xn) | rm(xm));
 }
 
+void Assembler::adds(XRegister xd, XRegister xn, uint16_t imm12) {
+  // The instruction supports larger numbers using the shift by (left shift by 12), but that's unused in kernels.
+  if (imm12 > kUint12Max) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0xB1000000 | imm12 << 10 | rn(xn) | rd(xd));
+}
+
+void Assembler::ands(XRegister xd, XRegister xn, uint16_t imm12) {
+  // Encoding this bitmask is complicated, and we only use 7 in our microkernel, hard code this.
+  if (imm12 != 7) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0xF2400800 | rn(xn) | rd(xd));
+}
+
 void Assembler::b(Label& l) {
   return branch_to_label(0x14000000, BranchType::kUnconditional, l);
 }
@@ -291,6 +311,15 @@ void Assembler::ldr(XRegister xt, MemOperand xn) {
   }
 
   emit32(0xF9400000 | imm >> 3 << 10 | rn(xn.base) | xt.code);
+}
+
+void Assembler::ldr(WRegister xt, MemOperand xn, int32_t imm) {
+  if (imm < kInt9Min || imm > kInt9Max) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+
+  emit32(0xB8400400 | imm9(imm) | rn(xn.base) | rt(xt));
 }
 
 void Assembler::ldr(XRegister xt, MemOperand xn, int32_t imm) {
@@ -425,7 +454,11 @@ void Assembler::fadd(VRegister vd, VRegister vn, VRegister vm) {
     return;
   }
 
-  emit32(0x0E20D400 | q(vd) | fp_sz(vn) | rm(vm) | rn(vn) | rd(vd));
+  if (vd.is_h()) {
+    emit32(0x0E401400 | q(vd) | rm(vm) | rn(vn) | rd(vd));
+  } else {
+    emit32(0x0E20D400 | q(vd) | fp_sz(vn) | rm(vm) | rn(vn) | rd(vd));
+  }
 }
 
 void Assembler::fmax(VRegister vd, VRegister vn, VRegister vm) {
@@ -501,7 +534,10 @@ void Assembler::ins(VRegisterLane vd, XRegister vn) {
 }
 
 void Assembler::ld1(ScalarVRegisterList vs, size_t lane, MemOperand xn, int32_t imm) {
-  emit32(0x4DC08000 | 0b11111 << 16 | (vs.vt1.size & 1) << 10 | rn(xn.base) | rt(vs.vt1));
+  assert(vs.vt1.size > 0);
+  const uint32_t opcode = vs.vt1.size > 1 ? 0b100 : 0b010;
+  const uint32_t size = vs.vt1.size == 3 ? 0b01 : 0;
+  emit32(0x4DC00000 | 0b11111 << 16 | opcode << 13 | size << 10 | rn(xn.base) | rt(vs.vt1));
 }
 
 void Assembler::ld1(ScalarVRegister vs, size_t lane, MemOperand xn, int32_t imm) {
@@ -582,6 +618,17 @@ void Assembler::ldr(SRegister dt, MemOperand xn) {
 
   emit32(0x3D400000 | size << 30 | 1 << 22 | (xn.offset >> size) << 10 | rn(xn.base) | rt(dt));
 }
+
+void Assembler::ldr(QRegister dt, MemOperand xn) {
+  if (xn.offset != 0 && (xn.offset < 0 || xn.offset > 65520 || xn.offset % 16 != 0)) {
+    error_ = Error::kInvalidOperand;
+    return;
+  }
+  size_t size = 0;
+
+  emit32(0x3D400000 | size << 30 | 0b11 << 22 | (xn.offset >> 4) << 10 | rn(xn.base) | rt(dt));
+}
+
 
 void Assembler::ldr(DRegister dt, MemOperand xn, int32_t imm) {
   return ldr(/*size=*/3, /*opc=*/1, xn, imm, dt.code);

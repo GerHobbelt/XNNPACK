@@ -281,7 +281,7 @@ static enum xnn_status create_gemm_or_igemm(
     uint32_t log2_input_element_size,
     uint32_t log2_filter_element_size,
     uint32_t bias_element_size,
-    xnn_pack_gemm_goi_w_fn pack_gemm_goi_w,
+    xnn_packw_gemm_goi_ukernel_fn pack_gemm_goi_w,
     xnn_pack_conv_kgo_w_fn pack_conv_kgo_w,
     xnn_pack_conv_goki_w_fn pack_conv_goki_w,
     const void* packing_params,
@@ -353,7 +353,7 @@ static enum xnn_status create_gemm_or_igemm(
 #if XNN_PLATFORM_JIT
       xnn_generate_gemms_up_to_max_mr(
         mr, gemm_config->generator, jit_gemm_params, group_output_channels, nr,
-        group_input_channels, log2_input_element_size, convolution_op);
+        group_input_channels << log2_input_element_size, convolution_op);
 #endif  // XNN_PLATFORM_JIT
 
       break;
@@ -384,7 +384,7 @@ static enum xnn_status create_gemm_or_igemm(
 #if XNN_PLATFORM_JIT
       xnn_generate_igemms_up_to_max_mr(
           mr, gemm_config->generator, jit_gemm_params, group_output_channels, nr,
-          group_input_channels, log2_input_element_size, kernel_size, convolution_op);
+          group_input_channels << log2_input_element_size, kernel_size, convolution_op);
 #endif  // XNN_PLATFORM_JIT
 
       break;
@@ -447,7 +447,7 @@ static enum xnn_status create_convolution2d_nhwc(
     xnn_pack_vmulcaddc_w_fn pack_vmulcaddc_w,
     xnn_pack_dwconv_hwg_w_fn pack_dwconv_hwg_w,
     xnn_pack_dwconv_ghw_w_fn pack_dwconv_ghw_w,
-    xnn_pack_gemm_goi_w_fn pack_gemm_goi_w,
+    xnn_packw_gemm_goi_ukernel_fn pack_gemm_goi_w,
     xnn_pack_conv_kgo_w_fn pack_conv_kgo_w,
     xnn_pack_conv_goki_w_fn pack_conv_goki_w,
     const void* packing_params,
@@ -468,7 +468,6 @@ static enum xnn_status create_convolution2d_nhwc(
     struct jit_gemm_params* jit_gemm_params,
     bool linear_activation,
     bool relu_activation,
-    uint32_t datatype_init_flags,
     enum xnn_operator_type operator_type,
     size_t num_post_operations,
     void* post_operation_params,
@@ -481,15 +480,6 @@ static enum xnn_status create_convolution2d_nhwc(
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
     xnn_log_error(
       "failed to create %s operator: XNNPACK is not initialized",
-      xnn_operator_type_to_string(operator_type));
-    goto error;
-  }
-
-  status = xnn_status_unsupported_hardware;
-
-  if ((xnn_params.init_flags & datatype_init_flags) != datatype_init_flags) {
-    xnn_log_error(
-      "failed to create %s operator: operations on data type are not supported",
       xnn_operator_type_to_string(operator_type));
     goto error;
   }
@@ -820,13 +810,13 @@ enum xnn_status xnn_create_convolution2d_nhwc_qu8(
     groups, group_input_channels, group_output_channels,
     input_channel_stride, output_channel_stride,
     kernel, bias, flags,
-    /*log2_input_element_size=*/0,  // log2(sizeof(uint8_t))
-    /*log2_filter_element_size=*/0,  // log2(sizeof(uint8_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
     /*bias_element_size=*/sizeof(int32_t),
     (xnn_pack_vmulcaddc_w_fn) NULL,
     (xnn_pack_dwconv_hwg_w_fn) xnn_pack_qu8_dwconv_hwg_w,
     (xnn_pack_dwconv_ghw_w_fn) xnn_pack_qu8_dwconv_ghw_w,
-    (xnn_pack_gemm_goi_w_fn) xnn_pack_qu8_gemm_goi_w,
+    (xnn_packw_gemm_goi_ukernel_fn) gemm_config->pack_gemm_goi,
     (xnn_pack_conv_kgo_w_fn) xnn_pack_qu8_conv_kgo_w,
     (xnn_pack_conv_goki_w_fn) xnn_pack_qu8_conv_goki_w,
     /*packing_params=*/&packing_params,
@@ -847,7 +837,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_qu8(
     /*jit_gemm_params=*/NULL,
     /*linear_activation=*/false,
     /*relu_activation=*/false,
-    /*datatype_init_flags=*/XNN_INIT_FLAG_QU8,
     /*operator_type=*/xnn_operator_type_convolution_nhwc_qu8,
     /*num_post_operations=*/0,
     /*post_operation_params=*/NULL,
@@ -952,13 +941,13 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
     groups, group_input_channels, group_output_channels,
     input_channel_stride, output_channel_stride,
     kernel, bias, flags,
-    /*log2_input_element_size=*/0,  // log2(sizeof(int8_t))
-    /*log2_filter_element_size=*/0,  // log2(sizeof(int8_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*bias_element_size=*/sizeof(int32_t),
     (xnn_pack_vmulcaddc_w_fn) NULL,
     (xnn_pack_dwconv_hwg_w_fn) xnn_pack_qs8_dwconv_hwg_w,
     (xnn_pack_dwconv_ghw_w_fn) xnn_pack_qs8_dwconv_ghw_w,
-    (xnn_pack_gemm_goi_w_fn) xnn_pack_qs8_gemm_goi_w,
+    (xnn_packw_gemm_goi_ukernel_fn) gemm_config->pack_gemm_goi,
     (xnn_pack_conv_kgo_w_fn) xnn_pack_qs8_conv_kgo_w,
     (xnn_pack_conv_goki_w_fn) xnn_pack_qs8_conv_goki_w,
     /*packing_params=*/&packing_params,
@@ -979,7 +968,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
     /*jit_gemm_params=*/NULL,
     /*linear_activation=*/false,
     /*relu_activation=*/false,
-    /*datatype_init_flags=*/XNN_INIT_FLAG_QS8,
     /*operator_type=*/xnn_operator_type_convolution_nhwc_qs8,
     /*num_post_operations=*/0,
     /*post_operation_params=*/NULL,
@@ -1092,13 +1080,13 @@ enum xnn_status xnn_create_convolution2d_nhwc_qc8(
     groups, group_input_channels, group_output_channels,
     input_channel_stride, output_channel_stride,
     kernel, bias, flags,
-    /*log2_input_element_size=*/0,  // log2(sizeof(int8_t))
-    /*log2_filter_element_size=*/0,  // log2(sizeof(int8_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*bias_element_size=*/sizeof(int32_t),
     (xnn_pack_vmulcaddc_w_fn) NULL,
     (xnn_pack_dwconv_hwg_w_fn) xnn_pack_qs8_dwconv_hwg_w,
     (xnn_pack_dwconv_ghw_w_fn) xnn_pack_qs8_dwconv_ghw_w,
-    (xnn_pack_gemm_goi_w_fn) xnn_pack_qs8_gemm_goi_w,
+    (xnn_packw_gemm_goi_ukernel_fn) gemm_config->pack_gemm_goi,
     (xnn_pack_conv_kgo_w_fn) xnn_pack_qs8_conv_kgo_w,
     (xnn_pack_conv_goki_w_fn) xnn_pack_qs8_conv_goki_w,
     /*packing_params=*/&packing_params,
@@ -1119,7 +1107,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_qc8(
     /*jit_gemm_params=*/NULL,
     /*linear_activation=*/false,
     /*relu_activation=*/false,
-    /*datatype_init_flags=*/XNN_INIT_FLAG_QC8,
     /*operator_type=*/xnn_operator_type_convolution_nhwc_qc8,
     /*num_post_operations=*/0,
     /*post_operation_params=*/NULL,
@@ -1224,14 +1211,14 @@ enum xnn_status xnn_create_convolution2d_nhwc_f16(
   xnn_pack_vmulcaddc_w_fn pack_vmulcaddc_w = (xnn_pack_vmulcaddc_w_fn) xnn_pack_f16_vmulcaddc_w;
   xnn_pack_dwconv_hwg_w_fn pack_dwconv_hwg_w = (xnn_pack_dwconv_hwg_w_fn) xnn_pack_f16_dwconv_hwg_w;
   xnn_pack_dwconv_ghw_w_fn pack_dwconv_ghw_w = (xnn_pack_dwconv_ghw_w_fn) xnn_pack_f16_dwconv_ghw_w;
-  xnn_pack_gemm_goi_w_fn pack_gemm_goi_w = (xnn_pack_gemm_goi_w_fn) xnn_pack_f16_gemm_goi_w;
+  xnn_packw_gemm_goi_ukernel_fn pack_gemm_goi_w = (xnn_packw_gemm_goi_ukernel_fn) gemm_config->pack_gemm_goi;
   xnn_pack_conv_kgo_w_fn pack_conv_kgo_w = (xnn_pack_conv_kgo_w_fn) xnn_pack_f16_conv_kgo_w;
   xnn_pack_conv_goki_w_fn pack_conv_goki_w = (xnn_pack_conv_goki_w_fn) xnn_pack_f16_conv_goki_w;
   if (flags & XNN_FLAG_FP32_STATIC_WEIGHTS) {
     pack_vmulcaddc_w = (xnn_pack_vmulcaddc_w_fn) xnn_pack_f32_to_f16_vmulcaddc_w;
     pack_dwconv_hwg_w = (xnn_pack_dwconv_hwg_w_fn) xnn_pack_f32_to_f16_dwconv_hwg_w;
     pack_dwconv_ghw_w = (xnn_pack_dwconv_ghw_w_fn) xnn_pack_f32_to_f16_dwconv_ghw_w;
-    pack_gemm_goi_w = (xnn_pack_gemm_goi_w_fn) xnn_pack_f32_to_f16_gemm_goi_w;
+    pack_gemm_goi_w = (xnn_packw_gemm_goi_ukernel_fn) xnn_pack_f32_to_f16_gemm_goi_w;
     pack_conv_kgo_w = (xnn_pack_conv_kgo_w_fn) xnn_pack_f32_to_f16_conv_kgo_w;
     pack_conv_goki_w = (xnn_pack_conv_goki_w_fn) xnn_pack_f32_to_f16_conv_goki_w;
   }
@@ -1244,8 +1231,8 @@ enum xnn_status xnn_create_convolution2d_nhwc_f16(
     groups, group_input_channels, group_output_channels,
     input_channel_stride, output_channel_stride,
     kernel, bias, flags,
-    /*log2_input_element_size=*/1,  // log2(sizeof(uint16_t))
-    /*log2_filter_element_size=*/1,  // log2(sizeof(uint16_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_HALF,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_HALF,
     /*bias_element_size=*/sizeof(uint16_t),
     pack_vmulcaddc_w,
     pack_dwconv_hwg_w,
@@ -1271,7 +1258,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_f16(
     /*jit_gemm_params=*/&jit_gemm_params,
     /*linear_activation=*/false,
     /*relu_activation=*/false,
-    /*datatype_init_flags=*/XNN_INIT_FLAG_F16,
     /*operator_type=*/xnn_operator_type_convolution_nhwc_f16,
     /*num_post_operations=*/0,
     /*post_operation_params=*/NULL,
@@ -1395,13 +1381,13 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32(
     groups, group_input_channels, group_output_channels,
     input_channel_stride, output_channel_stride,
     kernel, bias, flags,
-    /*log2_input_element_size=*/2,  // log2(sizeof(float))
-    /*log2_filter_element_size=*/2,  // log2(sizeof(float))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*bias_element_size=*/sizeof(float),
     (xnn_pack_vmulcaddc_w_fn) xnn_pack_f32_vmulcaddc_w,
     (xnn_pack_dwconv_hwg_w_fn) xnn_pack_f32_dwconv_hwg_w,
     (xnn_pack_dwconv_ghw_w_fn) xnn_pack_f32_dwconv_ghw_w,
-    (xnn_pack_gemm_goi_w_fn) xnn_pack_f32_gemm_goi_w,
+    (xnn_packw_gemm_goi_ukernel_fn) gemm_config->pack_gemm_goi,
     (xnn_pack_conv_kgo_w_fn) xnn_pack_f32_conv_kgo_w,
     (xnn_pack_conv_goki_w_fn) xnn_pack_f32_conv_goki_w,
     /*packing_params=*/NULL,
@@ -1422,7 +1408,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32(
     /*jit_gemm_params=*/&jit_gemm_params,
     /*linear_activation=*/linear_activation,
     /*relu_activation=*/relu_activation,
-    /*datatype_init_flags=*/XNN_INIT_FLAG_F32,
     /*operator_type=*/xnn_operator_type_convolution_nhwc_f32,
     /*num_post_operations=*/0,
     /*post_operation_params=*/NULL,
@@ -1522,13 +1507,13 @@ enum xnn_status xnn_create_fused_convolution2d_nhwc_f32(
     groups, group_input_channels, group_output_channels,
     input_channel_stride, output_channel_stride,
     kernel, bias, flags,
-    /*log2_input_element_size=*/2,  // log2(sizeof(float))
-    /*log2_filter_element_size=*/2,  // log2(sizeof(float))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*bias_element_size=*/sizeof(float),
     (xnn_pack_vmulcaddc_w_fn) xnn_pack_f32_vmulcaddc_w,
     (xnn_pack_dwconv_hwg_w_fn) xnn_pack_f32_dwconv_hwg_w,
     (xnn_pack_dwconv_ghw_w_fn) xnn_pack_f32_dwconv_ghw_w,
-    (xnn_pack_gemm_goi_w_fn) xnn_pack_f32_gemm_goi_w,
+    (xnn_packw_gemm_goi_ukernel_fn) gemm_config->pack_gemm_goi,
     (xnn_pack_conv_kgo_w_fn) xnn_pack_f32_conv_kgo_w,
     (xnn_pack_conv_goki_w_fn) xnn_pack_f32_conv_goki_w,
     /*packing_params=*/NULL,
@@ -1549,7 +1534,6 @@ enum xnn_status xnn_create_fused_convolution2d_nhwc_f32(
     /*jit_gemm_params=*/&jit_gemm_params,
     /*linear_activation=*/true,
     /*relu_activation=*/false,
-    /*datatype_init_flags=*/XNN_INIT_FLAG_F32,
     /*operator_type=*/xnn_operator_type_convolution_nhwc_f32,
     /*num_post_operations=*/num_post_operations,
     /*post_operation_params=*/post_operation_params,
@@ -1633,38 +1617,38 @@ static enum xnn_status setup_gemm(
   if (groups == 1) {
     #if XNN_MAX_UARCH_TYPES > 1
       if (xnn_is_hmp_gemm_ukernel(gemm_ukernel)) {
-        convolution_op->compute.type = xnn_parallelization_type_2d_tile_2d_with_uarch;
-        convolution_op->compute.task_2d_tile_2d_with_id = (pthreadpool_task_2d_tile_2d_with_id_t) xnn_compute_hmp_gemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_2d_with_uarch;
+        convolution_op->compute[0].task_2d_tile_2d_with_id = (pthreadpool_task_2d_tile_2d_with_id_t) xnn_compute_hmp_gemm;
       } else {
-        convolution_op->compute.type = xnn_parallelization_type_2d_tile_2d;
-        convolution_op->compute.task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_gemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_2d;
+        convolution_op->compute[0].task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_gemm;
       }
     #else
-      convolution_op->compute.type = xnn_parallelization_type_2d_tile_2d;
-      convolution_op->compute.task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_gemm;
+      convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_2d;
+      convolution_op->compute[0].task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_gemm;
     #endif
-    convolution_op->compute.range[0] = batch_output_size;
-    convolution_op->compute.range[1] = group_output_channels;
-    convolution_op->compute.tile[0] = mr;
-    convolution_op->compute.tile[1] = nc;
+    convolution_op->compute[0].range[0] = batch_output_size;
+    convolution_op->compute[0].range[1] = group_output_channels;
+    convolution_op->compute[0].tile[0] = mr;
+    convolution_op->compute[0].tile[1] = nc;
   } else {
     #if XNN_MAX_UARCH_TYPES > 1
       if (xnn_is_hmp_gemm_ukernel(gemm_ukernel)) {
-        convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d_with_uarch;
-        convolution_op->compute.task_3d_tile_2d_with_id = (pthreadpool_task_3d_tile_2d_with_id_t) xnn_compute_hmp_grouped_gemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d_with_uarch;
+        convolution_op->compute[0].task_3d_tile_2d_with_id = (pthreadpool_task_3d_tile_2d_with_id_t) xnn_compute_hmp_grouped_gemm;
       } else {
-        convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d;
-        convolution_op->compute.task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_gemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d;
+        convolution_op->compute[0].task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_gemm;
       }
     #else
-      convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d;
-      convolution_op->compute.task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_gemm;
+      convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d;
+      convolution_op->compute[0].task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_gemm;
     #endif
-    convolution_op->compute.range[0] = groups;
-    convolution_op->compute.range[1] = batch_output_size;
-    convolution_op->compute.range[2] = group_output_channels;
-    convolution_op->compute.tile[0] = mr;
-    convolution_op->compute.tile[1] = nc;
+    convolution_op->compute[0].range[0] = groups;
+    convolution_op->compute[0].range[1] = batch_output_size;
+    convolution_op->compute[0].range[2] = group_output_channels;
+    convolution_op->compute[0].tile[0] = mr;
+    convolution_op->compute[0].tile[1] = nc;
   }
   convolution_op->state = xnn_run_state_ready;
 
@@ -1773,80 +1757,80 @@ static enum xnn_status setup_igemm(
     #if XNN_MAX_UARCH_TYPES > 1
       if (xnn_is_hmp_igemm_ukernel(igemm_ukernel)) {
         if (batch_size > 1) {
-          convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d_with_uarch;
-          convolution_op->compute.task_3d_tile_2d_with_id = (pthreadpool_task_3d_tile_2d_with_id_t) xnn_compute_batch_hmp_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d_with_uarch;
+          convolution_op->compute[0].task_3d_tile_2d_with_id = (pthreadpool_task_3d_tile_2d_with_id_t) xnn_compute_batch_hmp_igemm;
         } else {
-          convolution_op->compute.type = xnn_parallelization_type_2d_tile_2d_with_uarch;
-          convolution_op->compute.task_2d_tile_2d_with_id = (pthreadpool_task_2d_tile_2d_with_id_t) xnn_compute_hmp_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_2d_with_uarch;
+          convolution_op->compute[0].task_2d_tile_2d_with_id = (pthreadpool_task_2d_tile_2d_with_id_t) xnn_compute_hmp_igemm;
         }
       } else {
         if (batch_size > 1) {
-          convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d;
-          convolution_op->compute.task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_batch_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d;
+          convolution_op->compute[0].task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_batch_igemm;
         } else {
-          convolution_op->compute.type = xnn_parallelization_type_2d_tile_2d;
-          convolution_op->compute.task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_2d;
+          convolution_op->compute[0].task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_igemm;
         }
       }
     #else
       if (batch_size > 1) {
-        convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d;
-        convolution_op->compute.task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_batch_igemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d;
+        convolution_op->compute[0].task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_batch_igemm;
       } else {
-        convolution_op->compute.type = xnn_parallelization_type_2d_tile_2d;
-        convolution_op->compute.task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_igemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_2d;
+        convolution_op->compute[0].task_2d_tile_2d = (pthreadpool_task_2d_tile_2d_t) xnn_compute_igemm;
       }
     #endif
     if (batch_size > 1) {
-      convolution_op->compute.range[0] = batch_size;
-      convolution_op->compute.range[1] = output_size;
-      convolution_op->compute.range[2] = group_output_channels;
+      convolution_op->compute[0].range[0] = batch_size;
+      convolution_op->compute[0].range[1] = output_size;
+      convolution_op->compute[0].range[2] = group_output_channels;
     } else {
-      convolution_op->compute.range[0] = output_size;
-      convolution_op->compute.range[1] = group_output_channels;
+      convolution_op->compute[0].range[0] = output_size;
+      convolution_op->compute[0].range[1] = group_output_channels;
     }
-    convolution_op->compute.tile[0] = mr;
-    convolution_op->compute.tile[1] = nc;
+    convolution_op->compute[0].tile[0] = mr;
+    convolution_op->compute[0].tile[1] = nc;
   } else {
     #if XNN_MAX_UARCH_TYPES > 1
       if (xnn_is_hmp_igemm_ukernel(igemm_ukernel)) {
         if (batch_size > 1) {
-          convolution_op->compute.type = xnn_parallelization_type_4d_tile_2d_with_uarch;
-          convolution_op->compute.task_4d_tile_2d_with_id = (pthreadpool_task_4d_tile_2d_with_id_t) xnn_compute_hmp_grouped_batch_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_4d_tile_2d_with_uarch;
+          convolution_op->compute[0].task_4d_tile_2d_with_id = (pthreadpool_task_4d_tile_2d_with_id_t) xnn_compute_hmp_grouped_batch_igemm;
         } else {
-          convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d_with_uarch;
-          convolution_op->compute.task_3d_tile_2d_with_id = (pthreadpool_task_3d_tile_2d_with_id_t) xnn_compute_hmp_grouped_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d_with_uarch;
+          convolution_op->compute[0].task_3d_tile_2d_with_id = (pthreadpool_task_3d_tile_2d_with_id_t) xnn_compute_hmp_grouped_igemm;
         }
       } else {
         if (batch_size > 1) {
-          convolution_op->compute.type = xnn_parallelization_type_4d_tile_2d;
-          convolution_op->compute.task_4d_tile_2d = (pthreadpool_task_4d_tile_2d_t) xnn_compute_grouped_batch_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_4d_tile_2d;
+          convolution_op->compute[0].task_4d_tile_2d = (pthreadpool_task_4d_tile_2d_t) xnn_compute_grouped_batch_igemm;
         } else {
-          convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d;
-          convolution_op->compute.task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_igemm;
+          convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d;
+          convolution_op->compute[0].task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_igemm;
         }
       }
     #else
       if (batch_size > 1) {
-        convolution_op->compute.type = xnn_parallelization_type_4d_tile_2d;
-        convolution_op->compute.task_4d_tile_2d = (pthreadpool_task_4d_tile_2d_t) xnn_compute_grouped_batch_igemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_4d_tile_2d;
+        convolution_op->compute[0].task_4d_tile_2d = (pthreadpool_task_4d_tile_2d_t) xnn_compute_grouped_batch_igemm;
       } else {
-        convolution_op->compute.type = xnn_parallelization_type_3d_tile_2d;
-        convolution_op->compute.task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_igemm;
+        convolution_op->compute[0].type = xnn_parallelization_type_3d_tile_2d;
+        convolution_op->compute[0].task_3d_tile_2d = (pthreadpool_task_3d_tile_2d_t) xnn_compute_grouped_igemm;
       }
     #endif
     if (batch_size > 1) {
-      convolution_op->compute.range[0] = batch_size;
-      convolution_op->compute.range[1] = groups;
-      convolution_op->compute.range[2] = output_size;
-      convolution_op->compute.range[3] = group_output_channels;
+      convolution_op->compute[0].range[0] = batch_size;
+      convolution_op->compute[0].range[1] = groups;
+      convolution_op->compute[0].range[2] = output_size;
+      convolution_op->compute[0].range[3] = group_output_channels;
     } else {
-      convolution_op->compute.range[0] = groups;
-      convolution_op->compute.range[1] = output_size;
-      convolution_op->compute.range[2] = group_output_channels;
+      convolution_op->compute[0].range[0] = groups;
+      convolution_op->compute[0].range[1] = output_size;
+      convolution_op->compute[0].range[2] = group_output_channels;
     }
-    convolution_op->compute.tile[0] = mr;
-    convolution_op->compute.tile[1] = nc;
+    convolution_op->compute[0].tile[0] = mr;
+    convolution_op->compute[0].tile[1] = nc;
   }
   convolution_op->state = xnn_run_state_ready;
 
@@ -1927,16 +1911,16 @@ static enum xnn_status setup_dwconv(
   };
   memcpy(&convolution_op->context.dwconv.params, &convolution_op->params, sizeof(convolution_op->context.dwconv.params));
 
-  convolution_op->compute.type = xnn_parallelization_type_2d;
-  convolution_op->compute.range[0] = convolution_op->batch_size;
-  convolution_op->compute.range[1] = output_height;
+  convolution_op->compute[0].type = xnn_parallelization_type_2d;
+  convolution_op->compute[0].range[0] = convolution_op->batch_size;
+  convolution_op->compute[0].range[1] = output_height;
   convolution_op->state = xnn_run_state_ready;
 
   if (is_unipass) {
-    convolution_op->compute.task_2d = (pthreadpool_task_2d_t) xnn_compute_dwconv_unipass;
+    convolution_op->compute[0].task_2d = (pthreadpool_task_2d_t) xnn_compute_dwconv_unipass;
     convolution_op->context.dwconv.unipass_ukernel = convolution_op->ukernel.dwconv.unipass_fn;
   } else {
-    convolution_op->compute.task_2d = (pthreadpool_task_2d_t) xnn_compute_dwconv_multipass;
+    convolution_op->compute[0].task_2d = (pthreadpool_task_2d_t) xnn_compute_dwconv_multipass;
     convolution_op->context.dwconv.multipass_ukernel = convolution_op->ukernel.dwconv.multipass_fn;
     convolution_op->context.dwconv.buffer_size =
       (groups + (XNN_MAX_SIMD_SIZE >> log2_input_element_size)) << log2_accumulator_element_size;
@@ -1978,10 +1962,10 @@ static enum xnn_status setup_vmulcaddc(
     }
   }
 #endif
-  convolution_op->compute.type = xnn_parallelization_type_1d_tile_1d;
-  convolution_op->compute.task_1d_tile_1d = (pthreadpool_task_1d_tile_1d_t) xnn_compute_vmulcaddc;
-  convolution_op->compute.range[0] = batch_output_size;
-  convolution_op->compute.tile[0] = mc;
+  convolution_op->compute[0].type = xnn_parallelization_type_1d_tile_1d;
+  convolution_op->compute[0].task_1d_tile_1d = (pthreadpool_task_1d_tile_1d_t) xnn_compute_vmulcaddc;
+  convolution_op->compute[0].range[0] = batch_output_size;
+  convolution_op->compute[0].tile[0] = mc;
   convolution_op->state = xnn_run_state_ready;
 
   return xnn_status_success;
@@ -1995,7 +1979,6 @@ static enum xnn_status setup_convolution2d_nhwc(
   size_t input_width,
   const void* input,
   void* output,
-  uint32_t datatype_init_flags,
   uint32_t log2_input_element_size,
   uint32_t log2_filter_element_size,
   uint32_t log2_accumulator_element_size,
@@ -2015,13 +1998,6 @@ static enum xnn_status setup_convolution2d_nhwc(
     xnn_log_error("failed to setup %s operator: XNNPACK is not initialized",
       xnn_operator_type_to_string(convolution_op->type));
     return xnn_status_uninitialized;
-  }
-
-  if ((xnn_params.init_flags & datatype_init_flags) != datatype_init_flags) {
-    xnn_log_error(
-      "failed to create %s operator: operations on data type are not supported",
-      xnn_operator_type_to_string(convolution_op->type));
-    return xnn_status_unsupported_hardware;
   }
 
   if (input_width == 0 || input_height == 0) {
@@ -2116,12 +2092,11 @@ enum xnn_status xnn_setup_convolution2d_nhwc_qu8(
     convolution_op, xnn_operator_type_convolution_nhwc_qu8,
     batch_size, input_height, input_width,
     input, output,
-    XNN_INIT_FLAG_QU8,
-    /*log2_input_element_size=*/0,  // log2(sizeof(uint8_t))
-    /*log2_filter_element_size=*/0,  // log2(sizeof(uint8_t))
-    /*log2_accumulator_element_size=*/2,  // log2(sizeof(int32_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
+    /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_INT32_T,
     /*extra_weights_elements_size=*/sizeof(int32_t),
-    /*log2_output_element_size=*/0,  // log2(sizeof(uint8_t))
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
     /*num_threads=*/pthreadpool_get_threads_count(threadpool));
 }
 
@@ -2138,12 +2113,11 @@ enum xnn_status xnn_setup_convolution2d_nhwc_qs8(
     convolution_op, xnn_operator_type_convolution_nhwc_qs8,
     batch_size, input_height, input_width,
     input, output,
-    XNN_INIT_FLAG_QS8,
-    /*log2_input_element_size=*/0,  // log2(sizeof(int8_t))
-    /*log2_filter_element_size=*/0,  // log2(sizeof(int8_t))
-    /*log2_accumulator_element_size=*/2,  // log2(sizeof(int32_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+    /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_INT32_T,
     /*extra_weights_elements_size=*/sizeof(int32_t),
-    /*log2_output_element_size=*/0,  // log2(sizeof(int8_t))
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*num_threads=*/pthreadpool_get_threads_count(threadpool));
 }
 
@@ -2160,12 +2134,11 @@ enum xnn_status xnn_setup_convolution2d_nhwc_qc8(
     convolution_op, xnn_operator_type_convolution_nhwc_qc8,
     batch_size, input_height, input_width,
     input, output,
-    XNN_INIT_FLAG_QC8,
-    /*log2_input_element_size=*/0,  // log2(sizeof(int8_t))
-    /*log2_filter_element_size=*/0,  // log2(sizeof(int8_t))
-    /*log2_accumulator_element_size=*/2,  // log2(sizeof(int32_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
+    /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_INT32_T,
     /*extra_weights_elements_size=*/sizeof(int32_t) + sizeof(float),
-    /*log2_output_element_size=*/0,  // log2(sizeof(int8_t))
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*num_threads=*/pthreadpool_get_threads_count(threadpool));
 }
 
@@ -2182,12 +2155,11 @@ enum xnn_status xnn_setup_convolution2d_nhwc_f16(
     convolution_op, xnn_operator_type_convolution_nhwc_f16,
     batch_size, input_height, input_width,
     input, output,
-    XNN_INIT_FLAG_F16,
-    /*log2_input_element_size=*/1,  // log2(sizeof(uint16_t))
-    /*log2_filter_element_size=*/1,  // log2(sizeof(uint16_t))
-    /*log2_accumulator_element_size=*/1,  // log2(sizeof(uint16_t))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_HALF,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_HALF,
+    /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_HALF,
     /*extra_weights_elements_size=*/sizeof(uint16_t),
-    /*log2_output_element_size=*/1,  // log2(sizeof(uint16_t))
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_HALF,
     /*num_threads=*/pthreadpool_get_threads_count(threadpool));
 }
 
@@ -2204,11 +2176,10 @@ enum xnn_status xnn_setup_convolution2d_nhwc_f32(
     convolution_op, xnn_operator_type_convolution_nhwc_f32,
     batch_size, input_height, input_width,
     input, output,
-    XNN_INIT_FLAG_F32,
-    /*log2_input_element_size=*/2,  // log2(sizeof(float))
-    /*log2_filter_element_size=*/2,  // log2(sizeof(float))
-    /*log2_accumulator_element_size=*/2,  // log2(sizeof(float))
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*extra_weights_elements_size=*/sizeof(float),
-    /*log2_output_element_size=*/2,  // log2(sizeof(float))
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
     /*num_threads=*/pthreadpool_get_threads_count(threadpool));
 }

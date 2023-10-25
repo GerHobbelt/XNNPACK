@@ -61,6 +61,23 @@ struct xnn_hardware_config {
 
 XNN_INTERNAL const struct xnn_hardware_config* xnn_init_hardware_config();
 
+static inline bool xnn_is_f16_compatible_config(const struct xnn_hardware_config hardware_config[XNN_MIN_ELEMENTS(1)]) {
+  #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || (XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR)
+    return hardware_config->use_arm_neon_fp16_arith;
+  #elif (XNN_ARCH_X86 || XNN_ARCH_X86_64) && !XNN_PLATFORM_MOBILE
+    return hardware_config->use_x86_avx2;
+  #else
+    return false;
+  #endif
+}
+
+static inline bool xnn_is_f16_chw_compatible_config(const struct xnn_hardware_config hardware_config[XNN_MIN_ELEMENTS(1)]) {
+  #if (XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR) || (XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR)
+    return hardware_config->use_arm_neon_fp16_arith;
+  #else
+    return false;
+  #endif
+}
 
 struct xnn_x8_lut_config {
   xnn_x8_lut_ukernel_fn microkernel;
@@ -568,6 +585,7 @@ struct xnn_gemm_config {
     xnn_init_qs8_conv_minmax_params_fn qs8;
     xnn_init_qu8_conv_minmax_params_fn qu8;
   } init;
+  xnn_packw_gemm_goi_ukernel_fn pack_gemm_goi;
   uint8_t mr;
   uint8_t nr;
   uint8_t log2_kr;

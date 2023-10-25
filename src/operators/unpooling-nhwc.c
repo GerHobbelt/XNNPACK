@@ -98,7 +98,12 @@ enum xnn_status xnn_create_unpooling2d_nhwc_x32(
   }
 
   const struct xnn_unpool_config* unpool_config = xnn_init_x32_unpool_config();
-  assert(unpool_config != NULL);
+  if (unpool_config == NULL) {
+    xnn_log_error(
+      "failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_unpooling_nhwc_x32));
+    return xnn_status_unsupported_hardware;
+  }
 
   unpooling_op->padding_top = input_padding_top;
   unpooling_op->padding_right = input_padding_right;
@@ -181,7 +186,7 @@ enum xnn_status xnn_setup_unpooling2d_nhwc_x32(
   {
     valid_batch_size = unpooling_op->valid_batch_size;
     if (batch_size <= valid_batch_size) {
-      unpooling_op->compute.range[0] = batch_size * input_height;
+      unpooling_op->compute[0].range[0] = batch_size * input_height;
       unpooling_op->state = xnn_run_state_ready;
       return xnn_status_success;
     }
@@ -203,7 +208,7 @@ enum xnn_status xnn_setup_unpooling2d_nhwc_x32(
   xnn_log_debug("allocated %zu bytes for indirection buffer in %s operator",
     indirection_buffer_size, xnn_operator_type_to_string(xnn_operator_type_unpooling_nhwc_x32));
 
-  xnn_indirection_init_unpool2d(unpooling_op, valid_batch_size, 2 /* log2(sizeof(type32)) */);
+  xnn_indirection_init_unpool2d(unpooling_op, valid_batch_size, /*log2_element_size=*/XNN_LOG2_SIZEOF_FLOAT);
 
   const size_t channels = unpooling_op->channels;
   const size_t input_pixel_stride_in_bytes = unpooling_op->input_pixel_stride * sizeof(float);
@@ -222,10 +227,10 @@ enum xnn_status xnn_setup_unpooling2d_nhwc_x32(
     .fill_value = 0,
     .ukernel = unpooling_op->unpool_config->unpool,
   };
-  unpooling_op->compute.type = xnn_parallelization_type_2d;
-  unpooling_op->compute.task_2d = (pthreadpool_task_2d_t) xnn_compute_unpooling;
-  unpooling_op->compute.range[0] = batch_size * input_height;
-  unpooling_op->compute.range[1] = input_width;
+  unpooling_op->compute[0].type = xnn_parallelization_type_2d;
+  unpooling_op->compute[0].task_2d = (pthreadpool_task_2d_t) xnn_compute_unpooling;
+  unpooling_op->compute[0].range[0] = batch_size * input_height;
+  unpooling_op->compute[0].range[1] = input_width;
   unpooling_op->state = xnn_run_state_ready;
 
   unpooling_op->last_output = output;

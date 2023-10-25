@@ -284,20 +284,11 @@ enum xnn_status xnn_create_convolution2d_nchw_f16(
   xnn_operator_t convolution_op = NULL;
   enum xnn_status status = xnn_status_uninitialized;
 
-  const size_t log2_filter_element_size = 1;  /* log2(sizeof(uint16_t)) */
+  const size_t log2_filter_element_size = XNN_LOG2_SIZEOF_HALF;
   const enum xnn_operator_type operator_type = xnn_operator_type_convolution_nchw_f16;
 
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
     xnn_log_error("failed to create %s operator: XNNPACK is not initialized",
-      xnn_operator_type_to_string(operator_type));
-    goto error;
-  }
-
-  status = xnn_status_unsupported_hardware;
-
-  const uint32_t datatype_init_flags = XNN_INIT_FLAG_F16 | XNN_INIT_FLAG_F16_NATIVE;
-  if ((xnn_params.init_flags & datatype_init_flags) != datatype_init_flags) {
-    xnn_log_error("failed to create %s operator: operations on data type are not supported",
       xnn_operator_type_to_string(operator_type));
     goto error;
   }
@@ -399,7 +390,7 @@ enum xnn_status xnn_create_convolution2d_nchw_f16(
     goto error;
   }
 
-  status = xnn_status_unsupported_parameter;
+  status = xnn_status_unsupported_hardware;
 
   const struct xnn_spmm_config* spmm_config = xnn_init_f16_spmm_config();
   if (spmm_config == NULL) {
@@ -414,6 +405,8 @@ enum xnn_status xnn_create_convolution2d_nchw_f16(
       xnn_operator_type_to_string(operator_type));
     goto error;
   }
+
+  status = xnn_status_unsupported_parameter;
 
   enum xnn_microkernel_type ukernel_type;
   const struct xnn_dwconv2d_chw_parameters* dwconv2d_parameters = NULL;
@@ -632,20 +625,11 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
 {
   xnn_operator_t convolution_op = NULL;
   enum xnn_status status = xnn_status_uninitialized;
-  const size_t log2_filter_element_size = 2;  /* log2(sizeof(float)) */
+  const size_t log2_filter_element_size = XNN_LOG2_SIZEOF_FLOAT;
   const enum xnn_operator_type operator_type = xnn_operator_type_convolution_nchw_f32;
 
   if ((xnn_params.init_flags & XNN_INIT_FLAG_XNNPACK) == 0) {
     xnn_log_error("failed to create %s operator: XNNPACK is not initialized",
-      xnn_operator_type_to_string(operator_type));
-    goto error;
-  }
-
-  status = xnn_status_unsupported_hardware;
-
-  const uint32_t datatype_init_flags = XNN_INIT_FLAG_F32;
-  if ((xnn_params.init_flags & datatype_init_flags) != datatype_init_flags) {
-    xnn_log_error("failed to create %s operator: operations on data type are not supported",
       xnn_operator_type_to_string(operator_type));
     goto error;
   }
@@ -820,11 +804,26 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
   }
 
   const struct xnn_spmm_config* spmm_config = xnn_init_f32_spmm_config();
-  assert(spmm_config != NULL);
+  if (spmm_config == NULL) {
+    xnn_log_error(
+      "failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_convolution_nchw_f32));
+    return xnn_status_unsupported_hardware;
+  }
   const struct xnn_spmm_config* spmm2_config = xnn_init_f32_spmm2_config();
-  assert(spmm2_config != NULL);
+  if (spmm2_config == NULL) {
+    xnn_log_error(
+      "failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_convolution_nchw_f32));
+    return xnn_status_unsupported_hardware;
+  }
   const struct xnn_spmm_config* spmm4_config = xnn_init_f32_spmm4_config();
-  assert(spmm4_config != NULL);
+  if (spmm4_config == NULL) {
+    xnn_log_error(
+      "failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_convolution_nchw_f32));
+    return xnn_status_unsupported_hardware;
+  }
 
   switch (ukernel_type) {
     case xnn_microkernel_type_spmm:
@@ -934,7 +933,6 @@ static enum xnn_status setup_convolution2d_nchw(
   size_t input_width,
   const void* input,
   void* output,
-  uint32_t datatype_init_flags,
   uint32_t log2_input_element_size,
   uint32_t log2_filter_element_size,
   uint32_t bias_element_size,
@@ -955,13 +953,6 @@ static enum xnn_status setup_convolution2d_nchw(
     xnn_log_error("failed to setup %s operator: XNNPACK is not initialized",
       xnn_operator_type_to_string(convolution_op->type));
     return xnn_status_uninitialized;
-  }
-
-  if ((xnn_params.init_flags & datatype_init_flags) != datatype_init_flags) {
-    xnn_log_error(
-      "failed to create %s operator: operations on data type are not supported",
-      xnn_operator_type_to_string(convolution_op->type));
-    return xnn_status_unsupported_hardware;
   }
 
   if (input_width == 0 || input_height == 0) {
@@ -1058,11 +1049,11 @@ static enum xnn_status setup_convolution2d_nchw(
           }
         }
       #endif
-      convolution_op->compute.type = xnn_parallelization_type_2d_tile_1d;
-      convolution_op->compute.task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_spmm;
-      convolution_op->compute.range[0] = batch_size;
-      convolution_op->compute.range[1] = input_size << log2_input_element_size;
-      convolution_op->compute.tile[0] = mc << log2_input_element_size;
+      convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_1d;
+      convolution_op->compute[0].task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_spmm;
+      convolution_op->compute[0].range[0] = batch_size;
+      convolution_op->compute[0].range[1] = input_size << log2_input_element_size;
+      convolution_op->compute[0].tile[0] = mc << log2_input_element_size;
       convolution_op->state = xnn_run_state_ready;
 
       return xnn_status_success;
@@ -1113,11 +1104,11 @@ static enum xnn_status setup_convolution2d_nchw(
           }
         }
       #endif
-      convolution_op->compute.type = xnn_parallelization_type_2d_tile_1d;
-      convolution_op->compute.task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_conv2d_hwc2chw;
-      convolution_op->compute.range[0] = batch_size;
-      convolution_op->compute.range[1] = output_height;
-      convolution_op->compute.tile[0] = output_height_slice;
+      convolution_op->compute[0].type = xnn_parallelization_type_2d_tile_1d;
+      convolution_op->compute[0].task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_conv2d_hwc2chw;
+      convolution_op->compute[0].range[0] = batch_size;
+      convolution_op->compute[0].range[1] = output_height;
+      convolution_op->compute[0].tile[0] = output_height_slice;
       convolution_op->state = xnn_run_state_ready;
 
       return xnn_status_success;
@@ -1158,10 +1149,10 @@ static enum xnn_status setup_convolution2d_nchw(
       };
       memcpy(&convolution_op->context.dwconv2d.params, chw_params, sizeof(convolution_op->context.dwconv2d.params));
 
-      convolution_op->compute.type = xnn_parallelization_type_2d;
-      convolution_op->compute.task_2d = (pthreadpool_task_2d_t) xnn_compute_dwconv2d_chw;
-      convolution_op->compute.range[0] = batch_size;
-      convolution_op->compute.range[1] = convolution_op->groups;
+      convolution_op->compute[0].type = xnn_parallelization_type_2d;
+      convolution_op->compute[0].task_2d = (pthreadpool_task_2d_t) xnn_compute_dwconv2d_chw;
+      convolution_op->compute[0].range[0] = batch_size;
+      convolution_op->compute[0].range[1] = convolution_op->groups;
       convolution_op->state = xnn_run_state_ready;
 
       return xnn_status_success;
@@ -1169,30 +1160,6 @@ static enum xnn_status setup_convolution2d_nchw(
     default:
       XNN_UNREACHABLE;
   }
-}
-
-enum xnn_status xnn_setup_convolution2d_nchw_f32(
-    xnn_operator_t convolution_op,
-    size_t batch_size,
-    size_t input_height,
-    size_t input_width,
-    const float* input,
-    float* output,
-    pthreadpool_t threadpool)
-{
-  return setup_convolution2d_nchw(
-    convolution_op,
-    xnn_operator_type_convolution_nchw_f32,
-    batch_size, input_height, input_width,
-    input, output,
-    XNN_INIT_FLAG_F32,
-    2 /* log2(sizeof(input element)) = log2(sizeof(float)) */,
-    2 /* log2(sizeof(filter element)) = log2(sizeof(float)) */,
-    sizeof(float) /* sizeof(bias element) */,
-    2 /* log2(sizeof(output element)) = log2(sizeof(float)) */,
-    &convolution_op->params.f32_minmax,
-    &convolution_op->params.f32_chw,
-    pthreadpool_get_threads_count(threadpool));
 }
 
 enum xnn_status xnn_setup_convolution2d_nchw_f16(
@@ -1209,12 +1176,34 @@ enum xnn_status xnn_setup_convolution2d_nchw_f16(
     xnn_operator_type_convolution_nchw_f16,
     batch_size, input_height, input_width,
     input, output,
-    XNN_INIT_FLAG_F16 | XNN_INIT_FLAG_F16_NATIVE,
-    1 /* log2(sizeof(input element)) = log2(sizeof(uint16_t)) */,
-    1 /* log2(sizeof(filter element)) = log2(sizeof(uint16_t)) */,
-    sizeof(uint16_t) /* sizeof(bias element) */,
-    1 /* log2(sizeof(output element)) = log2(sizeof(uint16_t)) */,
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_HALF,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_HALF,
+    /*bias_element_size=*/sizeof(uint16_t),
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_HALF,
     &convolution_op->params.f16_minmax,
     &convolution_op->params.f16_chw,
+    pthreadpool_get_threads_count(threadpool));
+}
+
+enum xnn_status xnn_setup_convolution2d_nchw_f32(
+    xnn_operator_t convolution_op,
+    size_t batch_size,
+    size_t input_height,
+    size_t input_width,
+    const float* input,
+    float* output,
+    pthreadpool_t threadpool)
+{
+  return setup_convolution2d_nchw(
+    convolution_op,
+    xnn_operator_type_convolution_nchw_f32,
+    batch_size, input_height, input_width,
+    input, output,
+    /*log2_input_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    /*bias_element_size=*/sizeof(float),
+    /*log2_output_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
+    &convolution_op->params.f32_minmax,
+    &convolution_op->params.f32_chw,
     pthreadpool_get_threads_count(threadpool));
 }

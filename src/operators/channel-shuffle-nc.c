@@ -133,7 +133,12 @@ enum xnn_status xnn_create_channel_shuffle_nc_x32(
     xnn_operator_t* channel_shuffle_op_out)
 {
   const struct xnn_zip_config* zip_config = xnn_init_x32_zip_config();
-  assert(zip_config != NULL);
+  if (zip_config == NULL) {
+    xnn_log_error(
+      "failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_channel_shuffle_nc_x32));
+    return xnn_status_unsupported_hardware;
+  }
   return create_channel_shuffle_nc(
     groups,
     group_channels,
@@ -179,23 +184,23 @@ static enum xnn_status setup_channel_shuffle_nc(
     .n = channel_shuffle_op->group_channels << log2_element_size,
     .m = groups,
   };
-  channel_shuffle_op->compute.type = xnn_parallelization_type_1d;
-  channel_shuffle_op->compute.range[0] = batch_size;
+  channel_shuffle_op->compute[0].type = xnn_parallelization_type_1d;
+  channel_shuffle_op->compute[0].range[0] = batch_size;
   switch (groups) {
     case 2:
-      channel_shuffle_op->compute.task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_fixed;
+      channel_shuffle_op->compute[0].task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_fixed;
       channel_shuffle_op->context.channel_shuffle.fixed_ukernel = zip->x2;
       break;
     case 3:
-      channel_shuffle_op->compute.task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_fixed;
+      channel_shuffle_op->compute[0].task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_fixed;
       channel_shuffle_op->context.channel_shuffle.fixed_ukernel = zip->x3;
       break;
     case 4:
-      channel_shuffle_op->compute.task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_fixed;
+      channel_shuffle_op->compute[0].task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_fixed;
       channel_shuffle_op->context.channel_shuffle.fixed_ukernel = zip->x4;
       break;
     default:
-      channel_shuffle_op->compute.task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_variable;
+      channel_shuffle_op->compute[0].task_1d = (pthreadpool_task_1d_t) xnn_compute_channel_shuffle_variable;
       channel_shuffle_op->context.channel_shuffle.variable_ukernel = zip->xm;
       break;
     case 0:
@@ -226,7 +231,7 @@ enum xnn_status xnn_setup_channel_shuffle_nc_x8(
     batch_size,
     input,
     output,
-    0 /* log2(sizeof(element)) = log2(sizeof(uint8_t)) */,
+    /*log2_element_size=*/XNN_LOG2_SIZEOF_UINT8_T,
     channel_shuffle_op->zip_config);
 }
 
@@ -249,6 +254,6 @@ enum xnn_status xnn_setup_channel_shuffle_nc_x32(
     batch_size,
     input,
     output,
-    2 /* log2(sizeof(element)) = log2(sizeof(uint32_t)) */,
+    /*log2_element_size=*/XNN_LOG2_SIZEOF_UINT32_T,
     channel_shuffle_op->zip_config);
 }

@@ -532,6 +532,10 @@ SET(ALL_AVX_MICROKERNEL_SRCS
   src/x8-lut/gen/x8-lut-avx-x32.c
   src/x8-lut/gen/x8-lut-avx-x48.c
   src/x8-lut/gen/x8-lut-avx-x64.c
+  src/x32-packw/gen/x32-packw-x8-avx-x4.c
+  src/x32-packw/gen/x32-packw-x8s4-avx-x4.c
+  src/x32-packw/gen/x32-packw-x16-avx-x4.c
+  src/x32-packw/gen/x32-packw-x16s4-avx-x4.c
   src/x32-transposec/gen/x32-transposec-8x8-multi-mov-avx.c
   src/x32-transposec/gen/x32-transposec-8x8-multi-switch-avx.c
   src/x32-transposec/gen/x32-transposec-8x8-reuse-mov-avx.c
@@ -1084,7 +1088,9 @@ SET(ALL_AVX2_MICROKERNEL_SRCS
   src/x8-transposec/gen/x8-transposec-32x32-reuse-mov-avx2.c
   src/x8-transposec/gen/x8-transposec-32x32-reuse-switch-avx2.c
   src/x16-transposec/gen/x16-transposec-16x16-reuse-mov-avx2.c
-  src/x16-transposec/gen/x16-transposec-16x16-reuse-switch-avx2.c)
+  src/x16-transposec/gen/x16-transposec-16x16-reuse-switch-avx2.c
+  src/x32-packw/gen/x32-packw-x8-avx2-x4.c
+  src/x32-packw/gen/x32-packw-x16-avx2-x4.c)
 
 SET(ALL_AVX512F_MICROKERNEL_SRCS
   src/f32-dwconv/gen/f32-dwconv-3p16c-minmax-avx512f-acc2.c
@@ -1349,7 +1355,8 @@ SET(ALL_AVX512F_MICROKERNEL_SRCS
   src/math/f32-sigmoid-avx512f-rr2-p5-scalef-nr1fma.c
   src/math/f32-sqrt-avx512f-nr1fma1adj.c
   src/math/f32-sqrt-avx512f-nr1fma.c
-  src/math/f32-sqrt-avx512f-nr2fma.c)
+  src/math/f32-sqrt-avx512f-nr2fma.c
+  src/x32-packw/gen/x32-packw-x16-avx512f-x4.c)
 
 SET(ALL_AVX512SKX_MICROKERNEL_SRCS
   src/f16-f32-vcvt/gen/f16-f32-vcvt-avx512skx-x16.c
@@ -5403,8 +5410,6 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/x8-lut/gen/x8-lut-scalar-x4.c
   src/x8-lut/gen/x8-lut-scalar-x8.c
   src/x8-lut/gen/x8-lut-scalar-x16.c
-  src/x8-packw/gen/x8-packw-x2-scalar-int-x2.c
-  src/x8-packw/gen/x8-packw-x4-scalar-int-x4.c
   src/x8-transposec/gen/x8-transposec-1x2-scalar-int.c
   src/x8-transposec/gen/x8-transposec-1x4-scalar-int.c
   src/x8-transposec/gen/x8-transposec-2x1-scalar-int.c
@@ -8243,7 +8248,9 @@ SET(ALL_WASMSIMD_MICROKERNEL_SRCS
   src/x16-transposec/gen/x16-transposec-8x8-reuse-mov-wasmsimd.c
   src/x16-transposec/gen/x16-transposec-8x8-reuse-multi-wasmsimd.c
   src/x16-transposec/gen/x16-transposec-8x8-reuse-switch-wasmsimd.c
+  src/x32-packw/gen/x32-packw-x2c4-wasmsimd-x1.c
   src/x32-packw/gen/x32-packw-x8-wasmsimd-x4.c
+  src/x32-packw/gen/x32-packw-x8s4-wasmsimd-x1.c
   src/x32-packx/x32-packx-x4-wasmsimd.c
   src/x32-transposec/gen/x32-transposec-4x4-multi-mov-wasmsimd.c
   src/x32-transposec/gen/x32-transposec-4x4-multi-multi-wasmsimd.c

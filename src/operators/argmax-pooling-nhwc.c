@@ -63,6 +63,16 @@ enum xnn_status xnn_create_argmax_pooling2d_nhwc_f32(
     goto error;
   }
 
+  status = xnn_status_unsupported_hardware;
+
+  const struct xnn_argmaxpool_config* argmaxpool_config = xnn_init_f32_argmaxpool_config();
+  if (argmaxpool_config == NULL) {
+    xnn_log_error(
+      "failed to create %s operator: unsupported hardware configuration",
+      xnn_operator_type_to_string(xnn_operator_type_argmax_pooling_nhwc_f32));
+    goto error;
+  }
+
   status = xnn_status_invalid_parameter;
 
   const uint32_t pooling_size = pooling_height * pooling_width;
@@ -143,6 +153,7 @@ enum xnn_status xnn_create_argmax_pooling2d_nhwc_f32(
 
   argmax_pooling_op->type = xnn_operator_type_argmax_pooling_nhwc_f32;
   argmax_pooling_op->flags = flags;
+  argmax_pooling_op->argmaxpool_config = argmaxpool_config;
 
   argmax_pooling_op->state = xnn_run_state_invalid;
 
@@ -220,8 +231,7 @@ enum xnn_status xnn_setup_argmax_pooling2d_nhwc_f32(
   const size_t pooling_size = pooling_height * pooling_width;
   const size_t output_height = argmax_pooling_op->output_height;
   const size_t output_width = argmax_pooling_op->output_width;
-  const struct xnn_argmaxpool_config* argmaxpool_config = xnn_init_f32_argmaxpool_config();
-  assert(argmaxpool_config != NULL);
+  const struct xnn_argmaxpool_config* argmaxpool_config = argmax_pooling_op->argmaxpool_config;
   const struct xnn_argmaxpool_config* ukernel = select_ukernel(pooling_size, argmaxpool_config);
   const uint32_t first_pass_tile_size = ukernel->first_pass_tile_size;
 
@@ -246,7 +256,7 @@ enum xnn_status xnn_setup_argmax_pooling2d_nhwc_f32(
     xnn_log_debug("allocated %zu bytes for indirection buffer in %s operator",
       indirection_buffer_size, xnn_operator_type_to_string(xnn_operator_type_argmax_pooling_nhwc_f32));
 
-    xnn_indirection_init_maxpool2d(argmax_pooling_op, step_height, step_width, 2 /* log2(sizeof(float)) */);
+    xnn_indirection_init_maxpool2d(argmax_pooling_op, step_height, step_width, /*log2_element_size=*/XNN_LOG2_SIZEOF_FLOAT);
 
     argmax_pooling_op->last_input = input;
     argmax_pooling_op->last_input_height = input_height;
@@ -281,16 +291,16 @@ enum xnn_status xnn_setup_argmax_pooling2d_nhwc_f32(
     .accumulation_buffer_size = (channels + XNN_MAX_SIMD_SIZE / sizeof(float)) * sizeof(float),
     .index_buffer_size = (channels + XNN_MAX_SIMD_SIZE / sizeof(float)) * sizeof(uint32_t),
   };
-  argmax_pooling_op->compute.type = xnn_parallelization_type_2d;
-  argmax_pooling_op->compute.range[0] = batch_size;
-  argmax_pooling_op->compute.range[1] = output_height;
+  argmax_pooling_op->compute[0].type = xnn_parallelization_type_2d;
+  argmax_pooling_op->compute[0].range[0] = batch_size;
+  argmax_pooling_op->compute[0].range[1] = output_height;
 
   if (pooling_size <= first_pass_tile_size) {
     argmax_pooling_op->context.argmax_pooling.unipass_ukernel = ukernel->up;
-    argmax_pooling_op->compute.task_2d = (pthreadpool_task_2d_t) xnn_compute_argmax_pooling_unipass;
+    argmax_pooling_op->compute[0].task_2d = (pthreadpool_task_2d_t) xnn_compute_argmax_pooling_unipass;
   } else {
     argmax_pooling_op->context.argmax_pooling.multipass_ukernel = ukernel->mp;
-    argmax_pooling_op->compute.task_2d = (pthreadpool_task_2d_t) xnn_compute_argmax_pooling_multipass;
+    argmax_pooling_op->compute[0].task_2d = (pthreadpool_task_2d_t) xnn_compute_argmax_pooling_multipass;
   }
   argmax_pooling_op->state = xnn_run_state_ready;
 

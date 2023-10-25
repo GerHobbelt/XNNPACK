@@ -32,7 +32,9 @@ protected:
     rng = std::mt19937((*random_device)());
     input_size_dist = std::uniform_int_distribution<uint32_t>(10, 15);
     kernel_size_dist = std::uniform_int_distribution<uint32_t>(1, 5);
-    stride_dist = std::uniform_int_distribution<uint32_t>(1, 2);
+    subsampling_dist = std::uniform_int_distribution<uint32_t>(1, 5);
+    // max value of (dilation * kernel size) must be smaller than input size.
+    dilation_dist = std::uniform_int_distribution<uint32_t>(1, 2);
     f32dist = std::uniform_real_distribution<float>(0.1f, 1.0f);
     scale_dist = std::uniform_real_distribution<float>(1.0f, 5.0f);
     i32dist = std::uniform_int_distribution<int32_t>(-10000, 10000);
@@ -42,10 +44,10 @@ protected:
     input_width = input_size_dist(rng);
     kernel_height = kernel_size_dist(rng);
     kernel_width = kernel_size_dist(rng);
-    subsampling_height = stride_dist(rng);
-    subsampling_width = subsampling_height;
-    dilation_height = 1;  // TODO(zhin): test other dilation values.
-    dilation_width = dilation_height;
+    subsampling_height = subsampling_dist(rng);
+    subsampling_width = subsampling_dist(rng);
+    dilation_height = dilation_dist(rng);
+    dilation_width = dilation_dist(rng);
     groups = input_size_dist(rng);
     group_input_channels = input_size_dist(rng);
     group_output_channels = input_size_dist(rng);
@@ -71,7 +73,8 @@ protected:
   std::mt19937 rng;
   std::uniform_int_distribution<uint32_t> input_size_dist;
   std::uniform_int_distribution<uint32_t> kernel_size_dist;
-  std::uniform_int_distribution<uint32_t> stride_dist;
+  std::uniform_int_distribution<uint32_t> subsampling_dist;
+  std::uniform_int_distribution<uint32_t> dilation_dist;
   std::uniform_int_distribution<int32_t> i32dist;
   std::uniform_real_distribution<float> f32dist;
   std::uniform_real_distribution<float> scale_dist;
@@ -964,16 +967,17 @@ TEST_F(ConvolutionTestF32, transient_indirection_buffer)
 
   ASSERT_EQ(xnn_status_success, status);
   ASSERT_NE(nullptr, op);
-  size_t workspace_size = 0;
-  size_t workspace_alignment = 1;
+  size_t workspace_size = SIZE_MAX;
+  size_t workspace_alignment = SIZE_MAX;
   ASSERT_EQ(
     xnn_status_success, xnn_reshape_convolution2d_nhwc_f32(
                           op, batch_size, input_height, input_width,
                           &workspace_size, &workspace_alignment,
                           /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                           /*threadpool=*/nullptr));
-  ASSERT_NE(workspace_size, 0);
-  ASSERT_EQ(workspace_alignment, XNN_ALLOCATION_ALIGNMENT);
+  // workspace_size might be 0 if we hit the vmulcaddc path which does not require any indirection buffers.
+  ASSERT_NE(workspace_size, SIZE_MAX);
+  ASSERT_NE(workspace_alignment, SIZE_MAX);
   std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
   ASSERT_EQ(xnn_status_success, xnn_setup_convolution2d_nhwc_f32(op, workspace.data(), input.data(), operator_output.data()));
 

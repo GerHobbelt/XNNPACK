@@ -215,6 +215,7 @@ ALL_AVX_MICROKERNEL_SRCS = [
     "src/math/sigmoid-f32-avx-rr2-p5-div.c",
     "src/math/sigmoid-f32-avx-rr2-p5-nr1.c",
     "src/math/sigmoid-f32-avx-rr2-p5-nr2.c",
+    "src/math/tanh-f32-avx-rr1-p6-div.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-avx-mul16-add16.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-avx-mul16-add16.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-avx-mul16.c",
@@ -469,6 +470,15 @@ ALL_AVX_MICROKERNEL_SRCS = [
 ]
 
 ALL_AVX2_MICROKERNEL_SRCS = [
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-1x8-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-1x16-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-3x16-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-4x8-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-4x16-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-5x8-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-5x16-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-6x8-minmax-avx2-broadcast.c",
+    "src/f16-f32acc-gemm/gen/f16-f32acc-gemm-7x8-minmax-avx2-broadcast.c",
     "src/f16-gemm/gen/f16-gemm-1x8-minmax-avx2-broadcast.c",
     "src/f16-gemm/gen/f16-gemm-1x16-minmax-avx2-broadcast.c",
     "src/f16-gemm/gen/f16-gemm-3x16-minmax-avx2-broadcast.c",
@@ -697,6 +707,7 @@ ALL_AVX2_MICROKERNEL_SRCS = [
     "src/math/sigmoid-f32-avx2-rr2-p5-div.c",
     "src/math/sigmoid-f32-avx2-rr2-p5-nr1fma.c",
     "src/math/sigmoid-f32-avx2-rr2-p5-nr2fma.c",
+    "src/math/tanh-f32-avx2-rr1-p6-div.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-avx2-mul32.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-avx2-mul32.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p16c-minmax-fp32-avx2-mul16-add16-vpunpck.c",
@@ -1076,6 +1087,7 @@ ALL_AVX512F_MICROKERNEL_SRCS = [
     "src/math/sqrt-f32-avx512f-nr1fma1adj.c",
     "src/math/sqrt-f32-avx512f-nr1fma.c",
     "src/math/sqrt-f32-avx512f-nr2fma.c",
+    "src/math/tanh-f32-avx512f-rr1-p6-div.c",
 ]
 
 ALL_AVX512SKX_MICROKERNEL_SRCS = [
@@ -1336,6 +1348,7 @@ ALL_FMA3_MICROKERNEL_SRCS = [
     "src/math/sqrt-f32-fma3-nr1fma1adj.c",
     "src/math/sqrt-f32-fma3-nr1fma.c",
     "src/math/sqrt-f32-fma3-nr2fma.c",
+    "src/math/tanh-f32-fma3-rr1-p6-div.c",
 ]
 
 ALL_FP16ARITH_MICROKERNEL_SRCS = [
@@ -1730,6 +1743,8 @@ ALL_NEON_MICROKERNEL_SRCS = [
     "src/math/sqrt-f32-neon-nr1rsqrts.c",
     "src/math/sqrt-f32-neon-nr2rsqrts.c",
     "src/math/sqrt-f32-neon-nr3rsqrts.c",
+    "src/math/tanh-f32-neon-rr1-p6-nr2recps.c",
+    "src/math/tanh-f32-neon-rr2-p6-nr2recps.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p8c-minmax-fp32-neon-mla8-ld64.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-neon-mla8-ld64.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-neon-mla8-ld128.c",
@@ -2892,6 +2907,9 @@ ALL_NEONFMA_MICROKERNEL_SRCS = [
     "src/math/sqrt-f32-neonfma-nr2fma1adj.c",
     "src/math/sqrt-f32-neonfma-nr2fma.c",
     "src/math/sqrt-f32-neonfma-nr3fma.c",
+    "src/math/tanh-f32-neonfma-rr1-p6-nr1recps1fma.c",
+    "src/math/tanh-f32-neonfma-rr1-p6-nr2fma.c",
+    "src/math/tanh-f32-neonfma-rr1-p6-nr2recps.c",
 ]
 
 ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS = [
@@ -3001,6 +3019,7 @@ ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS = [
     "src/math/sigmoid-f32-aarch64-neonfma-rr2-lut64-p2-div.c",
     "src/math/sigmoid-f32-aarch64-neonfma-rr2-lut2048-p1-div.c",
     "src/math/sigmoid-f32-aarch64-neonfma-rr2-p5-div.c",
+    "src/math/tanh-f32-aarch64-neonfma-rr1-p6-div.c",
 ]
 
 ALL_NEONFP16_MICROKERNEL_SRCS = [
@@ -3490,6 +3509,21 @@ ALL_NEONV8_MICROKERNEL_SRCS = [
     "src/qu8-vmulc/gen/qu8-vmulc-minmax-fp32-neonv8-ld128-x16.c",
 ]
 
+ALL_RVV_MICROKERNEL_SRCS = [
+    "src/f32-vunary/gen/f32-vabs-rvv-x1v.c",
+    "src/f32-vunary/gen/f32-vabs-rvv-x2v.c",
+    "src/f32-vunary/gen/f32-vabs-rvv-x4v.c",
+    "src/f32-vunary/gen/f32-vabs-rvv-x8v.c",
+    "src/f32-vunary/gen/f32-vneg-rvv-x1v.c",
+    "src/f32-vunary/gen/f32-vneg-rvv-x2v.c",
+    "src/f32-vunary/gen/f32-vneg-rvv-x4v.c",
+    "src/f32-vunary/gen/f32-vneg-rvv-x8v.c",
+    "src/f32-vunary/gen/f32-vsqr-rvv-x1v.c",
+    "src/f32-vunary/gen/f32-vsqr-rvv-x2v.c",
+    "src/f32-vunary/gen/f32-vsqr-rvv-x4v.c",
+    "src/f32-vunary/gen/f32-vsqr-rvv-x8v.c",
+]
+
 ALL_SCALAR_MICROKERNEL_SRCS = [
     "src/cs16-bfly4/cs16-bfly4-samples1-scalar.c",
     "src/cs16-bfly4/cs16-bfly4-samples4-scalar.c",
@@ -3934,6 +3968,7 @@ ALL_SCALAR_MICROKERNEL_SRCS = [
     "src/math/sqrt-u64-scalar-cvtu32-sqrt-cvtsatu32f64.c",
     "src/math/sqrt-u64-scalar-cvtu32-sqrt-llrint.c",
     "src/math/sqrt-u64-scalar-cvtu64-sqrt-llrint.c",
+    "src/math/tanh-f32-scalar-rr1-p6-div.c",
     "src/math/tanh-f32-scalar-rr2-p6-div.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p1c-minmax-fp32-scalar-fmagic.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p2c-minmax-fp32-scalar-imagic.c",
@@ -4664,6 +4699,7 @@ ALL_SSE2_MICROKERNEL_SRCS = [
     "src/math/sigmoid-f32-sse2-rr2-p5-div.c",
     "src/math/sigmoid-f32-sse2-rr2-p5-nr1.c",
     "src/math/sigmoid-f32-sse2-rr2-p5-nr2.c",
+    "src/math/tanh-f32-sse2-rr1-p6-div.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p8c-minmax-fp32-sse2-mul16.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-sse2-mul16-add16.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-sse2-mul16.c",
@@ -6632,6 +6668,10 @@ ALL_WASMSIMD_MICROKERNEL_SRCS = [
     "src/math/roundz-wasmsimd-native.c",
     "src/math/sigmoid-f32-wasmsimd-rr2-lut64-p2-div.c",
     "src/math/sigmoid-f32-wasmsimd-rr2-p5-div.c",
+    "src/math/tanh-f32-wasmsimd-rr1-p6-div-abs-min.c",
+    "src/math/tanh-f32-wasmsimd-rr1-p6-div-abs-pmin.c",
+    "src/math/tanh-f32-wasmsimd-rr1-p6-div-nabs-max.c",
+    "src/math/tanh-f32-wasmsimd-rr1-p6-div-nabs-pmax.c",
     "src/qc8-dwconv/gen/qc8-dwconv-3p16c-minmax-fp32-wasmsimd-mul16-add16.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-wasmsimd-mul16-add16.c",
     "src/qc8-dwconv/gen/qc8-dwconv-9p8c-minmax-fp32-wasmsimd-mul16.c",

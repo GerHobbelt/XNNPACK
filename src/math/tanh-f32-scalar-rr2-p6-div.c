@@ -20,7 +20,7 @@ void xnn_math_f32_tanh__scalar_rr2_p6_div(
   assert(n % sizeof(float) == 0);
 
   // Large number such that ulp(magic bias) == 0.5 and magic bias === 63.5 mod 2**21.
-  const float vmagic_bias = 0x1.8000FEp22f;
+  const float vmagic_bias = 0x1.8000FEp+22f;
   const float vminus_log2e = -0x1.715476p+0f;
   // Last 4 bits are zeroes
   const float vln2_hi = 0x1.62E420p-1f;
@@ -35,11 +35,11 @@ void xnn_math_f32_tanh__scalar_rr2_p6_div(
   const float vc2 = -0x1.FFFFFEp-1f;
   const float vone = 1.0f;
   const float vtwo = 2.0f;
-  // The smallest z for which tanhf(z) is not saturated at -1.0f.
-  const float vsat_cutoff = -0x1.205966p+3f;
+  // The largest z for which tanhf(-z) is not saturated at -1.0f.
+  const float vsat_cutoff = 0x1.205966p+3f;
 
   for (; n != 0; n -= sizeof(float)) {
-    float vx = *input++;
+    const float vx = *input++;
 
     // General structure of the algorithm:
     //
@@ -62,7 +62,7 @@ void xnn_math_f32_tanh__scalar_rr2_p6_div(
 
     // Create a floating-point number s (scale) such that s == 2**(2n) for inputs which don't cause underflow, i.e.
     // 0 <= z <= 9.010913, and -13 <= n <= 0 accordingly.
-    float vs = uint32_as_float(float_as_uint32(vn) << 23);
+    const float vs = uint32_as_float(float_as_uint32(vn) << 23);
 
     // Subtract the large number back to get final n := round(-z / log(2), 1) as a floating-point number.
     vn -= vmagic_bias;
@@ -92,11 +92,12 @@ void xnn_math_f32_tanh__scalar_rr2_p6_div(
     const float vem1 = vsm1 - vtwo * vp;
 
     // Reconstruct tanh(-z) := expm1(-2z) / (2 + expm1(-2z))
-    float vabsy = vem1 / (vtwo + vem1);
+    const float vep1 = vtwo + vem1;
+    float vabsy = vem1 / vep1;
 
-    // The function saturates at -1 for large negative inputs: tanhf(x) == -1.0f for x < sat_cutoff ~= -9.010913.
+    // The function saturates at +-1 for large inputs: tanhf(z) == +-1.0f for z > sat_cutoff ~= 9.010913.
     // Note that we use 1.0f, because sign will be copied from the input right after.
-    if XNN_UNPREDICTABLE(vabsy < vsat_cutoff) {
+    if XNN_UNPREDICTABLE(vz > vsat_cutoff) {
       vabsy = vone;
     }
 

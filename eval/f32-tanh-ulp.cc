@@ -131,6 +131,96 @@ static void TanhError(benchmark::State& state,
   state.counters["ULPERROR"] = benchmark::Counter(max_ulp_error);
 }
 
+#if XNN_ARCH_ARM64
+  BENCHMARK_CAPTURE(TanhError, aarch64_neonfma_rr1_p6_div,
+                    xnn_math_f32_tanh__aarch64_neonfma_rr1_p6_div)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+#endif  // XNN_ARCH_ARM64
+
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+  BENCHMARK_CAPTURE(TanhError, neonfma_rr1_p6_nr1recps1fma,
+                    xnn_math_f32_tanh__neonfma_rr1_p6_nr1recps1fma,
+                    benchmark::utils::CheckNEONFMA)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+  BENCHMARK_CAPTURE(TanhError, neonfma_rr1_p6_nr2fma,
+                    xnn_math_f32_tanh__neonfma_rr1_p6_nr2fma,
+                    benchmark::utils::CheckNEONFMA)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+  BENCHMARK_CAPTURE(TanhError, neonfma_rr1_p6_nr2recps,
+                    xnn_math_f32_tanh__neonfma_rr1_p6_nr2recps,
+                    benchmark::utils::CheckNEONFMA)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+
+  BENCHMARK_CAPTURE(TanhError, neon_rr1_p6_nr2recps,
+                    xnn_math_f32_tanh__neon_rr1_p6_nr2recps,
+                    benchmark::utils::CheckNEON)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+  BENCHMARK_CAPTURE(TanhError, neon_rr2_p6_nr2recps,
+                    xnn_math_f32_tanh__neon_rr2_p6_nr2recps,
+                    benchmark::utils::CheckNEON)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
+
+#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  BENCHMARK_CAPTURE(TanhError, avx512f_rr1_p6_div,
+                    xnn_math_f32_tanh__avx512f_rr1_p6_div,
+                    benchmark::utils::CheckAVX512F)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+
+  BENCHMARK_CAPTURE(TanhError, avx2_rr1_p6_div,
+                    xnn_math_f32_tanh__avx2_rr1_p6_div,
+                    benchmark::utils::CheckAVX2)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+
+  BENCHMARK_CAPTURE(TanhError, fma3_rr1_p6_div,
+                    xnn_math_f32_tanh__fma3_rr1_p6_div,
+                    benchmark::utils::CheckFMA3)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+
+  BENCHMARK_CAPTURE(TanhError, avx_rr1_p6_div,
+                    xnn_math_f32_tanh__avx_rr1_p6_div,
+                    benchmark::utils::CheckAVX)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+
+  BENCHMARK_CAPTURE(TanhError, sse2_rr1_p6_div,
+                    xnn_math_f32_tanh__sse2_rr1_p6_div)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+
+#if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+  BENCHMARK_CAPTURE(TanhError, wasmsimd_rr1_p6_div_abs_min,
+                    xnn_math_f32_tanh__wasmsimd_rr1_p6_div_abs_min)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+  BENCHMARK_CAPTURE(TanhError, wasmsimd_rr1_p6_div_abs_pmin,
+                    xnn_math_f32_tanh__wasmsimd_rr1_p6_div_abs_pmin)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+  BENCHMARK_CAPTURE(TanhError, wasmsimd_rr1_p6_div_nabs_max,
+                    xnn_math_f32_tanh__wasmsimd_rr1_p6_div_nabs_max)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+  BENCHMARK_CAPTURE(TanhError, wasmsimd_rr1_p6_div_nabs_pmax,
+                    xnn_math_f32_tanh__wasmsimd_rr1_p6_div_nabs_pmax)
+    ->Unit(benchmark::kMillisecond)
+    ->Iterations(1);
+#endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+
+BENCHMARK_CAPTURE(TanhError, scalar_rr1_p6_div,
+                  xnn_math_f32_tanh__scalar_rr1_p6_div)
+  ->Unit(benchmark::kMillisecond)
+  ->Iterations(1);
 BENCHMARK_CAPTURE(TanhError, scalar_rr2_p6_div,
                   xnn_math_f32_tanh__scalar_rr2_p6_div)
   ->Unit(benchmark::kMillisecond)

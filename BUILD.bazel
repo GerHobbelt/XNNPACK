@@ -9,7 +9,7 @@
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@bazel_skylib//lib:selects.bzl", "selects")
 load(":build_defs.bzl", "xnnpack_aggregate_library", "xnnpack_benchmark", "xnnpack_binary", "xnnpack_cc_library", "xnnpack_gcc_std_copts", "xnnpack_min_size_copts", "xnnpack_msvc_std_copts", "xnnpack_optional_dnnl_copts", "xnnpack_optional_dnnl_deps", "xnnpack_optional_gemmlowp_copts", "xnnpack_optional_gemmlowp_deps", "xnnpack_optional_ruy_copts", "xnnpack_optional_ruy_deps", "xnnpack_optional_tflite_copts", "xnnpack_optional_tflite_deps", "xnnpack_std_cxxopts", "xnnpack_unit_test", "xnnpack_visibility")
-load(":microkernels.bzl", "AARCH32_ASM_MICROKERNEL_SRCS", "AARCH64_ASM_MICROKERNEL_SRCS", "ALL_ARMSIMD32_MICROKERNEL_SRCS", "ALL_AVX2_MICROKERNEL_SRCS", "ALL_AVX512F_MICROKERNEL_SRCS", "ALL_AVX512SKX_MICROKERNEL_SRCS", "ALL_AVX512VBMI_MICROKERNEL_SRCS", "ALL_AVX_MICROKERNEL_SRCS", "ALL_F16C_MICROKERNEL_SRCS", "ALL_FMA3_MICROKERNEL_SRCS", "ALL_FP16ARITH_MICROKERNEL_SRCS", "ALL_HEXAGON_MICROKERNEL_SRCS", "ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS", "ALL_NEONBF16_MICROKERNEL_SRCS", "ALL_NEONDOT_MICROKERNEL_SRCS", "ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFMA_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_MICROKERNEL_SRCS", "ALL_NEONFP16_MICROKERNEL_SRCS", "ALL_NEONV8_MICROKERNEL_SRCS", "ALL_NEON_AARCH64_MICROKERNEL_SRCS", "ALL_NEON_MICROKERNEL_SRCS", "ALL_SCALAR_MICROKERNEL_SRCS", "ALL_SSE2_MICROKERNEL_SRCS", "ALL_SSE41_MICROKERNEL_SRCS", "ALL_SSE_MICROKERNEL_SRCS", "ALL_SSSE3_MICROKERNEL_SRCS", "ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS", "ALL_WASMSIMD_MICROKERNEL_SRCS", "ALL_WASM_MICROKERNEL_SRCS", "ALL_XOP_MICROKERNEL_SRCS", "WASM32_ASM_MICROKERNEL_SRCS")
+load(":microkernels.bzl", "AARCH32_ASM_MICROKERNEL_SRCS", "AARCH64_ASM_MICROKERNEL_SRCS", "ALL_ARMSIMD32_MICROKERNEL_SRCS", "ALL_AVX2_MICROKERNEL_SRCS", "ALL_AVX512F_MICROKERNEL_SRCS", "ALL_AVX512SKX_MICROKERNEL_SRCS", "ALL_AVX512VBMI_MICROKERNEL_SRCS", "ALL_AVX_MICROKERNEL_SRCS", "ALL_F16C_MICROKERNEL_SRCS", "ALL_FMA3_MICROKERNEL_SRCS", "ALL_FP16ARITH_MICROKERNEL_SRCS", "ALL_HEXAGON_MICROKERNEL_SRCS", "ALL_NEONBF16_AARCH64_MICROKERNEL_SRCS", "ALL_NEONBF16_MICROKERNEL_SRCS", "ALL_NEONDOT_MICROKERNEL_SRCS", "ALL_NEONFMA_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFMA_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_AARCH64_MICROKERNEL_SRCS", "ALL_NEONFP16ARITH_MICROKERNEL_SRCS", "ALL_NEONFP16_MICROKERNEL_SRCS", "ALL_NEONV8_MICROKERNEL_SRCS", "ALL_NEON_AARCH64_MICROKERNEL_SRCS", "ALL_NEON_MICROKERNEL_SRCS", "ALL_RVV_MICROKERNEL_SRCS", "ALL_SCALAR_MICROKERNEL_SRCS", "ALL_SSE2_MICROKERNEL_SRCS", "ALL_SSE41_MICROKERNEL_SRCS", "ALL_SSE_MICROKERNEL_SRCS", "ALL_SSSE3_MICROKERNEL_SRCS", "ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS", "ALL_WASMSIMD_MICROKERNEL_SRCS", "ALL_WASM_MICROKERNEL_SRCS", "ALL_XOP_MICROKERNEL_SRCS", "WASM32_ASM_MICROKERNEL_SRCS")
 
 licenses(["notice"])
 
@@ -2324,6 +2324,7 @@ xnnpack_cc_library(
     srcs = [
         "src/binary-elementwise-config.c",
         "src/transpose-config.c",
+        "src/unary-elementwise-config.c",
         "src/x8-lut-config.c",
     ],
     hdrs = [
@@ -2348,6 +2349,7 @@ xnnpack_cc_library(
     srcs = [
         "src/binary-elementwise-config.c",
         "src/transpose-config.c",
+        "src/unary-elementwise-config.c",
         "src/x8-lut-config.c",
     ],
     hdrs = [
@@ -4546,6 +4548,48 @@ xnnpack_cc_library(
 )
 
 xnnpack_cc_library(
+    name = "rvv_bench_microkernels",
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
+    riscv_copts = [
+        "-march=rv64gcv",
+    ],
+    riscv_srcs = ALL_RVV_MICROKERNEL_SRCS,
+    deps = [
+        ":common",
+        ":math",
+        ":microkernels_h",
+        ":microparams",
+        ":prefetch",
+        ":tables",
+        ":unaligned",
+    ],
+)
+
+xnnpack_cc_library(
+    name = "rvv_test_microkernels",
+    copts = [
+        "-UNDEBUG",
+        "-DXNN_TEST_MODE=1",
+    ],
+    gcc_copts = xnnpack_gcc_std_copts(),
+    msvc_copts = xnnpack_msvc_std_copts(),
+    riscv_copts = [
+        "-march=rv64gcv",
+    ],
+    riscv_srcs = ALL_RVV_MICROKERNEL_SRCS,
+    deps = [
+        ":common",
+        ":math",
+        ":microkernels_h",
+        ":microparams",
+        ":prefetch",
+        ":tables",
+        ":unaligned",
+    ],
+)
+
+xnnpack_cc_library(
     name = "asm_microkernels",
     hdrs = ["src/xnnpack/assembly.h"],
     aarch32_copts = [
@@ -4720,6 +4764,9 @@ xnnpack_aggregate_library(
     }) + select({
         ":arm_dotprod_enabled": ["XNN_ENABLE_ARM_DOTPROD=1"],
         "//conditions:default": ["XNN_ENABLE_ARM_DOTPROD=0"],
+    }) + select({
+        ":arm_dotprod_enabled": ["XNN_ENABLE_RISCV_VECTOR=1"],
+        "//conditions:default": ["XNN_ENABLE_RISCV_VECTOR=0"],
     }),
     generic_deps = [
         ":scalar_bench_microkernels",
@@ -4734,6 +4781,9 @@ xnnpack_aggregate_library(
         "//conditions:default": [],
     }) + select({
         ":arm_dotprod_enabled": [":neondot_bench_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":riscv_vector_enabled": [":rvv_bench_microkernels"],
         "//conditions:default": [],
     }),
     wasm_deps = [
@@ -4864,6 +4914,9 @@ xnnpack_aggregate_library(
     }) + select({
         ":arm_dotprod_enabled": ["XNN_ENABLE_ARM_DOTPROD=1"],
         "//conditions:default": ["XNN_ENABLE_ARM_DOTPROD=0"],
+    }) + select({
+        ":arm_dotprod_enabled": ["XNN_ENABLE_RISCV_VECTOR=1"],
+        "//conditions:default": ["XNN_ENABLE_RISCV_VECTOR=0"],
     }),
     generic_deps = [
         ":scalar_test_microkernels",
@@ -4878,6 +4931,9 @@ xnnpack_aggregate_library(
         "//conditions:default": [],
     }) + select({
         ":arm_dotprod_enabled": [":neondot_test_microkernels"],
+        "//conditions:default": [],
+    }) + select({
+        ":riscv_vector_enabled": [":rvv_test_microkernels"],
         "//conditions:default": [],
     }),
     wasm_deps = [
@@ -5786,6 +5842,18 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":operators",
         ":indirection",
+        ":packing",
+    ],
+)
+
+xnnpack_benchmark(
+    name = "f16_f32acc_gemm_bench",
+    srcs = [
+        "bench/f16-f32acc-gemm.cc",
+        "bench/gemm.h",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        ":math",
         ":packing",
     ],
 )
@@ -7061,6 +7129,15 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "f32_tanh_eval",
+    srcs = [
+        "eval/f32-tanh.cc",
+    ],
+    automatic = False,
+    deps = ACCURACY_EVAL_DEPS,
+)
+
+xnnpack_unit_test(
     name = "u32_sqrt_eval",
     srcs = [
         "eval/u32-sqrt.cc",
@@ -7148,6 +7225,16 @@ xnnpack_unit_test(
         "test/gavgpool-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "f16_f32acc_gemm_minmax_test",
+    srcs = [
+        "test/f16-f32acc-gemm-minmax.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
 )
 
 xnnpack_unit_test(
@@ -9187,6 +9274,7 @@ xnnpack_unit_test(
         "test/constant-pad-nd.cc",
         "test/constant-pad-operator-tester.h",
     ],
+    shard_count = 5,
     deps = OPERATOR_TEST_DEPS,
 )
 
@@ -9196,6 +9284,7 @@ xnnpack_unit_test(
         "test/constant-pad-nd-eager.cc",
         "test/constant-pad-operator-tester.h",
     ],
+    shard_count = 5,
     deps = OPERATOR_TEST_DEPS,
 )
 
@@ -10479,6 +10568,7 @@ xnnpack_unit_test(
         ":XNNPACK",
         ":node_type",
         ":subgraph_test_mode",
+        "@FP16",
     ],
 )
 
@@ -10648,6 +10738,18 @@ config_setting(
 config_setting(
     name = "xnn_enable_arm_dotprod_explicit_false",
     define_values = {"xnn_enable_arm_dotprod": "false"},
+)
+
+# Enables usage of RISC-V Vector kernels.
+config_setting(
+    name = "xnn_enable_riscv_vector_explicit_true",
+    define_values = {"xnn_enable_riscv_vector": "true"},
+)
+
+# Disables usage of RISC-V Vector kernels.
+config_setting(
+    name = "xnn_enable_riscv_vector_explicit_false",
+    define_values = {"xnn_enable_riscv_vector": "false"},
 )
 
 # Enables usage of assembly kernels.
@@ -11123,6 +11225,22 @@ alias(
         ":xnn_enable_arm_dotprod_explicit_true": ":xnn_enable_arm_dotprod_explicit_true",
         ":xnn_enable_arm_dotprod_explicit_false": ":xnn_enable_arm_dotprod_explicit_true",
         "//conditions:default": ":arm_dotprod_enabled_by_default",
+    }),
+)
+
+selects.config_setting_group(
+    name = "riscv_vector_enabled_by_default",
+    match_any = [
+        ":riscv",
+    ],
+)
+
+alias(
+    name = "riscv_vector_enabled",
+    actual = select({
+        ":xnn_enable_riscv_vector_explicit_true": ":xnn_enable_riscv_vector_explicit_true",
+        ":xnn_enable_riscv_vector_explicit_false": ":xnn_enable_riscv_vector_explicit_true",
+        "//conditions:default": ":riscv_vector_enabled_by_default",
     }),
 )
 

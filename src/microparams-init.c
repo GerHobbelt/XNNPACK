@@ -930,6 +930,45 @@ void xnn_init_qs8_to_qs8_qc8w_scale_fp32_params(
   }
 }
 
+void xnn_init_qs8_qb8w_scale_fp32_params(
+  size_t channels,
+  size_t channels_tile,
+  size_t channels_subtile,
+  size_t stride,
+  size_t substride,
+  size_t num_blocks,
+  size_t block_stride,
+  size_t stride_offset,
+  const float scale[XNN_MIN_ELEMENTS(1)],
+  void* packed_w)
+{
+  void* packed_w_saved = packed_w;
+  for (size_t block_start = 0; block_start < num_blocks; block_start++) {
+    packed_w = (void*)((uintptr_t) packed_w_saved + block_start * block_stride);
+    const size_t tiled_channels = round_down_po2(channels, channels_tile);
+    size_t tile_start = 0;
+    for (; tile_start < tiled_channels; tile_start += channels_tile) {
+      const size_t tile_size = channels_tile;
+      for (size_t tile_offset = 0; tile_offset < tile_size; tile_offset++) {
+        size_t scale_index = (tile_start + tile_offset) * num_blocks + block_start;
+        unaligned_indexed_store_f32(packed_w, tile_offset, scale[scale_index]);
+      }
+      packed_w = (void*) ((uintptr_t) packed_w + stride);
+    }
+
+    packed_w = (void*) ((uintptr_t) packed_w - stride_offset);
+
+    for (; tile_start < channels; tile_start += channels_subtile) {
+      const size_t tile_size = min(channels - tile_start, channels_subtile);
+      for (size_t tile_offset = 0; tile_offset < tile_size; tile_offset++) {
+        size_t scale_index = (tile_start + tile_offset) * num_blocks + block_start;
+        unaligned_indexed_store_f32(packed_w, tile_offset, scale[scale_index]);
+      }
+      packed_w = (void*) ((uintptr_t) packed_w + substride);
+    }
+  }
+}
+
 size_t xnn_init_qs8_avgpool_minmax_fp32_scalar_fmagic_params(
   union xnn_qs8_avgpool_minmax_params params[XNN_MIN_ELEMENTS(1)],
   int32_t init_bias,
@@ -1125,10 +1164,10 @@ size_t xnn_init_qs8_avgpool_minmax_fp32_neon_params(
   params->fp32_neon.magic_bias_less_output_zero_point = INT32_C(0x4B400000) - (int32_t) output_zero_point;
   params->fp32_neon.output_min = output_min;
   params->fp32_neon.output_max = output_max;
-  for (uint32_t i = 0; i < 7; i++) {
+  for (uint32_t i = 0; i < 15; i++) {
     params->fp32_neon.mask_table[i] = 1;
   }
-  for (uint32_t i = 7; i < 14; i++) {
+  for (uint32_t i = 15; i < 30; i++) {
     params->fp32_neon.mask_table[i] = 0;
   }
   return sizeof(params->fp32_neon);

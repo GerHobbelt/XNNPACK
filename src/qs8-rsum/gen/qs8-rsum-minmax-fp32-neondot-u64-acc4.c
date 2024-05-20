@@ -1,5 +1,5 @@
 // Auto-generated file. Do not edit!
-//   Template: src/qs8-rsum/neon-mlal.c.in
+//   Template: src/qs8-rsum/neondot.c.in
 //   Generator: tools/xngen
 //
 // Copyright 2024 Google LLC
@@ -15,7 +15,7 @@
 #include <xnnpack/math.h>
 #include <xnnpack/reduce.h>
 
-void xnn_qs8_rsum_minmax_fp32_ukernel__neon_mlal_u16_acc2(
+void xnn_qs8_rsum_minmax_fp32_ukernel__neondot_u64_acc4(
     size_t batch,
     const int8_t* input,
     int8_t* output,
@@ -25,46 +25,36 @@ void xnn_qs8_rsum_minmax_fp32_ukernel__neon_mlal_u16_acc2(
   assert(input != NULL);
   assert(output != NULL);
 
-  int8x8_t vone = vdup_n_s8(1);
-  int num_batches = batch  >> 9;
+  const int8x16_t vone = vdupq_n_s8(1);
   int32x4_t vacc0 = vmovq_n_s32(0);
   int32x4_t vacc1 = vmovq_n_s32(0);
-  for (; num_batches > 0; --num_batches) {
-    int16x8_t vacc16_0 = vmovq_n_s16(0);
-    int16x8_t vacc16_1 = vmovq_n_s16(0);
-    for (size_t current_batch = 512; current_batch > 0; current_batch -= 16) {
-      const int8x8_t vt0 = vld1_s8(input); input += 8;
-      const int8x8_t vt1 = vld1_s8(input); input += 8;
+  int32x4_t vacc2 = vmovq_n_s32(0);
+  int32x4_t vacc3 = vmovq_n_s32(0);
+  for (; batch >= 64; batch -= 64) {
+    const int8x16_t vt0 = vld1q_s8(input); input += 16;
+    const int8x16_t vt1 = vld1q_s8(input); input += 16;
+    const int8x16_t vt2 = vld1q_s8(input); input += 16;
+    const int8x16_t vt3 = vld1q_s8(input); input += 16;
 
-      vacc16_0 = vmlal_s8(vacc16_0, vt0, vone);
-      vacc16_1 = vmlal_s8(vacc16_1, vt1, vone);
-    }
-    vacc0 = vaddq_s32(vacc0, vaddq_s32(vmovl_s16(vget_low_s16(vacc16_0)), vmovl_s16(vget_high_s16(vacc16_0))));
-    vacc1 = vaddq_s32(vacc1, vaddq_s32(vmovl_s16(vget_low_s16(vacc16_1)), vmovl_s16(vget_high_s16(vacc16_1))));
-    batch -= 512;
+    vacc0 = vdotq_s32(vacc0, vt0, vone);
+    vacc1 = vdotq_s32(vacc1, vt1, vone);
+    vacc2 = vdotq_s32(vacc2, vt2, vone);
+    vacc3 = vdotq_s32(vacc3, vt3, vone);
   }
   if (XNN_UNLIKELY(batch != 0)) {
-    int16x8_t vacc16_0 = vmovq_n_s16(0);
-    int16x8_t vacc16_1 = vmovq_n_s16(0);
     for (; batch >= 16; batch -= 16) {
-      const int8x8_t vt0 = vld1_s8(input); input += 8;
-      const int8x8_t vt1 = vld1_s8(input); input += 8;
-      vacc16_0 = vmlal_s8(vacc16_0, vt0, vone);
-      vacc16_1 = vmlal_s8(vacc16_1, vt1, vone);
-    }
-    vacc16_0 = vaddq_s16(vacc16_0, vacc16_1);
-    for (; batch >= 8; batch -= 8) {
-      const int8x8_t vt = vld1_s8(input); input += 8;
-      vacc16_0 = vmlal_s8(vacc16_0, vt, vone);
+      const int8x16_t vt = vld1q_s8(input); input += 16;
+      vacc0 = vdotq_s32(vacc0, vt, vone);
     }
     if (XNN_UNLIKELY(batch != 0)) {
-      int8x8_t vt = vld1_s8(input);
-      vone = vld1_s8(&params->fp32_neon.mask_table[7 - batch]);
-      vacc16_0 = vmlal_s8(vacc16_0, vt, vone);
+      int8x16_t vt = vld1q_s8(input);
+      const int8x16_t vmask = vld1q_s8(&params->fp32_neon.mask_table[15 - batch]);
+      vacc0 = vdotq_s32(vacc0, vt, vmask);
     }
-    vacc0 = vaddq_s32(vacc0, vaddq_s32(vmovl_s16(vget_low_s16(vacc16_0)), vmovl_s16(vget_high_s16(vacc16_0))));
   }
   vacc0 = vaddq_s32(vacc0, vacc1);
+  vacc2 = vaddq_s32(vacc2, vacc3);
+  vacc0 = vaddq_s32(vacc0, vacc2);
   int32x2_t vacc_lo = vadd_s32(vget_low_s32(vacc0), vget_high_s32(vacc0));
   vacc_lo = vpadd_s32(vacc_lo, vacc_lo);
 

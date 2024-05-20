@@ -8,7 +8,6 @@
 #endif
 
 #include <assert.h>
-#include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h> // For snprintf.
@@ -45,13 +44,14 @@ enum xnn_status xnn_reshape_external_value(
     size_t num_dims,
     const size_t* dims) {
   if (external_id >= runtime->num_values) {
-    xnn_log_error("failed to setup runtime: out-of-bounds ID %" PRIu32 " in external value",
+    xnn_log_error("failed to reshape runtime: out-of-bounds ID %" PRIu32 " in external value",
                   external_id);
     return xnn_status_invalid_parameter;
   }
   struct xnn_value* value = &runtime->values[external_id];
-  if (value->allocation_type != xnn_allocation_type_external) {
-    xnn_log_error("failed to setup runtime: Value %" PRIu32 " is not external (%d)", external_id, value->allocation_type);
+  if (value->flags & XNN_VALUE_FLAG_EXTERNAL_INPUT && value->allocation_type != xnn_allocation_type_external && value->allocation_type != xnn_allocation_type_static) {
+    xnn_log_error("failed to reshape runtime: Value %" PRIu32 " is neither external nor static (%d)",
+                  external_id, value->allocation_type);
     return xnn_status_invalid_parameter;
   }
   if (num_dims != value->shape.num_dims) {
@@ -61,12 +61,32 @@ enum xnn_status xnn_reshape_external_value(
   }
   struct xnn_shape* shape = &value->shape;
   for (size_t i = 0; i < num_dims; ++i) {
-    if (dims[i] > shape->maximum_dim[i]) {
-      shape->maximum_dim[i] = dims[i];
-    }
     shape->dim[i] = dims[i];
   }
   value->size = xnn_tensor_get_size(value);
+  return xnn_status_success;
+}
+
+enum xnn_status
+xnn_get_external_value_shape(xnn_runtime_t runtime, uint32_t external_id, size_t* num_dims, size_t* dims)
+{
+  if (external_id >= runtime->num_values) {
+    xnn_log_error("failed to get external value shape: out-of-bounds ID %" PRIu32 " in external value", external_id);
+    return xnn_status_invalid_parameter;
+  }
+  struct xnn_value* value = &runtime->values[external_id];
+  if (value->allocation_type != xnn_allocation_type_external) {
+    xnn_log_error(
+      "failed to get external value shape: Value %" PRIu32 " is not external (%d)", external_id,
+      value->allocation_type);
+    return xnn_status_invalid_parameter;
+  }
+  if (num_dims == NULL || dims == NULL) {
+    xnn_log_error("failed to get external value shape: null pointer");
+    return xnn_status_invalid_parameter;
+  }
+  *num_dims = value->shape.num_dims;
+  memcpy(dims, value->shape.dim, value->shape.num_dims * sizeof(size_t));
   return xnn_status_success;
 }
 
@@ -276,9 +296,9 @@ static enum xnn_status initialize_workspace_values(
       if (rt == runtime) {
         continue;
       }
-      // This runtime has not ever been setup yet, so it doesn't have any pointers into workspace, so does not need to
+      // This memory for this runtime has not yet been planned, so it doesn't have any pointers into workspace, so does not need to
       // be updated.
-      if (!rt->has_been_setup) {
+      if (!rt->memory_planned) {
         continue;
       }
 
@@ -298,6 +318,11 @@ static enum xnn_status initialize_workspace_values(
         }
       }
 
+      // This runtime has not ever been setup yet, so it doesn't have any pointers into workspace, so does not need to
+      // be updated.
+      if (!rt->has_been_setup) {
+        continue;
+      }
       // Re-setup all the nodes to adjust input/output pointers.
       for (size_t i = 0; i < rt->num_ops; i++) {
         struct xnn_operator_data* opdata = &rt->opdata[i];
@@ -593,36 +618,13 @@ error:
   return status;
 }
 
-enum xnn_status track_operator_workspace(
-  xnn_runtime_t runtime,
-  struct xnn_value_allocation_tracker* mem_alloc_tracker)
-{
-  for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
-    struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
-    if (opdata->reshape != NULL) {
-      // Get operator workspace size.
-      enum xnn_status status = opdata->reshape(opdata, runtime->values, runtime->num_values, runtime->threadpool);
-      if (status != xnn_status_success && status != xnn_status_reallocation_required) {
-        xnn_log_error("failed to reshape node #%" PRIu32, opdata_id);
-        return status;
-      }
-      xnn_add_operator_workspace_allocation_tracker(
-        mem_alloc_tracker, runtime->num_values + opdata_id, xnn_get_rounded_size(opdata->workspace_size),
-        opdata_id);
-    }
-  }
-  return xnn_status_success;
-}
-
-enum xnn_status xnn_setup_runtime(
-  xnn_runtime_t runtime,
-  size_t num_external_values,
-  const struct xnn_external_value* external_values)
-{
-  size_t persistent_size = 0;
+enum xnn_status xnn_plan_memory(
+    xnn_runtime_t runtime) {
+  enum xnn_status status = xnn_status_invalid_state;
   struct xnn_value_allocation_tracker mem_alloc_tracker;
-
   xnn_init_value_allocation_tracker(&mem_alloc_tracker, runtime);
+
+  size_t persistent_size = 0;
 
   for (uint32_t i = 0; i < runtime->num_values; i++) {
     const struct xnn_value* value = &runtime->values[i];
@@ -646,9 +648,11 @@ enum xnn_status xnn_setup_runtime(
   size_t old_persistent_size = runtime->workspace->persistent_size;
   runtime->workspace->persistent_size = persistent_size;
 
-  enum xnn_status status = track_operator_workspace(runtime, &mem_alloc_tracker);
-  if (status != xnn_status_success) {
-    goto error;
+  for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
+    struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
+    xnn_add_operator_workspace_allocation_tracker(
+        &mem_alloc_tracker, runtime->num_values + opdata_id, xnn_get_rounded_size(opdata->workspace_size),
+        opdata_id);
   }
 
   optimize_tensor_allocation_for_in_place_operations(&mem_alloc_tracker, runtime);
@@ -661,6 +665,41 @@ enum xnn_status xnn_setup_runtime(
 
   xnn_release_value_allocation_tracker(&mem_alloc_tracker);
 
+  return xnn_status_success;
+
+error:
+  xnn_release_value_allocation_tracker(&mem_alloc_tracker);
+  return status;
+}
+
+enum xnn_status xnn_reshape_runtime(
+  xnn_runtime_t runtime)
+{
+  bool reallocation_required = false;
+
+  for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
+    struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
+    enum xnn_status status = opdata->reshape(opdata, runtime->values, runtime->num_values, /*threadpool=*/NULL);
+    if (status == xnn_status_reallocation_required) {
+      reallocation_required = true;
+    } else if (status != xnn_status_success) {
+      xnn_log_error("Operator #%u: %s failed reshape", opdata_id, xnn_operator_type_to_string(opdata->operator_objects[0]->type));
+      return status;
+    }
+  }
+  if (reallocation_required || !runtime->memory_planned) {
+    runtime->memory_planned = true;
+    return xnn_plan_memory(runtime);
+  } else {
+  }
+  return xnn_status_success;
+}
+
+enum xnn_status xnn_setup_runtime(
+  xnn_runtime_t runtime,
+  size_t num_external_values,
+  const struct xnn_external_value* external_values)
+{
   // Validate inputs without changing internal state.
   // This ensures that runtime stays in consistent state in case validation fails midway.
   for (size_t i = 0; i < num_external_values; i++) {
@@ -687,8 +726,28 @@ enum xnn_status xnn_setup_runtime(
     value->data = external_value->data;
   }
 
-  for (size_t i = 0; i < runtime->num_ops; i++) {
-    struct xnn_operator_data* opdata = &runtime->opdata[i];
+  for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
+    struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
+    for (size_t j = 0; j < XNN_MAX_OPERATOR_OBJECTS; j++) {
+      if (opdata->operator_objects[j] == NULL) {
+        // Operator was removed during optimization
+        continue;
+      }
+
+      assert(opdata->reshape != NULL);
+      enum xnn_status status = opdata->reshape(opdata, runtime->values, runtime->num_values, runtime->threadpool);
+      if (status != xnn_status_success && status != xnn_status_reallocation_required) {
+        xnn_log_error("failed to setup runtime: error in reshaping operator #%u", opdata_id);
+        return status;
+      }
+    }
+  }
+
+  enum xnn_status status = status = xnn_plan_memory(runtime);
+  runtime->memory_planned = true;
+
+  for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
+    struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
     for (size_t j = 0; j < XNN_MAX_OPERATOR_OBJECTS; j++) {
       if (opdata->operator_objects[j] == NULL) {
         // Operator was removed during optimization
@@ -696,26 +755,10 @@ enum xnn_status xnn_setup_runtime(
       }
 
       assert(opdata->setup != NULL);
-      if (opdata->reshape != NULL) {
-        enum xnn_status status = opdata->reshape(opdata, runtime->values, runtime->num_values, runtime->threadpool);
-        if (status != xnn_status_success && status != xnn_status_reallocation_required) {
-          xnn_log_error("failed to setup runtime: error in reshaping operator #%zu", i);
-          return status;
-        }
-        assert(
-          opdata->operator_objects[j]->state == xnn_run_state_skip ||
-          opdata->operator_objects[j]->state == xnn_run_state_needs_setup);
-        status = opdata->setup(opdata, runtime->values, runtime->num_values, runtime->threadpool);
-        if (status != xnn_status_success) {
-          xnn_log_error("failed to setup runtime: error in setting pointers of operator #%zu", i);
-          return status;
-        }
-      } else {
-        const enum xnn_status status = opdata->setup(opdata, runtime->values, runtime->num_values, runtime->threadpool);
-        if (status != xnn_status_success) {
-          xnn_log_error("failed to setup runtime: error in operator #%zu", i);
-          return status;
-        }
+      enum xnn_status status = opdata->setup(opdata, runtime->values, runtime->num_values, runtime->threadpool);
+      if (status != xnn_status_success) {
+        xnn_log_error("failed to setup runtime: error in setting pointers of operator #%u", opdata_id);
+        return status;
       }
     }
   }
@@ -723,10 +766,53 @@ enum xnn_status xnn_setup_runtime(
   runtime->has_been_setup = true;
 
   return xnn_status_success;
+}
 
-error:
-  xnn_release_value_allocation_tracker(&mem_alloc_tracker);
-  return status;
+enum xnn_status xnn_setup_runtime_v2(
+  xnn_runtime_t runtime,
+  size_t num_external_values,
+  const struct xnn_external_value* external_values)
+{
+  // Validate inputs without changing internal state.
+  // This ensures that runtime stays in consistent state in case validation fails midway.
+  for (size_t i = 0; i < num_external_values; i++) {
+    const struct xnn_external_value* external_value = &external_values[i];
+    const uint32_t value_id = external_value->id;
+    if (value_id >= runtime->num_values) {
+      xnn_log_error("failed to setup runtime: out-of-bounds ID %" PRIu32 " in external value #%zu",
+                    value_id, i);
+      return xnn_status_invalid_parameter;
+    }
+
+    const struct xnn_value* value = &runtime->values[value_id];
+    if (value->allocation_type != xnn_allocation_type_external) {
+      xnn_log_error("failed to setup runtime: Value %" PRIu32 " is not external (%d)", value_id, value->allocation_type);
+      return xnn_status_invalid_parameter;
+    }
+  }
+
+  // Apply runtime state changes.
+  for (size_t i = 0; i < num_external_values; i++) {
+    const struct xnn_external_value* external_value = &external_values[i];
+    const uint32_t value_id = external_value->id;
+    struct xnn_value* value = &runtime->values[value_id];
+    value->data = external_value->data;
+  }
+
+  for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
+    struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
+
+    assert(opdata->setup != NULL);
+    enum xnn_status status = opdata->setup(opdata, runtime->values, runtime->num_values, runtime->threadpool);
+    if (status != xnn_status_success) {
+      xnn_log_error("failed to setup runtime: error in setting pointers of operator #%u", opdata_id);
+      return status;
+    }
+  }
+
+  runtime->has_been_setup = true;
+
+  return xnn_status_success;
 }
 
 static xnn_timestamp xnn_read_timer() {

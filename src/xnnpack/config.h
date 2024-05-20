@@ -46,6 +46,7 @@ struct xnn_hardware_config {
   bool use_x86_avx512vbmi;
   bool use_x86_avx512skx;
   bool use_x86_avx512vnni;
+  bool use_x86_avxvnni;
 #endif
 #if XNN_ARCH_RISCV
   bool use_riscv_vector;
@@ -149,6 +150,7 @@ struct xnn_cmul_config {
   size_t element_tile;
 };
 
+XNN_INTERNAL const struct xnn_cmul_config* xnn_init_f16_cmul_config();
 XNN_INTERNAL const struct xnn_cmul_config* xnn_init_f32_cmul_config();
 
 struct xnn_binary_elementwise_subconfig {
@@ -197,6 +199,7 @@ struct xnn_unary_elementwise_config {
   xnn_vunary_ukernel_fn ukernel;
   union {
     xnn_init_f16_f32_cvt_params_fn f16_f32_cvt;
+    xnn_init_f16_qs8_cvt_params_fn f16_qs8_cvt;
     xnn_init_f16_abs_params_fn f16_abs;
     xnn_init_f16_elu_params_fn f16_elu;
     xnn_init_f16_hswish_params_fn f16_hswish;
@@ -254,6 +257,7 @@ XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_sqr_config(
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_sqrt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_tanh_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_to_f32_cvt_config();
+XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_to_qs8_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_abs_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_clamp_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_elu_config();
@@ -289,6 +293,7 @@ struct xnn_reduce_config {
   xnn_reduce_ukernel_fn ukernel;
   union {
     xnn_init_f16_f32acc_scale_params_fn f16_f32acc_scale;
+    xnn_init_f16_default_params_fn f16_default;
     xnn_init_f32_default_params_fn f32_default;
     xnn_init_f32_scale_params_fn f32_scale;
   } init;
@@ -298,6 +303,7 @@ struct xnn_reduce_config {
   size_t element_tile;
 };
 XNN_INTERNAL const struct xnn_reduce_config* xnn_init_f16_f32acc_rsum_config();
+XNN_INTERNAL const struct xnn_reduce_config* xnn_init_f16_rminmax_config();
 XNN_INTERNAL const struct xnn_reduce_config* xnn_init_f32_rminmax_config();
 XNN_INTERNAL const struct xnn_reduce_config* xnn_init_f32_rsum_config();
 
@@ -721,6 +727,7 @@ XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_gemm_nr2_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_qc4w_gemm_config();
+XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f16_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f32_qc4w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f32_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qs8_qc8w_gemm_config();

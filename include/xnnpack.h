@@ -2560,6 +2560,25 @@ enum xnn_status xnn_run_convert_nc_f16_f32(
   uint32_t flags,
   pthreadpool_t threadpool);
 
+enum xnn_status xnn_create_convert_nc_f16_qd8(
+  size_t channels,
+  size_t input_stride,
+  size_t output_stride,
+  uint32_t flags,
+  xnn_operator_t* convert_op_out);
+
+enum xnn_status xnn_reshape_convert_nc_f16_qd8(
+  xnn_operator_t convert_op,
+  size_t batch_size,
+  pthreadpool_t threadpool);
+
+// quantization_params must be padded with at least XNN_EXTRA_QUANTIZATION_PARAMS entries.
+enum xnn_status xnn_setup_convert_nc_f16_qd8(
+  xnn_operator_t convert_op,
+  const void* input,
+  int8_t* output,
+  struct xnn_dynamic_quantization_params* quantization_params);
+
 enum xnn_status xnn_create_convert_nc_f32_qd8(
   size_t channels,
   size_t input_stride,
@@ -3864,6 +3883,32 @@ enum xnn_status xnn_reshape_fully_connected_nc_qd8_f32_qc4w(
   size_t batch_size,
   pthreadpool_t threadpool);
 
+enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qc8w(
+  size_t input_channels,
+  size_t output_channels,
+  size_t input_stride,
+  size_t output_stride,
+  const float* kernel_scale,
+  const int8_t* kernel,
+  const float* bias,
+  float output_min,
+  float output_max,
+  uint32_t flags,
+  xnn_code_cache_t code_cache,
+  xnn_weights_cache_t weights_cache,
+  xnn_operator_t* fully_connected_op_out);
+
+enum xnn_status xnn_setup_fully_connected_nc_qd8_f16_qc8w(
+  xnn_operator_t fully_connected_op,
+  const int8_t* input,
+  void* output,
+  const struct xnn_dynamic_quantization_params* quantization_params);
+
+enum xnn_status xnn_reshape_fully_connected_nc_qd8_f16_qc8w(
+  xnn_operator_t fully_connected_op,
+  size_t batch_size,
+  pthreadpool_t threadpool);
+
 enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc8w(
   size_t input_channels,
   size_t output_channels,
@@ -4925,6 +4970,25 @@ enum xnn_status xnn_setup_resize_bilinear2d_nhwc_u8(
   void* workspace,
   const uint8_t* input,
   uint8_t* output);
+
+enum xnn_status xnn_create_rope_nthc_f16(
+  size_t max_tokens,
+  uint32_t flags,
+  xnn_operator_t* rope_op_out);
+
+enum xnn_status xnn_reshape_rope_nthc_f16(
+  xnn_operator_t rope_op,
+  size_t batch_size,
+  size_t tokens,
+  size_t heads,
+  size_t channels,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_rope_nthc_f16(
+  xnn_operator_t rope_op,
+  const void* input,
+  const void* weights,
+  void* output);
 
 enum xnn_status xnn_create_rope_nthc_f32(
   size_t max_tokens,

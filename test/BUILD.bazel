@@ -602,6 +602,22 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "f16_vsqrdiff_test",
+    srcs = [
+        "f16-vsqrdiff.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [":vbinary_microkernel_tester"],
+)
+
+xnnpack_unit_test(
+    name = "f16_vsqrdiffc_test",
+    srcs = [
+        "f16-vsqrdiffc.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [":vbinaryc_microkernel_tester"],
+)
+
+xnnpack_unit_test(
     name = "f16_vsub_minmax_test",
     srcs = [
         "f16-vsub-minmax.cc",
@@ -1064,6 +1080,24 @@ xnnpack_unit_test(
     srcs = [
         "f32-rsum.cc",
         "rsum-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "qs8_rsum_minmax_fp32_test",
+    srcs = [
+        "qs8-rsum-minmax-fp32.cc",
+        "rsum-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "f16_f32acc_rdsum_test",
+    srcs = [
+        "f16-f32acc-rdsum.cc",
+        "rdsum-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
 )
@@ -2557,10 +2591,12 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "convert_nc_test",
+    timeout = "moderate",
     srcs = [
         "convert-nc.cc",
         "convert-operator-tester.h",
     ],
+    shard_count = 5,
     deps = OPERATOR_TEST_DEPS,
 )
 
@@ -2621,6 +2657,7 @@ xnnpack_unit_test(
     timeout = "moderate",
     srcs = [
         "deconvolution-nhwc.cc",
+        "deconvolution-nhwc-qd8-f32-qc8w.cc",
         "deconvolution-operator-tester.h",
     ],
     shard_count = 10,
@@ -2658,9 +2695,11 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "divide_nd_eager_test",
+    timeout = "moderate",
     srcs = [
         "divide-nd-eager.cc",
     ],
+    shard_count = 5,
     deps = OPERATOR_TEST_DEPS + [":binary_elementwise_operator_tester"],
 )
 
@@ -3005,6 +3044,7 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "subtract_nd_test",
+    timeout = "moderate",
     srcs = [
         "subtract-nd.cc",
     ],

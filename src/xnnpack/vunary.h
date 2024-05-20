@@ -16,6 +16,13 @@ extern "C" {
 #endif
 
 
+#define DECLARE_BF16_UKERNEL_FUNCTION(fn_name, params_union) \
+  XNN_INTERNAL void fn_name(                                 \
+      size_t n,                                              \
+      const void* x,                                         \
+      void* y,                                               \
+      const union params_union params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
 #define DECLARE_F16_UKERNEL_FUNCTION(fn_name, params_union) \
   XNN_INTERNAL void fn_name(                                \
       size_t n,                                             \
@@ -30,6 +37,13 @@ extern "C" {
       float* y,                                             \
       const union params_union params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
+
+#define DECLARE_BF16_VABS_UKERNEL_FUNCTION(fn_name) \
+  DECLARE_BF16_UKERNEL_FUNCTION(fn_name, xnn_bf16_abs_params);
+
+DECLARE_BF16_VABS_UKERNEL_FUNCTION(xnn_bf16_vabs_ukernel__neonbf16_u8)
+DECLARE_BF16_VABS_UKERNEL_FUNCTION(xnn_bf16_vabs_ukernel__neonbf16_u16)
+DECLARE_BF16_VABS_UKERNEL_FUNCTION(xnn_bf16_vabs_ukernel__neonbf16_u24)
 
 #define DECLARE_F16_VABS_UKERNEL_FUNCTION(fn_name) \
   DECLARE_F16_UKERNEL_FUNCTION(fn_name, xnn_f16_abs_params);
@@ -1682,6 +1696,10 @@ DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__fma3_rsqrt_u32)
 DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u16)
 DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u32)
 DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u64)
+
+DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__neon_rsqrt_u4)
+DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__neon_rsqrt_u8)
+DECLARE_F32_VRSQRT_UKERNEL_FUNCTION(xnn_f32_vrsqrt_ukernel__neon_rsqrt_u16)
 
 
 #define DECLARE_U64_U32_VSQRTSHIFT_UKERNEL_FUNCTION(fn_name) \

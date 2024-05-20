@@ -312,6 +312,14 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "bf16_vabs_test",
+    srcs = [
+        "bf16-vabs.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [":vunary_microkernel_tester"],
+)
+
+xnnpack_unit_test(
     name = "f16_vabs_test",
     srcs = [
         "f16-vabs.cc",
@@ -2457,7 +2465,7 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "batch_matrix_multiply_nc_test",
-    timeout = "moderate",
+    timeout = "long",
     srcs = [
         "batch-matrix-multiply-nc.cc",
         "batch-matrix-multiply-operator-tester.h",
@@ -3235,6 +3243,7 @@ xnnpack_unit_test(
         "//:XNNPACK_test_mode",
         "//:aligned_allocator",
         "//:common",
+        "//:node_type",
         "//:operators_test_mode",
         "//:subgraph_test_mode",
     ],
@@ -3709,6 +3718,21 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "reciprocal_square_root_test",
+    srcs = [
+        "reciprocal-square-root.cc",
+    ],
+    deps = [
+        ":subgraph_unary_tester",
+        "@FP16",
+        "//:XNNPACK_test_mode",
+        "//:node_type",
+        "//:operators_test_mode",
+        "//:subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
     name = "rope_test",
     srcs = [
         "rope.cc",
@@ -3871,6 +3895,18 @@ xnnpack_unit_test(
         "//:XNNPACK_test_mode",
         "//:node_type",
         "//:operators_test_mode",
+        "//:subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "reshape_helpers_test",
+    srcs = [
+        "reshape-helpers.cc",
+    ],
+    deps = [
+        ":subgraph_unary_tester",
+        "//:XNNPACK_test_mode",
         "//:subgraph_test_mode",
     ],
 )

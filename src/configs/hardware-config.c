@@ -18,10 +18,15 @@
   #include <pthread.h>
 #endif
 #if XNN_ARCH_ARM && XNN_PLATFORM_ANDROID
-#include <ctype.h>
-#include <sys/utsname.h>
+  #include <ctype.h>
+  #include <sys/utsname.h>
 #endif
-
+#if XNN_ARCH_X86_64 && defined(__linux__)
+#include <sys/syscall.h>
+#include <unistd.h>
+#define XFEATURE_XTILEDATA 18
+#define ARCH_REQ_XCOMP_PERM 0x1023
+#endif
 #if XNN_ENABLE_CPUINFO
   #include <cpuinfo.h>
 #endif  // XNN_ENABLE_CPUINFO
@@ -56,6 +61,18 @@ static void KernelVersion(int* version) {
       }
     }
   }
+}
+#endif
+
+#if XNN_ARCH_X86_64 && defined(__linux__)
+ssize_t xnn_syscall(size_t rax, size_t rdi, size_t rsi, size_t rdx) {
+  __asm (
+    "syscall"
+    : "+a" (rax)
+    : "D"(rdi), "S"(rsi), "d"(rdx)
+    : "rcx", "r11", "memory"
+  );
+  return rax;
 }
 #endif
 
@@ -133,9 +150,22 @@ static void init_hardware_config(void) {
     hardware_config.use_x86_avx512vbmi = hardware_config.use_x86_avx512skx && cpuinfo_has_x86_avx512vbmi();
     hardware_config.use_x86_avx512vnni = hardware_config.use_x86_avx512skx && cpuinfo_has_x86_avx512vnni();
     hardware_config.use_x86_avx512vnnigfni = hardware_config.use_x86_avx512vnni && cpuinfo_has_x86_gfni();
+#if XNN_ENABLE_AVX512AMX
     // TODO(fbarchard): Use cpuinfo_has_x86_amx_int8 when available.
     // Infer AMX support from Sapphire Rapids having fp16 and amx.
     hardware_config.use_x86_avx512amx = hardware_config.use_x86_avx512vnnigfni && cpuinfo_has_x86_avx512fp16();
+#if XNN_ARCH_X86_64 && defined(__linux__)
+    if (hardware_config.use_x86_avx512amx) {
+      size_t status = xnn_syscall(SYS_arch_prctl, ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA, 0);
+      if (status) {
+        xnn_log_info("XFEATURE_XTILEDATA setup is failed, TMUL usage is not allowed");
+        hardware_config.use_x86_avx512amx = 0;
+      }
+    }
+#endif
+#else
+    hardware_config.use_x86_avx512amx = 0;
+#endif
 #if XNN_ENABLE_AVXVNNI
     hardware_config.use_x86_avxvnni = hardware_config.use_x86_avx2 && cpuinfo_has_x86_avxvnni();
 #else
@@ -247,12 +277,12 @@ static void init_hardware_config(void) {
 #endif
 
 const struct xnn_hardware_config* xnn_init_hardware_config() {
-  #if !XNN_PLATFORM_WEB && !XNN_ARCH_RISCV && !XNN_ARCH_PPC64 && !(XNN_ARCH_ARM64 && XNN_PLATFORM_WINDOWS)
+  #if !XNN_PLATFORM_WEB && !XNN_ARCH_RISCV && !XNN_ARCH_PPC64
     if (!cpuinfo_initialize()) {
       xnn_log_error("failed to initialize cpuinfo");
       return NULL;
     }
-  #endif  // !XNN_PLATFORM_WEB && !XNN_ARCH_RISCV && !(XNN_ARCH_ARM64 && XNN_PLATFORM_WINDOWS)
+  #endif  // !XNN_PLATFORM_WEB && !XNN_ARCH_RISCV && !XNN_ARCH_PPC64
   #if XNN_ARCH_ARM
     #if XNN_PLATFORM_MOBILE
       if (!cpuinfo_has_arm_neon()) {

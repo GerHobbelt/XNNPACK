@@ -36,14 +36,18 @@
 extern "C" {
 #endif
 
+#ifdef XNN_SLINKY_ENABLED
+struct xnn_value;
+struct slinky_pipeline;
+typedef struct slinky_pipeline* slinky_pipeline_t;
+slinky_pipeline_t xnn_runtime_to_slinky_pipeline(xnn_runtime_t runtime);
+void destroy_slinky_pipeline(slinky_pipeline_t pipeline);
+enum xnn_status evaluate(slinky_pipeline_t p, struct xnn_value* const* input_values, size_t num_inputs, struct xnn_value* const* output_values, size_t num_outputs);
+#endif
+
 struct xnn_shape {
   size_t num_dims;
-  // Currently inferred dimensions.
   size_t dim[XNN_MAX_TENSOR_DIMS];
-  // Lower bound on dynamic dimension implied by the subgraph.
-  size_t minimum_dim[XNN_MAX_TENSOR_DIMS];
-  // Upper bound on dynamic dimension implied by the subgraph.
-  size_t maximum_dim[XNN_MAX_TENSOR_DIMS];
 };
 
 enum xnn_value_type {
@@ -200,19 +204,6 @@ typedef enum xnn_status (*xnn_setup_operator_fn)(
   size_t num_values,
   pthreadpool_t threadpool);
 
-enum xnn_shape_inference_status {
-  // Shape inference did not change any dimension.
-  xnn_shape_inference_status_no_change,
-  // Shape inference change some dimension.
-  xnn_shape_inference_status_changed,
-  // Shape inference met an error.
-  xnn_shape_inference_status_error,
-};
-
-typedef enum xnn_shape_inference_status (*xnn_infer_shape_fn)(
-  const struct xnn_node* node,
-  struct xnn_value* values);
-
 enum xnn_compute_type {
   xnn_compute_type_invalid = 0,
   xnn_compute_type_fp32,
@@ -240,7 +231,7 @@ struct xnn_node {
   /// Static parameters of the operator node.
   union {
     struct {
-      size_t axis;
+      int32_t axis;
     } concatenate;
     struct {
       uint32_t input_padding_top;
@@ -292,7 +283,7 @@ struct xnn_node {
       uint32_t block_size;
     } depth_to_space_2d;
     struct {
-      size_t axis;
+      int32_t axis;
     } even_split;
     struct {
       uint32_t padding_top;
@@ -373,10 +364,6 @@ struct xnn_node {
   xnn_reshape_operator_fn reshape;
   // Function to setup an operator using opdata.
   xnn_setup_operator_fn setup;
-  // Function for shape inference forward pass (infer output shape from input shape).
-  xnn_infer_shape_fn infer_shape_forward;
-  // Function for shape inference backward pass (infer input shape from output shape).
-  xnn_infer_shape_fn infer_shape_backward;
 };
 
 #ifdef __MACH__
@@ -418,7 +405,7 @@ struct xnn_operator_data {
       size_t reshape_dims[XNN_MAX_TENSOR_DIMS];
     };
     // Used for concatenate.
-    size_t axis;
+    int32_t axis;
     // Used for static constant pad.
     struct {
       size_t post_paddings[XNN_MAX_TENSOR_DIMS];
@@ -486,6 +473,14 @@ struct xnn_runtime {
   // workspace changes.
   bool has_been_setup;
   bool memory_planned;
+
+#ifdef XNN_SLINKY_ENABLED
+  slinky_pipeline_t slinky_pipeline;
+  size_t num_inputs;
+  size_t num_outputs;
+  struct xnn_value* input_values[XNN_MAX_OPERATOR_OBJECTS];
+  struct xnn_value* output_values[XNN_MAX_OPERATOR_OBJECTS];
+#endif
 };
 
 struct xnn_value* xnn_subgraph_new_internal_value(xnn_subgraph_t subgraph);
@@ -514,12 +509,6 @@ XNN_INLINE static size_t xnn_tensor_get_rounded_size(const struct xnn_value* val
 {
   return xnn_get_rounded_size(value->size);
 }
-
-// Sets a single dimension of to based on a dimension of from.
-enum xnn_shape_inference_status xnn_tensor_propagate_dimension(
-  struct xnn_value* to,
-  uint32_t to_dim,
-  size_t infer_dim);
 
 // Product of all shape dimensions
 size_t xnn_shape_multiply_all_dims(
@@ -571,10 +560,6 @@ struct xnn_workspace {
 };
 
 void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph);
-
-// Infer shape information across subgraph.
-// No flags currently supported, in the future it can be used to configure how shape inference is done.
-enum xnn_status xnn_subgraph_infer_shape(xnn_subgraph_t subgraph, uint32_t flags);
 
 enum xnn_status resize_fully_connected_output_tensor(
   const struct xnn_operator_data* opdata,

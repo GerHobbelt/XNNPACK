@@ -1559,6 +1559,9 @@ xnnpack_unit_test(
     timeout = "moderate",
     srcs = [
         "qd8-f16-qc4w-gemm-minmax.cc",
+        "qd8-f16-qc4w-gemm-minmax-2.cc",
+        "qd8-f16-qc4w-gemm-minmax-3.cc",
+        "qd8-f16-qc4w-gemm-minmax-4.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -1627,6 +1630,21 @@ xnnpack_unit_test(
         "qs8-qc8w-gemm-minmax-fp32.cc",
         "qs8-qc8w-gemm-minmax-fp32-2.cc",
         "qs8-qc8w-gemm-minmax-fp32-3.cc",
+    ],
+    shard_count = 10,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "qd8_f16_qc8w_igemm_minmax_test",
+    timeout = "moderate",
+    srcs = [
+        "qd8-f16-qc8w-igemm-minmax.cc",
+        "qd8-f16-qc8w-igemm-minmax-2.cc",
+        "qd8-f16-qc8w-igemm-minmax-3.cc",
+        "qd8-f16-qc8w-igemm-minmax-4.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
@@ -1724,6 +1742,15 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "qs8_f16_vcvt_test",
+    srcs = [
+        "qs8-f16-vcvt.cc",
+        "vcvt-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
     name = "qs8_f32_vcvt_test",
     srcs = [
         "qs8-f32-vcvt.cc",
@@ -1756,6 +1783,8 @@ xnnpack_unit_test(
     srcs = [
         "qs8-gemm-minmax-fp32.cc",
         "qs8-gemm-minmax-fp32-2.cc",
+        "qs8-gemm-minmax-fp32-3.cc",
+        "qs8-gemm-minmax-fp32-4.cc",
     ],
     shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [

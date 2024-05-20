@@ -422,6 +422,22 @@ typedef void (*xnn_f32_igemm_post_operation_ukernel_fn)(
     const float* zero,
     const void* params);
 
+typedef void (*xnn_qd8_f16_qc8w_igemm_ukernel_fn)(
+    size_t mr,
+    size_t nr,
+    size_t kc,
+    size_t ks,
+    const int8_t** a,
+    const void* w,
+    void* c,
+    size_t cm_stride,
+    size_t cn_stride,
+    size_t a_offset,
+    const int8_t* zero,
+    const int8_t* zero_data,
+    const union xnn_f16_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)],
+    const struct xnn_qd8_quantization_params* quantization_params);
+
 typedef void (*xnn_qd8_f32_qc8w_igemm_ukernel_fn)(
     size_t mr,
     size_t nr,
@@ -1415,8 +1431,60 @@ typedef void (*xnn_packw_gemm_gio_ukernel_fn)(
   size_t extra_bytes,
   const void* params);
 
-// PACKX: PACK X (input) tensor for pre-packed matrix multiplication
+// PACK: PACK for IGEMM matrix multiplication
+// Weights in GOKI layout: Groups, Output channels, Kernel channels, Input channels.
+typedef void (*xnn_pack_conv_goki_w_fn)(
+  size_t g,
+  size_t nc,
+  size_t ks,
+  size_t kc,
+  size_t nr,
+  size_t kr,
+  size_t sr,
+  const void* kernel,
+  const void* bias,
+  const void* scale,
+  void* packed_weights,
+  size_t extra_bytes,
+  const void* params);
 
+// PACK: PACK for IGEMM matrix multiplication
+// Weights in KGO layout: Kernel channels, groups, Output channels.
+typedef void (*xnn_pack_conv_kgo_w_fn)(
+  size_t g,
+  size_t nc,
+  size_t ks,
+  size_t nr,
+  size_t kr,
+  size_t sr,
+  const void* kernel,
+  const void* bias,
+  const void* scale,
+  void* packed_weights,
+  size_t extra_bytes,
+  const void* params);
+
+// PACK: PACK for DECONV SubConv matrix multiplication
+// Weights in GOKI layout: Groups, Output channels, Kernel channels, Input channels.
+typedef void (*xnn_pack_deconv_goki_w_fn)(
+  size_t g,
+  size_t nc,
+  size_t kh,
+  size_t kw,
+  size_t kc,
+  size_t sh,
+  size_t sw,
+  size_t nr,
+  size_t kr,
+  size_t sr,
+  const void* kernel,
+  const void* bias,
+  const void* scale,
+  void* packed_weights,
+  const void* subconv_params,
+  const void* params);
+
+// PACKX: PACK X (input) tensor for pre-packed matrix multiplication
 typedef void (*xnn_packx_ukernel_fn)(
     size_t m,
     size_t k,
@@ -1636,6 +1704,12 @@ typedef void (*xnn_qs8_vcvt_ukernel_fn)(
     const int8_t* input,
     int8_t* output,
     const union xnn_qs8_cvt_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
+typedef void (*xnn_qs8_f16_vcvt_ukernel_fn)(
+    size_t batch,
+    const int8_t* input,
+    void* output,
+    const union xnn_qs8_f16_cvt_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 typedef void (*xnn_qs8_f32_vcvt_ukernel_fn)(
     size_t batch,
@@ -2278,6 +2352,11 @@ typedef size_t (*xnn_init_qs8_cvt_params_fn)(
   float input_output_scale,
   int8_t input_zero_point,
   int8_t output_zero_point);
+
+typedef size_t (*xnn_init_qs8_f16_cvt_params_fn)(
+  union xnn_qs8_f16_cvt_params params[XNN_MIN_ELEMENTS(1)],
+  uint16_t scale,
+  int8_t zero_point);
 
 typedef size_t (*xnn_init_qs8_f32_cvt_params_fn)(
   union xnn_qs8_f32_cvt_params params[XNN_MIN_ELEMENTS(1)],

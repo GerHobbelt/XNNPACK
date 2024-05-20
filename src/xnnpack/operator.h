@@ -268,6 +268,7 @@ struct xnn_operator {
     union xnn_f32_qs8_cvt_params f32_qs8_cvt;
     union xnn_f32_qu8_cvt_params f32_qu8_cvt;
     union xnn_qs8_cvt_params qs8_cvt;
+    union xnn_qs8_f16_cvt_params qs8_f16_cvt;
     union xnn_qs8_f32_cvt_params qs8_f32_cvt;
     union xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
     union xnn_qu8_cvt_params qu8_cvt;
@@ -367,6 +368,7 @@ struct xnn_operator {
     const struct xnn_x8_lut_config* lut_config;
     const struct xnn_cmul_config* cmul_config;
     const struct xnn_transpose_config* transpose_config;
+    const struct xnn_binary_elementwise_subconfig* binary_elementwise_subconfig;
     struct {
       const struct xnn_unary_elementwise_config* unary_elementwise_config;
       const struct xnn_reduce_config* rminmax_config;  // For dynamic quantization convert operator.

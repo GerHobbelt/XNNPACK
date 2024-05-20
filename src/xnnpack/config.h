@@ -53,6 +53,11 @@ struct xnn_hardware_config {
   // vlenb CSR (VLEN/8). 0 if vector extension is unsupported.
   uint32_t vlenb;
 #endif
+#if XNN_ARCH_PPC64
+  bool use_vsx;
+  bool use_vsx3;
+  bool use_mma;
+#endif
 #if XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
   bool is_x86;
 #endif  // XNN_ARCH_WASM || XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -157,6 +162,9 @@ struct xnn_binary_elementwise_subconfig {
   xnn_vbinary_ukernel_fn op_ukernel;
   xnn_vbinary_ukernel_fn opc_ukernel;
   xnn_vbinary_ukernel_fn ropc_ukernel;
+  // Number of elements in a tile.
+  // For best efficiency, micro-kernel must process a multiple of this number of elements in each call.
+  size_t element_tile;
 };
 
 struct xnn_binary_elementwise_config {
@@ -171,9 +179,6 @@ struct xnn_binary_elementwise_config {
     xnn_init_qu8_add_minmax_params_fn qu8_add;
     xnn_init_qu8_mul_minmax_params_fn qu8_mul;
   } init;
-  // Number of elements in a tile.
-  // For best efficiency, micro-kernel must process a multiple of this number of elements in each call.
-  size_t element_tile;
 };
 
 XNN_INTERNAL const struct xnn_binary_elementwise_config* xnn_init_f16_vadd_config();
@@ -224,6 +229,7 @@ struct xnn_unary_elementwise_config {
     xnn_init_f32_sqrt_params_fn f32_sqrt;
     xnn_init_f32_tanh_params_fn f32_tanh;
     xnn_init_qs8_cvt_params_fn qs8_cvt;
+    xnn_init_qs8_f16_cvt_params_fn qs8_f16_cvt;
     xnn_init_qs8_f32_cvt_params_fn qs8_f32_cvt;
     xnn_init_qs8_hswish_params_fn qs8_hswish;
     xnn_init_qs8_lrelu_params_fn qs8_lrelu;
@@ -279,6 +285,7 @@ XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_to_qu8_cvt_
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qs8_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qs8_hswish_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qs8_lrelu_config();
+XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qs8_to_f16_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qs8_to_f32_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qs16_to_qs8_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_qu8_cvt_config();
@@ -708,6 +715,7 @@ struct xnn_gemm_config {
   union {
     xnn_init_f16_minmax_params_fn f16;
     xnn_init_f32_minmax_params_fn f32;
+    xnn_init_f16_qc4w_minmax_params_fn f16_qc4w;
     xnn_init_f32_qc4w_minmax_params_fn f32_qc4w;
     xnn_init_qs8_conv_minmax_params_fn qs8;
     xnn_init_qs8_qc8w_conv_minmax_params_fn qs8_qc8w;
@@ -715,6 +723,9 @@ struct xnn_gemm_config {
   } init;
   xnn_packw_gemm_gio_ukernel_fn pack_gemm_gio;
   xnn_packw_gemm_goi_ukernel_fn pack_gemm_goi;
+  xnn_pack_conv_goki_w_fn pack_igemm_goki;
+  xnn_pack_conv_kgo_w_fn pack_igemm_kgo;
+  xnn_pack_deconv_goki_w_fn pack_deconv_goki;
   uint8_t mr;
   uint8_t nr;
   uint8_t log2_kr;
@@ -727,6 +738,7 @@ XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_gemm_nr2_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_f32_qc4w_gemm_config();
+XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f16_qc4w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f16_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f32_qc4w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f32_qc8w_gemm_config();

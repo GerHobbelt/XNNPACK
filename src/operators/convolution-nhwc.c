@@ -114,8 +114,8 @@ static enum xnn_status create_vmulcaddc_path(
   pack_vmulcaddc_w(groups, vmulcaddc_config->channel_tile, kernel, bias, weights_ptr, packing_params);
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, NULL, weights_ptr, aligned_total_weights_size);
   }
 
   memcpy(&convolution_op->params, vmulcaddc_params, vmulcaddc_params_size);
@@ -244,8 +244,8 @@ static enum xnn_status create_dwconv_path(
   }
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, NULL, weights_ptr, aligned_total_weights_size);
   }
 
   const union xnn_dwconv_ukernel* ukernels = &dwconv_ukernel->minmax;
@@ -436,8 +436,8 @@ static enum xnn_status create_gemm_or_igemm(
   }
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, NULL, weights_ptr, aligned_total_weights_size);
   }
 
   *zero_size = XNN_EXTRA_BYTES + (k_stride << log2_input_element_size);
@@ -882,9 +882,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_qd8_f32_qc8w(
         xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_qd8_f32_qc8w));
     return xnn_status_invalid_parameter;
   }
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-        "failed to create %s operator with [%.7g, %7g] output range: range min must be below range max",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
         xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_qd8_f32_qc8w), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -995,9 +995,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_qu8(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%" PRIu8 ", %" PRIu8 "] output range: range min must be below range max",
+      "failed to create %s operator with [%" PRIu8 ", %" PRIu8 "] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_qu8), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -1134,9 +1134,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: range min must be below range max",
+      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_qs8), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -1151,29 +1151,41 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
     return xnn_status_unsupported_parameter;
   }
 
+  float* duplicated_requantization_scale = xnn_allocate_simd_memory(groups * group_output_channels * sizeof(float));
+  if (duplicated_requantization_scale == NULL) {
+    xnn_log_error(
+      "failed to allocate %zu bytes for %s operator packed weights",
+      groups * group_output_channels * sizeof(float),
+      xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_qc8));
+    return xnn_status_out_of_memory;
+  }
+  for (size_t output_channel = 0; output_channel < groups * group_output_channels; output_channel++) {
+    duplicated_requantization_scale[output_channel] = requantization_scale;
+  }
+
   const struct xnn_qs8_packing_params packing_params = { .input_zero_point = input_zero_point, };
 
-  const struct xnn_gemm_config* gemm_config = xnn_init_qs8_gemm_config();
+  const struct xnn_gemm_config* gemm_config = xnn_init_qs8_qc8w_gemm_config();
   assert(gemm_config != NULL);
 
-  union xnn_qs8_conv_minmax_params gemm_params;
-  if XNN_LIKELY(gemm_config->init.qs8 != NULL) {
-    gemm_config->init.qs8(&gemm_params,
-      requantization_scale, output_zero_point, output_min, output_max);
+  union xnn_qs8_qc8w_conv_minmax_params gemm_params;
+  if XNN_LIKELY(gemm_config->init.qs8_qc8w != NULL) {
+    gemm_config->init.qs8_qc8w(&gemm_params,
+      output_zero_point, output_min, output_max);
   }
 
-  const struct xnn_dwconv_config* dwconv_config = xnn_init_qs8_dwconv_config();
+  const struct xnn_dwconv_config* dwconv_config = xnn_init_qs8_qc8w_dwconv_config();
   assert(dwconv_config != NULL);
 
-  union xnn_qs8_conv_minmax_params dwconv_params;
+  union xnn_qs8_qc8w_conv_minmax_params dwconv_params;
   const struct xnn_dwconv_config* dwconv_ukernel =
-    find_dwconv_ukernel(kernel_height * kernel_width, dwconv_config, XNN_MAX_QS8_DWCONV_UKERNELS);
+    find_dwconv_ukernel(kernel_height * kernel_width, dwconv_config, XNN_MAX_QC8_DWCONV_UKERNELS);
   if XNN_LIKELY(dwconv_ukernel != NULL) {
-    dwconv_ukernel->init.qs8(&dwconv_params,
-      requantization_scale, output_zero_point, output_min, output_max);
+    dwconv_ukernel->init.qs8_qc8w(&dwconv_params,
+      output_zero_point, output_min, output_max);
   }
 
-  return create_convolution2d_nhwc(
+  enum xnn_status status = create_convolution2d_nhwc(
     input_padding_top, input_padding_right, input_padding_bottom, input_padding_left,
     kernel_height, kernel_width,
     subsampling_height, subsampling_width,
@@ -1193,9 +1205,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
     /*packing_params=*/&packing_params,
     /*input_padding_byte=*/input_zero_point,
     /*packed_weights_padding_byte=*/0,
-    /*extra_weights_bytes=*/0,
-    /*init_scale_params=*/NULL,
-    /*scale_params=*/NULL,
+    /*extra_weights_bytes=*/sizeof(float),
+    /*init_scale_params=*/xnn_init_qs8_qc8w_scale_fp32_params,
+    /*scale_params=*/duplicated_requantization_scale,
     /*init_kernel_scale_params=*/NULL,
     /*kernel_scale_params=*/NULL,
     /*gemm_params=*/&gemm_params,
@@ -1217,6 +1229,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
     /*code_cache=*/code_cache,
     /*weights_cache=*/weights_cache,
     convolution_op_out);
+
+  xnn_release_simd_memory(duplicated_requantization_scale);
+  return status;
 }
 
 enum xnn_status xnn_create_convolution2d_nhwc_qs8_qc8w(
@@ -1274,9 +1289,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8_qc8w(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: range min must be below range max",
+      "failed to create %s operator with [%" PRId8 ", %" PRId8 "] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_qc8), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -1570,9 +1585,9 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32(
     return xnn_status_invalid_parameter;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_f32), output_min, output_max);
     return xnn_status_invalid_parameter;
   }
@@ -2683,7 +2698,7 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8(
     /*log2_input_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*log2_filter_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*log2_accumulator_element_size=*/XNN_LOG2_SIZEOF_INT32_T,
-    /*extra_weights_elements_size=*/sizeof(int32_t),
+    /*extra_weights_elements_size=*/sizeof(int32_t) + sizeof(float),
     /*log2_output_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
     /*dynamic_quantization=*/false,
     workspace_size, workspace_alignment,

@@ -25,7 +25,7 @@ static enum xnn_status create_fully_connected_operator(
   size_t num_values,
   struct xnn_operator_data* opdata,
   struct xnn_code_cache* code_cache,
-  struct xnn_weights_cache* weights_cache)
+  xnn_weights_cache_t weights_cache)
 {
   assert(node->num_inputs >= 2);
   assert(node->num_inputs <= 3);
@@ -324,7 +324,7 @@ static enum xnn_status create_fully_connected_operator(
 
 static enum xnn_status reshape_fully_connected_operator(
   struct xnn_operator_data* opdata,
-  const struct xnn_value* values,
+  struct xnn_value* values,
   size_t num_values,
   pthreadpool_t threadpool)
 {
@@ -592,7 +592,7 @@ static enum xnn_shape_inference_status infer_shape_forward(
   const uint32_t output_channel_index = (node->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) ? 1 : 0;
   const uint32_t output_id = node->outputs[0];
   struct xnn_value* output = &values[output_id];
-  status = xnn_tensor_propagate_dimension(output, output->shape.num_dims - 1, filter, output_channel_index);
+  status = xnn_tensor_propagate_dimension(output, output->shape.num_dims - 1, filter->shape.dim[output_channel_index]);
   if (status == xnn_shape_inference_status_error) {
     return status;
   }
@@ -605,7 +605,7 @@ static enum xnn_shape_inference_status infer_shape_forward(
   // Propagate input shape to output.
   const struct xnn_value* input = &values[node->inputs[0]];
   for (size_t cur_dim = 0; cur_dim < input->shape.num_dims - 1; cur_dim++) {
-    const enum xnn_shape_inference_status changed = xnn_tensor_propagate_dimension(output, cur_dim, input, cur_dim);
+    const enum xnn_shape_inference_status changed = xnn_tensor_propagate_dimension(output, cur_dim, input->shape.dim[cur_dim]);
     if (changed == xnn_shape_inference_status_error) {
       return changed;
     } else if (changed == xnn_shape_inference_status_changed) {
@@ -633,7 +633,7 @@ static enum xnn_shape_inference_status infer_shape_backward(
   const uint32_t input_channel_index = (node->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) ? 0 : 1;
   const uint32_t input_id = node->inputs[0];
   struct xnn_value* input = &values[input_id];
-  status = xnn_tensor_propagate_dimension(input, input->shape.num_dims - 1, filter, input_channel_index);
+  status = xnn_tensor_propagate_dimension(input, input->shape.num_dims - 1, filter->shape.dim[input_channel_index]);
   if (status == xnn_shape_inference_status_error) {
     return status;
   }
@@ -647,7 +647,7 @@ static enum xnn_shape_inference_status infer_shape_backward(
   const struct xnn_value* output = &values[node->outputs[0]];
   for (size_t cur_dim = 0; cur_dim < output->shape.num_dims - 1; cur_dim++) {
     const enum xnn_shape_inference_status changed =
-      xnn_tensor_propagate_dimension(input, cur_dim, output, cur_dim);
+      xnn_tensor_propagate_dimension(input, cur_dim, output->shape.dim[cur_dim]);
     if (changed == xnn_shape_inference_status_error) {
       return changed;
     } else if (changed == xnn_shape_inference_status_changed) {

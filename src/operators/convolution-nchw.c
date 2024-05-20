@@ -191,8 +191,8 @@ static enum xnn_status create_conv2d_hwc2chw_path(
     kernel, bias, weights_ptr, NULL);
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, NULL, weights_ptr, aligned_total_weights_size);
   }
 
   convolution_op->ukernel.conv2d = (struct xnn_ukernel_conv2d) {
@@ -244,8 +244,8 @@ static enum xnn_status create_dwconv_path(
   }
 
   if (use_weights_cache(convolution_op)) {
-    convolution_op->packed_weights.offset = xnn_get_or_insert_weights_cache(
-        convolution_op->weights_cache, weights_ptr, aligned_total_weights_size);
+    convolution_op->packed_weights.offset = xnn_look_up_or_insert_weights_cache(
+        convolution_op->weights_cache, NULL, weights_ptr, aligned_total_weights_size);
   }
 
   convolution_op->ukernel.dwconv2d = (struct xnn_ukernel_dwconv2d) {
@@ -714,9 +714,9 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
     goto error;
   }
 
-  if (output_min >= output_max) {
+  if (output_min > output_max) {
     xnn_log_error(
-      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be below upper bound",
+      "failed to create %s operator with [%.7g, %.7g] output range: lower bound must be less than or equal to upper bound",
       xnn_operator_type_to_string(operator_type), output_min, output_max);
     goto error;
   }

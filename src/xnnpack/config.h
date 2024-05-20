@@ -46,6 +46,7 @@ struct xnn_hardware_config {
   bool use_x86_avx512vbmi;
   bool use_x86_avx512skx;
   bool use_x86_avx512vnni;
+  bool use_x86_avx512vnnigfni;
   bool use_x86_avxvnni;
 #endif
 #if XNN_ARCH_RISCV
@@ -743,7 +744,6 @@ XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f16_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f32_qc4w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qd8_f32_qc8w_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qs8_qc8w_gemm_config();
-XNN_INTERNAL struct xnn_gemm_config* xnn_init_qs8_gemm_config();
 XNN_INTERNAL struct xnn_gemm_config* xnn_init_qu8_gemm_config();
 
 struct xnn_maxpool_config {

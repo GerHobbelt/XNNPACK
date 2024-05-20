@@ -186,11 +186,11 @@ typedef enum xnn_status (*xnn_create_operator_fn)(
   size_t num_values,
   struct xnn_operator_data* opdata,
   struct xnn_code_cache* code_cache,
-  struct xnn_weights_cache* weights_cache);
+  xnn_weights_cache_t weights_cache);
 
 typedef enum xnn_status (*xnn_reshape_operator_fn)(
   struct xnn_operator_data* opdata,
-  const struct xnn_value* values,
+  struct xnn_value* values,
   size_t num_values,
   pthreadpool_t threadpool);
 
@@ -513,8 +513,7 @@ XNN_INLINE static size_t xnn_tensor_get_rounded_size(const struct xnn_value* val
 enum xnn_shape_inference_status xnn_tensor_propagate_dimension(
   struct xnn_value* to,
   uint32_t to_dim,
-  const struct xnn_value* from,
-  uint32_t from_dim);
+  size_t infer_dim);
 
 // Product of all shape dimensions
 size_t xnn_shape_multiply_all_dims(

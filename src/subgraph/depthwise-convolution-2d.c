@@ -23,7 +23,7 @@ static enum xnn_status create_convolution_operator(
   size_t num_values,
   struct xnn_operator_data* opdata,
   struct xnn_code_cache* code_cache,
-  struct xnn_weights_cache* weights_cache)
+  xnn_weights_cache_t weights_cache)
 {
   assert(node->num_inputs >= 2);
   assert(node->num_inputs <= 3);
@@ -283,7 +283,7 @@ static enum xnn_status create_convolution_operator(
 
 static enum xnn_status reshape_convolution_operator(
   struct xnn_operator_data* opdata,
-  const struct xnn_value* values,
+  struct xnn_value* values,
   size_t num_values,
   pthreadpool_t threadpool)
 {

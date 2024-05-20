@@ -31,7 +31,7 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x16c4__avx512amx(
     const int8_t* zero,
     const int8_t* zero_data,
     const union xnn_f32_minmax_params params[restrict XNN_MIN_ELEMENTS(1)],
-    const struct xnn_qd8_quantization_params quantization_params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const struct xnn_qd8_quantization_params quantization_params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= 1);
@@ -45,11 +45,12 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x16c4__avx512amx(
 // TODO: amxintrin.h only provide intrinsics for __x86_64__
 // Update if amxintrin changes
 #if defined(__x86_64__)
-  __attribute__((aligned(64))) int32_t res0[1 * 16];
   __attribute__((aligned(64))) int32_t vintile[1 * 16];
+  __attribute__((aligned(64))) int32_t res0[1 * 16];
 
   kc = round_up_po2(kc, 4 * sizeof(int8_t));
   const size_t kremainder = (kc & 63) ? (kc & 63) : 64;
+  const __mmask16 kremainder_mask = _cvtu32_mask16((UINT32_C(1) << (kremainder >> 2)) - 1);
 
   // Define tile config data structure
   struct __tile_config {
@@ -111,20 +112,20 @@ void xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x16c4__avx512amx(
       a += 1;
 
       size_t k = kc;
-      while (k >= 64 * sizeof(int8_t)) {
-        const __m512i vin0 = _mm512_loadu_epi32(a0);
-        a0 += 64;
-        _mm512_store_epi32(vintile + 0, vin0);
-        _tile_loadd(4, vintile, 64);
-        _tile_loadd(5, (const int8_t*) w + 0, 64);
-        _tile_dpbssd(0, 4, 5);
+      {
+        while (k >= 64 * sizeof(int8_t)) {
+          _tile_loadd(4, a0, 64);   // Directly load input for mr=1
+          a0 += 64;
+          _tile_loadd(5, (const int8_t*) w + 0, 64);
+          _tile_dpbssd(0, 4, 5);
 
-        w = (const int8_t*) w + 1024;
-        k -= 64 * sizeof(int8_t);
+          w = (const int8_t*) w + 1024;
+          k -= 64 * sizeof(int8_t);
+        }
       }
 
       if XNN_UNLIKELY(k != 0) {
-        const __m512i vin0 = _mm512_loadu_epi32(a0);
+        const __m512i vin0 = _mm512_maskz_loadu_epi32(kremainder_mask, a0);
         a0 += kremainder;
         _mm512_store_epi32(vintile + 0, vin0);
         _tile_loadd(6, vintile, 64);

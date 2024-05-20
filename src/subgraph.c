@@ -3,15 +3,17 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <math.h>
+#include <assert.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
-
-#include <fp16/fp16.h>
+#include <string.h>
 
 #include <xnnpack.h>
+#include <xnnpack/allocation-type.h>
 #include <xnnpack/allocator.h>
+#include <xnnpack/common.h>
 #include <xnnpack/config.h>
 #include <xnnpack/log.h>
 #include <xnnpack/math.h>
@@ -19,6 +21,7 @@
 #include <xnnpack/params.h>
 #include <xnnpack/subgraph.h>
 
+#include <fp16/fp16.h>
 
 #ifndef XNN_ENABLE_SPARSE
   #error "XNN_ENABLE_SPARSE not defined"
@@ -746,6 +749,7 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
       case xnn_node_type_concatenate2:
       case xnn_node_type_concatenate3:
       case xnn_node_type_concatenate4:
+      case xnn_node_type_concatenate5:
       case xnn_node_type_convert:
       case xnn_node_type_squared_difference:
       case xnn_node_type_subtract:
@@ -771,6 +775,7 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
       case xnn_node_type_max_pooling_2d:
       case xnn_node_type_negate:
       case xnn_node_type_prelu:
+      case xnn_node_type_reciprocal_square_root:
       case xnn_node_type_sigmoid:
       case xnn_node_type_softmax:
       case xnn_node_type_space_to_depth_2d:

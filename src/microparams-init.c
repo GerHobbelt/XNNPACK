@@ -1987,6 +1987,18 @@ size_t xnn_init_f16_minmax_avxvnni_params(
   params->avxvnni.sign_mask = 0x80;
   return sizeof(params->avxvnni);
 }
+
+size_t xnn_init_f16_minmax_scalar_params(
+  union xnn_f16_minmax_params params[XNN_MIN_ELEMENTS(1)],
+  uint16_t min,
+  uint16_t max)
+{
+  const float min_f32 = fp16_ieee_to_fp32_value(min);
+  const float max_f32 = fp16_ieee_to_fp32_value(max);
+  params->scalar.min = min_f32;
+  params->scalar.max = max_f32;
+  return sizeof(params->scalar);
+}
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
@@ -4898,9 +4910,26 @@ size_t xnn_init_qu8_lrelu_wasmsimd_x86_params(
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
+size_t xnn_init_f32_sqrt_sse_params(
+    union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)]) {
+  for (uint32_t i = 0; i < 4; i++) {
+    params->sse.three[i] = 3.0f;
+  }
+  for (uint32_t i = 0; i < 4; i++) {
+    params->sse.half[i] = 0.5f;
+  }
+  return sizeof(params->sse);
+}
+
 size_t xnn_init_f32_sqrt_avx_params(
   union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)])
 {
+  for (uint32_t i = 0; i < 8; i++) {
+    params->avx.three[i] = 3.0f;
+  }
+  for (uint32_t i = 0; i < 8; i++) {
+    params->avx.half[i] = 0.5f;
+  }
   for (uint32_t i = 0; i < 7; i++) {
     params->avx.mask_table[i] = -1;
   }
@@ -4914,20 +4943,28 @@ size_t xnn_init_f32_sqrt_fma_params(
   union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)])
 {
   for (uint32_t i = 0; i < 8; i++) {
-    params->fma.half[i] = 0.5f;
+    params->fma3.three[i] = 3.0f;
+  }
+  for (uint32_t i = 0; i < 8; i++) {
+    params->fma3.neg_half[i] = -0.5f;
+  }
+  for (uint32_t i = 0; i < 8; i++) {
+    params->fma3.half[i] = 0.5f;
   }
   for (uint32_t i = 0; i < 7; i++) {
-    params->fma.mask_table[i] = -1;
+    params->fma3.mask_table[i] = -1;
   }
   for (uint32_t i = 7; i < 14; i++) {
-    params->fma.mask_table[i] = 0;
+    params->fma3.mask_table[i] = 0;
   }
-  return sizeof(params->fma);
+  return sizeof(params->fma3);
 }
 
 size_t xnn_init_f32_sqrt_avx512_params(
   union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)])
 {
+  params->avx512.neg_three = -3.0f;
+  params->avx512.neg_half = -0.5f;
   params->avx512.half = 0.5f;
   return sizeof(params->avx512);
 }

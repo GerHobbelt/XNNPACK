@@ -7,10 +7,11 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
+#include <xnnpack/common.h>
 #include <xnnpack/microfnptr.h>
 #include <xnnpack/microparams.h>
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -213,6 +214,7 @@ struct xnn_unary_elementwise_config {
     xnn_init_f16_lrelu_params_fn f16_lrelu;
     xnn_init_f16_neg_params_fn f16_neg;
     xnn_init_f16_minmax_params_fn f16_minmax;
+    xnn_init_f16_rsqrt_params_fn f16_rsqrt;
     xnn_init_f16_sigmoid_params_fn f16_sigmoid;
     xnn_init_f16_sqrt_params_fn f16_sqrt;
     xnn_init_f16_tanh_params_fn f16_tanh;
@@ -261,6 +263,8 @@ XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_rndd_config
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_rndne_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_rndu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_rndz_config();
+XNN_INTERNAL const struct xnn_unary_elementwise_config*
+xnn_init_f16_rsqrt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_sigmoid_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_sqr_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_sqrt_config();
@@ -638,9 +642,9 @@ static inline bool xnn_is_hmp_igemm_ukernel(struct xnn_hmp_igemm_ukernel ukernel
 #endif
 }
 
-// Largest GEMM/IGEMM MR used in init.c is 7 (x86 AVX512).
+// Largest GEMM/IGEMM MR used in init.c is 16 (x86 AVX512AMX).
 // Largest GEMM/IGEMM MR is 8 in e2e benchmarks.
-#define XNN_MAX_MR 8
+#define XNN_MAX_MR 16
 
 struct gemm_fused_ukernels {
   union {

@@ -4,20 +4,22 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <assert.h>
-#include <math.h>
+#include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #include <xnnpack.h>
+#include <xnnpack/allocation-type.h>
+#include <xnnpack/common.h>
 #include <xnnpack/log.h>
 #include <xnnpack/node-type.h>
-#include <xnnpack/operator.h>
 #include <xnnpack/operator-type.h>
-#include <xnnpack/params.h>
+#include <xnnpack/operator.h>
 #include <xnnpack/requantization.h>
-#include <xnnpack/subgraph.h>
 #include <xnnpack/subgraph-validation.h>
+#include <xnnpack/subgraph.h>
 
+#include "pthreadpool.h"
 
 static enum xnn_status create_fully_connected_operator(
   const struct xnn_node* node,
@@ -700,7 +702,7 @@ static inline enum xnn_compute_type validate_datatypes_with_bias(
       {
         return xnn_compute_type_qd8_to_fp16;
       } else if (input_datatype == xnn_datatype_qint8 &&
-          bias_datatype == xnn_datatype_qint32 &&
+          bias_datatype == xnn_datatype_qcint32 &&
           output_datatype == xnn_datatype_qint8)
       {
         return xnn_compute_type_qc8;
@@ -950,6 +952,7 @@ enum xnn_status xnn_define_fully_connected(
       case xnn_datatype_fp16:
       case xnn_datatype_fp32:
       case xnn_datatype_qint32:
+      case xnn_datatype_qcint32:
         break;
       default:
         xnn_log_error(

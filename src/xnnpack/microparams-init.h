@@ -378,6 +378,7 @@ DECLARE_INIT_BF16_MINMAX_PARAMS_FUNCTION(xnn_init_bf16_minmax_scalar_params)
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   DECLARE_INIT_F16_MINMAX_PARAMS_FUNCTION(xnn_init_f16_minmax_avx_params)
   DECLARE_INIT_F16_MINMAX_PARAMS_FUNCTION(xnn_init_f16_minmax_avxvnni_params)
+  DECLARE_INIT_F16_MINMAX_PARAMS_FUNCTION(xnn_init_f16_minmax_scalar_params)
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 
@@ -817,6 +818,7 @@ DECLARE_INIT_QU8_LRELU_PARAMS_FUNCTION(xnn_init_qu8_lrelu_scalar_select_params)
     union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)]);
 
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
+  DECLARE_INIT_F32_SQRT_PARAMS_FUNCTION(xnn_init_f32_sqrt_sse_params)
   DECLARE_INIT_F32_SQRT_PARAMS_FUNCTION(xnn_init_f32_sqrt_avx_params)
   DECLARE_INIT_F32_SQRT_PARAMS_FUNCTION(xnn_init_f32_sqrt_fma_params)
   DECLARE_INIT_F32_SQRT_PARAMS_FUNCTION(xnn_init_f32_sqrt_avx512_params)

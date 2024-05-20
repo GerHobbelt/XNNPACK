@@ -14,9 +14,9 @@
 
 #include <xnnpack/common.h>
 #include <xnnpack/config.h>
+#include <xnnpack/microfnptr.h>
 #include <xnnpack/microparams-init.h>
 #include <xnnpack/reduce.h>
-
 
 static struct xnn_reduce_config f16_f32acc_rsum_config = {0};
 static struct xnn_reduce_config f16_rminmax_config = {0};
@@ -36,22 +36,12 @@ static struct xnn_reduce_config f32_rsum_config = {0};
 #endif
 
 static void init_f16_f32acc_rsum_config(void) {
-  #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
+  #if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
     if (hardware_config->use_arm_neon_fp16_arith) {
       f16_f32acc_rsum_config = (struct xnn_reduce_config) {
-        .ukernel = (xnn_reduce_ukernel_fn) xnn_f16_f32acc_rsum_ukernel__neonfp16_u32_acc4,
-        .init.f16_f32acc_scale = xnn_init_f16_f32acc_scale_scalar_params,
-        .element_tile = 32,
-      };
-    }
-  #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
-    const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
-    assert(hardware_config != NULL);
-    if (hardware_config->use_arm_neon_fp16_arith) {
-      f16_f32acc_rsum_config = (struct xnn_reduce_config) {
-        .ukernel = (xnn_reduce_ukernel_fn) xnn_f16_f32acc_rsum_ukernel__neonfp16_u32_acc4,
+        .ukernel = (xnn_reduce_ukernel_fn) xnn_f16_f32acc_rsum_ukernel__neonfp16arith_u32_acc4,
         .init.f16_f32acc_scale = xnn_init_f16_f32acc_scale_scalar_params,
         .element_tile = 32,
       };
@@ -76,10 +66,10 @@ static void init_f16_rminmax_config(void) {
     if (hardware_config->use_arm_neon_fp16_arith) {
       f16_rminmax_config.ukernel = (xnn_reduce_ukernel_fn) xnn_f16_rminmax_ukernel__neonfp16arith_u32_acc4;
     } else {
-      f16_rminmax_config.ukernel = (xnn_reduce_ukernel_fn) xnn_f16_rminmax_ukernel__scalar_u4_acc4;
+      f16_rminmax_config.ukernel = (xnn_reduce_ukernel_fn) xnn_f16_rminmax_ukernel__scalar_u2_acc2;
     }
   #else
-    f16_rminmax_config.ukernel = (xnn_reduce_ukernel_fn) xnn_f16_rminmax_ukernel__scalar_u4_acc4;
+    f16_rminmax_config.ukernel = (xnn_reduce_ukernel_fn) xnn_f16_rminmax_ukernel__scalar_u2_acc2;
   #endif
 }
 
@@ -92,7 +82,7 @@ static void init_f32_rminmax_config(void) {
         .ukernel = (xnn_reduce_ukernel_fn) xnn_f32_rminmax_ukernel__neon_u16_acc4,
         .element_tile = 16,
       };
-    } else if (!XNN_PLATFORM_MOBILE) {
+    } else {
       f32_rminmax_config = (struct xnn_reduce_config) {
         .ukernel = (xnn_reduce_ukernel_fn) xnn_f32_rminmax_ukernel__scalar_u4_acc4,
         .element_tile = 4,
@@ -157,7 +147,7 @@ static void init_f32_rsum_config(void) {
         .init.f32_scale = xnn_init_f32_scale_scalar_params,
         .element_tile = 16,
       };
-    } else if (!XNN_PLATFORM_MOBILE) {
+    } else {
       f32_rsum_config = (struct xnn_reduce_config) {
         .ukernel = (xnn_reduce_ukernel_fn) xnn_f32_rsum_ukernel__scalar_u4_acc4,
         .init.f32_scale = xnn_init_f32_scale_scalar_params,

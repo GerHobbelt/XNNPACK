@@ -305,6 +305,41 @@ enum xnn_status xnn_define_channelwise_quantized_tensor_value(
   uint32_t flags,
   uint32_t* id_out);
 
+/// Validate the dimensions, channel_dim, zero point, datatype, and scale of a quantized tensor-type.
+///
+/// @param datatype - type of the tensor elements.
+/// @param zero_point - offset from zero to subtract from the quantized elements in the Value.
+/// @param scale - multiplication factor to convert quantized elements to real representation.
+/// @param num_dims - number of dimensions in the shape.
+/// @param dims - pointer to an array of @a num_dims shape dimensions. If num_dims is 0, this pointer can be NULL.
+///               XNNPACK does not keep any pointers to this array after the function returns.
+enum xnn_status xnn_validate_quantized_tensor(
+  enum xnn_datatype datatype,
+  int32_t zero_point,
+  float scale,
+  size_t num_dims,
+  const size_t* dims);
+
+/// Validate the dimensions, channel_dim, zero point, datatype, and scales of a channelwise quantized tensor-type.
+///
+/// @param datatype - type of the tensor elements.
+/// @param zero_point - offset from zero to subtract from the quantized elements in the Value.
+/// @param scale - per-channel multiplication factors to convert quantized elements to real representation.
+/// @param num_dims - number of dimensions in the shape.
+/// @param channel_dim - index of the channel dimension in the tensor with per-channel quantization parameters.
+///                      Typically this is the first dimension (dimension #0) of the filter tensors in the Convolution,
+///                      Deconvolution, and Fully Connected operators and the last dimension of the filter tensors in
+///                      the Depthwise Convolution operators.
+/// @param dims - pointer to an array of @a num_dims shape dimensions. If num_dims is 0, this pointer can be NULL.
+///               XNNPACK does not keep any pointers to this array after the function returns.
+enum xnn_status xnn_validate_channelwise_quantized_tensor(
+  enum xnn_datatype datatype,
+  int32_t zero_point,
+  const float* scale,
+  size_t num_dims,
+  size_t channel_dim,
+  const size_t* dims);
+
 /// Define a channelwise quantized tensor-type Value and add it to a Subgraph.
 ///
 /// @param subgraph - a Subgraph object that will own the created Value.
@@ -1683,6 +1718,21 @@ enum xnn_status xnn_define_square_root(
   uint32_t input_id,
   uint32_t output_id,
   uint32_t flags);
+
+/// Define a Reciprocal Square Root Node and add it to a Subgraph.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param input_id - Value ID for the input tensor. The input tensor must be
+/// defined in the @a subgraph.
+/// @param output_id - Value ID for the output tensor. The output tensor must be
+/// defined in the @a subgraph, and its
+///                    shape must match the shape of the input tensor.
+/// @param flags - binary features of the Square Root Node. No supported flags
+/// are currently defined.
+enum xnn_status xnn_define_reciprocal_square_root(xnn_subgraph_t subgraph,
+                                                  uint32_t input_id,
+                                                  uint32_t output_id,
+                                                  uint32_t flags);
 
 /// Define a Static Slice Node add it to a Subgraph.
 ///
@@ -4556,9 +4606,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f16(
   uint32_t stride_width,
   uint32_t dilation_height,
   uint32_t dilation_width,
-  size_t channels,
-  size_t input_pixel_stride,
-  size_t output_pixel_stride,
   float output_min,
   float output_max,
   uint32_t flags,
@@ -4569,6 +4616,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f16(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -4589,9 +4639,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_f32(
   uint32_t stride_width,
   uint32_t dilation_height,
   uint32_t dilation_width,
-  size_t channels,
-  size_t input_pixel_stride,
-  size_t output_pixel_stride,
   float output_min,
   float output_max,
   uint32_t flags,
@@ -4602,6 +4649,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_f32(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -4622,9 +4672,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_s8(
   uint32_t stride_width,
   uint32_t dilation_height,
   uint32_t dilation_width,
-  size_t channels,
-  size_t input_pixel_stride,
-  size_t output_pixel_stride,
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
@@ -4635,6 +4682,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_s8(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -4655,9 +4705,6 @@ enum xnn_status xnn_create_max_pooling2d_nhwc_u8(
   uint32_t stride_width,
   uint32_t dilation_height,
   uint32_t dilation_width,
-  size_t channels,
-  size_t input_pixel_stride,
-  size_t output_pixel_stride,
   uint8_t output_min,
   uint8_t output_max,
   uint32_t flags,
@@ -4668,6 +4715,9 @@ enum xnn_status xnn_reshape_max_pooling2d_nhwc_u8(
   size_t batch_size,
   size_t input_height,
   size_t input_width,
+  size_t channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -5610,6 +5660,22 @@ enum xnn_status xnn_run_square_root_nc_f32(
   float* output,
   uint32_t flags,
   pthreadpool_t threadpool);
+
+enum xnn_status xnn_create_reciprocal_square_root_nc_f32(
+    uint32_t flags, xnn_operator_t* sqrt_op_out);
+
+enum xnn_status xnn_reshape_reciprocal_square_root_nc_f32(
+    xnn_operator_t sqrt_op, size_t batch_size, size_t channels,
+    size_t input_stride, size_t output_stride, pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_reciprocal_square_root_nc_f32(xnn_operator_t sqrt_op,
+                                                        const float* input,
+                                                        float* output);
+
+enum xnn_status xnn_run_reciprocal_square_root_nc_f32(
+    size_t channels, size_t input_stride, size_t output_stride,
+    size_t batch_size, const float* input, float* output, uint32_t flags,
+    pthreadpool_t threadpool);
 
 enum xnn_status xnn_create_squared_difference_nd_f16(
   uint32_t flags,

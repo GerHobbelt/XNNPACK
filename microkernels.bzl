@@ -1079,11 +1079,8 @@ ALL_AVX2_MICROKERNEL_SRCS = [
     "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p32c-minmax-fp32-avx2-mul16-vpunpck.c",
     "src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p32c-minmax-fp32-avx2-mul32.c",
     "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c8-minmax-fp32-avx2.c",
-    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-1x8c8-xw-minmax-fp32-avx2.c",
     "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x8c8-minmax-fp32-avx2.c",
-    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-2x8c8-xw-minmax-fp32-avx2.c",
     "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x8c8-minmax-fp32-avx2.c",
-    "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-3x8c8-xw-minmax-fp32-avx2.c",
     "src/qs8-qc8w-gemm/gen/qs8-qc8w-gemm-4x8c8-minmax-fp32-avx2.c",
     "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-1x8c8-minmax-fp32-avx2.c",
     "src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-2x8c8-minmax-fp32-avx2.c",
@@ -1152,6 +1149,9 @@ ALL_AVX2_MICROKERNEL_SRCS = [
     "src/x16-packw/gen/x16-packw-x16-gemm-goi-avx2-u16.c",
     "src/x16-transposec/gen/x16-transposec-16x16-reuse-mov-avx2.c",
     "src/x16-transposec/gen/x16-transposec-16x16-reuse-switch-avx2.c",
+]
+
+ALL_AVX512AMX_MICROKERNEL_SRCS = [
 ]
 
 ALL_AVX512F_MICROKERNEL_SRCS = [
@@ -2931,12 +2931,6 @@ ALL_NEON_MICROKERNEL_SRCS = [
     "src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-neon-2x4.c",
     "src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-neon-3x4-acc2.c",
     "src/f32-dwconv2d-chw/gen/f32-dwconv2d-chw-5x5s2p2-minmax-neon-3x4.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-neon-acc2.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-neon.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-neon-acc2.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-neon.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l16c4s4r-minmax-neon-acc2.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l16c4s4r-minmax-neon.c",
     "src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-neon-acc2.c",
     "src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-neon.c",
     "src/f32-dwconv/gen/f32-dwconv-3p8c-minmax-neon-acc2.c",
@@ -4035,12 +4029,6 @@ ALL_NEONFMA_MICROKERNEL_SRCS = [
     "src/bf16-gemm/gen/bf16-gemm-4x4c8-minmax-neonfma-zip.c",
     "src/bf16-gemm/gen/bf16-gemm-5x4c8-minmax-neonfma-shland.c",
     "src/bf16-gemm/gen/bf16-gemm-5x4c8-minmax-neonfma-zip.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-neonfma-acc2.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l4c4s4r-minmax-neonfma.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-neonfma-acc2.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l8c4s4r-minmax-neonfma.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l16c4s4r-minmax-neonfma-acc2.c",
-    "src/f32-dwconv/gen/f32-dwconv-2f2m2l16c4s4r-minmax-neonfma.c",
     "src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-neonfma-acc2.c",
     "src/f32-dwconv/gen/f32-dwconv-3p4c-minmax-neonfma.c",
     "src/f32-dwconv/gen/f32-dwconv-3p8c-minmax-neonfma-acc2.c",

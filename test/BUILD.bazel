@@ -1022,6 +1022,9 @@ xnnpack_unit_test(
     name = "f32_spmm_minmax_test",
     srcs = [
         "f32-spmm-minmax.cc",
+        "f32-spmm-minmax-2.cc",
+        "f32-spmm-minmax-3.cc",
+        "f32-spmm-minmax-4.cc",
         "spmm-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
@@ -1364,6 +1367,15 @@ xnnpack_unit_test(
     name = "f32_vrndd_test",
     srcs = [
         "f32-vrndd.cc",
+        "vunary-microkernel-tester.h",
+    ],
+    deps = MICROKERNEL_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "f32_vrsqrt_test",
+    srcs = [
+        "f32-vrsqrt.cc",
         "vunary-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
@@ -3365,6 +3377,22 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "average_pooling_2d_reshape_test",
+    srcs = [
+        "average-pooling-2d-reshape.cc",
+    ],
+    deps = [
+        "//:XNNPACK_test_mode",
+        "//:aligned_allocator",
+        "//:common",
+        "//:node_type",
+        "//:operator_utils",
+        "//:operators_test_mode",
+        "//:subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
     name = "bankers_rounding_test",
     srcs = [
         "bankers-rounding.cc",
@@ -3450,6 +3478,19 @@ xnnpack_unit_test(
     name = "concatenate4_test",
     srcs = [
         "concatenate4.cc",
+    ],
+    deps = [
+        "//:XNNPACK_test_mode",
+        "//:node_type",
+        "//:operators_test_mode",
+        "//:subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "concatenate5_test",
+    srcs = [
+        "concatenate5.cc",
     ],
     deps = [
         "//:XNNPACK_test_mode",
@@ -4033,6 +4074,20 @@ xnnpack_unit_test(
     name = "tanh_test",
     srcs = [
         "tanh.cc",
+    ],
+    deps = [
+        ":subgraph_unary_tester",
+        "//:XNNPACK_test_mode",
+        "//:node_type",
+        "//:operators_test_mode",
+        "//:subgraph_test_mode",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "transpose_reshape_test",
+    srcs = [
+        "transpose-reshape.cc",
     ],
     deps = [
         ":subgraph_unary_tester",

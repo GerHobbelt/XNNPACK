@@ -19,7 +19,9 @@ enum xnn_status resize_unary_elementwise_output_tensor(
     if (shape_status == xnn_shape_inference_status_error) {
       return xnn_status_invalid_parameter;
     }
-    changed |= true;
+    if (shape_status == xnn_shape_inference_status_changed) {
+      changed |= true;
+    }
   }
   if (!changed) {
     return xnn_status_success;
@@ -71,7 +73,7 @@ enum xnn_status resize_binary_elementwise_output_tensor(
   }
 
   const size_t new_size = xnn_tensor_get_size(output);
-  if (new_size > output->size || old_workspace_size < opdata->workspace_size) {
+  if (new_size > output->size || opdata->workspace_size > old_workspace_size) {
     output->size = new_size;
     return xnn_status_reallocation_required;
   }

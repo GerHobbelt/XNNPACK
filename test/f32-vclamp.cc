@@ -7,15 +7,14 @@
 //   Specification: test/f32-vclamp.yaml
 //   Generator: tools/generate-vunary-test.py
 
-
-#include <vector>
-
-#include <gtest/gtest.h>
-
 #include <xnnpack/common.h>
 #include <xnnpack/isa-checks.h>
 #include <xnnpack/vunary.h>
 
+#include <cstddef>
+#include <vector>
+
+#include <gtest/gtest.h>
 #include "vunary-microkernel-tester.h"
 
 
@@ -155,6 +154,77 @@
           .batch_size(batch_size)
           .qmax(qmax)
           .Test(xnn_f32_vclamp_ukernel__neon_u8, xnn_init_f32_minmax_scalar_params);
+      }
+    }
+  }
+#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
+
+
+#if XNN_ARCH_ARM || XNN_ARCH_ARM64
+  TEST(F32_VCLAMP__NEON_U16, batch_eq_16) {
+    TEST_REQUIRES_ARM_NEON;
+    VUnaryMicrokernelTester()
+      .batch_size(16)
+      .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
+  }
+
+  TEST(F32_VCLAMP__NEON_U16, batch_div_16) {
+    TEST_REQUIRES_ARM_NEON;
+    for (size_t batch_size = 32; batch_size < 160; batch_size += 16) {
+      VUnaryMicrokernelTester()
+        .batch_size(batch_size)
+        .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
+    }
+  }
+
+  TEST(F32_VCLAMP__NEON_U16, batch_lt_16) {
+    TEST_REQUIRES_ARM_NEON;
+    for (size_t batch_size = 1; batch_size < 16; batch_size++) {
+      VUnaryMicrokernelTester()
+        .batch_size(batch_size)
+        .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
+    }
+  }
+
+  TEST(F32_VCLAMP__NEON_U16, batch_gt_16) {
+    TEST_REQUIRES_ARM_NEON;
+    for (size_t batch_size = 16 + 1; batch_size < 32; batch_size++) {
+      VUnaryMicrokernelTester()
+        .batch_size(batch_size)
+        .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
+    }
+  }
+
+  TEST(F32_VCLAMP__NEON_U16, inplace) {
+    TEST_REQUIRES_ARM_NEON;
+    for (size_t batch_size = 1; batch_size <= 80; batch_size += 15) {
+      VUnaryMicrokernelTester()
+        .batch_size(batch_size)
+        .inplace(true)
+        .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
+    }
+  }
+
+  TEST(F32_VCLAMP__NEON_U16, qmin) {
+    TEST_REQUIRES_ARM_NEON;
+    for (uint8_t qmin = 1; qmin < 255; qmin++) {
+      for (size_t batch_size = 1; batch_size <= 80; batch_size += 15) {
+        VUnaryMicrokernelTester()
+          .batch_size(batch_size)
+          .qmin(qmin)
+          .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
+      }
+    }
+  }
+
+  TEST(F32_VCLAMP__NEON_U16, qmax) {
+    TEST_REQUIRES_ARM_NEON;
+    for (uint8_t qmax = 1; qmax < 255; qmax++) {
+      for (size_t batch_size = 1; batch_size <= 80; batch_size += 15) {
+        VUnaryMicrokernelTester()
+          .batch_size(batch_size)
+          .qmax(qmax)
+          .Test(xnn_f32_vclamp_ukernel__neon_u16, xnn_init_f32_minmax_scalar_params);
       }
     }
   }

@@ -1482,7 +1482,7 @@ typedef void (*xnn_pack_deconv_goki_w_fn)(
   const void* scale,
   void* packed_weights,
   size_t extra_bytes,
-  const void* subconv_params,
+  void* subconv_params,
   const void* params);
 
 // PACKX: PACK X (input) tensor for pre-packed matrix multiplication
@@ -1893,6 +1893,12 @@ typedef void (*xnn_u64_u32_vsqrtshift_ukernel_fn)(
     const uint64_t* input,
     uint32_t* output,
     uint32_t shift);
+
+// VRSQRT: Vector Reciprocal SQuare RooT elementwise
+
+typedef void (*xnn_f32_vrsqrt_ukernel_fn)(
+    size_t batch, const float* input, float* output,
+    const union xnn_f32_rsqrt_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 // VTANH: Vector TANH elementwise
 
@@ -2634,6 +2640,9 @@ typedef size_t (*xnn_init_f16_sqrt_params_fn)(
 
 typedef size_t (*xnn_init_f32_sqrt_params_fn)(
   union xnn_f32_sqrt_params params[XNN_MIN_ELEMENTS(1)]);
+
+typedef size_t (*xnn_init_f32_rsqrt_params_fn)(
+  union xnn_f32_rsqrt_params params[XNN_MIN_ELEMENTS(1)]);
 
 typedef size_t (*xnn_init_f16_tanh_params_fn)(
   union xnn_f16_tanh_params params[XNN_MIN_ELEMENTS(1)]);

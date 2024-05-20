@@ -26,6 +26,7 @@ struct xnn_hardware_config {
   bool use_arm_neon_fp16;
   bool use_arm_neon_fma;
   bool use_arm_neon_v8;
+  bool use_arm_neon_udot;  // Allow udot for armv7 to be disabled.
 #endif  // XNN_ARCH_ARM
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
   bool use_arm_fp16_arith;
@@ -51,6 +52,7 @@ struct xnn_hardware_config {
 #endif
 #if XNN_ARCH_RISCV
   bool use_riscv_vector;
+  bool use_riscv_vector_fp16_arith;
   // vlenb CSR (VLEN/8). 0 if vector extension is unsupported.
   uint32_t vlenb;
 #endif

@@ -84,10 +84,6 @@ def xnnpack_configurable_defines():
         ["XNN_ENABLE_RISCV_FP16_VECTOR=1"],
         ["XNN_ENABLE_RISCV_FP16_VECTOR=0"],
     ) + xnnpack_select_if(
-        ":avx512vnnigfni_enabled",
-        ["XNN_ENABLE_AVX512VNNIGFNI=1"],
-        ["XNN_ENABLE_AVX512VNNIGFNI=0"],
-    ) + xnnpack_select_if(
         ":avx512amx_enabled",
         ["XNN_ENABLE_AVX512AMX=1"],
         ["XNN_ENABLE_AVX512AMX=0"],
@@ -104,6 +100,10 @@ def xnnpack_configurable_defines():
         ["XNN_ENABLE_AVXVNNIINT8=1"],
         ["XNN_ENABLE_AVXVNNIINT8=0"],
     ) + xnnpack_select_if(
+        ":avx512f_enabled",
+        ["XNN_ENABLE_AVX512F=1"],
+        ["XNN_ENABLE_AVX512F=0"],
+    ) + xnnpack_select_if(
         ":avx256skx_enabled",
         ["XNN_ENABLE_AVX256SKX=1"],
         ["XNN_ENABLE_AVX256SKX=0"],
@@ -115,6 +115,22 @@ def xnnpack_configurable_defines():
         ":avx256vnnigfni_enabled",
         ["XNN_ENABLE_AVX256VNNIGFNI=1"],
         ["XNN_ENABLE_AVX256VNNIGFNI=0"],
+    ) + xnnpack_select_if(
+        ":avx512skx_enabled",
+        ["XNN_ENABLE_AVX512SKX=1"],
+        ["XNN_ENABLE_AVX512SKX=0"],
+    ) + xnnpack_select_if(
+        ":avx512vbmi_enabled",
+        ["XNN_ENABLE_AVX512VBMI=1"],
+        ["XNN_ENABLE_AVX512VBMI=0"],
+    ) + xnnpack_select_if(
+        ":avx512vnni_enabled",
+        ["XNN_ENABLE_AVX512VNNI=1"],
+        ["XNN_ENABLE_AVX512VNNI=0"],
+    ) + xnnpack_select_if(
+        ":avx512vnnigfni_enabled",
+        ["XNN_ENABLE_AVX512VNNIGFNI=1"],
+        ["XNN_ENABLE_AVX512VNNIGFNI=0"],
     ) + xnnpack_select_if(
         ":hvx_enabled",
         ["XNN_ENABLE_HVX=1"],
@@ -464,6 +480,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
             "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4cxp8x8_8x8x32_neon_i8mm",
             "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4c32p8x8_4x8x32_neon_i8mm",
             "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4c32p4x8_8x4x32_neon_i8mm",
+            "@KleidiAI//kai/ukernels/matmul:clamp_f32_qai8dxp4x8_qsi4c32p4x8_16x4x32_neon_i8mm",
         ]),
     ),
     "neonsme": _create_params(
@@ -473,6 +490,10 @@ XNNPACK_PARAMS_FOR_ARCH = {
     "neonsme2": _create_params(
         cond = "//:arm_sme2_enabled",
         copts = ["-march=armv8.2-a+sve+sve2"],
+        extra_deps = xnnpack_if_kleidiai_enabled([
+            "@KleidiAI//kai/ukernels/matmul:lhs_pack_f32p2vlx1_f32_sme",
+            "@KleidiAI//kai/ukernels/matmul:clamp_f32_f32p_f32p",
+        ]),
     ),
     "aarch32": _create_params(
         cond = "//build_config:aarch32",
@@ -590,7 +611,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msvc_x86_64_copts = ["/arch:AVX2"],
     ),
     "avx512f": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx512f_enabled",
         gcc_x86_copts = [
             "-mavx512f",
         ],
@@ -600,7 +621,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msys_copts = ["-fno-asynchronous-unwind-tables"],
     ),
     "avx512skx": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx512skx_enabled",
         gcc_x86_copts = [
             "-mf16c",
             "-mfma",
@@ -632,7 +653,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msys_copts = ["-fno-asynchronous-unwind-tables"],
     ),
     "avx512vbmi": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx512vbmi_enabled",
         gcc_x86_copts = [
             "-mf16c",
             "-mfma",
@@ -649,7 +670,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msys_copts = ["-fno-asynchronous-unwind-tables"],
     ),
     "avx512vnni": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx512vnni_enabled",
         gcc_x86_copts = [
             "-mf16c",
             "-mfma",
@@ -683,7 +704,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msys_copts = ["-fno-asynchronous-unwind-tables"],
     ),
     "avx512vnnigfni": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx512vnnigfni_enabled",
         gcc_x86_copts = [
             "-mf16c",
             "-mfma",

@@ -21,6 +21,7 @@
 #include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams.h"
+#include "xnnpack/buffer.h"
 #include "replicable_random_device.h"
 
 class ReduceMicrokernelTester {
@@ -54,12 +55,12 @@ class ReduceMicrokernelTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(-1.0f, 1.0f);
 
-    std::vector<xnn_float16> input(batch_size() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
+    xnnpack::Buffer<xnn_float16> input(batch_size() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
 
       // Compute reference results.
-      std::vector<xnn_float16>::iterator min, max;
+      xnnpack::Buffer<xnn_float16>::iterator min, max;
       std::tie(min, max) = std::minmax_element(input.begin(), input.begin() + batch_size());
 
       // Prepare parameters.
@@ -69,7 +70,7 @@ class ReduceMicrokernelTester {
       }
 
       // Call optimized micro-kernel.
-      xnn_float16 output[2] = {std::nanf(""), std::nanf("")};
+      xnn_float16 output[2];
       reduce(batch_size() * sizeof(xnn_float16), input.data(), output, init_params != nullptr ? &params : nullptr);
 
       // Verify results.
@@ -96,12 +97,12 @@ class ReduceMicrokernelTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(-1.0f, 1.0f);
 
-    std::vector<float> input(batch_size() + XNN_EXTRA_BYTES / sizeof(float));
+    xnnpack::Buffer<float> input(batch_size() + XNN_EXTRA_BYTES / sizeof(float));
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
 
       // Compute reference results.
-      std::vector<float>::iterator min, max;
+      xnnpack::Buffer<float>::iterator min, max;
       std::tie(min, max) = std::minmax_element(input.begin(), input.begin() + batch_size());
 
       // Prepare parameters.
@@ -111,7 +112,7 @@ class ReduceMicrokernelTester {
       }
 
       // Call optimized micro-kernel.
-      float output[2] = {std::nanf(""), std::nanf("")};
+      float output[2];
       reduce(batch_size() * sizeof(float), input.data(), output, init_params != nullptr ? &params : nullptr);
 
       // Verify results.
@@ -139,12 +140,12 @@ class ReduceMicrokernelTester {
     std::uniform_int_distribution<int32_t> u8dist(
       std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
 
-    std::vector<uint8_t> input(batch_size() + XNN_EXTRA_BYTES / sizeof(uint8_t));
+    xnnpack::Buffer<uint8_t> input(batch_size() + XNN_EXTRA_BYTES / sizeof(uint8_t));
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
 
       // Compute reference results.
-      std::vector<uint8_t>::iterator min, max;
+      xnnpack::Buffer<uint8_t>::iterator min, max;
       std::tie(min, max) = std::minmax_element(input.begin(), input.begin() + batch_size());
 
       // Call optimized micro-kernel.

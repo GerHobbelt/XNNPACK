@@ -22,7 +22,7 @@ def _remove_duplicate_newlines(text):
     last_newline = is_newline
   return "\n".join(filtered_lines)
 
-_XNNPACK_SRC = "src"
+_XNNPACK_SRC = ""
 
 _ARCH_TO_MACRO_MAP = {
   "aarch32": "XNN_ARCH_ARM",
@@ -55,6 +55,10 @@ _ISA_TO_MACRO_MAP = {
   "avx256skx": "XNN_ENABLE_AVX256SKX",
   "avx256vnni": "XNN_ENABLE_AVX256VNNI",
   "avx256vnnigfni": "XNN_ENABLE_AVX256VNNIGFNI",
+  "avx512f": "XNN_ENABLE_AVX512F",
+  "avx512skx": "XNN_ENABLE_AVX512SKX",
+  "avx512vbmi": "XNN_ENABLE_AVX512VBMI",
+  "avx512vnni": "XNN_ENABLE_AVX512VNNI",
   "avx512vnnigfni": "XNN_ENABLE_AVX512VNNIGFNI",
   "avx512amx": "XNN_ENABLE_AVX512AMX",
   "avx512fp16": "XNN_ENABLE_AVX512FP16",
@@ -252,13 +256,13 @@ _ISA_HIERARCHY = [
   "avx",
   "avx2",
   "avx512f",
-  "avx512skx",
   "avx512vbmi",
   "avxvnni",
   "avxvnniint8",
   "avx256skx",
   "avx256vnni",
   "avx256vnnigfni",
+  "avx512skx",
   "avx512vnni",
   "avx512vnnigfni",
   "avx512fp16",

@@ -15,6 +15,8 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/buffer.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator-utils.h"
 #include "xnnpack/operator.h"
@@ -61,11 +63,11 @@ template <class T> class MaxPooling2DTestBase : public ::testing::Test {
     input_dims = {{batch_size, input_height, input_width, channels}};
     output_dims = {{batch_size, output_height, output_width, channels}};
 
-    input = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * input_height * input_width * channels);
+    input = xnnpack::Buffer<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * input_height * input_width * channels);
     operator_output =
-      std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * output_height * output_width * channels);
+      xnnpack::Buffer<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * output_height * output_width * channels);
     subgraph_output =
-      std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * output_height * output_width * channels);
+      xnnpack::Buffer<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * output_height * output_width * channels);
   }
 
   xnnpack::ReplicableRandomDevice rng;
@@ -100,9 +102,9 @@ template <class T> class MaxPooling2DTestBase : public ::testing::Test {
   std::array<size_t, 4> input_dims;
   std::array<size_t, 4> output_dims;
 
-  std::vector<T> input;
-  std::vector<T> operator_output;
-  std::vector<T> subgraph_output;
+  xnnpack::Buffer<T> input;
+  xnnpack::Buffer<T> operator_output;
+  xnnpack::Buffer<T> subgraph_output;
 };
 
 using MaxPooling2DTestQS8 = MaxPooling2DTestBase<int8_t>;
@@ -141,7 +143,6 @@ TEST_F(MaxPooling2DTestQS8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->params.pooling_2d.padding_top, padding_top);
   ASSERT_EQ(node->params.pooling_2d.padding_right, padding_right);
   ASSERT_EQ(node->params.pooling_2d.padding_bottom, padding_bottom);
@@ -193,7 +194,6 @@ TEST_F(MaxPooling2DTestQU8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qu8);
   ASSERT_EQ(node->params.pooling_2d.padding_top, padding_top);
   ASSERT_EQ(node->params.pooling_2d.padding_right, padding_right);
   ASSERT_EQ(node->params.pooling_2d.padding_bottom, padding_bottom);
@@ -244,7 +244,6 @@ TEST_F(MaxPooling2DTestF16, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp16);
   ASSERT_EQ(node->params.pooling_2d.padding_top, padding_top);
   ASSERT_EQ(node->params.pooling_2d.padding_right, padding_right);
   ASSERT_EQ(node->params.pooling_2d.padding_bottom, padding_bottom);
@@ -295,7 +294,6 @@ TEST_F(MaxPooling2DTestF32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->params.pooling_2d.padding_top, padding_top);
   ASSERT_EQ(node->params.pooling_2d.padding_right, padding_right);
   ASSERT_EQ(node->params.pooling_2d.padding_bottom, padding_bottom);
@@ -319,8 +317,6 @@ TEST_F(MaxPooling2DTestQS8, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
   const int8_t input_zero_point = i8dist(rng);
   const float input_scale = scale_dist(rng);
   const int8_t output_zero_point = input_zero_point;
@@ -392,8 +388,6 @@ TEST_F(MaxPooling2DTestQU8, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), UINT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), UINT8_C(0xA5));
   const uint8_t input_zero_point = u8dist(rng);
   const float input_scale = scale_dist(rng);
   const uint8_t output_zero_point = input_zero_point;
@@ -465,8 +459,6 @@ TEST_F(MaxPooling2DTestF16, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   // Call operator API.
   xnn_operator_t op = nullptr;
@@ -533,8 +525,6 @@ TEST_F(MaxPooling2DTestF32, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
 
   // Call operator API.
   xnn_operator_t op = nullptr;
@@ -639,7 +629,6 @@ TEST_F(MaxPooling2DTestF32, Reshape)
   ASSERT_EQ(subgraph->num_nodes, 1);
   struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -712,7 +701,6 @@ TEST_F(MaxPooling2DTestF32, ReshapeWithPadding)
   ASSERT_EQ(subgraph->num_nodes, 1);
   struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -784,7 +772,6 @@ TEST_F(MaxPooling2DTestF32, ReshapeWithPaddingAndDilation)
   ASSERT_EQ(subgraph->num_nodes, 1);
   struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_max_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);

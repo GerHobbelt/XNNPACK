@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include "xnnpack.h"
 #include "xnnpack/allocation-type.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/subgraph.h"
 #include "mock-allocator.h"
@@ -87,21 +88,19 @@ TEST(SUBGRAPH_FP16, value_both_external_output_and_input) {
 
   const xnn_node* output_convert_node = tester.Node(4);
   ASSERT_EQ(output_convert_node->type, xnn_node_type_convert);
-  ASSERT_EQ(output_convert_node->compute_type, xnn_compute_type_fp16_to_fp32);
 
   // Check that Addition node refers to the FP16 value before conversion.
   const xnn_node* addition_node = tester.Node(3);
-  ASSERT_EQ(addition_node->type, xnn_node_type_add2);
+  ASSERT_EQ(addition_node->type, xnn_node_type_binary_elementwise);
+  ASSERT_EQ(addition_node->binary_operator, xnn_binary_add);
   ASSERT_EQ(addition_node->inputs[0], 5);
   ASSERT_EQ(addition_node->inputs[1], 1);
   ASSERT_EQ(tester.Value(5)->datatype, xnn_datatype_fp16);
   ASSERT_EQ(tester.Value(1)->datatype, xnn_datatype_fp16);
 
   ASSERT_EQ(tester.Node(2)->type, xnn_node_type_convert);
-  ASSERT_EQ(tester.Node(2)->compute_type, xnn_compute_type_fp16_to_fp32);
   ASSERT_EQ(tester.Node(1)->type, xnn_node_type_static_constant_pad);
   ASSERT_EQ(tester.Node(0)->type, xnn_node_type_convert);
-  ASSERT_EQ(tester.Node(0)->compute_type, xnn_compute_type_fp32_to_fp16);
 }
 
 TEST(SUBGRAPH_FP16, with_static_value) {
@@ -451,9 +450,9 @@ TEST(SUBGRAPH_FP16, fully_connected_qd8_f16_qc8w) {
   // and a convert for the external output.
   xnnpack::ReplicableRandomDevice rng;
   auto f32rng = std::bind(std::uniform_real_distribution<float>(-1.f, 1.f), std::ref(rng));
-  std::vector<float> input(15 + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> input(15 + XNN_EXTRA_BYTES / sizeof(float));
   std::generate(input.begin(), input.end(), std::ref(f32rng));
-  std::vector<float> reference_output(10), output(10);
+  xnnpack::Buffer<float> reference_output(10), output(10);
   ASSERT_EQ(tester.NumNodes(), 4);
 
 

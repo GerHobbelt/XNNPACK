@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/buffer.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
@@ -42,12 +44,12 @@ template <typename T> class Concatenate4Test : public ::testing::Test {
     output_dims = input1_dims;
     output_dims[axis] = input1_dims[axis] + input2_dims[axis] + input3_dims[axis] + input4_dims[axis];
 
-    input1 = std::vector<T>(NumElements(input1_dims));
-    input2 = std::vector<T>(NumElements(input2_dims));
-    input3 = std::vector<T>(NumElements(input3_dims));
-    input4 = std::vector<T>(NumElements(input4_dims));
-    operator_output = std::vector<T>(NumElements(output_dims));
-    subgraph_output = std::vector<T>(NumElements(output_dims));
+    input1 = xnnpack::Buffer<T>(NumElements(input1_dims));
+    input2 = xnnpack::Buffer<T>(NumElements(input2_dims));
+    input3 = xnnpack::Buffer<T>(NumElements(input3_dims));
+    input4 = xnnpack::Buffer<T>(NumElements(input4_dims));
+    operator_output = xnnpack::Buffer<T>(NumElements(output_dims));
+    subgraph_output = xnnpack::Buffer<T>(NumElements(output_dims));
 
     signed_zero_point = i8dist(rng);
     unsigned_zero_point = u8dist(rng);
@@ -127,12 +129,12 @@ template <typename T> class Concatenate4Test : public ::testing::Test {
   int32_t unsigned_zero_point;
   float scale;
 
-  std::vector<T> input1;
-  std::vector<T> input2;
-  std::vector<T> input3;
-  std::vector<T> input4;
-  std::vector<T> operator_output;
-  std::vector<T> subgraph_output;
+  xnnpack::Buffer<T> input1;
+  xnnpack::Buffer<T> input2;
+  xnnpack::Buffer<T> input3;
+  xnnpack::Buffer<T> input4;
+  xnnpack::Buffer<T> operator_output;
+  xnnpack::Buffer<T> subgraph_output;
 };
 
 using Concatenate4TestQS8 = Concatenate4Test<int8_t>;
@@ -195,7 +197,6 @@ TEST_F(Concatenate4TestQS8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_concatenate4);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->params.concatenate.axis, axis);
   ASSERT_EQ(node->num_inputs, 4);
   ASSERT_EQ(node->inputs[0], input1_id);
@@ -262,7 +263,6 @@ TEST_F(Concatenate4TestQU8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_concatenate4);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qu8);
   ASSERT_EQ(node->params.concatenate.axis, axis);
   ASSERT_EQ(node->num_inputs, 4);
   ASSERT_EQ(node->inputs[0], input1_id);
@@ -324,7 +324,6 @@ TEST_F(Concatenate4TestF16, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_concatenate4);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp16);
   ASSERT_EQ(node->params.concatenate.axis, axis);
   ASSERT_EQ(node->num_inputs, 4);
   ASSERT_EQ(node->inputs[0], input1_id);
@@ -386,7 +385,6 @@ TEST_F(Concatenate4TestF32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_concatenate4);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->params.concatenate.axis, axis);
   ASSERT_EQ(node->num_inputs, 4);
   ASSERT_EQ(node->inputs[0], input1_id);
@@ -404,8 +402,6 @@ TEST_F(Concatenate4TestQS8, matches_operator_api)
   std::generate(input2.begin(), input2.end(), [&]() { return i8dist(rng); });
   std::generate(input3.begin(), input3.end(), [&]() { return i8dist(rng); });
   std::generate(input4.begin(), input4.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -518,8 +514,6 @@ TEST_F(Concatenate4TestQU8, matches_operator_api)
   std::generate(input2.begin(), input2.end(), [&]() { return u8dist(rng); });
   std::generate(input3.begin(), input3.end(), [&]() { return u8dist(rng); });
   std::generate(input4.begin(), input4.end(), [&]() { return u8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), UINT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), UINT8_C(0xA5));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -632,8 +626,6 @@ TEST_F(Concatenate4TestF16, matches_operator_api)
   std::generate(input2.begin(), input2.end(), [&]() { return f32dist(rng); });
   std::generate(input3.begin(), input3.end(), [&]() { return f32dist(rng); });
   std::generate(input4.begin(), input4.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -741,8 +733,6 @@ TEST_F(Concatenate4TestF32, matches_operator_api)
   std::generate(input2.begin(), input2.end(), [&]() { return f32dist(rng); });
   std::generate(input3.begin(), input3.end(), [&]() { return f32dist(rng); });
   std::generate(input4.begin(), input4.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -895,7 +885,6 @@ TEST_F(Concatenate4TestF32, Reshape)
   ASSERT_EQ(subgraph->num_nodes, 1);
   struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_concatenate4);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 4);
   ASSERT_EQ(node->inputs[0], input1_id);
   ASSERT_EQ(node->inputs[1], input2_id);

@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/buffer.h"
+#include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams.h"
 #include "replicable_random_device.h"
@@ -48,12 +50,11 @@ class RAddStoreExpMinusMaxMicrokernelTester {
     // However, the range is still narrow enough that double-precision exp doesn't overflow.
     std::uniform_real_distribution<float> f32dist(15.0f, 20.0f);
 
-    std::vector<xnn_float16> x(elements() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
-    std::vector<xnn_float16> y(elements());
-    std::vector<float> y_ref(elements());
+    xnnpack::Buffer<xnn_float16> x(elements() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
+    xnnpack::Buffer<xnn_float16> y(elements());
+    xnnpack::Buffer<float> y_ref(elements());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(x.begin(), x.end(), [&]() { return f32dist(rng); });
-      std::fill(y.begin(), y.end(), std::nanf(""));
 
       // Compute reference results.
       float sum_ref = 0.0f;
@@ -61,7 +62,7 @@ class RAddStoreExpMinusMaxMicrokernelTester {
       for (size_t i = 0; i < elements(); i++) {
         x_max_as_float = std::max<float>(x_max_as_float, x[i]);
       }
-      const xnn_float16 x_max_as_half = x_max_as_float;
+      const xnn_float16 x_max_as_half = static_cast<xnn_float16>(x_max_as_float);
       for (size_t i = 0; i < elements(); i++) {
         const float y_ref_value = exp(x[i] - x_max_as_float);
         y_ref[i] = y_ref_value;
@@ -69,12 +70,8 @@ class RAddStoreExpMinusMaxMicrokernelTester {
       }
 
       // Call optimized micro-kernel.
-      xnn_float16 sum = std::nanf("");
-      xnn_f16_expminus_params params;
-      if (init_params) {
-        init_params(&params);
-      }
-      raddstoreexpminusmax(elements() * sizeof(xnn_float16), x.data(), &x_max_as_half, y.data(), &sum, &params);
+      xnn_float16 sum;
+      raddstoreexpminusmax(elements() * sizeof(xnn_float16), x.data(), &x_max_as_half, y.data(), &sum, nullptr);
 
       // Verify results.
       for (size_t i = 0; i < elements(); i++) {
@@ -92,12 +89,11 @@ class RAddStoreExpMinusMaxMicrokernelTester {
     // However, the range is still narrow enough that double-precision exp doesn't overflow.
     std::uniform_real_distribution<float> f32dist(90.0f, 100.0f);
 
-    std::vector<float> x(elements() + XNN_EXTRA_BYTES / sizeof(float));
-    std::vector<float> y(elements());
-    std::vector<double> y_ref(elements());
+    xnnpack::Buffer<float> x(elements() + XNN_EXTRA_BYTES / sizeof(float));
+    xnnpack::Buffer<float> y(elements());
+    xnnpack::Buffer<double> y_ref(elements());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(x.begin(), x.end(), [&]() { return f32dist(rng); });
-      std::fill(y.begin(), y.end(), std::nanf(""));
 
       // Compute reference results.
       double sum_ref = 0.0f;
@@ -109,12 +105,8 @@ class RAddStoreExpMinusMaxMicrokernelTester {
       }
 
       // Call optimized micro-kernel.
-      float sum = std::nanf("");
-      xnn_f32_expminus_params params;
-      if (init_params) {
-        init_params(&params);
-      }
-      raddstoreexpminusmax(elements() * sizeof(float), x.data(), &x_max, y.data(), &sum, &params);
+      float sum;
+      raddstoreexpminusmax(elements() * sizeof(float), x.data(), &x_max, y.data(), &sum, nullptr);
 
       // Verify results.
       for (size_t i = 0; i < elements(); i++) {

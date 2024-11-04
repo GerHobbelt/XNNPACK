@@ -16,7 +16,6 @@
 #include <gtest/gtest.h>
 #include "xnnpack.h"
 #include "xnnpack/allocator.h"
-#include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/config-types.h"
 #include "xnnpack/gemm.h"
@@ -29,6 +28,7 @@
 #include "xnnpack/packq.h"
 #include "xnnpack/quantization.h"
 #include "xnnpack/requantization.h"
+#include "xnnpack/buffer.h"
 #include "replicable_random_device.h"
 
 TEST_P(GemmTest, Test) {
@@ -103,19 +103,20 @@ void GemmMicrokernelTester::Test(
       std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
       std::ref(rng));
 
-  std::vector<float> input(mr() * k());
-  std::vector<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(1 + XNN_EXTRA_QUANTIZATION_PARAMS);
-  std::vector<int8_t> b(n() * ks() * k());
-  std::vector<float> bias(n());
-  std::vector<float> kernel_scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_n() * packed_k() + packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  std::vector<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n(), 0);
-  std::vector<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<const int8_t*> im2col(mr() * ks());
+  xnnpack::Buffer<float> input(mr() * k());
+  xnnpack::Buffer<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(1 + XNN_EXTRA_QUANTIZATION_PARAMS);
+  xnnpack::Buffer<int8_t> b(n() * ks() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_n() * packed_k() +
+      packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
+  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<const int8_t*> im2col(mr() * ks());
 
-  std::fill(junk.begin(), junk.end(), 0xA5);
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
     const auto minmax = std::minmax_element(input.begin(), input.begin() + mr() * k());
@@ -136,7 +137,6 @@ void GemmMicrokernelTester::Test(
 
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), std::nanf(""));
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
@@ -169,7 +169,7 @@ void GemmMicrokernelTester::Test(
     }
     std::shuffle(im2col.begin(), im2col.end(), rng);
     const size_t k_stride =  round_up_po2(k(), kr() * sr());
-    std::vector<int8_t> zero_points(k_stride + XNN_EXTRA_BYTES, quantization_params[0].zero_point);
+    xnnpack::Buffer<int8_t> zero_points(k_stride + XNN_EXTRA_BYTES, quantization_params[0].zero_point);
     const int8_t* zero_sentinel = (const int8_t*) &packing_params;
     const int8_t* zero_data = zero_points.data();
     if (zero_index() != SIZE_MAX) {
@@ -211,9 +211,7 @@ void GemmMicrokernelTester::Test(
 
     // Prepare parameters.
     xnn_f16_minmax_params params;
-    init_params(&params,
-      c_min,
-      c_max);
+    init_params(&params, static_cast<xnn_float16>(c_min), static_cast<xnn_float16>(c_max));
 
     for (size_t m_index = 0; m_index < m(); m_index++) {
       for (size_t n_index = 0; n_index < n(); n_index++) {
@@ -233,7 +231,7 @@ void GemmMicrokernelTester::Test(
         const float tolerance = std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 1.0e-2f);
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], tolerance)
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-            << "), optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
+            << "), optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
             << nr() << " x " << kr() << ", M x N x K = " << m() << " x " << n() << " x " << k();
       }
     }
@@ -254,20 +252,21 @@ void GemmMicrokernelTester::Test(
       std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
       std::ref(rng));
 
-  std::vector<float> input(mr() * k());
-  std::vector<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(1 + XNN_EXTRA_QUANTIZATION_PARAMS);
-  std::vector<int8_t> b(n() * ks() * k());
-  std::vector<float> bias(n());
-  std::vector<float> kernel_scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_n() * packed_k() + packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> c_ref(m() * n(), 0);
-  std::vector<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<const int8_t*> im2col(mr() * ks());
+  xnnpack::Buffer<float> input(mr() * k());
+  xnnpack::Buffer<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(1 + XNN_EXTRA_QUANTIZATION_PARAMS);
+  xnnpack::Buffer<int8_t> b(n() * ks() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_n() * packed_k() +
+      packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<const int8_t*> im2col(mr() * ks());
 
-  std::fill(junk.begin(), junk.end(), 0xA5);
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
     const auto minmax = std::minmax_element(input.begin(), input.begin() + mr() * k());
@@ -288,7 +287,6 @@ void GemmMicrokernelTester::Test(
 
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), nanf(""));
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
@@ -321,7 +319,7 @@ void GemmMicrokernelTester::Test(
     }
     std::shuffle(im2col.begin(), im2col.end(), rng);
     const size_t k_stride =  round_up_po2(k(), kr() * sr());
-    std::vector<int8_t> zero_points(k_stride + XNN_EXTRA_BYTES, quantization_params[0].zero_point);
+    xnnpack::Buffer<int8_t> zero_points(k_stride + XNN_EXTRA_BYTES, quantization_params[0].zero_point);
     const int8_t* zero_sentinel = (const int8_t*) &packing_params;
     const int8_t* zero_data = zero_points.data();
     if (zero_index() != SIZE_MAX) {
@@ -401,22 +399,20 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
-  auto u8rng = std::bind(
-    std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
-  std::vector<uint8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
-  std::vector<uint8_t> b(n() * k());
-  std::vector<int32_t> bias(n());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(uint8_t));
-  std::vector<uint8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<uint8_t> c_ref(m() * n());
+  xnnpack::Buffer<uint8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
+  xnnpack::Buffer<uint8_t> b(n() * k());
+  xnnpack::Buffer<int32_t> bias(n());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(uint8_t));
+  xnnpack::Buffer<uint8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<uint8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    std::generate(a.begin(), a.end(), std::ref(u8rng));
-    std::generate(b.begin(), b.end(), std::ref(u8rng));
+    xnnpack::fill_uniform_random_bits(a.data(), a.size(), rng);
+    xnnpack::fill_uniform_random_bits(b.data(), b.size(), rng);
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
-    std::fill(c.begin(), c.end(), 0xA5);
 
     std::fill(packed_w.begin(), packed_w.end(), b_zero_point());
     const xnn_qu8_packing_params packing_params = { a_zero_point(), b_zero_point() };
@@ -487,26 +483,24 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
-  auto u8rng = std::bind(
-    std::uniform_int_distribution<uint32_t>(0, std::numeric_limits<uint8_t>::max()), std::ref(rng));
 
-  std::vector<uint8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
-  std::vector<uint8_t> b(n() * ks() * k());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(uint8_t));
-  std::vector<int32_t> bias(n());
-  std::vector<uint8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<uint8_t> c_ref(m() * n());
-  std::vector<uint8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
-  std::vector<const uint8_t*> im2col(mr() * ks());
+  xnnpack::Buffer<uint8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
+  xnnpack::Buffer<uint8_t> b(n() * ks() * k());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_n() * packed_k() +
+      packed_n() * sizeof(int32_t) / sizeof(uint8_t));
+  xnnpack::Buffer<int32_t> bias(n());
+  xnnpack::Buffer<uint8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<uint8_t> c_ref(m() * n());
+  xnnpack::Buffer<uint8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
+  xnnpack::Buffer<const uint8_t*> im2col(mr() * ks());
 
-  std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    std::generate(a.begin(), a.end(), std::ref(u8rng));
-    std::generate(b.begin(), b.end(), std::ref(u8rng));
+    xnnpack::fill_uniform_random_bits(a.data(), a.size(), rng);
+    xnnpack::fill_uniform_random_bits(b.data(), b.size(), rng);
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
-    std::fill(c.begin(), c.end(), 0xA5);
 
     std::fill(packed_w.begin(), packed_w.end(), b_zero_point());
     const xnn_qu8_packing_params packing_params = { a_zero_point(), b_zero_point() };
@@ -604,27 +598,25 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
-  auto i8rng = std::bind(
-    std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
-    std::ref(rng));
   auto w8rng = std::bind(
     std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
     std::ref(rng));
 
-  std::vector<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<int8_t> b(n() * k());
-  std::vector<int32_t> bias(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n() * (sizeof(int32_t) + sizeof(float)) / sizeof(int8_t));
-  std::vector<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> scale(n());
-  std::vector<int8_t> c_ref(m() * n());
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<int32_t> bias(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() +
+      packed_n() * (sizeof(int32_t) + sizeof(float)) / sizeof(int8_t));
+  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> scale(n());
+  xnnpack::Buffer<int8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    xnnpack::fill_uniform_random_bits(a.data(), a.size(), rng);
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
-    std::fill(c.begin(), c.end(), 0xA5);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     const xnn_qs8_packing_params packing_params = { int8_t(a_zero_point() - 0x80) };
@@ -710,31 +702,28 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
-  auto i8rng = std::bind(
-    std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
-    std::ref(rng));
   auto w8rng = std::bind(
     std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
     std::ref(rng));
 
-  std::vector<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
-  std::vector<int8_t> b(n() * ks() * k());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_n() * packed_k() + packed_n() * (sizeof(int32_t) + sizeof(float)) / sizeof(int8_t));
-  std::vector<int32_t> bias(n());
-  std::vector<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> scale(n());
-  std::vector<int8_t> c_ref(m() * n());
-  std::vector<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
-  std::vector<const int8_t*> im2col(mr() * ks());
+  xnnpack::Buffer<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
+  xnnpack::Buffer<int8_t> b(n() * ks() * k());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_n() * packed_k() +
+      packed_n() * (sizeof(int32_t) + sizeof(float)) / sizeof(int8_t));
+  xnnpack::Buffer<int32_t> bias(n());
+  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> scale(n());
+  xnnpack::Buffer<int8_t> c_ref(m() * n());
+  xnnpack::Buffer<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(uint8_t));
+  xnnpack::Buffer<const int8_t*> im2col(mr() * ks());
 
-  std::fill(junk.begin(), junk.end(), 0xA5);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    xnnpack::fill_uniform_random_bits(a.data(), a.size(), rng);
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
-    std::fill(c.begin(), c.end(), 0xA5);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     const xnn_qs8_packing_params packing_params = { int8_t(a_zero_point() - 0x80) };
@@ -849,16 +838,17 @@ void GemmMicrokernelTester::Test(
       std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
       std::ref(rng));
 
-  std::vector<float> input(m() * k());
-  std::vector<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(mr());
-  std::vector<int8_t> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float> kernel_scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() +
-                                                             packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  std::vector<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<float> input(m() * k());
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(mr());
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() +
+      packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
+  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -884,7 +874,6 @@ void GemmMicrokernelTester::Test(
 
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), UINT16_C(0xDEAD));
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
@@ -938,9 +927,7 @@ void GemmMicrokernelTester::Test(
 
     // Prepare parameters.
     xnn_f16_minmax_params params;
-    init_params(&params,
-      c_min,
-      c_max);
+    init_params(&params, static_cast<xnn_float16>(c_min), static_cast<xnn_float16>(c_max));
 
     for (size_t m_index = 0; m_index < m(); m_index++) {
       for (size_t n_index = 0; n_index < n(); n_index++) {
@@ -959,7 +946,7 @@ void GemmMicrokernelTester::Test(
         const float tolerance = std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 1.0e-2f);
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], tolerance)
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-            << "), optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
+            << "), optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
             << nr() << " x " << kr() << ", M x N x K = " << m() << " x " << n() << " x " << k();
       }
     }
@@ -980,17 +967,18 @@ void GemmMicrokernelTester::Test(
       std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
       std::ref(rng));
 
-  std::vector<float> input(m() * k());
-  std::vector<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(mr());
-  std::vector<int8_t> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float> kernel_scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() +
-                                                             packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<float> input(m() * k());
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(mr());
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() +
+      packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1016,7 +1004,6 @@ void GemmMicrokernelTester::Test(
 
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), nanf(""));
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
@@ -1116,17 +1103,18 @@ void GemmMicrokernelTester::Test(
   const size_t packed_k2 = round_up_po2(k(), kr() * sr() * planes);  // 2 blocks for nibbles
   const size_t packed_k_bytes = (packed_k2 + 1)/ 2;
 
-  std::vector<float> input(m() * k2);
-  std::vector<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(mr());
-  std::vector<uint8_t> b(n() * k2 / 2);
-  std::vector<float> bias(n());
-  std::vector<float> kernel_scale(n());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k_bytes +
-                                                               packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  std::vector<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> c_ref(m() * n(), 0.0f);
+  xnnpack::Buffer<float> input(m() * k2);
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(mr());
+  xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k_bytes +
+      packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
+  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> c_ref(m() * n(), 0.0f);
 
   {//for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1152,7 +1140,6 @@ void GemmMicrokernelTester::Test(
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), std::nanf(""));
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
     // until runtime, set it to 1.
@@ -1206,9 +1193,7 @@ void GemmMicrokernelTester::Test(
 
     // Prepare parameters.
     xnn_f16_qc4w_minmax_params params;
-    init_params(&params,
-      c_min,
-      c_max, 8);
+    init_params(&params, static_cast<xnn_float16>(c_min), static_cast<xnn_float16>(c_max), 8);
 
     for (size_t m_index = 0; m_index < m(); m_index++) {
       for (size_t n_index = 0; n_index < n(); n_index++) {
@@ -1228,7 +1213,7 @@ void GemmMicrokernelTester::Test(
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], tolerance)
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
             << " (accumulator = " << acc[i * n() + j]
-            << "), optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
+            << "), optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
             << nr() << " x " << kr() << ", M x N x K = " << m() << " x " << n() << " x " << k();
       }
     }
@@ -1257,19 +1242,20 @@ void GemmMicrokernelTester::Test(
   const size_t packed_k_bytes = (packed_k2 + 1)/ 2;
   const size_t num_blocks = packed_k2 / bl();
 
-  std::vector<float> input(m() * k2);
-  std::vector<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(mr());
-  std::vector<uint8_t> b(n() * k2 / 2);
-  std::vector<float> bias(n());
-  std::vector<xnn_bfloat16> kernel_scale2d(n() * k2 / bl());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> packed_w(packed_n() * packed_k_bytes +
-                                                               /* vksum */ packed_n() * sizeof(float) +
-                                                               /* scales */ packed_n() * num_blocks * sizeof(xnn_bfloat16) +
-                                                               /* bias */ packed_n() * sizeof(float));
+  xnnpack::Buffer<float> input(m() * k2);
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(mr());
+  xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<xnn_bfloat16> kernel_scale2d(n() * k2 / bl());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k_bytes +
+      /* vksum */ packed_n() * sizeof(float) +
+      /* scales */ packed_n() * num_blocks * sizeof(xnn_bfloat16) +
+      /* bias */ packed_n() * sizeof(float));
 
-  std::vector<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1296,7 +1282,6 @@ void GemmMicrokernelTester::Test(
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale2d.begin(), kernel_scale2d.end(), [&]() { return scalerng(); });
 
-    std::fill(c.begin(), c.end(), std::nanf(""));
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
     // until runtime, set it to 1.
@@ -1368,8 +1353,8 @@ void GemmMicrokernelTester::Test(
     // Prepare parameters.
     xnn_f16_qb4w_minmax_params params;
     init_params(&params,
-      c_min,
-      c_max,
+      static_cast<xnn_float16>(c_min),
+      static_cast<xnn_float16>(c_max),
       8,
       bl());
 
@@ -1390,7 +1375,7 @@ void GemmMicrokernelTester::Test(
         const float tolerance = std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 1.0e-3f);
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], tolerance)
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-            << ", optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
+            << ", optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
             << nr() << " x " << kr() << ", M x N x K = " << m() << " x " << n() << " x " << k2;
       }
     }
@@ -1416,17 +1401,18 @@ void GemmMicrokernelTester::Test(
   const size_t packed_k2 = round_up_po2(k(), kr() * sr() * planes);  // 2 blocks for nibbles
   const size_t packed_k_bytes = (packed_k2 + 1)/ 2;
 
-  std::vector<float> input(m() * k2);
-  std::vector<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(mr());
-  std::vector<uint8_t> b(n() * k2 / 2);
-  std::vector<float> bias(n());
-  std::vector<float> kernel_scale(n());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k_bytes +
-                                                               packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<float> input(m() * k2);
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(mr());
+  xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k_bytes +
+      packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1452,7 +1438,6 @@ void GemmMicrokernelTester::Test(
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
     // until runtime, set it to 1.
@@ -1554,19 +1539,20 @@ void GemmMicrokernelTester::Test(
   const size_t packed_k_bytes = (packed_k2 + 1)/ 2;
   const size_t num_blocks = packed_k2 / bl();
 
-  std::vector<float> input(m() * k2);
-  std::vector<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<xnn_qd8_quantization_params> quantization_params(mr());
-  std::vector<uint8_t> b(n() * k2 / 2);
-  std::vector<float> bias(n());
-  std::vector<xnn_bfloat16> kernel_scale2d(n() * k2 / bl());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> packed_w(packed_n() * packed_k_bytes +
-                                                               /* vksum */ packed_n() * sizeof(float) +
-                                                               /* scales */ packed_n() * num_blocks * sizeof(float) +
-                                                               /* bias */ packed_n() * sizeof(float));
+  xnnpack::Buffer<float> input(m() * k2);
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k2 + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(mr());
+  xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<xnn_bfloat16> kernel_scale2d(n() * k2 / bl());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k_bytes +
+      /* vksum */ packed_n() * sizeof(float) +
+      /* scales */ packed_n() * num_blocks * sizeof(float) +
+      /* bias */ packed_n() * sizeof(float));
 
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   for (size_t iteration = 0; iteration < 1 /* iterations() */; iteration++) {
     std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1593,7 +1579,6 @@ void GemmMicrokernelTester::Test(
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale2d.begin(), kernel_scale2d.end(), [&]() { return scalerng(); });
 
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(packed_w.begin(), packed_w.end(), 0);
     // Row sums are multiplied by input zero point, since we don't know it
     // until runtime, set it to 1.
@@ -1708,14 +1693,14 @@ void GemmMicrokernelTester::Test(
 
   const size_t k2 = round_up_po2(k(), 2);  // tester assumes byte aligned rows
 
-  std::vector<float> input_f32(m() * k2);
-  std::vector<uint8_t> b(n() * k2 / 2);
-  std::vector<float> bias(n(), 0.0f);
-  std::vector<float> kernel_scale(n());
-  std::vector<float> c((mr() - 1) * cm_stride() +
+  xnnpack::Buffer<float> input_f32(m() * k2);
+  xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
+  xnnpack::Buffer<float> bias(n(), 0.0f);
+  xnnpack::Buffer<float> kernel_scale(n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
                        ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   // Create a fake `gemm_config` for the packing functions.
   struct xnn_gemm_config gemm_config;
@@ -1728,7 +1713,7 @@ void GemmMicrokernelTester::Test(
   const size_t packed_w_stride =
       packed_stride(&gemm_config, k2, /*k_stride=*/k2, /*extra_bytes=*/0);
   const size_t packed_w_size = packed_w_stride * round_up(n(), nr());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> packed_w(packed_w_size);
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(packed_w_size);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input_f32.begin(), input_f32.end(), std::ref(f32rng));
@@ -1736,16 +1721,15 @@ void GemmMicrokernelTester::Test(
     // Quantize the left-hand operand.
     const size_t input_packed_size =
         xnn_x8_packq_f32qp8_packed_size(m(), k2, mr_packed(), kr(), sr());
-    std::vector<int8_t> input_qp8(input_packed_size);
+    xnnpack::Buffer<int8_t> input_qp8(input_packed_size);
     xnn_x8_packq_f32qp8_ukernel__scalar_u1(m(), k2, mr_packed(), kr(), sr(),
                                            /*m_idx_start=*/0, input_f32.data(),
                                            /*lhs_stride=*/k2 * sizeof(float),
                                            input_qp8.data());
 
     std::generate(b.begin(), b.end(), std::ref(w8rng));
-    // std::generate(bias.begin(), bias.end(), std::ref(f32rng));
+    std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale.begin(), kernel_scale.end(), std::ref(scalerng));
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(packed_w.begin(), packed_w.end(), 0);
 
     // RHS packing.
@@ -1757,8 +1741,8 @@ void GemmMicrokernelTester::Test(
          /*accumulator_init=*/nullptr,
          /*weights=*/b.data(),
          /*int_extra_data0_fn=*/nullptr,
-         /*extra_data0=*/nullptr,
-         /*extra_data0_size=*/0,
+         /*extra_data0=*/bias.data(),
+         /*extra_data0_size=*/sizeof(float),
          /*init_extra_data1_fn=*/
          nullptr,
          /*extra_data1=*/kernel_scale.data(),
@@ -1858,14 +1842,14 @@ void GemmMicrokernelTester::Test(
   const size_t packed_k_bytes = (packed_k2 + 1)/ 2;
   const size_t num_blocks = packed_k2 / bl();
 
-  std::vector<float> input_f32(m() * k2);
-  std::vector<uint8_t> b(n() * k2 / 2);
-  std::vector<float> bias(n(), 0.0f);
-  std::vector<uint16_t> kernel_scale2d(n() * packed_k2 / bl());
-  std::vector<float> c((mr() - 1) * cm_stride() +
+  xnnpack::Buffer<float> input_f32(m() * k2);
+  xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
+  xnnpack::Buffer<float> bias(n(), 0.0f);
+  xnnpack::Buffer<uint16_t> kernel_scale2d(n() * packed_k2 / bl());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
                        ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<float> c_ref(m() * n(), 0);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   // Create a fake `gemm_config` for the packing functions.
   struct xnn_gemm_config gemm_config;
@@ -1878,21 +1862,20 @@ void GemmMicrokernelTester::Test(
   const size_t packed_w_stride =
       packed_stride(&gemm_config, k2, /*k_stride=*/bl(), /*extra_bytes=*/0);
   const size_t packed_w_size = packed_w_stride * round_up(n(), nr());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, 64>> packed_w(packed_w_size);
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(packed_w_size);
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input_f32.begin(), input_f32.end(), std::ref(f32rng));
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(f32rng));
     std::generate(kernel_scale2d.begin(), kernel_scale2d.end(), [&]() { return math_cvt_bf16_fp32(scalerng()); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(packed_w.begin(), packed_w.end(), 0);
 
 
     // Quantize the left-hand operand.
     const size_t input_packed_size =
         xnn_x8_packq_f32qp8_packed_size(m(), k2, mr_packed(), kr(), sr());
-    std::vector<int8_t> input_qp8(input_packed_size);
+    xnnpack::Buffer<int8_t> input_qp8(input_packed_size);
     xnn_x8_packq_f32qp8_ukernel__scalar_u1(
       m(), k2, mr_packed(), kr(), sr(),
       /*m_idx_start=*/0, reinterpret_cast<const float*>(input_f32.data()),
@@ -2016,26 +1999,23 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
-  auto i8rng = std::bind(
-    std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
-    std::ref(rng));
   auto w8rng = std::bind(
     std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
     std::ref(rng));
 
-  std::vector<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<int8_t> b(n() * k());
-  std::vector<int32_t> bias(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(int8_t));
-  std::vector<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<int8_t> c_ref(m() * n());
+  xnnpack::Buffer<int8_t> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<int32_t> bias(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(int8_t));
+  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<int8_t> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    xnnpack::fill_uniform_random_bits(a.data(), a.size(), rng);
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
-    std::fill(c.begin(), c.end(), 0xA5);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     const xnn_qs8_packing_params packing_params = { int8_t(a_zero_point() - 0x80) };
@@ -2107,30 +2087,27 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto i32rng = std::bind(std::uniform_int_distribution<int32_t>(-10000, 10000), std::ref(rng));
-  auto i8rng = std::bind(
-    std::uniform_int_distribution<int32_t>(std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max()),
-    std::ref(rng));
   auto w8rng = std::bind(
     std::uniform_int_distribution<int32_t>(-std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max()),
     std::ref(rng));
 
-  std::vector<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<int8_t> b(n() * ks() * k());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(int8_t));
-  std::vector<int32_t> bias(n());
-  std::vector<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<int32_t> acc(m() * n());
-  std::vector<int8_t> c_ref(m() * n());
-  std::vector<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<const int8_t*> im2col(mr() * ks());
+  xnnpack::Buffer<int8_t> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<int8_t> b(n() * ks() * k());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_n() * packed_k() +
+      packed_n() * sizeof(int32_t) / sizeof(int8_t));
+  xnnpack::Buffer<int32_t> bias(n());
+  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int32_t> acc(m() * n());
+  xnnpack::Buffer<int8_t> c_ref(m() * n());
+  xnnpack::Buffer<int8_t> junk(k() + XNN_EXTRA_BYTES / sizeof(int8_t));
+  xnnpack::Buffer<const int8_t*> im2col(mr() * ks());
 
-  std::fill(junk.begin(), junk.end(), 0xA5);
 
   {//for (size_t iteration = 0; iteration < iterations(); iteration++) {
-    std::generate(a.begin(), a.end(), std::ref(i8rng));
+    xnnpack::fill_uniform_random_bits(a.data(), a.size(), rng);
     std::generate(b.begin(), b.end(), std::ref(w8rng));
     std::generate(bias.begin(), bias.end(), std::ref(i32rng));
-    std::fill(c.begin(), c.end(), 0xA5);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     const xnn_qs8_packing_params packing_params = { int8_t(a_zero_point() - 0x80) };
@@ -2230,25 +2207,25 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   auto f32rng = std::bind(std::uniform_real_distribution<float>(0.5f, 1.0f), std::ref(rng));
 
-  std::vector<xnn_bfloat16> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(xnn_bfloat16));
-  std::vector<xnn_bfloat16> b(n() * k());
-  std::vector<xnn_bfloat16, AlignedAllocator<xnn_bfloat16, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n());
-  std::vector<xnn_bfloat16> bias(n());
-  std::vector<xnn_bfloat16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<xnn_bfloat16> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(xnn_bfloat16));
+  xnnpack::Buffer<xnn_bfloat16> b(n() * k());
+  xnnpack::Buffer<xnn_bfloat16, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n());
+  xnnpack::Buffer<xnn_bfloat16> bias(n());
+  xnnpack::Buffer<xnn_bfloat16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&] { return f32rng(rng); });
     std::generate(b.begin(), b.end(), [&] { return f32rng(rng); });
     std::generate(bias.begin(), bias.end(), [&] { return f32rng(rng); });
-    std::fill(c.begin(), c.end(), std::nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     pack(/*g=*/1, n(), k(), nr(), kr(), sr(),
-         reinterpret_cast<const uint16_t*>(b.data()), 
+         reinterpret_cast<const uint16_t*>(b.data()),
          reinterpret_cast<const uint16_t*>(bias.data()), /*scale=*/nullptr,
-         reinterpret_cast<uint16_t*>(packed_w.data()), 
+         reinterpret_cast<uint16_t*>(packed_w.data()),
          /*extra_bytes=*/0, /*params=*/nullptr);
 
     for (size_t m_index = 0; m_index < m(); m_index++) {
@@ -2309,27 +2286,27 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto f32rng = std::bind(std::uniform_real_distribution<float>(), std::ref(rng));
-  
-  std::vector<xnn_float16> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
-  std::vector<xnn_float16> b(n() * k());
-  std::vector<xnn_float16, AlignedAllocator<xnn_float16, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n());
-  std::vector<xnn_float16> bias(n());
-  std::vector<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+
+  xnnpack::Buffer<xnn_float16> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
+  xnnpack::Buffer<xnn_float16> b(n() * k());
+  xnnpack::Buffer<xnn_float16, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n());
+  xnnpack::Buffer<xnn_float16> bias(n());
+  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), f32rng);
     std::generate(b.begin(), b.end(), f32rng);
     std::generate(bias.begin(), bias.end(), f32rng);
-    std::fill(c.begin(), c.end(), std::nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     pack(/*g=*/1, n(), k(), nr(), kr(), sr(),
-         reinterpret_cast<const uint16_t*>(b.data()), 
-         reinterpret_cast<const uint16_t*>(bias.data()), 
-         /*scale=*/nullptr, 
-         reinterpret_cast<uint16_t*>(packed_w.data()), 
+         reinterpret_cast<const uint16_t*>(b.data()),
+         reinterpret_cast<const uint16_t*>(bias.data()),
+         /*scale=*/nullptr,
+         reinterpret_cast<uint16_t*>(packed_w.data()),
          /*extra_bytes=*/0, /*params=*/nullptr);
 
     for (size_t m_index = 0; m_index < m(); m_index++) {
@@ -2353,9 +2330,7 @@ void GemmMicrokernelTester::Test(
 
     // Prepare parameters.
     xnn_f16_minmax_params params;
-    init_params(&params,
-      c_min,
-      c_max);
+    init_params(&params, static_cast<xnn_float16>(c_min), static_cast<xnn_float16>(c_max));
 
     for (float& c_value : c_ref) {
       c_value = std::max(std::min(c_value, c_max), c_min);
@@ -2372,7 +2347,7 @@ void GemmMicrokernelTester::Test(
       for (size_t j = 0; j < n(); j++) {
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 1.0e-2f))
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-            << ", optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
+            << ", optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
             << " x " << kr() << ", M x N x K = " << m() << " x " << n() << " x " << k();
       }
     }
@@ -2388,29 +2363,28 @@ void GemmMicrokernelTester::Test(
 
   xnnpack::ReplicableRandomDevice rng;
   auto f32rng = std::bind(std::uniform_real_distribution<float>(), std::ref(rng));
-  
-  std::vector<xnn_float16> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
-  std::vector<xnn_float16> b(n() * ks() * k());
-  std::vector<xnn_float16, AlignedAllocator<xnn_float16, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_k() * packed_n() + packed_n());
-  std::vector<xnn_float16> bias(n());
-  std::vector<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
-  std::vector<xnn_float16> junk(k() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
-  std::vector<const xnn_float16*> im2col(mr() * ks());
-  std::fill(junk.begin(), junk.end(), std::nanf(""));
+
+  xnnpack::Buffer<xnn_float16> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
+  xnnpack::Buffer<xnn_float16> b(n() * ks() * k());
+  xnnpack::Buffer<xnn_float16, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_k() * packed_n() + packed_n());
+  xnnpack::Buffer<xnn_float16> bias(n());
+  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
+  xnnpack::Buffer<xnn_float16> junk(k() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
+  xnnpack::Buffer<const xnn_float16*> im2col(mr() * ks());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), f32rng);
     std::generate(b.begin(), b.end(), f32rng);
     std::generate(bias.begin(), bias.end(), f32rng);
-    std::fill(c.begin(), c.end(), std::nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0);
     pack(/*g=*/1, n(), ks(), k(), nr(), kr(), sr(),
-         reinterpret_cast<const uint16_t*>(b.data()), 
-         reinterpret_cast<const uint16_t*>(bias.data()), /*scale=*/nullptr, 
-         reinterpret_cast<uint16_t*>(packed_w.data()), 
+         reinterpret_cast<const uint16_t*>(b.data()),
+         reinterpret_cast<const uint16_t*>(bias.data()), /*scale=*/nullptr,
+         reinterpret_cast<uint16_t*>(packed_w.data()),
          /*extra_bytes=*/0, /*params=*/nullptr);
 
     for (size_t ks_index = 0; ks_index < ks(); ks_index++) {
@@ -2466,9 +2440,7 @@ void GemmMicrokernelTester::Test(
 
     // Prepare parameters.
     xnn_f16_minmax_params params;
-    init_params(&params,
-      c_min,
-      c_max);
+    init_params(&params, static_cast<xnn_float16>(c_min), static_cast<xnn_float16>(c_max));
 
     for (float& c_value : c_ref) {
       c_value = std::max(std::min(c_value, c_max), c_min);
@@ -2487,15 +2459,15 @@ void GemmMicrokernelTester::Test(
       for (size_t j = 0; j < n(); j++) {
         EXPECT_LE(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_max)
             << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-            << ", optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
+            << ", optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
             << " x " << kr() << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k() << " x " << ks();
         EXPECT_GE(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_min)
             << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-            << ", optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
+            << ", optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
             << " x " << kr() << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k() << " x " << ks();
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 1.0e-2f))
             << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-            << ", optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
+            << ", optimized = " << (float)c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x " << nr()
             << " x " << kr() << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k() << " x " << ks();
       }
     }
@@ -2513,18 +2485,18 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a(packed_k() * mr());
-  std::vector<float> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a(packed_k() * mr());
+  xnnpack::Buffer<float> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(packed_n() * packed_k() +
+                                                    packed_n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);
@@ -2592,18 +2564,18 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(packed_n() * packed_k() +
+                                                    packed_n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);
@@ -2655,18 +2627,18 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(packed_n() * packed_k() +
+                                                    packed_n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);
@@ -2723,18 +2695,18 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(packed_n() * packed_k() +
+                                                    packed_n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);
@@ -2813,15 +2785,14 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * k());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * k());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     for (size_t m_index = 0; m_index < m(); m_index++) {
@@ -2902,19 +2873,19 @@ void GemmMicrokernelTester::Test(
 
   const size_t k_stride = (k() + 1) / 2;
   const size_t packed_k_bytes = (packed_k() + 1) / 2;
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<uint8_t> b(n() * k_stride);
-  std::vector<float> bias(n());
-  std::vector<float> scale(n());
-  std::vector<uint8_t, AlignedAllocator<uint8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k_bytes + packed_n() * sizeof(float) * 2);
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<double> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<uint8_t> b(n() * k_stride);
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> scale(n());
+  xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k_bytes + packed_n() * sizeof(float) * 2);
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<double> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
     std::generate(scale.begin(), scale.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
     std::fill(packed_w.begin(), packed_w.end(), 0);
 
@@ -3016,20 +2987,20 @@ void GemmMicrokernelTester::Test(
   std::uniform_real_distribution<float> f32dist;
   std::uniform_int_distribution<int32_t> i8dist(-1, std::numeric_limits<int8_t>::max());
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<int8_t> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float> scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return i8dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
     std::generate(scale.begin(), scale.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
     std::fill(packed_w.begin(), packed_w.end(), 0);
 
@@ -3102,20 +3073,20 @@ void GemmMicrokernelTester::Test(
   std::uniform_real_distribution<float> f32dist;
   std::uniform_int_distribution<int32_t> i8dist(-1, std::numeric_limits<int8_t>::max());
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<int8_t> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float> scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return i8dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
     std::generate(scale.begin(), scale.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
     std::fill(packed_w.begin(), packed_w.end(), 0);
     pack(/*g=*/1, n(), k(), nr(), kr(), sr(),
@@ -3182,20 +3153,20 @@ void GemmMicrokernelTester::Test(
   std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
   std::uniform_int_distribution<int32_t> i8dist(-1, std::numeric_limits<int8_t>::max());
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<int8_t> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float> scale(n());
-  std::vector<int8_t, AlignedAllocator<int8_t, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<double> c_ref(m() * n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<int8_t> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> scale(n());
+  xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<double> c_ref(m() * n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return i8dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
     std::generate(scale.begin(), scale.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
     std::fill(packed_w.begin(), packed_w.end(), 0);
     pack(/*g=*/1, n(), k(), nr(), kr(), sr(),
@@ -3284,18 +3255,18 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * k());
-  std::vector<float> bias(n());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(packed_n() * packed_k());  // no packed_n()
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> acc(mr() * packed_n());
+  xnnpack::Buffer<float> a((m() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * k());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      packed_n() * packed_k());  // no packed_n()
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> acc(mr() * packed_n());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
     std::generate(acc.begin(), acc.end(), [&]() { return f32dist(rng); });
 
@@ -3370,21 +3341,20 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * ks() * k());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_k() * packed_n() + packed_n());
-  std::vector<float> bias(n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
-  std::vector<float> junk(k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<const float*> im2col(mr() * ks());
-  std::fill(junk.begin(), junk.end(), nanf(""));
+  xnnpack::Buffer<float> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * ks() * k());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_k() * packed_n() + packed_n());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
+  xnnpack::Buffer<float> junk(k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<const float*> im2col(mr() * ks());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);
@@ -3463,21 +3433,20 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * ks() * k());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_k() * packed_n() + packed_n());
-  std::vector<float> bias(n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
-  std::vector<float> junk(k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<const float*> im2col(mr() * ks());
-  std::fill(junk.begin(), junk.end(), nanf(""));
+  xnnpack::Buffer<float> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * ks() * k());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_k() * packed_n() + packed_n());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
+  xnnpack::Buffer<float> junk(k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<const float*> im2col(mr() * ks());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);
@@ -3561,21 +3530,20 @@ void GemmMicrokernelTester::Test(
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist;
 
-  std::vector<float> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float> b(n() * ks() * k());
-  std::vector<float, AlignedAllocator<float, XNN_ALLOCATION_ALIGNMENT>> packed_w(ks() * packed_k() * packed_n() + packed_n());
-  std::vector<float> bias(n());
-  std::vector<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
-  std::vector<float> c_ref(m() * n());
-  std::vector<float> junk(k() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<const float*> im2col(mr() * ks());
-  std::fill(junk.begin(), junk.end(), nanf(""));
+  xnnpack::Buffer<float> a((mr() - 1) * a_stride() + k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> b(n() * ks() * k());
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
+      ks() * packed_k() * packed_n() + packed_n());
+  xnnpack::Buffer<float> bias(n());
+  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() + ((n() - 1) / nr()) * cn_stride() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c_ref(m() * n());
+  xnnpack::Buffer<float> junk(k() + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<const float*> im2col(mr() * ks());
 
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
     std::generate(b.begin(), b.end(), [&]() { return f32dist(rng); });
     std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-    std::fill(c.begin(), c.end(), nanf(""));
     std::fill(c_ref.begin(), c_ref.end(), 0.0f);
 
     std::fill(packed_w.begin(), packed_w.end(), 0.0f);

@@ -17,7 +17,8 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
+#include "xnnpack/buffer.h"
+#include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/requantization.h"
@@ -132,15 +133,15 @@ class RDSumMicrokernelTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_int_distribution<int32_t> i8dist(
       std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
-    std::vector<int8_t> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES);
-    std::vector<int8_t> zero(channels() + XNN_EXTRA_BYTES, 0);
-    std::vector<int32_t> output(channels());
-    std::vector<int32_t> output_ref(channels());
+    xnnpack::Buffer<int8_t> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES);
+    xnnpack::Buffer<int8_t> zero(channels() + XNN_EXTRA_BYTES, 0);
+    xnnpack::Buffer<int32_t> output(channels());
+    xnnpack::Buffer<int32_t> output_ref(channels());
     {//for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       std::generate(output.begin(), output.end(), [&]() { return i8dist(rng); });
-      std::fill(output.begin(), output.end(), 0);
-      output_ref = output;
+      // TODO: WHY?!
+      std::copy(output.begin(), output.end(), output_ref.begin());
 
       // Compute reference results, without clamping.
       for (size_t c = 0; c < channels(); c++) {
@@ -171,15 +172,15 @@ class RDSumMicrokernelTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_int_distribution<int32_t> u8dist(
       std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
-    std::vector<uint8_t> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES);
-    std::vector<uint8_t> zero(channels() + XNN_EXTRA_BYTES, 0);
-    std::vector<uint32_t> output(channels());
-    std::vector<uint32_t> output_ref(channels());
+    xnnpack::Buffer<uint8_t> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES);
+    xnnpack::Buffer<uint8_t> zero(channels() + XNN_EXTRA_BYTES, 0);
+    xnnpack::Buffer<uint32_t> output(channels());
+    xnnpack::Buffer<uint32_t> output_ref(channels());
     {
       std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
       std::generate(output.begin(), output.end(), [&]() { return u8dist(rng); });
-      std::fill(output.begin(), output.end(), 0);
-      output_ref = output;
+      // TODO: WHY?!
+      std::copy(output.begin(), output.end(), output_ref.begin());
 
       // Compute reference results, without clamping.
       for (size_t c = 0; c < channels(); c++) {
@@ -209,16 +210,15 @@ class RDSumMicrokernelTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(0.01f, 1.0f);
 
-    std::vector<xnn_float16> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
-    std::vector<xnn_float16> zero(channels() + XNN_EXTRA_BYTES / sizeof(xnn_float16), 0);
-    std::vector<float> output(channels());
-    std::vector<float> output_ref(channels());
+    xnnpack::Buffer<xnn_float16> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(xnn_float16));
+    xnnpack::Buffer<xnn_float16> zero(channels() + XNN_EXTRA_BYTES / sizeof(xnn_float16), 0);
+    xnnpack::Buffer<float> output(channels());
+    xnnpack::Buffer<float> output_ref(channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::generate(output.begin(), output.end(), [&]() { return f32dist(rng); });
-      for (size_t i = 0; i < output.size(); ++i) {
-        output_ref[i] = output[i];
-      }
+      // TODO: WHY?!
+      std::copy(output.begin(), output.end(), output_ref.begin());
 
       // Compute reference results, without clamping.
       for (size_t c = 0; c < channels(); c++) {
@@ -244,26 +244,19 @@ class RDSumMicrokernelTester {
     }
   }
 
-  void Test(xnn_f32_rdsum_ukernel_fn rdsum, xnn_init_f32_scaleminmax_params_fn init_params) const {
+  void Test(xnn_f32_rdsum_ukernel_fn rdsum, xnn_init_f32_scale_params_fn init_params) const {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist;
 
-    std::vector<float> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(float));
-    std::vector<float> zero(channels() + XNN_EXTRA_BYTES / sizeof(float));
-    std::vector<float> output(channels());
-    std::vector<float> output_ref(channels());
+    xnnpack::Buffer<float> input((rows() - 1) * input_stride() + channels() + XNN_EXTRA_BYTES / sizeof(float));
+    xnnpack::Buffer<float> zero(channels() + XNN_EXTRA_BYTES / sizeof(float), 0.0f);
+    xnnpack::Buffer<float> output(channels());
+    xnnpack::Buffer<float> output_ref(channels());
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::generate(output.begin(), output.end(), [&]() { return f32dist(rng); });
-      output_ref = output;
-
-      // Prepare parameters.
-      struct xnn_f32_scaleminmax_params params;
-      auto input_min = std::min_element(input.begin(), input.end());
-      auto input_max = std::max_element(input.begin(), input.end());
-      float mi = *input_min + (*input_max - *input_min) * 0.05;
-      float ma = *input_max - (*input_min - *input_max) * 0.05;
-      init_params(&params, 1.0f / float(rows()), mi, ma);
+      // TODO: WHY?!
+      std::copy(output.begin(), output.end(), output_ref.begin());
 
       // Compute reference results.
       for (size_t c = 0; c < channels(); c++) {
@@ -271,8 +264,12 @@ class RDSumMicrokernelTester {
         for (size_t n = 0; n < rows(); n++) {
           acc += input[n * input_stride() + c];
         }
-        output_ref[c] += std::max(std::min(acc / float(rows()), ma), mi);
+        output_ref[c] += acc / static_cast<float>(rows());
       }
+
+      // Prepare parameters.
+      struct xnn_f32_scale_params params;
+      init_params(&params, 1.0f / static_cast<float>(rows()));
 
       // Call optimized micro-kernel.
       rdsum(rows(), channels(), input.data(), input_stride() * sizeof(float), zero.data(), output.data(), &params);

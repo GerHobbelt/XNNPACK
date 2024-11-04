@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
@@ -100,7 +101,6 @@ TEST_F(StaticReshapeTestInt8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_reshape);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -138,7 +138,6 @@ TEST_F(StaticReshapeTestUint8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_reshape);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qu8);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -172,7 +171,6 @@ TEST_F(StaticReshapeTestF16, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_reshape);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp16);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -206,7 +204,6 @@ TEST_F(StaticReshapeTestF32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_reshape);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -219,8 +216,6 @@ TEST_F(StaticReshapeTestInt8, matches_operator_api)
   const int32_t zero_point = i8dist(rng);
   const float scale = scale_dist(rng);
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
 
   std::vector<size_t> output_dims = dims;
   std::shuffle(output_dims.begin(), output_dims.end(), rng);
@@ -282,8 +277,6 @@ TEST_F(StaticReshapeTestUint8, matches_operator_api)
   const int32_t zero_point = u8dist(rng);
   const float scale = scale_dist(rng);
   std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), UINT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), UINT8_C(0xA5));
 
   std::vector<size_t> output_dims = dims;
   std::shuffle(output_dims.begin(), output_dims.end(), rng);
@@ -343,8 +336,6 @@ TEST_F(StaticReshapeTestUint8, matches_operator_api)
 TEST_F(StaticReshapeTestF16, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   std::vector<size_t> output_dims = dims;
   std::shuffle(output_dims.begin(), output_dims.end(), rng);
@@ -401,8 +392,6 @@ TEST_F(StaticReshapeTestF16, matches_operator_api)
 TEST_F(StaticReshapeTestF32, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
 
   std::vector<size_t> output_dims = dims;
   std::shuffle(output_dims.begin(), output_dims.end(), rng);

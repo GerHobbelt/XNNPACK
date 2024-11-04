@@ -11,11 +11,8 @@
 #include <random>
 #include <vector>
 
-#include <benchmark/benchmark.h>
-#include "bench/conv.h"
-#include "bench/utils.h"
-
-#include "xnnpack/aligned-allocator.h"
+#include "conv.h"
+#include "utils.h"
 #include "xnnpack/common.h"
 #include "xnnpack/igemm.h"
 #include "xnnpack/indirection.h"
@@ -23,7 +20,8 @@
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/pack.h"
-
+#include "xnnpack/buffer.h"
+#include <benchmark/benchmark.h>
 
 static void f32_igemm(benchmark::State& state,
   xnn_f32_igemm_minmax_ukernel_fn igemm,
@@ -65,14 +63,14 @@ static void f32_igemm(benchmark::State& state,
   const size_t nc_stride = benchmark::utils::RoundUp<size_t>(group_output_channels, nr);
   const size_t kc_stride = benchmark::utils::RoundUp<size_t>(group_input_channels, kr * sr);
 
-  std::vector<float> a(input_height * input_width * input_pixel_stride + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> a(input_height * input_width * input_pixel_stride + XNN_EXTRA_BYTES / sizeof(float));
   std::generate(a.begin(), a.end(), std::ref(f32rng));
-  std::vector<float> k(group_output_channels * kernel_height * kernel_width * group_input_channels);
+  xnnpack::Buffer<float> k(group_output_channels * kernel_height * kernel_width * group_input_channels);
   std::generate(k.begin(), k.end(), std::ref(f32rng));
-  std::vector<float> b(group_output_channels);
+  xnnpack::Buffer<float> b(group_output_channels);
   std::generate(b.begin(), b.end(), std::ref(f32rng));
 
-  std::vector<float> z(group_input_channels + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> z(group_input_channels + XNN_EXTRA_BYTES / sizeof(float));
 
   const size_t w_elements = kernel_size * kc_stride * nc_stride + nc_stride;
   const size_t i_elements = mc_stride * kernel_size;
@@ -81,8 +79,7 @@ static void f32_igemm(benchmark::State& state,
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(),
       sizeof(float) * (w_elements + c_elements) + sizeof(void*) * i_elements);
 
-  std::vector<float, AlignedAllocator<float, 64>> w(w_elements * num_buffers);
-  std::fill(w.begin(), w.end(), 0.0f);
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> w(w_elements * num_buffers);
   xnn_pack_f32_conv_goki_w(
     /*groups=*/1, group_output_channels, kernel_size, group_input_channels,
     nr, kr, sr, k.data(), b.data(), /*scale=*/nullptr, w.data(), /*extra_bytes=*/0, /*params=*/nullptr);
@@ -90,7 +87,7 @@ static void f32_igemm(benchmark::State& state,
     std::copy(w.cbegin(), w.cbegin() + w_elements, w.begin() + n * w_elements);
   }
 
-  std::vector<const float*> i(i_elements * num_buffers);
+  xnnpack::Buffer<const float*> i(i_elements * num_buffers);
   const size_t tiled_output_size = round_up(output_size, mr);
   xnn_indirection_init_conv2d(
       /*output_tile_size=*/mr,
@@ -110,8 +107,7 @@ static void f32_igemm(benchmark::State& state,
     std::copy(i.cbegin(), i.cbegin() + i_elements, i.begin() + n * i_elements);
   }
 
-  std::vector<float> c(c_elements * num_buffers);
-  std::fill(c.begin(), c.end(), std::nanf(""));
+  xnnpack::Buffer<float> c(c_elements * num_buffers);
 
   xnn_f32_minmax_params params;
   init_params(&params,
@@ -686,6 +682,56 @@ static void f32_igemm(benchmark::State& state,
   BENCHMARK_CONV(f32_igemm_8x8s4__neonfma)
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 
+#if XNN_ENABLE_AVX512F && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
+  static void f32_igemm_1x16__avx512f_broadcast(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_1x16__avx512f_broadcast,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/1, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckAVX512F);
+  }
+  static void f32_igemm_4x16__avx512f_broadcast(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_4x16__avx512f_broadcast,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/4, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckAVX512F);
+  }
+  static void f32_igemm_5x16__avx512f_broadcast(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_5x16__avx512f_broadcast,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/5, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckAVX512F);
+  }
+  static void f32_igemm_6x16__avx512f_broadcast(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_6x16__avx512f_broadcast,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/6, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckAVX512F);
+  }
+  static void f32_igemm_7x16__avx512f_broadcast(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_7x16__avx512f_broadcast,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/7, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckAVX512F);
+  }
+  static void f32_igemm_8x16__avx512f_broadcast(benchmark::State& state, const char* net) {
+    f32_igemm(state,
+      xnn_f32_igemm_minmax_ukernel_8x16__avx512f_broadcast,
+      xnn_init_f32_minmax_scalar_params,
+      /*mr=*/8, /*nr=*/16, /*kr=*/1, /*sr=*/1,
+      benchmark::utils::CheckAVX512F);
+  }
+  BENCHMARK_CONV(f32_igemm_1x16__avx512f_broadcast)
+  BENCHMARK_CONV(f32_igemm_4x16__avx512f_broadcast)
+  BENCHMARK_CONV(f32_igemm_5x16__avx512f_broadcast)
+  BENCHMARK_CONV(f32_igemm_6x16__avx512f_broadcast)
+  BENCHMARK_CONV(f32_igemm_7x16__avx512f_broadcast)
+  BENCHMARK_CONV(f32_igemm_8x16__avx512f_broadcast)
+#endif  // XNN_ENABLE_AVX512F && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   static void f32_igemm_1x8__sse_load1(benchmark::State& state, const char* net) {
@@ -908,48 +954,6 @@ static void f32_igemm(benchmark::State& state,
       /*mr=*/6, /*nr=*/16, /*kr=*/1, /*sr=*/1,
       benchmark::utils::CheckFMA3);
   }
-  static void f32_igemm_1x16__avx512f_broadcast(benchmark::State& state, const char* net) {
-    f32_igemm(state,
-      xnn_f32_igemm_minmax_ukernel_1x16__avx512f_broadcast,
-      xnn_init_f32_minmax_scalar_params,
-      /*mr=*/1, /*nr=*/16, /*kr=*/1, /*sr=*/1,
-      benchmark::utils::CheckAVX512F);
-  }
-  static void f32_igemm_4x16__avx512f_broadcast(benchmark::State& state, const char* net) {
-    f32_igemm(state,
-      xnn_f32_igemm_minmax_ukernel_4x16__avx512f_broadcast,
-      xnn_init_f32_minmax_scalar_params,
-      /*mr=*/4, /*nr=*/16, /*kr=*/1, /*sr=*/1,
-      benchmark::utils::CheckAVX512F);
-  }
-  static void f32_igemm_5x16__avx512f_broadcast(benchmark::State& state, const char* net) {
-    f32_igemm(state,
-      xnn_f32_igemm_minmax_ukernel_5x16__avx512f_broadcast,
-      xnn_init_f32_minmax_scalar_params,
-      /*mr=*/5, /*nr=*/16, /*kr=*/1, /*sr=*/1,
-      benchmark::utils::CheckAVX512F);
-  }
-  static void f32_igemm_6x16__avx512f_broadcast(benchmark::State& state, const char* net) {
-    f32_igemm(state,
-      xnn_f32_igemm_minmax_ukernel_6x16__avx512f_broadcast,
-      xnn_init_f32_minmax_scalar_params,
-      /*mr=*/6, /*nr=*/16, /*kr=*/1, /*sr=*/1,
-      benchmark::utils::CheckAVX512F);
-  }
-  static void f32_igemm_7x16__avx512f_broadcast(benchmark::State& state, const char* net) {
-    f32_igemm(state,
-      xnn_f32_igemm_minmax_ukernel_7x16__avx512f_broadcast,
-      xnn_init_f32_minmax_scalar_params,
-      /*mr=*/7, /*nr=*/16, /*kr=*/1, /*sr=*/1,
-      benchmark::utils::CheckAVX512F);
-  }
-  static void f32_igemm_8x16__avx512f_broadcast(benchmark::State& state, const char* net) {
-    f32_igemm(state,
-      xnn_f32_igemm_minmax_ukernel_8x16__avx512f_broadcast,
-      xnn_init_f32_minmax_scalar_params,
-      /*mr=*/8, /*nr=*/16, /*kr=*/1, /*sr=*/1,
-      benchmark::utils::CheckAVX512F);
-  }
 
   BENCHMARK_CONV(f32_igemm_1x8__sse_load1)
   BENCHMARK_CONV(f32_igemm_3x8__sse_load1)
@@ -984,12 +988,6 @@ static void f32_igemm(benchmark::State& state,
   BENCHMARK_CONV(f32_igemm_6x16__fma3_broadcast)
   BENCHMARK_CONV(f32_igemm_5x16__fma3_broadcast_prfm)
   BENCHMARK_CONV(f32_igemm_6x16__fma3_broadcast_prfm)
-  BENCHMARK_CONV(f32_igemm_1x16__avx512f_broadcast)
-  BENCHMARK_CONV(f32_igemm_4x16__avx512f_broadcast)
-  BENCHMARK_CONV(f32_igemm_5x16__avx512f_broadcast)
-  BENCHMARK_CONV(f32_igemm_6x16__avx512f_broadcast)
-  BENCHMARK_CONV(f32_igemm_7x16__avx512f_broadcast)
-  BENCHMARK_CONV(f32_igemm_8x16__avx512f_broadcast)
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 
 #if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD

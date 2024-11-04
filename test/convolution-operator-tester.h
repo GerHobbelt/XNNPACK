@@ -22,9 +22,10 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
+#include "xnnpack/buffer.h"
 #include "xnnpack/cache.h"
 #include "xnnpack/common.h"
+#include "xnnpack/math.h"
 #include "xnnpack/microparams.h"
 #include "convolution-test-helpers.h"
 #include "replicable_random_device.h"
@@ -567,14 +568,14 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> w8dist(
       -std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max());
 
-    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
+    xnnpack::Buffer<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
-    std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<int32_t> bias(groups() * group_output_channels());
-    std::vector<int8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
-    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<float> requantization_scales(groups() * group_output_channels());
+    xnnpack::Buffer<int8_t> kernel(XNN_EXTRA_BYTES / sizeof(int8_t) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<int32_t> bias(groups() * group_output_channels());
+    xnnpack::Buffer<int8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
+    xnnpack::Buffer<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> requantization_scales(groups() * group_output_channels());
 
     const int8_t input_zero_point = -1;
     const int8_t output_zero_point = -1;
@@ -593,7 +594,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return w8dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return i32dist(rng); });
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results, without renormalization.
       if (depthwise_layout()) {
@@ -747,7 +747,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -788,7 +788,7 @@ class ConvolutionOperatorTester {
 
         // Smart pointer to automatically delete convolution_op2.
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op2, xnn_delete_operator);
-        std::vector<int8_t> output2(output.size(), INT8_C(0xA5));
+        xnnpack::Buffer<int8_t> output2(output.size(), INT8_C(0xA5));
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
@@ -798,7 +798,7 @@ class ConvolutionOperatorTester {
             &workspace_size, &workspace_alignment,
             /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
             auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -818,8 +818,8 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNHWCxQC8(const std::vector<int8_t> &output,
-                      const std::vector<double> &output_ref) const {
+  void VerifyNHWCxQC8(const xnnpack::Buffer<int8_t> &output,
+                      const xnnpack::Buffer<double> &output_ref) const {
     for (size_t i = 0; i < batch_size(); i++) {
       for (size_t y = 0; y < output_height(); y++) {
         for (size_t x = 0; x < output_width(); x++) {
@@ -855,24 +855,24 @@ class ConvolutionOperatorTester {
     // the weights further.
     std::normal_distribution<float> normal_dist{0.f, 10.f};
 
-    std::vector<int8_t> input(
+    xnnpack::Buffer<int8_t> input(
         XNN_EXTRA_BYTES / sizeof(int8_t) +
         batch_size() *
             ((input_height() * input_width() - 1) * input_channel_stride() +
              groups() * group_input_channels()));
-    std::vector<int8_t> kernel(groups() * group_output_channels() *
+    xnnpack::Buffer<int8_t> kernel(XNN_EXTRA_BYTES / sizeof(int8_t) + groups() * group_output_channels() *
                                kernel_height() * kernel_width() *
                                group_input_channels());
-    std::vector<float> bias(groups() * group_output_channels());
-    std::vector<xnn_float16> output(
+    xnnpack::Buffer<float> bias(groups() * group_output_channels());
+    xnnpack::Buffer<xnn_float16> output(
         batch_size() *
         ((output_height() * output_width() - 1) * output_channel_stride() +
          groups() * group_output_channels()));
-    std::vector<float> output_ref(batch_size() * output_height() *
+    xnnpack::Buffer<float> output_ref(batch_size() * output_height() *
                                   output_width() * groups() *
                                   group_output_channels());
-    std::vector<xnn_qd8_quantization_params> quantization_params(batch_size());
-    std::vector<float> kernel_scale(groups() * group_output_channels());
+    xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(batch_size());
+    xnnpack::Buffer<float> kernel_scale(groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)>
@@ -894,7 +894,6 @@ class ConvolutionOperatorTester {
           quantization_params.begin(), quantization_params.end(), [&]() {
             return xnn_qd8_quantization_params{w8dist(rng), f32idist(rng)};
           });
-      std::fill(output.begin(), output.end(), UINT16_C(0xDEAD));
 
       // Compute reference results.
       xnnpack::compute_convolution_qd8_f32_qc8w_reference_results(
@@ -977,8 +976,7 @@ class ConvolutionOperatorTester {
                     &workspace_size, &workspace_alignment,
                     /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                     auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>>
-          workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -1029,7 +1027,7 @@ class ConvolutionOperatorTester {
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>
             auto_convolution_op(convolution_op2, xnn_delete_operator);
 
-        std::vector<xnn_float16> output2(output.size(), UINT16_C(0xDEAD));
+        xnnpack::Buffer<xnn_float16> output2(output.size(), UINT16_C(0xDEAD));
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(xnn_status_success,
@@ -1038,8 +1036,7 @@ class ConvolutionOperatorTester {
                       input_width(), &workspace_size, &workspace_alignment,
                       /*output_height_out=*/nullptr,
                       /*output_width_out=*/nullptr, auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>>
-            workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -1081,24 +1078,24 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> w8dist(
         std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
 
-    std::vector<int8_t> input(
+    xnnpack::Buffer<int8_t> input(
         XNN_EXTRA_BYTES / sizeof(int8_t) +
         batch_size() *
             ((input_height() * input_width() - 1) * input_channel_stride() +
              groups() * group_input_channels()));
-    std::vector<int8_t> kernel(groups() * group_output_channels() *
+    xnnpack::Buffer<int8_t> kernel(XNN_EXTRA_BYTES / sizeof(int8_t) + groups() * group_output_channels() *
                                kernel_height() * kernel_width() *
                                group_input_channels());
-    std::vector<float> bias(groups() * group_output_channels());
-    std::vector<float> output(
+    xnnpack::Buffer<float> bias(groups() * group_output_channels());
+    xnnpack::Buffer<float> output(
         batch_size() *
         ((output_height() * output_width() - 1) * output_channel_stride() +
          groups() * group_output_channels()));
-    std::vector<float> output_ref(batch_size() * output_height() *
+    xnnpack::Buffer<float> output_ref(batch_size() * output_height() *
                                   output_width() * groups() *
                                   group_output_channels());
-    std::vector<xnn_qd8_quantization_params> quantization_params(batch_size());
-    std::vector<float> kernel_scale(groups() * group_output_channels());
+    xnnpack::Buffer<xnn_qd8_quantization_params> quantization_params(batch_size());
+    xnnpack::Buffer<float> kernel_scale(groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)>
@@ -1121,7 +1118,6 @@ class ConvolutionOperatorTester {
           quantization_params.begin(), quantization_params.end(), [&]() {
             return xnn_qd8_quantization_params{w8dist(rng), f32idist(rng)};
           });
-      std::fill(output.begin(), output.end(), nanf(""));
 
       // Compute reference results.
       xnnpack::compute_convolution_qd8_f32_qc8w_reference_results(
@@ -1197,8 +1193,7 @@ class ConvolutionOperatorTester {
                     &workspace_size, &workspace_alignment,
                     /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                     auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>>
-          workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -1249,7 +1244,7 @@ class ConvolutionOperatorTester {
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>
             auto_convolution_op(convolution_op2, xnn_delete_operator);
 
-        std::vector<float> output2(output.size(), nanf(""));
+        xnnpack::Buffer<float> output2(output.size());
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(xnn_status_success,
@@ -1258,8 +1253,7 @@ class ConvolutionOperatorTester {
                       input_width(), &workspace_size, &workspace_alignment,
                       /*output_height_out=*/nullptr,
                       /*output_width_out=*/nullptr, auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>>
-            workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -1302,13 +1296,13 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> w8dist(
       -std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max());
 
-    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
+    xnnpack::Buffer<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
-    std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<int32_t> bias(groups() * group_output_channels());
-    std::vector<int8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
-    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<int8_t> kernel(XNN_EXTRA_BYTES / sizeof(int8_t) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<int32_t> bias(groups() * group_output_channels());
+    xnnpack::Buffer<int8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
+    xnnpack::Buffer<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
 
     const int8_t input_zero_point = -1;
 
@@ -1326,7 +1320,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return w8dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return i32dist(rng); });
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results, without renormalization.
       if (depthwise_layout()) {
@@ -1461,7 +1454,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -1505,7 +1498,7 @@ class ConvolutionOperatorTester {
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>
             auto_convolution_op(convolution_op2, xnn_delete_operator);
 
-        std::vector<int8_t> output2(output.size(), INT8_C(0xA5));
+        xnnpack::Buffer<int8_t> output2(output.size(), INT8_C(0xA5));
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
@@ -1515,7 +1508,7 @@ class ConvolutionOperatorTester {
             &workspace_size, &workspace_alignment,
             /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
             auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -1535,8 +1528,8 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNHWCxQS8(const std::vector<int8_t> &output,
-                      const std::vector<double> &output_ref,
+  void VerifyNHWCxQS8(const xnnpack::Buffer<int8_t> &output,
+                      const xnnpack::Buffer<double> &output_ref,
                       const int8_t output_zero_point) const {
     for (size_t i = 0; i < batch_size(); i++) {
       for (size_t y = 0; y < output_height(); y++) {
@@ -1567,13 +1560,13 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> u8dist(
       std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
 
-    std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) +
+    xnnpack::Buffer<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
-    std::vector<uint8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<int32_t> bias(groups() * group_output_channels());
-    std::vector<uint8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
-    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<uint8_t> kernel(XNN_EXTRA_BYTES / sizeof(uint8_t) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<int32_t> bias(groups() * group_output_channels());
+    xnnpack::Buffer<uint8_t> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
+    xnnpack::Buffer<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
 
     const uint8_t input_zero_point = 127;
     const uint8_t kernel_zero_point = 127;
@@ -1592,7 +1585,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return u8dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return i32dist(rng); });
-      std::fill(output.begin(), output.end(), UINT8_C(0xA5));
 
       // Compute reference results, without renormalization.
       if (has_bias()) {
@@ -1746,7 +1738,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -1790,7 +1782,7 @@ class ConvolutionOperatorTester {
         // Smart pointer to automatically delete convolution_op2.
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)>
             auto_convolution_op2(convolution_op2, xnn_delete_operator);
-        std::vector<uint8_t> output2(output.size(), UINT8_C(0xA5));
+        xnnpack::Buffer<uint8_t> output2(output.size(), UINT8_C(0xA5));
 
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
@@ -1801,7 +1793,7 @@ class ConvolutionOperatorTester {
             &workspace_size, &workspace_alignment,
             /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
             auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -1822,8 +1814,8 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNHWCxQU8(const std::vector<uint8_t> &output,
-                      const std::vector<double> &output_ref,
+  void VerifyNHWCxQU8(const xnnpack::Buffer<uint8_t> &output,
+                      const xnnpack::Buffer<double> &output_ref,
                       const uint8_t output_zero_point) const {
     for (size_t i = 0; i < batch_size(); i++) {
       for (size_t y = 0; y < output_height(); y++) {
@@ -1852,12 +1844,12 @@ class ConvolutionOperatorTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
 
-    std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) +
+    xnnpack::Buffer<float> input(XNN_EXTRA_BYTES / sizeof(float) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
-    std::vector<float> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<float> bias(groups() * group_output_channels());
-    std::vector<float> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
-    std::vector<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> kernel(XNN_EXTRA_BYTES / sizeof(float) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<float> bias(groups() * group_output_channels());
+    xnnpack::Buffer<float> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
+    xnnpack::Buffer<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> auto_threadpool{nullptr, pthreadpool_destroy};
@@ -1873,7 +1865,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return f32dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), nanf(""));
 
       // Compute reference results, without clamping.
       if (has_bias()) {
@@ -2022,7 +2013,7 @@ class ConvolutionOperatorTester {
           &workspace_size, &workspace_alignment,
           /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
           auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -2061,7 +2052,7 @@ class ConvolutionOperatorTester {
 
         ASSERT_NE(nullptr, convolution_op2);
 
-        std::vector<float> output2(output.size(), nanf(""));
+        xnnpack::Buffer<float> output2(output.size());
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
@@ -2071,7 +2062,7 @@ class ConvolutionOperatorTester {
             &workspace_size, &workspace_alignment,
             /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
             auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -2094,7 +2085,7 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNHWCxF32(const std::vector<float>& output, const std::vector<float>& output_ref, const float output_min, const float output_max) const {
+  void VerifyNHWCxF32(const xnnpack::Buffer<float>& output, const xnnpack::Buffer<float>& output_ref, const float output_min, const float output_max) const {
     for (size_t i = 0; i < batch_size(); i++) {
       for (size_t y = 0; y < output_height(); y++) {
         for (size_t x = 0; x < output_width(); x++) {
@@ -2129,14 +2120,14 @@ class ConvolutionOperatorTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
 
-    std::vector<xnn_float16> input(XNN_EXTRA_BYTES / sizeof(xnn_float16) +
+    xnnpack::Buffer<xnn_float16> input(XNN_EXTRA_BYTES / sizeof(xnn_float16) +
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()));
-    std::vector<xnn_float16> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<float> kernel_as_float(kernel.size());
-    std::vector<xnn_float16> bias(groups() * group_output_channels());
-    std::vector<float> bias_as_float(bias.size());
-    std::vector<xnn_float16> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
-    std::vector<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<xnn_float16> kernel(XNN_EXTRA_BYTES / sizeof(xnn_float16) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<float> kernel_as_float(kernel.size());
+    xnnpack::Buffer<xnn_float16> bias(groups() * group_output_channels());
+    xnnpack::Buffer<float> bias_as_float(bias.size());
+    xnnpack::Buffer<xnn_float16> output(batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()));
+    xnnpack::Buffer<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> auto_threadpool{nullptr, pthreadpool_destroy};
@@ -2154,7 +2145,6 @@ class ConvolutionOperatorTester {
       std::copy(kernel.cbegin(), kernel.cend(), kernel_as_float.begin());
       std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
       std::copy(bias.cbegin(), bias.cend(), bias_as_float.begin());
-      std::fill(output.begin(), output.end(), std::nanf(""));
 
 
       // Compute reference results, without clamping.
@@ -2313,7 +2303,7 @@ class ConvolutionOperatorTester {
           &workspace_size, &workspace_alignment,
           /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
           auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       if (transient_indirection_buffer()) {
         ASSERT_NE(workspace_size, 0);
@@ -2353,7 +2343,7 @@ class ConvolutionOperatorTester {
         // Smart pointer to automatically delete convolution_op.
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op2, xnn_delete_operator);
 
-        std::vector<xnn_float16> output2(output.size(), std::nanf(""));
+        xnnpack::Buffer<xnn_float16> output2(output.size());
         size_t workspace_size = SIZE_MAX;
         size_t workspace_alignment = SIZE_MAX;
         ASSERT_EQ(
@@ -2363,7 +2353,7 @@ class ConvolutionOperatorTester {
             &workspace_size, &workspace_alignment,
             /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
             auto_threadpool.get()));
-        std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+        xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
         std::iota(workspace.begin(), workspace.end(), 0);
         if (transient_indirection_buffer()) {
           ASSERT_NE(workspace_size, 0);
@@ -2383,8 +2373,8 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNHWCxF16(const std::vector<xnn_float16> &output,
-                      const std::vector<float> &output_ref,
+  void VerifyNHWCxF16(const xnnpack::Buffer<xnn_float16> &output,
+                      const xnnpack::Buffer<float> &output_ref,
                       const float output_min, const float output_max,
                       size_t bs, size_t oh, size_t ow) const {
     for (size_t i = 0; i < bs; i++) {
@@ -2395,7 +2385,7 @@ class ConvolutionOperatorTester {
               // FP16 saturates, it's the nature of the beast. If both reference and
               // actual are infinity, then consider the output to be correct.
               const bool reference_infinity = std::isinf(output_ref[(((i * oh + y) * ow + x) * groups() + g) * group_output_channels() + c]);
-              const bool actual_infinity = std::isinf(output[((i * oh + y) * ow + x) * output_channel_stride() + g * group_output_channels() + c]);
+              const bool actual_infinity = std::isinf((float)output[((i * oh + y) * ow + x) * output_channel_stride() + g * group_output_channels() + c]);
               const float tolerance = std::max(1.0e-4f, std::abs(output_ref[(((i * oh + y) * ow + x) * groups() + g) * group_output_channels() + c]) * 2.0e-2f);
               if (reference_infinity && actual_infinity) {
                 continue;
@@ -2420,14 +2410,14 @@ class ConvolutionOperatorTester {
     std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
     std::uniform_real_distribution<float> pdist;
 
-    std::vector<float> input(2 * XNN_EXTRA_BYTES / sizeof(float) +
+    xnnpack::Buffer<float> input(2 * XNN_EXTRA_BYTES / sizeof(float) +
       ((batch_size() - 1) * input_channel_stride() + groups() * group_input_channels()) * input_height() * input_width());
-    std::vector<float> kernel(
+    xnnpack::Buffer<float> kernel(
       groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<float> bias(groups() * group_output_channels());
-    std::vector<float> output(
+    xnnpack::Buffer<float> bias(groups() * group_output_channels());
+    xnnpack::Buffer<float> output(
       ((batch_size() - 1) * output_channel_stride() + groups() * group_output_channels()) * output_height() * output_width());
-    std::vector<float> output_ref(batch_size() * groups() * group_output_channels() * output_height() * output_width());
+    xnnpack::Buffer<float> output_ref(batch_size() * groups() * group_output_channels() * output_height() * output_width());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> auto_threadpool{nullptr, pthreadpool_destroy};
@@ -2448,7 +2438,6 @@ class ConvolutionOperatorTester {
         }
       }
       std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), nanf(""));
 
       // Compute reference results, without clamping.
       if (has_bias()) {
@@ -2631,7 +2620,7 @@ class ConvolutionOperatorTester {
 
         // Smart pointer to automatically delete convolution_op2.
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op2, xnn_delete_operator);
-        std::vector<float> output2(output.size(), nanf(""));
+        xnnpack::Buffer<float> output2(output.size());
 
         ASSERT_EQ(
           xnn_status_success,
@@ -2651,8 +2640,8 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNCHWxF32(const std::vector<float> &output,
-                      const std::vector<float> &output_ref,
+  void VerifyNCHWxF32(const xnnpack::Buffer<float> &output,
+                      const xnnpack::Buffer<float> &output_ref,
                       const float output_min, const float output_max) const {
     for (size_t i = 0; i < batch_size(); i++) {
       for (size_t y = 0; y < output_height(); y++) {
@@ -2689,16 +2678,16 @@ class ConvolutionOperatorTester {
     std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
     std::uniform_real_distribution<float> pdist;
 
-    std::vector<xnn_float16> input(2 * XNN_EXTRA_BYTES / sizeof(xnn_float16) +
+    xnnpack::Buffer<xnn_float16> input(2 * XNN_EXTRA_BYTES / sizeof(xnn_float16) +
       ((batch_size() - 1) * input_channel_stride() + groups() * group_input_channels()) * input_height() * input_width());
-    std::vector<xnn_float16> kernel(
+    xnnpack::Buffer<xnn_float16> kernel(
       groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<float> kernel_as_float(kernel.size());
-    std::vector<xnn_float16> bias(groups() * group_output_channels());
-    std::vector<float> bias_as_float(bias.size());
-    std::vector<xnn_float16> output(
+    xnnpack::Buffer<float> kernel_as_float(kernel.size());
+    xnnpack::Buffer<xnn_float16> bias(groups() * group_output_channels());
+    xnnpack::Buffer<float> bias_as_float(bias.size());
+    xnnpack::Buffer<xnn_float16> output(
       ((batch_size() - 1) * output_channel_stride() + groups() * group_output_channels()) * output_height() * output_width());
-    std::vector<float> output_ref(batch_size() * groups() * group_output_channels() * output_height() * output_width());
+    xnnpack::Buffer<float> output_ref(batch_size() * groups() * group_output_channels() * output_height() * output_width());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> auto_threadpool{nullptr, pthreadpool_destroy};
@@ -2721,7 +2710,6 @@ class ConvolutionOperatorTester {
       std::copy(kernel.cbegin(), kernel.cend(), kernel_as_float.begin());
       std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
       std::copy(bias.cbegin(), bias.cend(), bias_as_float.begin());
-      std::fill(output.begin(), output.end(), std::nanf(""));
 
       // Compute reference results, without clamping.
       if (has_bias()) {
@@ -2922,7 +2910,7 @@ class ConvolutionOperatorTester {
 
         // Smart pointer to automatically delete convolution_op2.
         std::unique_ptr<xnn_operator, decltype(&xnn_delete_operator)> auto_convolution_op(convolution_op2, xnn_delete_operator);
-        std::vector<xnn_float16> output2(output.size(), std::nanf(""));
+        xnnpack::Buffer<xnn_float16> output2(output.size());
 
         ASSERT_EQ(
           xnn_status_success,
@@ -2942,8 +2930,8 @@ class ConvolutionOperatorTester {
     }
   }
 
-  void VerifyNCHWxF16(const std::vector<xnn_float16> &output,
-                      const std::vector<float> &output_ref,
+  void VerifyNCHWxF16(const xnnpack::Buffer<xnn_float16> &output,
+                      const xnnpack::Buffer<float> &output_ref,
                       const float output_min, const float output_max) const {
     for (size_t i = 0; i < batch_size(); i++) {
       for (size_t y = 0; y < output_height(); y++) {
@@ -2975,20 +2963,20 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> w8dist(
       -std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max());
 
-    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + std::max(
+    xnnpack::Buffer<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
       next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
-    std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<int32_t> bias(groups() * group_output_channels());
-    std::vector<int8_t> output(std::max(
+    xnnpack::Buffer<int8_t> kernel(XNN_EXTRA_BYTES / sizeof(int8_t) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<int32_t> bias(groups() * group_output_channels());
+    xnnpack::Buffer<int8_t> output(std::max(
       batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()),
       next_batch_size() * ((next_output_height() * next_output_width() - 1) * output_channel_stride() + groups() * group_output_channels())));
-    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<float> requantization_scales(groups() * group_output_channels());
-    std::vector<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
-    std::vector<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
-    std::vector<float> next_requantization_scales(groups() * group_output_channels());
+    xnnpack::Buffer<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> requantization_scales(groups() * group_output_channels());
+    xnnpack::Buffer<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> next_requantization_scales(groups() * group_output_channels());
 
     const int8_t input_zero_point = -1;
     const int8_t output_zero_point = -1;
@@ -3007,7 +2995,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return w8dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return i32dist(rng); });
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results, without renormalization.
       if (has_bias()) {
@@ -3119,7 +3106,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       ASSERT_NE(workspace_size, SIZE_MAX);
       ASSERT_NE(workspace_alignment, SIZE_MAX);
@@ -3149,7 +3136,6 @@ class ConvolutionOperatorTester {
 
       // Re-generate data for the second run.
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results for the second run, including renormalization.
       if (has_bias()) {
@@ -3253,18 +3239,18 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> w8dist(
       -std::numeric_limits<int8_t>::max(), std::numeric_limits<int8_t>::max());
 
-    std::vector<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + std::max(
+    xnnpack::Buffer<int8_t> input(XNN_EXTRA_BYTES / sizeof(int8_t) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
       next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
-    std::vector<int8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<int32_t> bias(groups() * group_output_channels());
-    std::vector<int8_t> output(std::max(
+    xnnpack::Buffer<int8_t> kernel(XNN_EXTRA_BYTES / sizeof(int8_t) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<int32_t> bias(groups() * group_output_channels());
+    xnnpack::Buffer<int8_t> output(std::max(
       batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()),
       next_batch_size() * ((next_output_height() * next_output_width() - 1) * output_channel_stride() + groups() * group_output_channels())));
-    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
-    std::vector<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
 
     const int8_t input_zero_point = -1;
 
@@ -3282,7 +3268,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return w8dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return i32dist(rng); });
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results, without renormalization.
       if (has_bias()) {
@@ -3374,7 +3359,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       ASSERT_NE(workspace_size, SIZE_MAX);
       ASSERT_NE(workspace_alignment, SIZE_MAX);
@@ -3404,7 +3389,6 @@ class ConvolutionOperatorTester {
 
       // Re-generate data for the second run.
       std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-      std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
       // Compute reference results for the second run, including renormalization.
       if (has_bias()) {
@@ -3500,18 +3484,18 @@ class ConvolutionOperatorTester {
     std::uniform_int_distribution<int32_t> u8dist(
       std::numeric_limits<uint8_t>::min(), std::numeric_limits<uint8_t>::max());
 
-    std::vector<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) + std::max(
+    xnnpack::Buffer<uint8_t> input(XNN_EXTRA_BYTES / sizeof(uint8_t) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
       next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
-    std::vector<uint8_t> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<int32_t> bias(groups() * group_output_channels());
-    std::vector<uint8_t> output(std::max(
+    xnnpack::Buffer<uint8_t> kernel(XNN_EXTRA_BYTES / sizeof(uint8_t) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<int32_t> bias(groups() * group_output_channels());
+    xnnpack::Buffer<uint8_t> output(std::max(
       batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()),
       next_batch_size() * ((next_output_height() * next_output_width() - 1) * output_channel_stride() + groups() * group_output_channels())));
-    std::vector<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
-    std::vector<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<int32_t> accumulators(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<int32_t> next_accumulators(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<double> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
 
     const uint8_t input_zero_point = 127;
     const uint8_t kernel_zero_point = 127;
@@ -3530,7 +3514,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return u8dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return i32dist(rng); });
-      std::fill(output.begin(), output.end(), UINT8_C(0xA5));
 
       // Compute reference results, without renormalization.
       if (has_bias()) {
@@ -3623,7 +3606,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       ASSERT_NE(workspace_size, SIZE_MAX);
       ASSERT_NE(workspace_alignment, SIZE_MAX);
@@ -3653,7 +3636,6 @@ class ConvolutionOperatorTester {
 
       // Re-generate data for the second run.
       std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
-      std::fill(output.begin(), output.end(), 0xA5);
 
       // Compute reference results for the second run, including renormalization.
       if (has_bias()) {
@@ -3747,16 +3729,16 @@ class ConvolutionOperatorTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
 
-    std::vector<xnn_float16> input(XNN_EXTRA_BYTES / sizeof(xnn_float16) + std::max(
+    xnnpack::Buffer<xnn_float16> input(XNN_EXTRA_BYTES / sizeof(xnn_float16) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
       next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
-    std::vector<xnn_float16> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<xnn_float16> bias(groups() * group_output_channels());
-    std::vector<xnn_float16> output(std::max(
+    xnnpack::Buffer<xnn_float16> kernel(XNN_EXTRA_BYTES / sizeof(xnn_float16) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<xnn_float16> bias(groups() * group_output_channels());
+    xnnpack::Buffer<xnn_float16> output(std::max(
       batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()),
       next_batch_size() * ((next_output_height() * next_output_width() - 1) * output_channel_stride() + groups() * group_output_channels())));
-    std::vector<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<float> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> auto_threadpool{nullptr, pthreadpool_destroy};
@@ -3772,7 +3754,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return f32dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), std::nanf(""));
 
       // Compute reference results, without clamping.
       if (has_bias()) {
@@ -3861,7 +3842,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       ASSERT_NE(workspace_size, SIZE_MAX);
       ASSERT_NE(workspace_alignment, SIZE_MAX);
@@ -3873,7 +3854,6 @@ class ConvolutionOperatorTester {
 
       // Re-generate data for the second run.
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), std::nanf(""));
 
       // Compute reference results for the second run, including clamping.
       if (has_bias()) {
@@ -3948,16 +3928,16 @@ class ConvolutionOperatorTester {
     xnnpack::ReplicableRandomDevice rng;
     std::uniform_real_distribution<float> f32dist(0.1f, 1.0f);
 
-    std::vector<float> input(XNN_EXTRA_BYTES / sizeof(float) + std::max(
+    xnnpack::Buffer<float> input(XNN_EXTRA_BYTES / sizeof(float) + std::max(
       batch_size() * ((input_height() * input_width() - 1) * input_channel_stride() + groups() * group_input_channels()),
       next_batch_size() * ((next_input_height() * next_input_width() - 1) * input_channel_stride() + groups() * group_input_channels())));
-    std::vector<float> kernel(groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
-    std::vector<float> bias(groups() * group_output_channels());
-    std::vector<float> output(std::max(
+    xnnpack::Buffer<float> kernel(XNN_EXTRA_BYTES / sizeof(float) + groups() * group_output_channels() * kernel_height() * kernel_width() * group_input_channels());
+    xnnpack::Buffer<float> bias(groups() * group_output_channels());
+    xnnpack::Buffer<float> output(std::max(
       batch_size() * ((output_height() * output_width() - 1) * output_channel_stride() + groups() * group_output_channels()),
       next_batch_size() * ((next_output_height() * next_output_width() - 1) * output_channel_stride() + groups() * group_output_channels())));
-    std::vector<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
-    std::vector<float> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> output_ref(batch_size() * output_height() * output_width() * groups() * group_output_channels());
+    xnnpack::Buffer<float> next_output_ref(next_batch_size() * next_output_height() * next_output_width() * groups() * group_output_channels());
 
     for (size_t iteration = 0; iteration < iterations(); iteration++) {
       std::unique_ptr<pthreadpool, decltype(&pthreadpool_destroy)> auto_threadpool{nullptr, pthreadpool_destroy};
@@ -3973,7 +3953,6 @@ class ConvolutionOperatorTester {
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
       std::generate(kernel.begin(), kernel.end(), [&]() { return f32dist(rng); });
       std::generate(bias.begin(), bias.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), nanf(""));
 
       // Compute reference results, without clamping.
       if (has_bias()) {
@@ -4061,7 +4040,7 @@ class ConvolutionOperatorTester {
                               &workspace_size, &workspace_alignment,
                               /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
                               auto_threadpool.get()));
-      std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+      xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
       std::iota(workspace.begin(), workspace.end(), 0);
       ASSERT_NE(workspace_size, SIZE_MAX);
       ASSERT_NE(workspace_alignment, SIZE_MAX);
@@ -4091,7 +4070,6 @@ class ConvolutionOperatorTester {
 
       // Re-generate data for the second run.
       std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-      std::fill(output.begin(), output.end(), nanf(""));
 
       // Compute reference results for the second run, including clamping.
       if (has_bias()) {

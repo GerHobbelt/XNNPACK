@@ -14,11 +14,11 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
+#include "xnnpack/buffer.h"
 #include "replicable_random_device.h"
 
 namespace {
@@ -47,11 +47,11 @@ class ArgmaxPoolingTestF32 : public ::testing::Test {
     output_width = compute_output_dimension(input_width + input_padding_left + input_padding_right, pooling_width);
     input_dims = {batch_size, input_height, input_width, channels};
     output_dims = {batch_size, output_height, output_width, channels};
-    input = std::vector<float>(XNN_EXTRA_BYTES / sizeof(float) + batch_size * input_height * input_width * channels);
-    operator_output = std::vector<float>(batch_size * output_height * output_width * channels);
-    operator_output_index = std::vector<uint32_t>(batch_size * output_height * output_width * channels);
-    subgraph_output = std::vector<float>(batch_size * output_height * output_width * channels);
-    subgraph_output_index = std::vector<uint32_t>(batch_size * output_height * output_width * channels);
+    input = xnnpack::Buffer<float>(XNN_EXTRA_BYTES / sizeof(float) + batch_size * input_height * input_width * channels);
+    operator_output = xnnpack::Buffer<float>(batch_size * output_height * output_width * channels);
+    operator_output_index = xnnpack::Buffer<uint32_t>(batch_size * output_height * output_width * channels);
+    subgraph_output = xnnpack::Buffer<float>(batch_size * output_height * output_width * channels);
+    subgraph_output_index = xnnpack::Buffer<uint32_t>(batch_size * output_height * output_width * channels);
   }
 
   xnnpack::ReplicableRandomDevice rng;
@@ -76,11 +76,11 @@ class ArgmaxPoolingTestF32 : public ::testing::Test {
   uint32_t output_value_id;
   uint32_t output_index_id;
 
-  std::vector<float> input;
-  std::vector<float> operator_output;
-  std::vector<uint32_t> operator_output_index;
-  std::vector<float> subgraph_output;
-  std::vector<uint32_t> subgraph_output_index;
+  xnnpack::Buffer<float> input;
+  xnnpack::Buffer<float> operator_output;
+  xnnpack::Buffer<uint32_t> operator_output_index;
+  xnnpack::Buffer<float> subgraph_output;
+  xnnpack::Buffer<uint32_t> subgraph_output_index;
 };
 
 TEST_F(ArgmaxPoolingTestF32, define)
@@ -122,7 +122,6 @@ TEST_F(ArgmaxPoolingTestF32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_argmax_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->params.pooling_2d.padding_top, input_padding_top);
   ASSERT_EQ(node->params.pooling_2d.padding_right, input_padding_right);
   ASSERT_EQ(node->params.pooling_2d.padding_bottom, input_padding_bottom);
@@ -141,8 +140,6 @@ TEST_F(ArgmaxPoolingTestF32, matches_operator_api)
 {
   std::uniform_real_distribution<float> f32dist(-255.0f, 255.0f);
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -172,7 +169,7 @@ TEST_F(ArgmaxPoolingTestF32, matches_operator_api)
       /*output_height_out=*/nullptr, /*output_width_out=*/nullptr,
       /*threadpool=*/nullptr));
 
-  std::vector<char, AlignedAllocator<char, XNN_ALLOCATION_ALIGNMENT>> workspace(workspace_size);
+  xnnpack::Buffer<char, XNN_ALLOCATION_ALIGNMENT> workspace(workspace_size);
   ASSERT_EQ(
     xnn_status_success, xnn_setup_argmax_pooling2d_nhwc_f32(
                           op, workspace.data(), input.data(), operator_output.data(), operator_output_index.data()));
@@ -264,7 +261,6 @@ TEST_F(ArgmaxPoolingTestF32, reshape_output)
   ASSERT_EQ(subgraph->num_nodes, 1);
   struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_argmax_pooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 2);

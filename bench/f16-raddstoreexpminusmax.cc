@@ -9,18 +9,16 @@
 #include <random>
 #include <vector>
 
-#include <benchmark/benchmark.h>
-#include "bench/utils.h"
-
+#include "utils.h"
 #include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/raddstoreexpminusmax.h"
 #include "xnnpack/reduce.h"
-
+#include "xnnpack/buffer.h"
+#include <benchmark/benchmark.h>
 
 static void f16_raddstoreexpminusmax(
   benchmark::State& state,
@@ -40,33 +38,29 @@ static void f16_raddstoreexpminusmax(
   std::random_device random_device;
   auto rng = std::mt19937(random_device());
   auto f32rng = std::bind(std::uniform_real_distribution<float>(-100.0f, 100.0f), std::ref(rng));
-  
+
   const size_t num_buffers = 1 +
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(), packed_elements * sizeof(xnn_float16));
-  std::vector<xnn_float16, AlignedAllocator<xnn_float16, 64>> x(elements);
-  std::vector<xnn_float16, AlignedAllocator<xnn_float16, 64>> y(packed_elements * num_buffers);
+  xnnpack::Buffer<xnn_float16, XNN_ALLOCATION_ALIGNMENT> x(elements);
+  xnnpack::Buffer<xnn_float16, XNN_ALLOCATION_ALIGNMENT> y(packed_elements *
+                                                   num_buffers);
 
   std::generate(x.begin(), x.end(), f32rng);
 
   benchmark::utils::DisableDenormals();
 
-  xnn_f16_expminus_params params;
-  if (init_params) {
-    init_params(&params);
-  }
-
   size_t buffer_index = 0;
   for (auto _ : state) {
     state.PauseTiming();
-    xnn_float16 x_max = std::nanf("");
+    xnn_float16 x_max;
     rmax(elements * sizeof(xnn_float16), x.data(), &x_max, /*params=*/nullptr);
     if (++buffer_index == num_buffers) {
       buffer_index = 0;
     }
     state.ResumeTiming();
 
-    xnn_float16 y_sum = std::nanf("");
-    raddstoreexpminusmax(elements * sizeof(xnn_float16), x.data(), &x_max, y.data() + buffer_index * packed_elements, &y_sum, &params);
+    xnn_float16 y_sum;
+    raddstoreexpminusmax(elements * sizeof(xnn_float16), x.data(), &x_max, y.data() + buffer_index * packed_elements, &y_sum, nullptr);
   }
 
   const uint64_t cpu_frequency = benchmark::utils::GetCurrentCpuFrequency();

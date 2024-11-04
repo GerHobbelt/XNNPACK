@@ -11,12 +11,9 @@
 #include <random>
 #include <vector>
 
-#include "bench/dwconv.h"
-#include "bench/utils.h"
-#include <benchmark/benchmark.h>
-
+#include "dwconv.h"
+#include "utils.h"
 #include "xnnpack.h"
-#include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
 #include "xnnpack/dwconv.h"
 #include "xnnpack/indirection.h"
@@ -24,7 +21,8 @@
 #include "xnnpack/microkernel-utils.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/pack.h"
-
+#include "xnnpack/buffer.h"
+#include <benchmark/benchmark.h>
 
 static void f32_dwconv(benchmark::State& state,
   xnn_f32_dwconv_minmax_unipass_ukernel_fn dwconv,
@@ -68,14 +66,14 @@ static void f32_dwconv(benchmark::State& state,
 
   const size_t c_stride = benchmark::utils::RoundUp<size_t>(channels, channel_tile);
 
-  std::vector<float> a(channels * input_height * input_width + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> a(channels * input_height * input_width + XNN_EXTRA_BYTES / sizeof(float));
   std::generate(a.begin(), a.end(), std::ref(f32rng));
-  std::vector<float> k(channels * kernel_height * kernel_width);
+  xnnpack::Buffer<float> k(channels * kernel_height * kernel_width);
   std::generate(k.begin(), k.end(), std::ref(f32rng));
-  std::vector<float> b(channels);
+  xnnpack::Buffer<float> b(channels);
   std::generate(b.begin(), b.end(), std::ref(f32rng));
 
-  std::vector<float> z(channels + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> z(channels + XNN_EXTRA_BYTES / sizeof(float));
 
   const size_t w_elements = (kernel_size + 1) * c_stride;
   // Can read (primary_tile - kernel_size) elements after end of indirection buffer.
@@ -85,8 +83,7 @@ static void f32_dwconv(benchmark::State& state,
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(),
       sizeof(float) * (w_elements + c_elements) + sizeof(void*) * i_elements);
 
-  std::vector<float, AlignedAllocator<float, 64>> w(w_elements * num_buffers);
-  std::fill(w.begin(), w.end(), 0.0f);
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> w(w_elements * num_buffers);
   xnn_pack_f32_dwconv_ghw_w(primary_tile, 0, 0, kernel_height, kernel_width, channels,
                             channel_tile, channel_tile, /*channel_round=*/1,
                             k.data(), b.data(), /*scale=*/nullptr, w.data(),
@@ -95,7 +92,7 @@ static void f32_dwconv(benchmark::State& state,
     std::copy(w.cbegin(), w.cbegin() + w_elements, w.begin() + n * w_elements);
   }
 
-  std::vector<const float*> i(i_elements * num_buffers);
+  xnnpack::Buffer<const float*> i(i_elements * num_buffers);
   xnn_indirection_init_dwconv2d(
     /*output_y_start=*/0, /*output_y_end=*/output_height,
     reinterpret_cast<const void**>(i.data()),
@@ -113,8 +110,7 @@ static void f32_dwconv(benchmark::State& state,
     std::copy(i.cbegin(), i.cbegin() + i_elements, i.begin() + n * i_elements);
   }
 
-  std::vector<float> c(c_elements * num_buffers);
-  std::fill(c.begin(), c.end(), std::nanf(""));
+  xnnpack::Buffer<float> c(c_elements * num_buffers);
 
   xnn_f32_minmax_params params;
   init_params(&params, -std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
@@ -197,15 +193,16 @@ static void f32_dwconv(
   const size_t step_width = dilation == 1 ? std::min(subsampling, kernel_width) : kernel_width;
   const size_t step_height = kernel_size + (output_width - 1) * step_width * kernel_height;
 
-  std::vector<float> a(channels * input_height * input_width + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> a(channels * input_height * input_width + XNN_EXTRA_BYTES / sizeof(float));
   std::generate(a.begin(), a.end(), std::ref(f32rng));
-  std::vector<float> k(channels * kernel_size);
+  xnnpack::Buffer<float> k(channels * kernel_size);
   std::generate(k.begin(), k.end(), std::ref(f32rng));
-  std::vector<float> b(channels);
+  xnnpack::Buffer<float> b(channels);
   std::generate(b.begin(), b.end(), std::ref(f32rng));
 
-  std::vector<float> z(channels + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<float, AlignedAllocator<float, 64>> buffer(channels + XNN_MULTIPASS_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float> z(channels + XNN_EXTRA_BYTES / sizeof(float));
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> buffer(
+      channels + XNN_MULTIPASS_EXTRA_BYTES / sizeof(float));
 
   const size_t tile_size = xnn_dwconv_multipass_tile_size(
     kernel_size, first_pass_tile, middle_pass_tile, last_pass_tile);
@@ -221,8 +218,7 @@ static void f32_dwconv(
     benchmark::utils::DivideRoundUp<size_t>(benchmark::utils::GetMaxCacheSize(),
       sizeof(float) * (w_elements + c_elements) + sizeof(void*) * i_elements);
 
-  std::vector<float, AlignedAllocator<float, 64>> w(w_elements * num_buffers);
-  std::fill(w.begin(), w.end(), 0.0f);
+  xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> w(w_elements * num_buffers);
   xnn_pack_f32_dwconv_ghw_w(first_pass_tile, middle_pass_tile, last_pass_tile,
                             kernel_height, kernel_width,
                             channels, channel_tile, channel_subtile, channel_round,
@@ -232,7 +228,7 @@ static void f32_dwconv(
     std::copy(w.cbegin(), w.cbegin() + w_elements, w.begin() + n * w_elements);
   }
 
-  std::vector<const float*> i(i_elements * num_buffers);
+  xnnpack::Buffer<const float*> i(i_elements * num_buffers);
   xnn_indirection_init_dwconv2d(
     /*output_y_start=*/0, /*output_y_end=*/output_height,
     reinterpret_cast<const void**>(i.data()),
@@ -250,8 +246,7 @@ static void f32_dwconv(
     std::copy(i.cbegin(), i.cbegin() + i_elements, i.begin() + n * i_elements);
   }
 
-  std::vector<float> c(c_elements * num_buffers);
-  std::fill(c.begin(), c.end(), std::nanf(""));
+  xnnpack::Buffer<float> c(c_elements * num_buffers);
 
   xnn_f32_minmax_params params;
   init_params(&params, -std::numeric_limits<float>::infinity(), +std::numeric_limits<float>::infinity());
@@ -830,9 +825,69 @@ static void f32_dwconv(
   BENCHMARK_DWCONV(f32_dwconv_8f8m9l4c4s4r__neon_acc2)
   BENCHMARK_DWCONV(f32_dwconv_8f8m9l8c4s4r__neon)
   BENCHMARK_DWCONV(f32_dwconv_8f8m9l8c4s4r__neon_acc2)
-
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 
+#if XNN_ENABLE_AVX512F && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
+  static void f32_dwconv_25p16c__avx512f(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_25p16c__avx512f,
+               xnn_init_f32_minmax_scalar_params,
+               16 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
+  }
+  static void f32_dwconv_25p16c__avx512f_acc2(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_25p16c__avx512f_acc2,
+               xnn_init_f32_minmax_scalar_params,
+               16 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
+  }
+  static void f32_dwconv_25p32c__avx512f(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_25p32c__avx512f,
+               xnn_init_f32_minmax_scalar_params,
+               32 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
+  }
+  static void f32_dwconv_25p32c__avx512f_acc2(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_25p32c__avx512f_acc2,
+               xnn_init_f32_minmax_scalar_params,
+               32 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
+  }
+
+  static void f32_dwconv_5f5m5l16c16s1r__avx512f(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_5f5m5l16c16s1r__avx512f, xnn_init_f32_minmax_scalar_params,
+               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
+               16 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
+  }
+  static void f32_dwconv_5f5m5l16c16s1r__avx512f_acc2(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_5f5m5l16c16s1r__avx512f_acc2, xnn_init_f32_minmax_scalar_params,
+               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
+               16 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
+  }
+  static void f32_dwconv_5f5m5l32c16s1r__avx512f(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_5f5m5l32c16s1r__avx512f, xnn_init_f32_minmax_scalar_params,
+               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
+               32 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
+  }
+  static void f32_dwconv_5f5m5l32c16s1r__avx512f_acc2(benchmark::State& state, const char* net) {
+    f32_dwconv(state,
+               xnn_f32_dwconv_minmax_ukernel_5f5m5l32c16s1r__avx512f_acc2, xnn_init_f32_minmax_scalar_params,
+               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
+               32 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
+  }
+
+  BENCHMARK_DWCONV(f32_dwconv_25p16c__avx512f)
+  BENCHMARK_DWCONV(f32_dwconv_25p16c__avx512f_acc2)
+  BENCHMARK_DWCONV(f32_dwconv_25p32c__avx512f)
+  BENCHMARK_DWCONV(f32_dwconv_25p32c__avx512f_acc2)
+
+  BENCHMARK_DWCONV(f32_dwconv_5f5m5l16c16s1r__avx512f)
+  BENCHMARK_DWCONV(f32_dwconv_5f5m5l16c16s1r__avx512f_acc2)
+  BENCHMARK_DWCONV(f32_dwconv_5f5m5l32c16s1r__avx512f)
+  BENCHMARK_DWCONV(f32_dwconv_5f5m5l32c16s1r__avx512f_acc2)
+#endif  // XNN_ENABLE_AVX512F && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   static void f32_dwconv_4p4c__sse(benchmark::State& state, const char* net) {
@@ -1200,56 +1255,6 @@ static void f32_dwconv(
                benchmark::utils::CheckFMA3);
   }
 
-  static void f32_dwconv_25p16c__avx512f(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_25p16c__avx512f,
-               xnn_init_f32_minmax_scalar_params,
-               16 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
-  }
-  static void f32_dwconv_25p16c__avx512f_acc2(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_25p16c__avx512f_acc2,
-               xnn_init_f32_minmax_scalar_params,
-               16 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
-  }
-  static void f32_dwconv_25p32c__avx512f(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_25p32c__avx512f,
-               xnn_init_f32_minmax_scalar_params,
-               32 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
-  }
-  static void f32_dwconv_25p32c__avx512f_acc2(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_25p32c__avx512f_acc2,
-               xnn_init_f32_minmax_scalar_params,
-               32 /* channel tile */, 25 /* primary tile */, benchmark::utils::CheckAVX512F);
-  }
-
-  static void f32_dwconv_5f5m5l16c16s1r__avx512f(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_5f5m5l16c16s1r__avx512f, xnn_init_f32_minmax_scalar_params,
-               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
-               16 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
-  }
-  static void f32_dwconv_5f5m5l16c16s1r__avx512f_acc2(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_5f5m5l16c16s1r__avx512f_acc2, xnn_init_f32_minmax_scalar_params,
-               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
-               16 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
-  }
-  static void f32_dwconv_5f5m5l32c16s1r__avx512f(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_5f5m5l32c16s1r__avx512f, xnn_init_f32_minmax_scalar_params,
-               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
-               32 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
-  }
-  static void f32_dwconv_5f5m5l32c16s1r__avx512f_acc2(benchmark::State& state, const char* net) {
-    f32_dwconv(state,
-               xnn_f32_dwconv_minmax_ukernel_5f5m5l32c16s1r__avx512f_acc2, xnn_init_f32_minmax_scalar_params,
-               5 /* first pass tile */, 5 /* middle pass tile */, 5 /* last pass tile */,
-               32 /* channel tile */, 16 /* channel subtile */, 1 /* channel round */, benchmark::utils::CheckAVX512F);
-  }
-
   BENCHMARK_DWCONV(f32_dwconv_4p4c__sse)
   BENCHMARK_DWCONV(f32_dwconv_9p4c__sse)
   BENCHMARK_DWCONV(f32_dwconv_25p4c__sse)
@@ -1313,18 +1318,7 @@ static void f32_dwconv(
   BENCHMARK_DWCONV(f32_dwconv_7f6m6l16c8s4r__fma3_acc2)
   BENCHMARK_DWCONV(f32_dwconv_7f6m6l32c8s4r__fma3)
   BENCHMARK_DWCONV(f32_dwconv_7f6m6l32c8s4r__fma3_acc2)
-
-  BENCHMARK_DWCONV(f32_dwconv_25p16c__avx512f)
-  BENCHMARK_DWCONV(f32_dwconv_25p16c__avx512f_acc2)
-  BENCHMARK_DWCONV(f32_dwconv_25p32c__avx512f)
-  BENCHMARK_DWCONV(f32_dwconv_25p32c__avx512f_acc2)
-
-  BENCHMARK_DWCONV(f32_dwconv_5f5m5l16c16s1r__avx512f)
-  BENCHMARK_DWCONV(f32_dwconv_5f5m5l16c16s1r__avx512f_acc2)
-  BENCHMARK_DWCONV(f32_dwconv_5f5m5l32c16s1r__avx512f)
-  BENCHMARK_DWCONV(f32_dwconv_5f5m5l32c16s1r__avx512f_acc2)
 #endif  // XNN_ARCH_X88 || XNN_ARCH_X86_64
-
 
 #if XNN_ARCH_WASM
   static void f32_dwconv_9p1c__wasm(benchmark::State& state, const char* net) {

@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
@@ -77,10 +78,11 @@ TEST_F(StaticExpandDimsTestInt8, define)
                           nullptr, 0, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
+  CalculateExpectedShape();
   output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_quantized_tensor_value(
-                          subgraph, xnn_datatype_qint8, zero_point, scale, dims.size(), dims.data(),
+                          subgraph, xnn_datatype_qint8, zero_point, scale, expected_shape.size(), expected_shape.data(),
                           nullptr, 1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
@@ -90,7 +92,6 @@ TEST_F(StaticExpandDimsTestInt8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_expand_dims);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -103,8 +104,6 @@ TEST_F(StaticExpandDimsTestInt8, matches_operator_api)
   const int32_t zero_point = i8dist(rng);
   const float scale = scale_dist(rng);
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
 
   new_axes = GetNewAxes();
 
@@ -137,10 +136,11 @@ TEST_F(StaticExpandDimsTestInt8, matches_operator_api)
                           nullptr, /*external_id=*/0, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
+  CalculateExpectedShape();
   output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_quantized_tensor_value(
-                          subgraph, xnn_datatype_qint8, zero_point, scale, dims.size(), dims.data(),
+                          subgraph, xnn_datatype_qint8, zero_point, scale, expected_shape.size(), expected_shape.data(),
                           nullptr, /*external_id=*/1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
@@ -162,7 +162,6 @@ TEST_F(StaticExpandDimsTestInt8, matches_operator_api)
   std::vector<size_t> out_dims(XNN_MAX_TENSOR_DIMS);
   ASSERT_EQ(xnn_status_success, xnn_get_external_value_shape(runtime, output_id, &num_out_dims, &out_dims[0]));
   out_dims.resize(num_out_dims);
-  CalculateExpectedShape();
   EXPECT_EQ(expected_shape, out_dims);
 }
 
@@ -181,10 +180,11 @@ TEST_F(StaticExpandDimsTestF16, define)
                           nullptr, 0, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
+  CalculateExpectedShape();
   output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_tensor_value(
-                          subgraph, xnn_datatype_fp16, dims.size(), dims.data(),
+                          subgraph, xnn_datatype_fp16, expected_shape.size(), expected_shape.data(),
                           nullptr, 1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
@@ -194,7 +194,6 @@ TEST_F(StaticExpandDimsTestF16, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_expand_dims);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp16);
   ASSERT_EQ(node->num_inputs, 1);
   ASSERT_EQ(node->inputs[0], input_id);
   ASSERT_EQ(node->num_outputs, 1);
@@ -205,8 +204,6 @@ TEST_F(StaticExpandDimsTestF16, define)
 TEST_F(StaticExpandDimsTestF16, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return xnn_float16_from_float(f32dist(rng)); });
-  std::fill(operator_output.begin(), operator_output.end(), UINT16_C(0x7E00) /* NaN */);
-  std::fill(subgraph_output.begin(), subgraph_output.end(), UINT16_C(0x7E00) /* NaN */);
 
   new_axes = GetNewAxes();
 
@@ -239,10 +236,11 @@ TEST_F(StaticExpandDimsTestF16, matches_operator_api)
                           nullptr, /*external_id=*/0, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_INPUT, &input_id));
   ASSERT_NE(input_id, XNN_INVALID_NODE_ID);
 
+  CalculateExpectedShape();
   output_id = XNN_INVALID_NODE_ID;
   ASSERT_EQ(
     xnn_status_success, xnn_define_tensor_value(
-                          subgraph, xnn_datatype_fp16, dims.size(), dims.data(),
+                          subgraph, xnn_datatype_fp16, expected_shape.size(), expected_shape.data(),
                           nullptr, /*external_id=*/1, /*flags=*/XNN_VALUE_FLAG_EXTERNAL_OUTPUT, &output_id));
   ASSERT_NE(output_id, XNN_INVALID_NODE_ID);
 
@@ -264,6 +262,5 @@ TEST_F(StaticExpandDimsTestF16, matches_operator_api)
   std::vector<size_t> out_dims(XNN_MAX_TENSOR_DIMS);
   ASSERT_EQ(xnn_status_success, xnn_get_external_value_shape(runtime, output_id, &num_out_dims, &out_dims[0]));
   out_dims.resize(num_out_dims);
-  CalculateExpectedShape();
   EXPECT_EQ(expected_shape, out_dims);
 }

@@ -34,18 +34,23 @@
 /// Disable fusion of nodes in subgraph. Fusion is enabled by default, set this flag to turn it off.
 #define XNN_FLAG_NO_OPERATOR_FUSION 0x80000000
 
+/// Enable Slinky (if available).
+#define XNN_FLAG_SLINKY_ENABLED 0x40000000
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#ifdef XNN_SLINKY_ENABLED
-struct xnn_value;
+#ifdef XNN_SLINKY_AVAILABLE
+/// Slinky interface -- unused unless XNN_FLAG_SLINKY_ENABLED is set
 struct slinky_pipeline;
 typedef struct slinky_pipeline* slinky_pipeline_t;
-slinky_pipeline_t xnn_runtime_to_slinky_pipeline(xnn_runtime_t runtime);
-void destroy_slinky_pipeline(slinky_pipeline_t pipeline);
-enum xnn_status evaluate(slinky_pipeline_t p, struct xnn_value* const* input_values, size_t num_inputs, struct xnn_value* const* output_values, size_t num_outputs);
-#endif
+
+void slinky_init_pipeline(xnn_runtime_t runtime);
+void slinky_setup_inputs_and_outputs(xnn_runtime_t runtime);
+void slinky_destroy_pipeline(xnn_runtime_t runtime);
+bool slinky_evaluate(xnn_runtime_t runtime, enum xnn_status* status);
+#endif  // XNN_SLINKY_AVAILABLE
 
 struct xnn_shape {
   size_t num_dims;
@@ -202,33 +207,13 @@ typedef enum xnn_status (*xnn_setup_operator_fn)(
   size_t num_values,
   pthreadpool_t threadpool);
 
-enum xnn_compute_type {
-  xnn_compute_type_invalid = 0,
-  xnn_compute_type_fp32,
-  xnn_compute_type_fp16,
-  xnn_compute_type_qc8,
-  xnn_compute_type_qd8_to_fp16,
-  xnn_compute_type_qd8_to_fp32,
-  xnn_compute_type_qp8_to_fp32,
-  xnn_compute_type_qs8,
-  xnn_compute_type_qu8,
-  xnn_compute_type_fp16_to_qd8,
-  xnn_compute_type_fp16_to_fp32,
-  xnn_compute_type_fp32_to_fp16,
-  xnn_compute_type_fp32_to_qd8,
-  xnn_compute_type_fp32_to_qp8,
-  xnn_compute_type_fp32_to_qs8,
-  xnn_compute_type_fp32_to_qu8,
-  xnn_compute_type_qs8_to_fp16,
-  xnn_compute_type_qs8_to_fp32,
-  xnn_compute_type_qu8_to_fp32,
-  xnn_compute_type_s32,
-};
-
 struct xnn_node {
   enum xnn_node_type type;
+  union {
+    enum xnn_binary_operator binary_operator;
+    enum xnn_unary_operator unary_operator;
+  };
   uint32_t id;
-  enum xnn_compute_type compute_type;
   /// Static parameters of the operator node.
   union {
     struct {
@@ -299,12 +284,6 @@ struct xnn_node {
       uint32_t dilation_width;
     } pooling_2d;
     struct {
-      float alpha;
-    } elu;
-    struct {
-      float negative_slope;
-    } leaky_relu;
-    struct {
       size_t pre_paddings[XNN_MAX_TENSOR_DIMS];
       size_t post_paddings[XNN_MAX_TENSOR_DIMS];
       uint32_t padding_value;
@@ -319,9 +298,6 @@ struct xnn_node {
       size_t new_height;
       size_t new_width;
     } static_resize;
-    struct {
-      size_t max_tokens;
-    } rope;
     struct {
       size_t num_dims;
       size_t offsets[XNN_MAX_TENSOR_DIMS];
@@ -342,15 +318,12 @@ struct xnn_node {
       enum xnn_attention_logits_cap_type cap_type;
       struct xnn_attention_logits_cap_tanh_params cap_tanh_params;
     } scaled_dot_product_attention;
+    union xnn_unary_params unary;
   } params;
   struct {
     float output_min;
     float output_max;
   } activation;
-  struct {
-    int32_t output_min;
-    int32_t output_max;
-  } activation_int;
   /// Value IDs for node inputs.
   uint32_t inputs[XNN_MAX_INPUTS];
   uint32_t num_inputs;
@@ -402,7 +375,7 @@ struct xnn_operator_data {
   struct xnn_shape shape1;
   struct xnn_shape shape2;
   union {
-    // Used for reduction/mean.
+    // Used for reduction.
     struct {
       size_t num_reduction_axes;
       size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
@@ -478,16 +451,21 @@ struct xnn_runtime {
   bool has_been_setup;
   bool memory_planned;
 
-#ifdef XNN_SLINKY_ENABLED
+  #ifdef XNN_SLINKY_AVAILABLE
+  // Fields used by Slinky -- unused unless XNN_FLAG_SLINKY_ENABLED is set
   slinky_pipeline_t slinky_pipeline;
-  size_t num_inputs;
-  size_t num_outputs;
-  struct xnn_value* input_values[XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS];
-  struct xnn_value* output_values[XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS];
-#endif
+  size_t slinky_num_inputs;
+  size_t slinky_num_outputs;
+  struct xnn_value* slinky_input_values[XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS];
+  struct xnn_value* slinky_output_values[XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS];
+  #endif  // XNN_SLINKY_AVAILABLE
 };
 
 enum xnn_status xnn_insert_clamp_node(xnn_subgraph_t subgraph, float output_min, float output_max, struct xnn_node *node);
+
+enum xnn_status xnn_insert_pack_lh_node(xnn_subgraph_t subgraph,
+                                        const struct xnn_value* input,
+                                        uint32_t input_id, uint32_t* new_id);
 
 struct xnn_value* xnn_subgraph_new_internal_value(xnn_subgraph_t subgraph);
 
@@ -563,7 +541,6 @@ void xnn_value_copy(struct xnn_value* dst_value, const struct xnn_value* src_val
 
 void xnn_init_convert_node(
   struct xnn_node* node,
-  enum xnn_compute_type compute_type,
   uint32_t input_id,
   uint32_t output_id,
   uint32_t flags);
@@ -586,8 +563,8 @@ enum xnn_status resize_fully_connected_output_tensor(
   size_t old_workspace_size,
   pthreadpool_t threadpool);
 
-XNN_INTERNAL enum xnn_node_type xnn_binary_operator_to_node_type(enum xnn_binary_operator type);
-XNN_INTERNAL enum xnn_binary_operator xnn_node_type_to_binary_operator(enum xnn_node_type type);
+XNN_INTERNAL enum xnn_node_type xnn_reduce_operator_to_node_type(enum xnn_reduce_operator type);
+XNN_INTERNAL enum xnn_reduce_operator xnn_node_type_to_reduce_operator(enum xnn_node_type type);
 
 #ifdef __cplusplus
 }  // extern "C"

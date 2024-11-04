@@ -18,6 +18,12 @@
 #include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
 
+using std::copysign;
+
+inline xnn_float16 copysign(xnn_float16 a, xnn_float16 b) {
+  return (xnn_float16)std::copysign((float)a, (float)b);
+}
+
 class VBinaryMicrokernelTester {
  public:
   enum class OpType {
@@ -45,10 +51,10 @@ class VBinaryMicrokernelTester {
           result[i] = a[i] + b[i * stride_b];
           break;
         case OpType::CopySign:
-          result[i] = std::copysign(a[i], b[i * stride_b]);
+          result[i] = copysign(a[i], b[i * stride_b]);
           break;
         case OpType::RCopySign:
-          result[i] = std::copysign(b[i * stride_b], a[i]);
+          result[i] = copysign(b[i * stride_b], a[i]);
           break;
         case OpType::Div:
           result[i] = a[i] / b[i * stride_b];
@@ -193,17 +199,8 @@ class VBinaryMicrokernelTester {
   void Test(xnn_f16_vbinary_ukernel_fn vbinary, OpType op_type,
             xnn_init_f16_default_params_fn init_params = nullptr) const;
 
-  void Test(xnn_f16_vbinary_minmax_ukernel_fn vbinary_minmax, OpType op_type,
-            xnn_init_f16_minmax_params_fn init_params) const;
-
   void Test(xnn_f32_vbinary_ukernel_fn vbinary, OpType op_type,
             xnn_init_f32_default_params_fn init_params = nullptr) const;
-
-  void Test(xnn_f32_vbinary_minmax_ukernel_fn vbinary_minmax, OpType op_type,
-            xnn_init_f32_minmax_params_fn init_params) const;
-
-  void Test(xnn_s32_vbinary_ukernel_fn vbinary, OpType op_type,
-            xnn_init_s32_default_params_fn init_params = nullptr) const;
 
   void Test(xnn_qu8_vadd_minmax_ukernel_fn vadd_minmax,
             xnn_init_qu8_add_minmax_params_fn init_params) const;

@@ -17,6 +17,7 @@
 #include "xnnpack/operator-utils.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
+#include "xnnpack/buffer.h"
 #include "replicable_random_device.h"
 
 template <class T, class BiasType = T> class Unpooling2DTestBase : public ::testing::Test {
@@ -45,10 +46,10 @@ template <class T, class BiasType = T> class Unpooling2DTestBase : public ::test
     input_index_dims = {{batch_size, input_height, input_width, channels}};
     output_dims = {{batch_size, output_height, output_width, channels}};
 
-    input = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * input_height * input_width * channels);
-    input_index = std::vector<T>(batch_size * input_height * input_width * channels);
-    operator_output = std::vector<T>(batch_size * output_height * output_width * channels);
-    subgraph_output = std::vector<T>(batch_size * output_height * output_width * channels);
+    input = xnnpack::Buffer<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * input_height * input_width * channels);
+    input_index = xnnpack::Buffer<T>(batch_size * input_height * input_width * channels);
+    operator_output = xnnpack::Buffer<T>(batch_size * output_height * output_width * channels);
+    subgraph_output = xnnpack::Buffer<T>(batch_size * output_height * output_width * channels);
   }
 
   xnnpack::ReplicableRandomDevice rng;
@@ -80,10 +81,10 @@ template <class T, class BiasType = T> class Unpooling2DTestBase : public ::test
   std::array<size_t, 4> input_index_dims;
   std::array<size_t, 4> output_dims;
 
-  std::vector<T> input;
-  std::vector<T> input_index;
-  std::vector<T> operator_output;
-  std::vector<T> subgraph_output;
+  xnnpack::Buffer<T> input;
+  xnnpack::Buffer<T> input_index;
+  xnnpack::Buffer<T> operator_output;
+  xnnpack::Buffer<T> subgraph_output;
 };
 
 using Unpooling2DTestX32 = Unpooling2DTestBase<uint32_t>;
@@ -125,7 +126,6 @@ TEST_F(Unpooling2DTestX32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_unpooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->params.pooling_2d.padding_top, padding_top);
   ASSERT_EQ(node->params.pooling_2d.padding_right, padding_right);
   ASSERT_EQ(node->params.pooling_2d.padding_bottom, padding_bottom);
@@ -255,7 +255,6 @@ TEST_F(Unpooling2DTestX32, reshape_output)
   ASSERT_EQ(subgraph->num_nodes, 1);
   struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_unpooling_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->num_inputs, 2);
   ASSERT_EQ(node->inputs[0], input_value_id);
   ASSERT_EQ(node->inputs[1], input_index_id);

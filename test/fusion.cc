@@ -31,16 +31,15 @@ TEST(AVERAGE_POOLING_2D_THEN_CLAMP, fusion) {
     .AddAveragePooling2D(0, 0, 0, 0, 2, 2, 1, 1, input_id, intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -63,16 +62,15 @@ TEST(CLAMP_THEN_CLAMP, fusion) {
         intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -104,16 +102,15 @@ TEST(CONVOLUTION_2D_THEN_CLAMP, fusion) {
         }, input_id, filter_id, bias_id, intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -146,16 +143,15 @@ TEST(DECONVOLUTION_2D_THEN_CLAMP, fusion) {
           }, input_id, filter_id, bias_id, intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -186,16 +182,15 @@ TEST(DEPTHWISE_CONVOLUTION_2D_THEN_CLAMP, fusion) {
         }, input_id, filter_id, bias_id, intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -218,16 +213,15 @@ TEST(FULLY_CONNECTED_2D_THEN_CLAMP, fusion) {
     .AddFullyConnected(input_id, filter_id, bias_id, intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -255,15 +249,14 @@ TEST(FULLY_CONNECTED_2D_THEN_COPY_THEN_FULLY_CONNECTED, fusion) {
     .AddCopy(fc1_output_id, reshape_output_id)
     .AddFullyConnected(reshape_output_id, fc2_filter_id, fc2_bias_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 3);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 2);
   // Copy is optimized away.
   ASSERT_EQ(tester.Node(0)->outputs[0], reshape_output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -282,16 +275,15 @@ TEST(MAX_POOLING_THEN_CLAMP, fusion) {
     .AddMaxPooling2D(0, 0, 0, 0, 2, 2, 1, 1, 1, 1, input_id, intermediate_id)
     .AddClamp(output_min, output_max, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
   ASSERT_EQ(tester.Node(0)->activation.output_min, output_min);
   ASSERT_EQ(tester.Node(0)->activation.output_max, output_max);
   ASSERT_EQ(tester.Node(0)->outputs[0], output_id);
-  ASSERT_EQ(tester.Node(1)->compute_type, xnn_compute_type_invalid);
 
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -325,13 +317,12 @@ TEST(CONSTANT_PAD_THEN_CONVOLUTION, fusion) {
           /*group_output_channels=*/ 32,
         }, intermediate_id, filter_id, bias_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
-  ASSERT_EQ(tester.Node(0)->compute_type, xnn_compute_type_invalid);
   ASSERT_EQ(tester.Node(1)->params.convolution_2d.input_padding_top, 2);
   ASSERT_EQ(tester.Node(1)->params.convolution_2d.input_padding_left, 4);
   ASSERT_EQ(tester.Node(1)->params.convolution_2d.input_padding_right, 8);
@@ -371,7 +362,7 @@ TEST(CONSTANT_PAD_THEN_CONVOLUTION, not_fused_due_to_non_zero_padding_in_n_dimen
           /*group_output_channels=*/ 32,
         }, intermediate_id, filter_id, bias_id, output_id)
     .Optimize();
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 }
 
@@ -404,7 +395,7 @@ TEST(CONSTANT_PAD_THEN_CONVOLUTION, not_fused_due_to_padding_value_not_zero) {
           /*group_output_channels=*/ 32,
         }, intermediate_id, filter_id, bias_id, output_id)
     .Optimize();
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 }
 
@@ -435,13 +426,12 @@ TEST(CONSTANT_PAD_THEN_DEPTHWISE_CONVOLUTION, fusion) {
           /*input_channels=*/ 4
         }, intermediate_id, filter_id, bias_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
 
   ASSERT_EQ(tester.NumOperators(), 1);
-  ASSERT_EQ(tester.Node(0)->compute_type, xnn_compute_type_invalid);
   ASSERT_EQ(tester.Node(1)->params.depthwise_convolution_2d.input_padding_top, 2);
   ASSERT_EQ(tester.Node(1)->params.depthwise_convolution_2d.input_padding_left, 4);
   ASSERT_EQ(tester.Node(1)->params.depthwise_convolution_2d.input_padding_right, 8);
@@ -478,9 +468,9 @@ TEST(CONSTANT_PAD_THEN_DEPTHWISE_CONVOLUTION, not_fused_due_to_non_zero_padding_
           /*input_channels=*/ 4
         }, intermediate_id, filter_id, bias_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -512,9 +502,9 @@ TEST(CONSTANT_PAD_THEN_DEPTHWISE_CONVOLUTION, not_fused_due_to_padding_value_not
           /*input_channels=*/ 4
         }, intermediate_id, filter_id, bias_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   ASSERT_EQ(tester.NumOperators(), 2);
   ASSERT_EQ(unoptimized_output, optimized_output);
 }
@@ -533,14 +523,15 @@ TEST(COPY, fused_downstream) {
       .AddCopy(input_id, intermediate_id)
       .AddClamp(-0.5f, 0.5f, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 1);
   EXPECT_EQ(unoptimized_output, optimized_output);
   const xnn_node* clamp_node = tester.Node(1);
-  ASSERT_EQ(clamp_node->type, xnn_node_type_clamp);
+  ASSERT_EQ(clamp_node->type, xnn_node_type_unary_elementwise);
+  ASSERT_EQ(clamp_node->unary_operator, xnn_unary_clamp);
   EXPECT_EQ(clamp_node->inputs[0], input_id);
   EXPECT_EQ(clamp_node->outputs[0], output_id);
 }
@@ -562,14 +553,15 @@ TEST(COPY, fused_downstream_node_with_multiple_inputs) {
       .AddCopy(input_id, copy_out_id)
       .AddAddition(static_id, copy_out_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 1);
   EXPECT_EQ(unoptimized_output, optimized_output);
   const xnn_node* addition_node = tester.Node(1);
-  ASSERT_EQ(addition_node->type, xnn_node_type_add2);
+  ASSERT_EQ(addition_node->type, xnn_node_type_binary_elementwise);
+  ASSERT_EQ(addition_node->binary_operator, xnn_binary_add);
   ASSERT_EQ(addition_node->num_inputs, 2);
   EXPECT_EQ(addition_node->inputs[0], static_id);
   EXPECT_EQ(addition_node->inputs[1], input_id);
@@ -590,10 +582,10 @@ TEST(COPY, not_fused_downstream_due_to_persistent_tensor) {
       .AddCopy(input_id, intermediate_id)
       .AddClamp(-0.5f, 0.5f, intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
 }
 
@@ -611,15 +603,16 @@ TEST(COPY, fused_upstream) {
       .AddClamp(-0.5f, 0.5f, input_id, intermediate_id)
       .AddCopy(intermediate_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 1);
   EXPECT_EQ(unoptimized_output, optimized_output);
 
   const xnn_node* clamp_node = tester.Node(0);
-  ASSERT_EQ(clamp_node->type, xnn_node_type_clamp);
+  ASSERT_EQ(clamp_node->type, xnn_node_type_unary_elementwise);
+  ASSERT_EQ(clamp_node->unary_operator, xnn_unary_clamp);
   EXPECT_EQ(clamp_node->inputs[0], input_id);
   EXPECT_EQ(clamp_node->outputs[0], output_id);
 }
@@ -650,10 +643,10 @@ TEST(COPY, fused_upstream_with_multiple_outputs) {
       .AddCopy(split_out2, copy_out2)
       .AddConcatenate2(axis, copy_out1, copy_out2, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 4);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
   EXPECT_EQ(unoptimized_output, optimized_output);
 
@@ -688,15 +681,16 @@ TEST(COPY, not_fused_upstream_due_to_persistent_tensor) {
       .AddClamp(-0.5f, 0.5f, input_id, persistent_id)
       .AddCopy(persistent_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
   EXPECT_EQ(unoptimized_output, optimized_output);
 
   const xnn_node* clamp_node = tester.Node(0);
-  ASSERT_EQ(clamp_node->type, xnn_node_type_clamp);
+  ASSERT_EQ(clamp_node->type, xnn_node_type_unary_elementwise);
+  ASSERT_EQ(clamp_node->unary_operator, xnn_unary_clamp);
   EXPECT_EQ(clamp_node->outputs[0], persistent_id);
 }
 
@@ -718,19 +712,21 @@ TEST(COPY, not_fused_upstream_due_to_persistent_tensor_but_can_be_fused_downstre
       .AddCopy(persistent_id, copy_out_id)
       .AddHardSwish(copy_out_id, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 3);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 2);
   EXPECT_EQ(unoptimized_output, optimized_output);
 
   const xnn_node* clamp_node = tester.Node(0);
-  ASSERT_EQ(clamp_node->type, xnn_node_type_clamp);
+  ASSERT_EQ(clamp_node->type, xnn_node_type_unary_elementwise);
+  ASSERT_EQ(clamp_node->unary_operator, xnn_unary_clamp);
   EXPECT_EQ(clamp_node->outputs[0], persistent_id);
 
   const xnn_node* hardswish_node = tester.Node(2);
-  ASSERT_EQ(hardswish_node->type, xnn_node_type_hardswish);
+  ASSERT_EQ(hardswish_node->type, xnn_node_type_unary_elementwise);
+  ASSERT_EQ(hardswish_node->unary_operator, xnn_unary_hardswish);
   EXPECT_EQ(hardswish_node->inputs[0], persistent_id);
 }
 
@@ -751,10 +747,10 @@ TEST(COPY, fused_chain_of_copies) {
       .AddCopy(copy_out1, copy_out2)
       .AddCopy(copy_out2, output_id);
 
-  std::vector<float> unoptimized_output = tester.RunWithoutFusion<float>();
+  xnnpack::Buffer<float> unoptimized_output = tester.RunWithoutFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 3);
 
-  std::vector<float> optimized_output = tester.RunWithFusion<float>();
+  xnnpack::Buffer<float> optimized_output = tester.RunWithFusion<float>();
   EXPECT_EQ(tester.NumOperators(), 1);
   EXPECT_EQ(unoptimized_output, optimized_output);
 

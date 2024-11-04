@@ -15,6 +15,8 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/buffer.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
@@ -45,9 +47,9 @@ template <class T> class StaticResizeBilinear2DTestBase : public ::testing::Test
     input_dims = {{batch_size, input_height, input_width, channels}};
     output_dims = {{batch_size, output_height, output_width, channels}};
 
-    input = std::vector<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * input_height * input_width * channels);
-    operator_output = std::vector<T>(batch_size * output_height * output_width * channels);
-    subgraph_output = std::vector<T>(batch_size * output_height * output_width * channels);
+    input = xnnpack::Buffer<T>(XNN_EXTRA_BYTES / sizeof(T) + batch_size * input_height * input_width * channels);
+    operator_output = xnnpack::Buffer<T>(batch_size * output_height * output_width * channels);
+    subgraph_output = xnnpack::Buffer<T>(batch_size * output_height * output_width * channels);
   }
 
   xnnpack::ReplicableRandomDevice rng;
@@ -71,9 +73,9 @@ template <class T> class StaticResizeBilinear2DTestBase : public ::testing::Test
   std::array<size_t, 4> input_dims;
   std::array<size_t, 4> output_dims;
 
-  std::vector<T> input;
-  std::vector<T> operator_output;
-  std::vector<T> subgraph_output;
+  xnnpack::Buffer<T> input;
+  xnnpack::Buffer<T> operator_output;
+  xnnpack::Buffer<T> subgraph_output;
 };
 
 using StaticResizeBilinear2DTestQS8 = StaticResizeBilinear2DTestBase<int8_t>;
@@ -110,7 +112,6 @@ TEST_F(StaticResizeBilinear2DTestQS8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_resize_bilinear_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->params.static_resize.new_height, output_height);
   ASSERT_EQ(node->params.static_resize.new_width, output_width);
   ASSERT_EQ(node->num_inputs, 1);
@@ -149,7 +150,6 @@ TEST_F(StaticResizeBilinear2DTestQU8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_resize_bilinear_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qu8);
   ASSERT_EQ(node->params.static_resize.new_height, output_height);
   ASSERT_EQ(node->params.static_resize.new_width, output_width);
   ASSERT_EQ(node->num_inputs, 1);
@@ -188,7 +188,6 @@ TEST_F(StaticResizeBilinear2DTestF16, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_resize_bilinear_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp16);
   ASSERT_EQ(node->params.static_resize.new_height, output_height);
   ASSERT_EQ(node->params.static_resize.new_width, output_width);
   ASSERT_EQ(node->num_inputs, 1);
@@ -227,7 +226,6 @@ TEST_F(StaticResizeBilinear2DTestF32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_resize_bilinear_2d);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   ASSERT_EQ(node->params.static_resize.new_height, output_height);
   ASSERT_EQ(node->params.static_resize.new_width, output_width);
   ASSERT_EQ(node->num_inputs, 1);
@@ -241,8 +239,6 @@ TEST_F(StaticResizeBilinear2DTestQS8, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
   const int8_t input_zero_point = i8dist(rng);
   const float input_scale = scale_dist(rng);
   const float output_zero_point = input_zero_point;
@@ -310,8 +306,6 @@ TEST_F(StaticResizeBilinear2DTestQU8, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), UINT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), UINT8_C(0xA5));
   const uint8_t input_zero_point = u8dist(rng);
   const float input_scale = scale_dist(rng);
   const uint8_t output_zero_point = input_zero_point;
@@ -379,8 +373,6 @@ TEST_F(StaticResizeBilinear2DTestF16, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   // Call operator API.
   xnn_operator_t op = nullptr;
@@ -444,8 +436,6 @@ TEST_F(StaticResizeBilinear2DTestF32, matches_operator_api)
 {
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   // Call operator API.
   xnn_operator_t op = nullptr;

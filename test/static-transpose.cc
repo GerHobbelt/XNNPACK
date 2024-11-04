@@ -15,6 +15,7 @@
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
@@ -81,7 +82,6 @@ TEST_F(StaticTransposeTestQS8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_transpose);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qs8);
   ASSERT_EQ(node->params.transpose.num_dims, dims.size());
   for (size_t i = 0; i < dims.size(); i++) {
     ASSERT_EQ(node->params.transpose.perm[i], perm[i]);
@@ -129,7 +129,6 @@ TEST_F(StaticTransposeTestQU8, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_transpose);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_qu8);
   for (size_t i = 0; i < dims.size(); i++) {
     ASSERT_EQ(node->params.transpose.perm[i], perm[i]);
   }
@@ -172,7 +171,6 @@ TEST_F(StaticTransposeTestF16, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_transpose);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp16);
   for (size_t i = 0; i < dims.size(); i++) {
     ASSERT_EQ(node->params.transpose.perm[i], perm[i]);
   }
@@ -215,7 +213,6 @@ TEST_F(StaticTransposeTestF32, define)
   ASSERT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   ASSERT_EQ(node->type, xnn_node_type_static_transpose);
-  ASSERT_EQ(node->compute_type, xnn_compute_type_fp32);
   for (size_t i = 0; i < dims.size(); i++) {
     ASSERT_EQ(node->params.transpose.perm[i], perm[i]);
   }
@@ -233,8 +230,6 @@ TEST_F(StaticTransposeTestQS8, matches_operator_api)
   const int32_t output_zero_point = input_zero_point;
   const float output_scale = input_scale;
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
   std::vector<size_t> perm = RandomPermutation(dims, rng);
   std::vector<size_t> output_dims = PermuteInputDimensions(dims, perm);
 
@@ -297,8 +292,6 @@ TEST_F(StaticTransposeTestQU8, matches_operator_api)
   const int32_t output_zero_point = input_zero_point;
   const float output_scale = input_scale;
   std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), UINT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), UINT8_C(0xA5));
   std::vector<size_t> perm = RandomPermutation(dims, rng);
   std::vector<size_t> output_dims = PermuteInputDimensions(dims, perm);
 
@@ -357,8 +350,6 @@ TEST_F(StaticTransposeTestQU8, matches_operator_api)
 TEST_F(StaticTransposeTestF16, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
   std::vector<size_t> perm = RandomPermutation(dims, rng);
   std::vector<size_t> output_dims = PermuteInputDimensions(dims, perm);
 
@@ -418,8 +409,6 @@ TEST_F(StaticTransposeTestF16, matches_operator_api)
 TEST_F(StaticTransposeTestF32, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
   std::vector<size_t> perm = RandomPermutation(dims, rng);
   std::vector<size_t> output_dims = PermuteInputDimensions(dims, perm);
 

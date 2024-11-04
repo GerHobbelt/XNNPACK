@@ -40,8 +40,6 @@ TEST(SUBGRAPH, hanging_nodes) {
 
   // The hanging node is still there.
   ASSERT_EQ(tester.NumNodes(), 3);
-  // But empty.
-  ASSERT_EQ(tester.Node(2)->compute_type, xnn_compute_type_invalid);
 }
 
 TEST(SUBGRAPH, multiple_outputs_with_hanging_nodes) {
@@ -80,7 +78,7 @@ TEST(SUBGRAPH, even_split3_first_two_outputs_optimized_away) {
   // Regression test for a crash where we could not deal with a split where the
   // 0th output is not used (and optimized away).
   auto output = tester.RunWithFusion<float>();
-  std::vector<float> expected = {6, 7, 8};
+  xnnpack::Buffer<float> expected = {6, 7, 8};
   ASSERT_EQ(expected, output);
 }
 

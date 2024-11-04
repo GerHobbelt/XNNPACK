@@ -12,7 +12,6 @@
 SET(PROD_SSE41_MICROKERNEL_SRCS
   src/f16-f32-vcvt/gen/f16-f32-vcvt-sse41-int16-u16.c
   src/f32-f16-vcvt/gen/f32-f16-vcvt-sse41-u8.c
-  src/f32-prelu/gen/f32-prelu-sse41-2x8.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-1x8-minmax-sse41-dup.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-4x8-minmax-sse41-dup.c
   src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x8-minmax-sse41-dup.c
@@ -33,8 +32,6 @@ SET(PROD_SSE41_MICROKERNEL_SRCS
   src/qs8-dwconv/gen/qs8-dwconv-9p8c-minmax-fp32-sse41-mul16-add16.c
   src/qs8-dwconv/gen/qs8-dwconv-25p8c-minmax-fp32-sse41-mul16-add16.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-sse41-u16.c
-  src/qs8-gavgpool/gen/qs8-gavgpool-7p7x-minmax-fp32-sse41-c8.c
-  src/qs8-gavgpool/gen/qs8-gavgpool-7x-minmax-fp32-sse41-c8.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p8c-minmax-fp32-sse41-mul16.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-9p8c-minmax-fp32-sse41-mul16.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-25p8c-minmax-fp32-sse41-mul16.c
@@ -49,12 +46,9 @@ SET(PROD_SSE41_MICROKERNEL_SRCS
   src/qs8-vlrelu/gen/qs8-vlrelu-sse41-u32.c
   src/qs8-vmul/gen/qs8-vmul-minmax-fp32-sse41-mul16-ld64-u16.c
   src/qs8-vmulc/gen/qs8-vmulc-minmax-fp32-sse41-mul16-ld64-u16.c
-  src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse41-u16.c
   src/qu8-dwconv/gen/qu8-dwconv-9p8c-minmax-fp32-sse41-mul16.c
   src/qu8-dwconv/gen/qu8-dwconv-25p8c-minmax-fp32-sse41-mul16.c
   src/qu8-f32-vcvt/gen/qu8-f32-vcvt-sse41-u16.c
-  src/qu8-gavgpool/gen/qu8-gavgpool-7p7x-minmax-fp32-sse41-c8.c
-  src/qu8-gavgpool/gen/qu8-gavgpool-7x-minmax-fp32-sse41-c8.c
   src/qu8-gemm/gen/qu8-gemm-1x4c8-minmax-fp32-sse41-ld64.c
   src/qu8-gemm/gen/qu8-gemm-3x4c8-minmax-fp32-sse41-ld64.c
   src/qu8-igemm/gen/qu8-igemm-1x4c8-minmax-fp32-sse41-ld64.c
@@ -68,8 +62,6 @@ SET(PROD_SSE41_MICROKERNEL_SRCS
   src/s8-ibilinear/gen/s8-ibilinear-sse41-c16.c
   src/s8-maxpool/s8-maxpool-9p8x-minmax-sse41-c16.c
   src/s8-vclamp/s8-vclamp-sse41-u64.c
-  src/s32-vmul/gen/s32-vmul-sse41.c
-  src/s32-vmul/gen/s32-vmulc-sse41.c
   src/u8-ibilinear/gen/u8-ibilinear-sse41-c16.c)
 
 SET(NON_PROD_SSE41_MICROKERNEL_SRCS
@@ -83,7 +75,6 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/f32-f16-vcvt/gen/f32-f16-vcvt-sse41-u16.c
   src/f32-f16-vcvt/gen/f32-f16-vcvt-sse41-u24.c
   src/f32-f16-vcvt/gen/f32-f16-vcvt-sse41-u32.c
-  src/f32-prelu/gen/f32-prelu-sse41-2x4.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-3x8-minmax-sse41-dup.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-5x8-minmax-sse41-dup.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-6x8-minmax-sse41-dup.c
@@ -204,10 +195,6 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-sse41-u8.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-sse41-u24.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-sse41-u32.c
-  src/qs8-gavgpool/gen/qs8-gavgpool-7p7x-minmax-fp32-sse41-c16.c
-  src/qs8-gavgpool/gen/qs8-gavgpool-7p7x-minmax-fp32-sse41-c24.c
-  src/qs8-gavgpool/gen/qs8-gavgpool-7x-minmax-fp32-sse41-c16.c
-  src/qs8-gavgpool/gen/qs8-gavgpool-7x-minmax-fp32-sse41-c24.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-5f5m5l8c4s4r-minmax-fp32-sse41-mul32.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-5f5m5l8c8s8r-minmax-fp32-sse41-mul16-add16.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-5f5m5l8c8s8r-minmax-fp32-sse41-mul16.c
@@ -278,11 +265,6 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/qs8-qc8w-igemm/gen/qs8-qc8w-igemm-4x4c2s4-minmax-fp32-sse41-ld128.c
   src/qs8-rdsum/gen/qs8-rdsum-7p7x-minmax-fp32-sse41-c16.c
   src/qs8-rdsum/gen/qs8-rdsum-7p7x-minmax-fp32-sse41-c32.c
-  src/qs8-requantization/qs8-requantization-fp32-sse41.c
-  src/qs8-requantization/qs8-requantization-gemmlowp-sse41.c
-  src/qs8-requantization/qs8-requantization-rndna-sse41.c
-  src/qs8-requantization/qs8-requantization-rndnu-sse41-sra.c
-  src/qs8-requantization/qs8-requantization-rndnu-sse41-srl.c
   src/qs8-vadd/gen/qs8-vadd-minmax-sse41-mul16-ld64-u16.c
   src/qs8-vadd/gen/qs8-vadd-minmax-sse41-mul16-ld64-u24.c
   src/qs8-vadd/gen/qs8-vadd-minmax-sse41-mul16-ld64-u32.c
@@ -299,15 +281,10 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/qs8-vaddc/gen/qs8-vaddc-minmax-sse41-mul32-ld32-u32.c
   src/qs8-vcvt/gen/qs8-vcvt-sse41-u8.c
   src/qs8-vcvt/gen/qs8-vcvt-sse41-u16.c
-  src/qs8-vhswish/gen/qs8-vhswish-sse41-u8.c
-  src/qs8-vhswish/gen/qs8-vhswish-sse41-u16.c
-  src/qs8-vhswish/gen/qs8-vhswish-sse41-u32.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse41-u8.c
   src/qs8-vlrelu/gen/qs8-vlrelu-sse41-u16.c
   src/qs8-vmul/gen/qs8-vmul-minmax-fp32-sse41-mul16-ld64-u8.c
   src/qs8-vmulc/gen/qs8-vmulc-minmax-fp32-sse41-mul16-ld64-u8.c
-  src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse41-u4.c
-  src/qs16-qs8-vcvt/gen/qs16-qs8-vcvt-sse41-u8.c
   src/qu8-dwconv/gen/qu8-dwconv-5f5m5l8c4s4r-minmax-fp32-sse41-mul32.c
   src/qu8-dwconv/gen/qu8-dwconv-5f5m5l8c8s8r-minmax-fp32-sse41-mul16.c
   src/qu8-dwconv/gen/qu8-dwconv-5f5m5l16c4s4r-minmax-fp32-sse41-mul32.c
@@ -329,10 +306,6 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/qu8-f32-vcvt/gen/qu8-f32-vcvt-sse41-u8.c
   src/qu8-f32-vcvt/gen/qu8-f32-vcvt-sse41-u24.c
   src/qu8-f32-vcvt/gen/qu8-f32-vcvt-sse41-u32.c
-  src/qu8-gavgpool/gen/qu8-gavgpool-7p7x-minmax-fp32-sse41-c16.c
-  src/qu8-gavgpool/gen/qu8-gavgpool-7p7x-minmax-fp32-sse41-c24.c
-  src/qu8-gavgpool/gen/qu8-gavgpool-7x-minmax-fp32-sse41-c16.c
-  src/qu8-gavgpool/gen/qu8-gavgpool-7x-minmax-fp32-sse41-c24.c
   src/qu8-gemm/gen/qu8-gemm-1x4c2-minmax-fp32-sse41-ld64.c
   src/qu8-gemm/gen/qu8-gemm-1x4c2-minmax-fp32-sse41-ld128.c
   src/qu8-gemm/gen/qu8-gemm-1x4c2s4-minmax-fp32-sse41-ld64.c
@@ -373,8 +346,6 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/qu8-igemm/gen/qu8-igemm-4x4c2-minmax-fp32-sse41-ld128.c
   src/qu8-igemm/gen/qu8-igemm-4x4c2s4-minmax-fp32-sse41-ld64.c
   src/qu8-igemm/gen/qu8-igemm-4x4c2s4-minmax-fp32-sse41-ld128.c
-  src/qu8-requantization/qu8-requantization-gemmlowp-sse41.c
-  src/qu8-requantization/qu8-requantization-rndna-sse41.c
   src/qu8-vadd/gen/qu8-vadd-minmax-sse41-mul16-ld64-u16.c
   src/qu8-vadd/gen/qu8-vadd-minmax-sse41-mul32-ld32-u8.c
   src/qu8-vadd/gen/qu8-vadd-minmax-sse41-mul32-ld32-u16.c
@@ -383,9 +354,6 @@ SET(NON_PROD_SSE41_MICROKERNEL_SRCS
   src/qu8-vaddc/gen/qu8-vaddc-minmax-sse41-mul32-ld32-u16.c
   src/qu8-vcvt/gen/qu8-vcvt-sse41-u8.c
   src/qu8-vcvt/gen/qu8-vcvt-sse41-u16.c
-  src/qu8-vhswish/gen/qu8-vhswish-sse41-u8.c
-  src/qu8-vhswish/gen/qu8-vhswish-sse41-u16.c
-  src/qu8-vhswish/gen/qu8-vhswish-sse41-u32.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse41-u8.c
   src/qu8-vlrelu/gen/qu8-vlrelu-sse41-u16.c
   src/qu8-vmul/gen/qu8-vmul-minmax-fp32-sse41-mul16-ld64-u8.c

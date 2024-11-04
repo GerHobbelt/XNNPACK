@@ -387,29 +387,11 @@ static void optimize_tensor_allocation_for_in_place_operations(
   for (uint32_t n = 0; n < runtime->num_ops; n++) {
     const struct xnn_operator_data* node = &runtime->opdata[n];
     switch (node->type) {
-      case xnn_node_type_abs:
-      case xnn_node_type_add2:
-      case xnn_node_type_bankers_rounding:
-      case xnn_node_type_ceiling:
-      case xnn_node_type_clamp:
+      case xnn_node_type_unary_elementwise:
+      case xnn_node_type_binary_elementwise:
       case xnn_node_type_copy:
-      case xnn_node_type_divide:
-      case xnn_node_type_elu:
-      case xnn_node_type_floor:
-      case xnn_node_type_hardswish:
-      case xnn_node_type_leaky_relu:
-      case xnn_node_type_maximum2:
-      case xnn_node_type_minimum2:
-      case xnn_node_type_multiply2:
-      case xnn_node_type_negate:
-      case xnn_node_type_prelu:
-      case xnn_node_type_sigmoid:
       case xnn_node_type_softmax:
-      case xnn_node_type_square:
-      case xnn_node_type_square_root:
-      case xnn_node_type_squared_difference:
       case xnn_node_type_static_reshape:
-      case xnn_node_type_subtract:
         // Valid operation types that can be optimized.
         break;
       default:
@@ -571,8 +553,19 @@ enum xnn_status xnn_create_runtime_v4(
   }
 
 #ifdef XNN_SLINKY_ENABLED
-  runtime->slinky_pipeline = xnn_runtime_to_slinky_pipeline(runtime);
+  // If compiling with XNN_SLINKY_ENABLED defined, assume we always
+  // want Slinky enabled, regardless of the runtime flag
+  const bool use_slinky = true;
+#else
+  const bool use_slinky = (flags & XNN_FLAG_SLINKY_ENABLED) != 0;
 #endif
+  if (use_slinky) {
+    #ifdef XNN_SLINKY_AVAILABLE
+    // slinky_init_pipeline(runtime);
+    #else
+    xnn_log_warning("Slinky requested but not available");
+    #endif
+  }
 
   for (uint32_t i = 0; i < runtime->num_values; i++) {
     struct xnn_value* value = &runtime->values[i];
@@ -713,23 +706,9 @@ enum xnn_status xnn_setup_runtime(
     }
   }
 
-#ifdef XNN_SLINKY_ENABLED
-  size_t input_id = 0, output_id = 0;
-  // Use the runtime values instead of the external values so the order is the
-  // same.
-  for (size_t i = 0; i < runtime->num_values; i++) {
-    struct xnn_value* value = &runtime->values[i];
-    if (xnn_value_is_static(value)) {
-      // The value is constant.
-    } else if (value->flags & XNN_VALUE_FLAG_EXTERNAL_INPUT) {
-      runtime->input_values[input_id++] = value;
-    } else if (value->flags & XNN_VALUE_FLAG_EXTERNAL_OUTPUT) {
-      runtime->output_values[output_id++] = value;
-    }
-  }
-  runtime->num_inputs = input_id;
-  runtime->num_outputs = output_id;
-#endif
+  #ifdef XNN_SLINKY_AVAILABLE
+  // slinky_setup_inputs_and_outputs(runtime);
+  #endif
 
   // Apply runtime state changes.
   for (size_t i = 0; i < num_external_values; i++) {
@@ -812,23 +791,9 @@ enum xnn_status xnn_setup_runtime_v2(
     value->data = external_value->data;
   }
 
-#ifdef XNN_SLINKY_ENABLED
-  size_t input_id = 0, output_id = 0;
-  // Use the runtime values instead of the external values so the order is the
-  // same.
-  for (size_t i = 0; i < runtime->num_values; i++) {
-    struct xnn_value* value = &runtime->values[i];
-    if (xnn_value_is_static(value)) {
-      // The value is constant.
-    } else if (value->flags & XNN_VALUE_FLAG_EXTERNAL_INPUT) {
-      runtime->input_values[input_id++] = value;
-    } else if (value->flags & XNN_VALUE_FLAG_EXTERNAL_OUTPUT) {
-      runtime->output_values[output_id++] = value;
-    }
-  }
-  runtime->num_inputs = input_id;
-  runtime->num_outputs = output_id;
-#endif
+  #ifdef XNN_SLINKY_AVAILABLE
+  // slinky_setup_inputs_and_outputs(runtime);
+  #endif
 
   for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
     struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
@@ -999,13 +964,10 @@ enum xnn_status xnn_get_runtime_profiling_info(xnn_runtime_t runtime,
 enum xnn_status xnn_invoke_runtime(
   xnn_runtime_t runtime)
 {
-#ifdef XNN_SLINKY_ENABLED
-  if (runtime->slinky_pipeline) {
-    return evaluate(runtime->slinky_pipeline, runtime->input_values,
-             runtime->num_inputs, runtime->output_values,
-             runtime->num_outputs);
-  }
-#endif
+  #ifdef XNN_SLINKY_AVAILABLE
+  enum xnn_status status;
+  // if (slinky_evaluate(runtime, &status)) return status;
+  #endif
 
   if (runtime->profiling) {
     runtime->start_ts = xnn_read_timer();
@@ -1033,9 +995,10 @@ enum xnn_status xnn_delete_runtime(
   xnn_runtime_t runtime)
 {
   if (runtime != NULL) {
-#ifdef XNN_SLINKY_ENABLED
-    destroy_slinky_pipeline(runtime->slinky_pipeline);
-#endif
+    #ifdef XNN_SLINKY_AVAILABLE
+    // slinky_destroy_pipeline(runtime);
+    #endif
+
     if (runtime->opdata != NULL) {
       for (size_t i = 0; i < runtime->num_ops; i++) {
         for (size_t j = 0; j < XNN_MAX_OPERATOR_OBJECTS; j++) {

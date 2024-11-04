@@ -15,10 +15,7 @@ SET(PROD_F16C_MICROKERNEL_SRCS
   src/f16-f32-vcvt/gen/f16-f32-vcvt-f16c-u16.c
   src/f16-f32acc-rdsum/gen/f16-f32acc-rdsum-7p7x-f16c-c32.c
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u32-acc4.c
-  src/f16-gavgpool/gen/f16-gavgpool-7p7x-minmax-f16c-c8.c
-  src/f16-gavgpool/gen/f16-gavgpool-7x-minmax-f16c-c8.c
   src/f16-maxpool/f16-maxpool-9p8x-minmax-f16c-c8.c
-  src/f16-prelu/gen/f16-prelu-f16c-2x16.c
   src/f16-rminmax/f16-rmax-f16c-u32.c
   src/f16-vbinary/gen/f16-vadd-f16c-u16.c
   src/f16-vbinary/gen/f16-vaddc-f16c-u16.c
@@ -30,7 +27,10 @@ SET(PROD_F16C_MICROKERNEL_SRCS
   src/f16-vbinary/gen/f16-vminc-f16c-u16.c
   src/f16-vbinary/gen/f16-vmul-f16c-u16.c
   src/f16-vbinary/gen/f16-vmulc-f16c-u16.c
+  src/f16-vbinary/gen/f16-vprelu-f16c-u16.c
+  src/f16-vbinary/gen/f16-vpreluc-f16c-u16.c
   src/f16-vbinary/gen/f16-vrdivc-f16c-u8.c
+  src/f16-vbinary/gen/f16-vrpreluc-f16c-u16.c
   src/f16-vbinary/gen/f16-vrsubc-f16c-u16.c
   src/f16-vbinary/gen/f16-vsqrdiff-f16c-u16.c
   src/f16-vbinary/gen/f16-vsqrdiffc-f16c-u16.c
@@ -58,13 +58,6 @@ SET(NON_PROD_F16C_MICROKERNEL_SRCS
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u16-acc2.c
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u24-acc3.c
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u32-acc2.c
-  src/f16-gavgpool/gen/f16-gavgpool-7p7x-minmax-f16c-c16.c
-  src/f16-gavgpool/gen/f16-gavgpool-7p7x-minmax-f16c-c24.c
-  src/f16-gavgpool/gen/f16-gavgpool-7p7x-minmax-f16c-c32.c
-  src/f16-gavgpool/gen/f16-gavgpool-7x-minmax-f16c-c16.c
-  src/f16-gavgpool/gen/f16-gavgpool-7x-minmax-f16c-c24.c
-  src/f16-gavgpool/gen/f16-gavgpool-7x-minmax-f16c-c32.c
-  src/f16-prelu/gen/f16-prelu-f16c-2x8.c
   src/f16-vbinary/gen/f16-vadd-f16c-u8.c
   src/f16-vbinary/gen/f16-vaddc-f16c-u8.c
   src/f16-vbinary/gen/f16-vdiv-f16c-u16.c
@@ -76,12 +69,9 @@ SET(NON_PROD_F16C_MICROKERNEL_SRCS
   src/f16-vbinary/gen/f16-vmul-f16c-u8.c
   src/f16-vbinary/gen/f16-vmulc-f16c-u8.c
   src/f16-vbinary/gen/f16-vprelu-f16c-u8.c
-  src/f16-vbinary/gen/f16-vprelu-f16c-u16.c
   src/f16-vbinary/gen/f16-vpreluc-f16c-u8.c
-  src/f16-vbinary/gen/f16-vpreluc-f16c-u16.c
   src/f16-vbinary/gen/f16-vrdivc-f16c-u16.c
   src/f16-vbinary/gen/f16-vrpreluc-f16c-u8.c
-  src/f16-vbinary/gen/f16-vrpreluc-f16c-u16.c
   src/f16-vbinary/gen/f16-vrsubc-f16c-u8.c
   src/f16-vbinary/gen/f16-vsqrdiff-f16c-u8.c
   src/f16-vbinary/gen/f16-vsqrdiffc-f16c-u8.c

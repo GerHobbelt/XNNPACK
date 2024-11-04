@@ -16,6 +16,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "xnnpack.h"
+#include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
@@ -30,8 +31,8 @@ public:
     offsets = RandomOffsets(this->dims);
     std::tie(sizes, inferrable_sizes) = RandomSizes(this->dims, offsets);
     // Overwrite outputs since slice output size is different from input.
-    this->operator_output = std::vector<T>(this->NumElements(sizes));
-    this->subgraph_output = std::vector<T>(this->NumElements(sizes));
+    this->operator_output = xnnpack::Buffer<T>(this->NumElements(sizes));
+    this->subgraph_output = xnnpack::Buffer<T>(this->NumElements(sizes));
   }
 
 private:
@@ -107,7 +108,6 @@ TEST_F(StaticSliceTestQS8, define)
   EXPECT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   EXPECT_EQ(node->type, xnn_node_type_static_slice);
-  EXPECT_EQ(node->compute_type, xnn_compute_type_qs8);
   EXPECT_EQ(node->num_inputs, 1);
   EXPECT_EQ(node->inputs[0], input_id);
   EXPECT_EQ(node->num_outputs, 1);
@@ -150,7 +150,6 @@ TEST_F(StaticSliceTestQU8, define)
   EXPECT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   EXPECT_EQ(node->type, xnn_node_type_static_slice);
-  EXPECT_EQ(node->compute_type, xnn_compute_type_qu8);
   EXPECT_EQ(node->num_inputs, 1);
   EXPECT_EQ(node->inputs[0], input_id);
   EXPECT_EQ(node->num_outputs, 1);
@@ -190,7 +189,6 @@ TEST_F(StaticSliceTestF16, define)
   EXPECT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   EXPECT_EQ(node->type, xnn_node_type_static_slice);
-  EXPECT_EQ(node->compute_type, xnn_compute_type_fp16);
   EXPECT_EQ(node->num_inputs, 1);
   EXPECT_EQ(node->inputs[0], input_id);
   EXPECT_EQ(node->num_outputs, 1);
@@ -230,7 +228,6 @@ TEST_F(StaticSliceTestF32, define)
   EXPECT_EQ(subgraph->num_nodes, 1);
   const struct xnn_node* node = &subgraph->nodes[0];
   EXPECT_EQ(node->type, xnn_node_type_static_slice);
-  EXPECT_EQ(node->compute_type, xnn_compute_type_fp32);
   EXPECT_EQ(node->num_inputs, 1);
   EXPECT_EQ(node->inputs[0], input_id);
   EXPECT_EQ(node->num_outputs, 1);
@@ -247,8 +244,6 @@ TEST_F(StaticSliceTestQS8, matches_operator_api)
   const float scale = scale_dist(rng);
 
   std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -308,8 +303,6 @@ TEST_F(StaticSliceTestQU8, matches_operator_api)
   const float scale = scale_dist(rng);
 
   std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), INT8_C(0xA5));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), INT8_C(0xA5));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -366,8 +359,6 @@ TEST_F(StaticSliceTestQU8, matches_operator_api)
 TEST_F(StaticSliceTestF16, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), std::nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), std::nanf(""));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 
@@ -423,8 +414,6 @@ TEST_F(StaticSliceTestF16, matches_operator_api)
 TEST_F(StaticSliceTestF32, matches_operator_api)
 {
   std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-  std::fill(operator_output.begin(), operator_output.end(), nanf(""));
-  std::fill(subgraph_output.begin(), subgraph_output.end(), nanf(""));
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(/*allocator=*/nullptr));
 

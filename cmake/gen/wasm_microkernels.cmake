@@ -17,8 +17,6 @@ SET(PROD_WASM_MICROKERNEL_SRCS
   src/f32-dwconv/gen/f32-dwconv-5f5m5l1c1s1r-minmax-wasm-acc2.c
   src/f32-dwconv/gen/f32-dwconv-9p1c-minmax-wasm-acc2.c
   src/f32-dwconv/gen/f32-dwconv-25p1c-minmax-wasm-acc2.c
-  src/f32-gavgpool/f32-gavgpool-7p7x-minmax-wasm-c1.c
-  src/f32-gavgpool/f32-gavgpool-7x-minmax-wasm-c1.c
   src/f32-gemm/gen/f32-gemm-1x4-minmax-wasm.c
   src/f32-gemm/gen/f32-gemm-1x4-relu-wasm.c
   src/f32-gemm/gen/f32-gemm-4x2-minmax-wasm.c
@@ -32,7 +30,6 @@ SET(PROD_WASM_MICROKERNEL_SRCS
   src/f32-maxpool/f32-maxpool-9p8x-minmax-wasm-c1.c
   src/f32-pavgpool/f32-pavgpool-9p8x-minmax-wasm-c1.c
   src/f32-pavgpool/f32-pavgpool-9x-minmax-wasm-c1.c
-  src/f32-prelu/gen/f32-prelu-wasm-2x4.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-1x4-minmax-wasm.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-4x4-minmax-wasm.c
   src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x4-minmax-wasm.c
@@ -50,7 +47,10 @@ SET(PROD_WASM_MICROKERNEL_SRCS
   src/f32-vbinary/gen/f32-vminc-wasm-u8.c
   src/f32-vbinary/gen/f32-vmul-wasm-u8.c
   src/f32-vbinary/gen/f32-vmulc-wasm-u8.c
+  src/f32-vbinary/gen/f32-vprelu-wasm-u8.c
+  src/f32-vbinary/gen/f32-vpreluc-wasm-u8.c
   src/f32-vbinary/gen/f32-vrdivc-wasm-u8.c
+  src/f32-vbinary/gen/f32-vrpreluc-wasm-u8.c
   src/f32-vbinary/gen/f32-vrsubc-wasm-u8.c
   src/f32-vbinary/gen/f32-vsub-wasm-u8.c
   src/f32-vbinary/gen/f32-vsubc-wasm-u8.c
@@ -110,7 +110,6 @@ SET(NON_PROD_WASM_MICROKERNEL_SRCS
   src/f32-igemm/gen/f32-igemm-2x4-minmax-wasm.c
   src/f32-igemm/gen/f32-igemm-2x4-relu-wasm.c
   src/f32-igemm/gen/f32-igemm-4x2-relu-wasm.c
-  src/f32-prelu/gen/f32-prelu-wasm-2x1.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-2x4-minmax-wasm.c
   src/f32-qc4w-gemm/gen/f32-qc4w-gemm-4x2-minmax-wasm.c
   src/f32-qc8w-gemm/gen/f32-qc8w-gemm-1x4-relu-wasm.c
@@ -172,18 +171,15 @@ SET(NON_PROD_WASM_MICROKERNEL_SRCS
   src/f32-vbinary/gen/f32-vprelu-wasm-u1.c
   src/f32-vbinary/gen/f32-vprelu-wasm-u2.c
   src/f32-vbinary/gen/f32-vprelu-wasm-u4.c
-  src/f32-vbinary/gen/f32-vprelu-wasm-u8.c
   src/f32-vbinary/gen/f32-vpreluc-wasm-u1.c
   src/f32-vbinary/gen/f32-vpreluc-wasm-u2.c
   src/f32-vbinary/gen/f32-vpreluc-wasm-u4.c
-  src/f32-vbinary/gen/f32-vpreluc-wasm-u8.c
   src/f32-vbinary/gen/f32-vrdivc-wasm-u1.c
   src/f32-vbinary/gen/f32-vrdivc-wasm-u2.c
   src/f32-vbinary/gen/f32-vrdivc-wasm-u4.c
   src/f32-vbinary/gen/f32-vrpreluc-wasm-u1.c
   src/f32-vbinary/gen/f32-vrpreluc-wasm-u2.c
   src/f32-vbinary/gen/f32-vrpreluc-wasm-u4.c
-  src/f32-vbinary/gen/f32-vrpreluc-wasm-u8.c
   src/f32-vbinary/gen/f32-vrsubc-wasm-u1.c
   src/f32-vbinary/gen/f32-vrsubc-wasm-u2.c
   src/f32-vbinary/gen/f32-vrsubc-wasm-u4.c

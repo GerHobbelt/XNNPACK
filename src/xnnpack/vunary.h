@@ -19,15 +19,15 @@ extern "C" {
 #define DECLARE_BF16_UKERNEL_FUNCTION(fn_name, params_type) \
   XNN_INTERNAL void fn_name(                                 \
       size_t n,                                              \
-      const void* x,                                         \
-      void* y,                                               \
+      const xnn_bfloat16* x,                                         \
+      xnn_bfloat16* y,                                               \
       const params_type params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #define DECLARE_F16_UKERNEL_FUNCTION(fn_name, params_type) \
   XNN_INTERNAL void fn_name(                                \
       size_t n,                                             \
-      const void* x,                                        \
-      void* y,                                              \
+      const xnn_float16* x,                                        \
+      xnn_float16* y,                                              \
       const params_type params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #define DECLARE_F32_UKERNEL_FUNCTION(fn_name, params_type) \
@@ -39,14 +39,14 @@ extern "C" {
 
 #define XNN_UKERNEL(arch_flags, fn_name, batch_tile, vector_tile, datatype) \
   XNN_INTERNAL void fn_name(size_t n, const int8_t* x, int8_t* y,           \
-                            const union xnn_s8_minmax_params                \
+                            const struct xnn_s8_minmax_params                \
                                 params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 #include "src/s8-vclamp/s8-vclamp.h"
 #undef XNN_UKERNEL
 
 #define XNN_UKERNEL(arch_flags, fn_name, batch_tile, vector_tile, datatype) \
   XNN_INTERNAL void fn_name(size_t n, const uint8_t* x, uint8_t* y,         \
-                            const union xnn_u8_minmax_params                \
+                            const struct xnn_u8_minmax_params                \
                                 params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 #include "src/u8-vclamp/u8-vclamp.h"
 #undef XNN_UKERNEL

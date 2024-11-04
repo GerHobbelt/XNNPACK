@@ -20,7 +20,7 @@ void xnn_f32_raddstoreexpminusmax_ukernel__avx2_rr1_p5_u80_acc5(
     const float* max,
     float* output,
     float* sum,
-    const union xnn_f32_expminus_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const struct xnn_f32_expminus_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(batch != 0);
   assert(batch % sizeof(float) == 0);
@@ -309,5 +309,4 @@ void xnn_f32_raddstoreexpminusmax_ukernel__avx2_rr1_p5_u80_acc5(
   vacc_lo = _mm_add_ps(vacc_lo, _mm_movehl_ps(vacc_lo, vacc_lo));
   vacc_lo = _mm_add_ss(vacc_lo, _mm_movehdup_ps(vacc_lo));
   _mm_store_ss(sum, vacc_lo);
-  _mm256_zeroupper();
 }

@@ -24,9 +24,9 @@ extern "C" {
       size_t output_pixels,                                                                                             \
       size_t kernel_size,                                                                                               \
       size_t channels,                                                                                                  \
-      const void** input,                                                                                               \
+      const xnn_float16** input,                                                                               \
       size_t input_offset,                                                                                              \
-      void* output,                                                                                                     \
+      xnn_float16* output,                                                                                     \
       size_t input_increment,                                                                                           \
       size_t output_increment,                                                                                          \
       const union xnn_f16_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
@@ -61,7 +61,7 @@ extern "C" {
       uint8_t* output,                                                                                                  \
       size_t input_increment,                                                                                           \
       size_t output_increment,                                                                                          \
-      const union xnn_u8_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_u8_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 
 #include "src/u8-maxpool/u8-maxpool-minmax.h"
@@ -78,7 +78,7 @@ extern "C" {
       int8_t* output,                                                                                                   \
       size_t input_increment,                                                                                           \
       size_t output_increment,                                                                                          \
-      const union xnn_s8_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_s8_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 
 #include "src/s8-maxpool/s8-maxpool-minmax.h"

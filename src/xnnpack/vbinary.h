@@ -12,6 +12,7 @@
 #include <stdint.h>
 
 #include "xnnpack/common.h"
+#include "xnnpack/math.h"
 #include "xnnpack/microparams.h"
 
 #ifdef __cplusplus
@@ -21,7 +22,7 @@ extern "C" {
 #define XNN_UKERNEL_WITH_PARAMS(arch_flags, ukernel, batch_tile, vector_tile, \
                                 datatype, params_type, init_params)           \
   XNN_INTERNAL void ukernel(                                                  \
-      size_t n, const void* a, const void* b, void* y,                        \
+      size_t n, const xnn_float16* a, const xnn_float16* b, xnn_float16* y,   \
       const params_type params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 #include "src/f16-vbinary/f16-vadd-minmax.h"
 #include "src/f16-vbinary/f16-vaddc-minmax.h"
@@ -34,6 +35,9 @@ extern "C" {
 #include "src/f16-vbinary/f16-vminc.h"
 #include "src/f16-vbinary/f16-vmul-minmax.h"
 #include "src/f16-vbinary/f16-vmulc-minmax.h"
+#include "src/f16-vbinary/f16-vprelu.h"
+#include "src/f16-vbinary/f16-vpreluc.h"
+#include "src/f16-vbinary/f16-vrpreluc.h"
 #include "src/f16-vbinary/f16-vrdivc-minmax.h"
 #include "src/f16-vbinary/f16-vrsubc-minmax.h"
 #include "src/f16-vbinary/f16-vsqrdiff.h"
@@ -48,44 +52,37 @@ extern "C" {
       size_t n, const float* a, const float* b, float* y,                     \
       const params_type params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 #include "src/f32-vbinary/f32-vadd-minmax.h"
-#include "src/f32-vbinary/f32-vadd-relu.h"
 #include "src/f32-vbinary/f32-vadd.h"
 #include "src/f32-vbinary/f32-vaddc-minmax.h"
-#include "src/f32-vbinary/f32-vaddc-relu.h"
 #include "src/f32-vbinary/f32-vaddc.h"
 #include "src/f32-vbinary/f32-vcopysign.h"
 #include "src/f32-vbinary/f32-vcopysignc.h"
 #include "src/f32-vbinary/f32-vcmul.h"
 #include "src/f32-vbinary/f32-vdiv-minmax.h"
-#include "src/f32-vbinary/f32-vdiv-relu.h"
 #include "src/f32-vbinary/f32-vdiv.h"
 #include "src/f32-vbinary/f32-vdivc-minmax.h"
-#include "src/f32-vbinary/f32-vdivc-relu.h"
 #include "src/f32-vbinary/f32-vdivc.h"
 #include "src/f32-vbinary/f32-vmax.h"
 #include "src/f32-vbinary/f32-vmaxc.h"
 #include "src/f32-vbinary/f32-vmin.h"
 #include "src/f32-vbinary/f32-vminc.h"
 #include "src/f32-vbinary/f32-vmul-minmax.h"
-#include "src/f32-vbinary/f32-vmul-relu.h"
 #include "src/f32-vbinary/f32-vmul.h"
 #include "src/f32-vbinary/f32-vmulc-minmax.h"
-#include "src/f32-vbinary/f32-vmulc-relu.h"
 #include "src/f32-vbinary/f32-vmulc.h"
+#include "src/f32-vbinary/f32-vprelu.h"
+#include "src/f32-vbinary/f32-vpreluc.h"
+#include "src/f32-vbinary/f32-vrpreluc.h"
 #include "src/f32-vbinary/f32-vrcopysignc.h"
 #include "src/f32-vbinary/f32-vrdivc-minmax.h"
-#include "src/f32-vbinary/f32-vrdivc-relu.h"
 #include "src/f32-vbinary/f32-vrdivc.h"
 #include "src/f32-vbinary/f32-vrsubc-minmax.h"
-#include "src/f32-vbinary/f32-vrsubc-relu.h"
 #include "src/f32-vbinary/f32-vrsubc.h"
 #include "src/f32-vbinary/f32-vsqrdiff.h"
 #include "src/f32-vbinary/f32-vsqrdiffc.h"
 #include "src/f32-vbinary/f32-vsub-minmax.h"
-#include "src/f32-vbinary/f32-vsub-relu.h"
 #include "src/f32-vbinary/f32-vsub.h"
 #include "src/f32-vbinary/f32-vsubc-minmax.h"
-#include "src/f32-vbinary/f32-vsubc-relu.h"
 #include "src/f32-vbinary/f32-vsubc.h"
 #undef XNN_UKERNEL_WITH_PARAMS
 

@@ -24,27 +24,27 @@ extern "C" {
       size_t output_pixels,                                            \
       size_t kernel_elements,                                          \
       size_t channels,                                                 \
-      const void** input,                                              \
+      const xnn_float16** input,                              \
       size_t input_offset,                                             \
-      const void* zero,                                                \
-      void* buffer,                                                    \
-      void* output,                                                    \
+      const xnn_float16* zero,                                \
+      xnn_float16* buffer,                                    \
+      xnn_float16* output,                                    \
       size_t input_increment,                                          \
       size_t output_increment,                                         \
-      const union xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #define XNN_UKERNEL_UNIPASS(arch_flags, ukernel, channel_tile, channel_scaled_tile, primary_tile, incremental_tile, init_params) \
   XNN_INTERNAL void ukernel(                                         \
       size_t output_pixels,                                          \
       size_t kernel_elements,                                        \
       size_t channels,                                               \
-      const void** input,                                            \
+      const xnn_float16** input,                            \
       size_t input_offset,                                           \
-      const void* zero,                                              \
-      void* output,                                                  \
+      const xnn_float16* zero,                              \
+      xnn_float16* output,                                  \
       size_t input_increment,                                        \
       size_t output_increment,                                       \
-      const union xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #include "src/f16-avgpool/f16-avgpool-minmax.h"
 
@@ -63,7 +63,7 @@ extern "C" {
       float* output,                                                   \
       size_t input_increment,                                          \
       size_t output_increment,                                         \
-      const union xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #define XNN_UKERNEL_UNIPASS(arch_flags, ukernel, channel_tile, channel_scaled_tile, primary_tile, incremental_tile, init_params) \
   XNN_INTERNAL void ukernel(                                         \
@@ -76,7 +76,7 @@ extern "C" {
       float* output,                                                 \
       size_t input_increment,                                        \
       size_t output_increment,                                       \
-      const union xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #include "src/f32-avgpool/f32-avgpool-minmax.h"
 

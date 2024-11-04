@@ -5,12 +5,8 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
-import codecs
-import math
 import os
-import re
 import sys
-import yaml
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import xngen
@@ -68,14 +64,14 @@ SPECIAL_VALUES_F32 = {
         4,  # Number of elements.
         "{0.0f, -0.0f, 1.0f, -1.0f}",  # Inputs.
         "{0.0f, -0.0f, 1.0f, NAN}",  # Expected outputs.
-        "xnn_f32_sqrt_params",  # Params name.
+        "struct xnn_f32_sqrt_params",  # Params name.
         1,  # Error margin in ULP.
     ),
     "TanH": (
         7,  # Number of elements.
         "{0.0f, -0.0f, 10.0f, -10.0f, INFINITY, -INFINITY, NAN}",
         "{0.0f, -0.0f, 1.0f, -1.0f, 1.0f, -1.0f, NAN}",
-        "xnn_f32_tanh_params",
+        "union xnn_f32_tanh_params",
         # TODO: b/338934971 - This should be `1` ulp, but this fails on
         # `cmake-linux-riscv64-rvv` (but not on `cmake-linux-riscv64`).
         3,
@@ -84,21 +80,21 @@ SPECIAL_VALUES_F32 = {
         4,  # Number of elements.
         "{1.0f, -1.0f, 0.0f, -0.0f}",  # Inputs.
         "{0.0f, NAN, -INFINITY, -INFINITY}",  # Expected outputs.
-        "xnn_f32_default_params",
+        "struct xnn_f32_default_params",
         1,  # Error margin in ULP.
     ),
     "GELU": (
         3,  # Number of elements.
         "{-6.0f, 6.0f, 0.0f}",  # Inputs.
         "{0.0f, 6.0f, 0.0f}",  # Expected outputs.
-        "xnn_f32_default_params",
+        "struct xnn_f32_default_params",
         1,  # Error margin in ULP.
     ),
     "Exp": (
         3,  # Number of elements.
         "{0.0f, -1e3f, 1e3f}",  # Inputs.
         "{1.0f, 0.0f, INFINITY}",  # Expected outputs.
-        "xnn_f32_default_params",
+        "struct xnn_f32_default_params",
         1,  # Error margin in ULP.
     ),
 }
@@ -233,7 +229,7 @@ $if DATATYPE == "f32" and OP_TYPE in SPECIAL_VALUES_F32:
     std::array<float, num_elements> expected =
         ${SPECIAL_VALUES_F32[OP_TYPE][2]};
     std::array<float, buffered_size> outputs;
-    union ${SPECIAL_VALUES_F32[OP_TYPE][3]} params;
+    ${SPECIAL_VALUES_F32[OP_TYPE][3]} params;
     if (${TEST_ARGS[1]}) {
       ${TEST_ARGS[1]}(&params);
     }
@@ -266,13 +262,13 @@ def main(args):
 
   tester = options.tester
   tester_header = {
-    "VLReLUMicrokernelTester": "vlrelu-microkernel-tester.h",
-    "VUnaryMicrokernelTester": "vunary-microkernel-tester.h",
+      "VLReLUMicrokernelTester": "vlrelu-microkernel-tester.h",
+      "VUnaryMicrokernelTester": "vunary-microkernel-tester.h",
   }[tester]
-  
+
   op_header = {
-    "VLReLUMicrokernelTester": "vlrelu.h",
-    "VUnaryMicrokernelTester": "vunary.h",
+      "VLReLUMicrokernelTester": "vlrelu.h",
+      "VUnaryMicrokernelTester": "vunary.h",
   }[tester]
   tests = """\
 // Copyright 2019 Google LLC
@@ -297,12 +293,16 @@ def main(args):
 #include "xnnpack/isa-checks.h"
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
-#include "src/xnnpack/{op_header}"
+#include "xnnpack/{op_header}"
 #include "next_prime.h"
 #include "{tester_header}"
 
-""".format(microkernel=options.ukernel, generator=sys.argv[0], op_header=op_header, tester_header=tester_header)
-
+""".format(
+      microkernel=options.ukernel,
+      generator=sys.argv[0],
+      op_header=op_header,
+      tester_header=tester_header,
+  )
 
   test_args = ["ukernel"]
   if op_type.startswith("Round"):
@@ -336,7 +336,7 @@ def main(args):
   if "rnd" in folder:
     folder = folder[0:8]
 
-  tests += f'#include "{xnncommon._XNNPACK_SRC}/{folder}/{options.ukernel}.h"\n'
+  tests += f'#include "{xnncommon.xnnpack_src()}/{folder}/{options.ukernel}.h"\n'
   tests += "#undef XNN_UKERNEL_WITH_PARAMS\n"
 
   xnncommon.overwrite_if_changed(options.output, tests)

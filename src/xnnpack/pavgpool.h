@@ -21,29 +21,29 @@ extern "C" {
       size_t output_pixels,                                             \
       size_t kernel_elements,                                           \
       size_t channels,                                                  \
-      const void** input,                                               \
+      const xnn_float16** input,                               \
       size_t input_offset,                                              \
-      const void* zero,                                                 \
-      const void* multiplier,                                           \
-      void* buffer,                                                     \
-      void* output,                                                     \
+      const xnn_float16* zero,                                 \
+      const xnn_float16* multiplier,                           \
+      xnn_float16* buffer,                                     \
+      xnn_float16* output,                                     \
       size_t input_increment,                                           \
       size_t output_increment,                                          \
-      const union xnn_f16_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #define XNN_UKERNEL_UNIPASS(arch_flags, ukernel, channel_tile, channel_scaled_tile, primary_tile, incremental_tile, init_params) \
   XNN_INTERNAL void ukernel(                                          \
       size_t output_pixels,                                           \
       size_t kernel_elements,                                         \
       size_t channels,                                                \
-      const void** input,                                             \
+      const xnn_float16** input,                             \
       size_t input_offset,                                            \
-      const void* zero,                                               \
-      const void* multiplier,                                         \
-      void* output,                                                   \
+      const xnn_float16* zero,                               \
+      const xnn_float16* multiplier,                         \
+      xnn_float16* output,                                   \
       size_t input_increment,                                         \
       size_t output_increment,                                        \
-      const union xnn_f16_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 #include "src/f16-pavgpool/f16-pavgpool-minmax.h"
 

@@ -17,11 +17,11 @@
 
 void xnn_f16_raddstoreexpminusmax_ukernel__avx2_rr1_p2_u32_acc4(
     size_t batch,
-    const void* input,
-    const void* max,
-    void* output,
-    void* sum,
-    const union xnn_f16_expminus_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const xnn_float16* input,
+    const xnn_float16* max,
+    xnn_float16* output,
+    xnn_float16* sum,
+    const struct xnn_f16_expminus_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(batch != 0);
   assert(batch % sizeof(uint16_t) == 0);
@@ -190,5 +190,4 @@ void xnn_f16_raddstoreexpminusmax_ukernel__avx2_rr1_p2_u32_acc4(
   vacc_lo = _mm_add_ps(vacc_lo, _mm_movehl_ps(vacc_lo, vacc_lo));
   vacc_lo = _mm_add_ss(vacc_lo, _mm_movehdup_ps(vacc_lo));
   *((uint16_t*) sum) = (uint16_t) _mm_extract_epi16(_mm_cvtps_ph(vacc_lo, _MM_FROUND_TO_NEAREST_INT), 0);
-  _mm256_zeroupper();
 }

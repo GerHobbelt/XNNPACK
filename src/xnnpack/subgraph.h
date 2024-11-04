@@ -87,7 +87,7 @@ struct xnn_value {
       };
         struct {
         /// Per-channel-block multiplication factor to convert quantized elements to real representation, bf16 format.
-        const uint16_t* blockwise_scale;
+        const xnn_bfloat16* blockwise_scale;
         /// Index of the channel dimension with blockwise quantization parameters.
         size_t channel_dimension_blockwise;
         /// Block size.
@@ -309,6 +309,9 @@ struct xnn_node {
       uint32_t padding_value;
     } static_pad;
     struct {
+      struct xnn_shape new_axes;
+    } static_expand_dims;
+    struct {
       struct xnn_shape new_shape;
     } static_reshape;
     struct {
@@ -482,6 +485,8 @@ struct xnn_runtime {
   struct xnn_value* output_values[XNN_MAX_OPERATOR_OBJECTS];
 #endif
 };
+
+enum xnn_status xnn_insert_clamp_node(xnn_subgraph_t subgraph, float output_min, float output_max, struct xnn_node *node);
 
 struct xnn_value* xnn_subgraph_new_internal_value(xnn_subgraph_t subgraph);
 

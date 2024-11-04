@@ -9,66 +9,66 @@
 #include <stdint.h>
 
 #include "xnnpack/common.h"
-
+#include "xnnpack/math.h"
 
 // Default: serves to differentiate pointer types for micro-kernels without fused activation.
 
-union xnn_f16_default_params {
+struct xnn_f16_default_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_bf16_default_params {
+struct xnn_bf16_default_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_default_params {
+struct xnn_f32_default_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_s32_default_params {
+struct xnn_s32_default_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
 
 // ReLU: serves to differentiate pointer types for micro-kernels with fused ReLU activation.
 
-union xnn_f32_relu_params {
+struct xnn_f32_relu_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
 
 // Scale: used by RSUM microkernels
 
-union xnn_f16_scale_params {
+struct xnn_f16_scale_params {
   struct {
-    uint16_t scale;
-  };
+    xnn_float16 scale;
+  } scalar;
 };
 
-union xnn_f16_f32acc_scale_params {
+struct xnn_f16_f32acc_scale_params {
   struct {
     float scale;
-  };
+  } scalar;
 };
 
-union xnn_f32_scale_params {
+struct xnn_f32_scale_params {
   struct {
     float scale;
-  };
+  } scalar;
 };
 
 
 // Scale+Min+Max: used by AVGPOOL/GAVGPOOL microkernels.
 
-union xnn_f16_scaleminmax_params {
+struct xnn_f16_scaleminmax_params {
   struct {
-    uint16_t scale;
-    uint16_t min;
-    uint16_t max;
+    xnn_float16 scale;
+    xnn_float16 min;
+    xnn_float16 max;
   } scalar;
 };
 
-union xnn_f32_scaleminmax_params {
+struct xnn_f32_scaleminmax_params {
   struct {
     float scale;
     float min;
@@ -79,7 +79,7 @@ union xnn_f32_scaleminmax_params {
 
 // Min+Max: used by VCLAMP and GEMM/IGEMM/DWCONV/MAXPOOL/etc with MINMAX activation.
 
-union xnn_bf16_minmax_params {
+struct xnn_bf16_minmax_params {
   struct {
     float min;
     float max;
@@ -88,8 +88,8 @@ union xnn_bf16_minmax_params {
 
 union xnn_f16_minmax_params {
   struct {
-    uint16_t min;
-    uint16_t max;
+    xnn_float16 min;
+    xnn_float16 max;
   } scalar;
 };
 
@@ -100,22 +100,22 @@ union xnn_f32_minmax_params {
   } scalar;
 };
 
-union xnn_f16_qc4w_minmax_params {
+struct xnn_f16_qc4w_minmax_params {
   struct {
-    uint16_t min;
-    uint16_t max;
+    xnn_float16 min;
+    xnn_float16 max;
   } scalar;
 };
 
-union xnn_f16_qb4w_minmax_params {
+struct xnn_f16_qb4w_minmax_params {
   struct {
-    uint16_t min;
-    uint16_t max;
+    xnn_float16 min;
+    xnn_float16 max;
     size_t blocksize;
   } scalar;
 };
 
-union xnn_f32_qc4w_minmax_params {
+struct xnn_f32_qc4w_minmax_params {
   struct {
     float min;
     float max;
@@ -123,7 +123,7 @@ union xnn_f32_qc4w_minmax_params {
   } scalar;
 };
 
-union xnn_f32_qb4w_minmax_params {
+struct xnn_f32_qb4w_minmax_params {
   struct {
     float min;
     float max;
@@ -131,14 +131,14 @@ union xnn_f32_qb4w_minmax_params {
   } scalar;
 };
 
-union xnn_s8_minmax_params {
+struct xnn_s8_minmax_params {
   struct {
     int32_t min;
     int32_t max;
   } scalar;
 };
 
-union xnn_u8_minmax_params {
+struct xnn_u8_minmax_params {
   struct {
     uint32_t min;
     uint32_t max;
@@ -288,7 +288,7 @@ union xnn_qu8_conv_minmax_params {
 
 // Add w. Min+Max: used by quantized VADD[C] microkernels with MINMAX activation.
 
-union xnn_qs8_add_minmax_params {
+struct xnn_qs8_add_minmax_params {
   struct {
     int8_t a_zero_point;
     int8_t b_zero_point;
@@ -302,7 +302,7 @@ union xnn_qs8_add_minmax_params {
   } scalar;
 };
 
-union xnn_qu8_add_minmax_params {
+struct xnn_qu8_add_minmax_params {
   struct {
     uint8_t a_zero_point;
     uint8_t b_zero_point;
@@ -367,8 +367,17 @@ union xnn_qu8_mul_minmax_params {
 
 
 // RSum params used by RSUM & RDSUM microkernels.
-union xnn_qs8_rsum_params {
+struct xnn_qs8_rsum_params {
   char _;  // Dummy member variable to comply with the C standard
+};
+
+struct xnn_qs8_mean_minmax_params {
+  struct {
+    float scale;
+    int32_t num_elements;
+    int8_t input_zero_point;
+    int8_t output_zero_point;
+  } scalar;
 };
 
 // AvgPool w. Min+Max: used by quantized GAVGPOOL microkernels with MINMAX activation.
@@ -560,16 +569,16 @@ union xnn_qu8_avgpool_minmax_params {
 
 // Cvt (Convert): used by VCVT microkernels.
 
-union xnn_f16_qs8_cvt_params {
+struct xnn_f16_qs8_cvt_params {
   struct {
-    uint16_t scale;
+    xnn_float16 scale;
     int16_t output_zero_point;
     int8_t output_min;
     int8_t output_max;
   } scalar;
 };
 
-union xnn_f32_qs8_cvt_params {
+struct xnn_f32_qs8_cvt_params {
   struct {
     float scale;
     int16_t output_zero_point;
@@ -578,7 +587,7 @@ union xnn_f32_qs8_cvt_params {
   } scalar;
 };
 
-union xnn_f32_qu8_cvt_params {
+struct xnn_f32_qu8_cvt_params {
   struct {
     float scale;
     int16_t output_zero_point;
@@ -587,7 +596,14 @@ union xnn_f32_qu8_cvt_params {
   } scalar;
 };
 
-union xnn_qs8_cvt_params {
+struct xnn_s32_f32_cvt_params {
+  struct {
+    int32_t num_elements;
+    int8_t zero_point;
+  } scalar;
+};
+
+struct xnn_qs8_cvt_params {
   struct {
     int16_t input_zero_point;
     int32_t multiplier;
@@ -595,28 +611,28 @@ union xnn_qs8_cvt_params {
   } scalar;
 };
 
-union xnn_qs16_qs8_cvt_params {
+struct xnn_qs16_qs8_cvt_params {
   struct {
     int32_t multiplier;
     int32_t output_zero_point;
   } scalar;
 };
 
-union xnn_qs8_f16_cvt_params {
+struct xnn_qs8_f16_cvt_params {
   struct {
     int16_t zero_point;
-    uint16_t scale;
+    xnn_float16 scale;
   } scalar;
 };
 
-union xnn_qs8_f32_cvt_params {
+struct xnn_qs8_f32_cvt_params {
   struct {
     int32_t zero_point;
     float scale;
   } scalar;
 };
 
-union xnn_qu8_cvt_params {
+struct xnn_qu8_cvt_params {
   struct {
     uint16_t input_zero_point;
     int16_t multiplier;
@@ -624,7 +640,7 @@ union xnn_qu8_cvt_params {
   } scalar;
 };
 
-union xnn_qu8_f32_cvt_params {
+struct xnn_qu8_f32_cvt_params {
   struct {
     int32_t zero_point;
     float scale;
@@ -634,15 +650,15 @@ union xnn_qu8_f32_cvt_params {
 
 // ELU: used by VELU microkernels.
 
-union xnn_f16_elu_params {
+struct xnn_f16_elu_params {
   struct {
-    uint16_t prescale;
-    uint16_t minus_alpha;
-    uint16_t beta;
+    xnn_float16 prescale;
+    xnn_float16 alpha;
+    xnn_float16 beta;
   } scalar;
 };
 
-union xnn_f32_elu_params {
+struct xnn_f32_elu_params {
   struct {
     float prescale;
     float alpha;
@@ -653,21 +669,21 @@ union xnn_f32_elu_params {
 
 // ExpMinus: used by RADDEXPMINUSMAX microkernels.
 
-union xnn_f16_expminus_params {
+struct xnn_f16_expminus_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_expminus_params {
+struct xnn_f32_expminus_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
 // HSwish: used by VHSWISH microkernels.
 
-union xnn_f16_hswish_params {
+struct xnn_f16_hswish_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_hswish_params {
+struct xnn_f32_hswish_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
@@ -710,19 +726,19 @@ struct {
 
 // LReLU (Leaky ReLU): used by VLRELU microkernels.
 
-union xnn_f16_lrelu_params {
+struct xnn_f16_lrelu_params {
   struct {
-    uint16_t slope;
+    xnn_float16 slope;
   } scalar;
 };
 
-union xnn_f32_lrelu_params {
+struct xnn_f32_lrelu_params {
   struct {
     float slope;
   } scalar;
 };
 
-union xnn_qs8_lrelu_params {
+struct xnn_qs8_lrelu_params {
   struct {
     int32_t input_zero_point;
     int32_t positive_multiplier;
@@ -731,7 +747,7 @@ union xnn_qs8_lrelu_params {
   } scalar;
 };
 
-union xnn_qu8_lrelu_params {
+struct xnn_qu8_lrelu_params {
   struct {
     int32_t input_zero_point;
     int32_t positive_multiplier;
@@ -742,43 +758,43 @@ union xnn_qu8_lrelu_params {
 
 // Rnd (Round): used by VRNDNE/VRNDU/VRNDD/VRNDZ microkernels.
 
-union xnn_f16_rnd_params {
+struct xnn_f16_rnd_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_rnd_params {
+struct xnn_f32_rnd_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
 
 // Sigmoid: used by VSIGMOID microkernels.
 
-union xnn_f16_sigmoid_params {
+struct xnn_f16_sigmoid_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_sigmoid_params {
+struct xnn_f32_sigmoid_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
 
 // Sqrt (Square Root): used by VSQRT microkernels.
 
-union xnn_f16_sqrt_params {
+struct xnn_f16_sqrt_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_sqrt_params {
+struct xnn_f32_sqrt_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
 // Rsqrt (Reciprocal Square Root): used by VRSQRT microkernels.
 
-union xnn_f16_rsqrt_params {
+struct xnn_f16_rsqrt_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 
-union xnn_f32_rsqrt_params {
+struct xnn_f32_rsqrt_params {
   char _;  // Dummy member variable to comply with the C standard.
 };
 
@@ -786,137 +802,10 @@ union xnn_f32_rsqrt_params {
 
 union xnn_f16_tanh_params {
   char _;  // Dummy member variable to comply with the C standard
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
-  struct {
-    XNN_ALIGN(32) uint16_t sign_mask[16];
-    XNN_ALIGN(32) float sat_cutoff[8];
-    XNN_ALIGN(32) float log2e[8];
-    XNN_ALIGN(32) float magic_bias[8];
-    XNN_ALIGN(32) float minus_ln2[8];
-    XNN_ALIGN(32) float c3[8];
-    XNN_ALIGN(32) float c2[8];
-    XNN_ALIGN(32) float two[8];
-    XNN_ALIGN(32) float minus_one[8];
-  } avx_expm1minus_rr1_p3h2;
-  struct {
-    XNN_ALIGN(32) float neg_sat_cutoff[8];
-    XNN_ALIGN(32) float pos_sat_cutoff[8];
-    XNN_ALIGN(32) float c19[8];
-    XNN_ALIGN(32) float c17[8];
-    XNN_ALIGN(32) float c15[8];
-    XNN_ALIGN(32) float c13[8];
-    XNN_ALIGN(32) float c11[8];
-    XNN_ALIGN(32) float c9[8];
-    XNN_ALIGN(32) float c7[8];
-    XNN_ALIGN(32) float c5[8];
-    XNN_ALIGN(32) float c3[8];
-  } avx_polynomial_p19h9t2;
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
 };
 
 union xnn_f32_tanh_params {
-  struct {
-    float sat_cutoff;
-    float minus_log2e;
-    float magic_bias;
-    float ln2;
-    float c6;
-    float c5;
-    float c4;
-    float c3;
-    float c2;
-    float minus_two;
-    float one;
-  } scalar_expm1minus_rr1_p6h5;
-  struct {
-    float sat_cutoff;
-    float minus_log2e;
-    float magic_bias;
-    float ln2;
-    float c4;
-    float c3;
-    float c2;
-    float minus_two;
-    float one;
-  } scalar_expm1minus_rr1_lut8_p4h3;
-#if XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
-  struct {
-    XNN_ALIGN(8) float sat_cutoff[2];
-    XNN_ALIGN(8) float minus_log2e[2];
-    XNN_ALIGN(8) float magic_bias[2];
-    XNN_ALIGN(8) float ln2[2];
-    XNN_ALIGN(8) float c6[2];
-    XNN_ALIGN(8) float c5[2];
-    XNN_ALIGN(8) float c4[2];
-    XNN_ALIGN(8) float c3[2];
-    XNN_ALIGN(8) float c2[2];
-    XNN_ALIGN(8) float minus_two[2];
-    XNN_ALIGN(8) float one[2];
-    XNN_ALIGN(8) float sign_mask[2];
-  } wasmsimd_expm1minus_rr1_p6h5_abs;
-  struct {
-    XNN_ALIGN(8) float sat_cutoff[2];
-    XNN_ALIGN(8) float minus_log2e[2];
-    XNN_ALIGN(8) float magic_bias[2];
-    XNN_ALIGN(8) uint32_t index_mask[2];
-    XNN_ALIGN(8) float ln2[2];
-    XNN_ALIGN(8) float c4[2];
-    XNN_ALIGN(8) float c3[2];
-    XNN_ALIGN(8) float c2[2];
-    XNN_ALIGN(8) float minus_two[2];
-    XNN_ALIGN(8) float one[2];
-    XNN_ALIGN(8) float sign_mask[2];
-  } wasmsimd_expm1minus_rr1_lut8_p4h3_abs;
-  struct {
-    XNN_ALIGN(8) float sign_mask[2];
-    XNN_ALIGN(8) float sat_cutoff[2];
-    XNN_ALIGN(8) float log2e[2];
-    XNN_ALIGN(8) float magic_bias[2];
-    XNN_ALIGN(8) float minus_ln2[2];
-    XNN_ALIGN(8) float c6[2];
-    XNN_ALIGN(8) float c5[2];
-    XNN_ALIGN(8) float c4[2];
-    XNN_ALIGN(8) float c3[2];
-    XNN_ALIGN(8) float c2[2];
-    XNN_ALIGN(8) float two[2];
-    XNN_ALIGN(8) float one[2];
-  } wasmsimd_expm1minus_rr1_p6h5_nabs;
-  struct {
-    XNN_ALIGN(8) float sign_mask[2];
-    XNN_ALIGN(8) float sat_cutoff[2];
-    XNN_ALIGN(8) float log2e[2];
-    XNN_ALIGN(8) float magic_bias[2];
-    XNN_ALIGN(8) uint32_t index_mask[2];
-    XNN_ALIGN(8) float minus_ln2[2];
-    XNN_ALIGN(8) float c4[2];
-    XNN_ALIGN(8) float c3[2];
-    XNN_ALIGN(8) float c2[2];
-    XNN_ALIGN(8) float two[2];
-    XNN_ALIGN(8) float one[2];
-  } wasmsimd_expm1minus_rr1_lut8_p4h3_nabs;
-#endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
-#if XNN_ARCH_ARM || XNN_ARCH_ARM64
-  struct {
-    float sat_cutoff;
-    float minus_log2e;
-    float magic_bias;
-    float ln2;
-    float c6;
-    float c5;
-    float c4;
-    float c3;
-    float c2;
-  } neon_expm1minus_rr1_p6h5;
-  struct {
-    float sat_cutoff;
-    float minus_log2e;
-    float magic_bias;
-    float ln2;
-    float c4;
-    float c3;
-    float c2;
-  } neon_expm1minus_rr1_lut8_p4h3;
-#endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
+  char _;  // Dummy member variable to comply with the C standard
 };
 
 
@@ -956,12 +845,16 @@ union xnn_f32_gavgpool_params {
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64 */
 };
 
+struct xnn_qs8_packw_params {
+  int8_t input_zero_point;
+};
+
 // Forward declare for use in microkernel headers for JIT generator functions.
 struct xnn_code_buffer;
 
 typedef int xnn_status_t;
 
-union xnn_x32_packb_params {
+struct xnn_x32_packb_params {
   char _;  // Dummy member variable to comply with the C standard
 };
 

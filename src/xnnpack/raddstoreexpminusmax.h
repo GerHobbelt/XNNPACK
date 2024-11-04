@@ -18,11 +18,11 @@ extern "C" {
 #define DECLARE_F16_RADDSTOREEXPMINUSMAX_UKERNEL_FUNCTION(fn_name) \
   XNN_INTERNAL void fn_name(                                       \
       size_t n,                                                    \
-      const void* input,                                           \
-      const void* max,                                             \
-      void* output,                                                \
-      void* sum,                                                   \
-      const union xnn_f16_expminus_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const xnn_float16* input,                                           \
+      const xnn_float16* max,                                             \
+      xnn_float16* output,                                                \
+      xnn_float16* sum,                                                   \
+      const struct xnn_f16_expminus_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F16_RADDSTOREEXPMINUSMAX_UKERNEL_FUNCTION(xnn_f16_raddstoreexpminusmax_ukernel__avx2_rr1_p2_u16)
 DECLARE_F16_RADDSTOREEXPMINUSMAX_UKERNEL_FUNCTION(xnn_f16_raddstoreexpminusmax_ukernel__avx2_rr1_p2_u16_acc2)
@@ -78,7 +78,7 @@ DECLARE_F16_RADDSTOREEXPMINUSMAX_UKERNEL_FUNCTION(xnn_f16_raddstoreexpminusmax_u
       const float* max,                                            \
       float* output,                                               \
       float* sum,                                                  \
-      const union xnn_f32_expminus_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f32_expminus_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F32_RADDSTOREEXPMINUSMAX_UKERNEL_FUNCTION(xnn_f32_raddstoreexpminusmax_ukernel__neon_rr2_p5_u4)
 DECLARE_F32_RADDSTOREEXPMINUSMAX_UKERNEL_FUNCTION(xnn_f32_raddstoreexpminusmax_ukernel__neon_rr2_p5_u8)

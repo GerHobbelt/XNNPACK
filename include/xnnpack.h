@@ -1246,6 +1246,23 @@ enum xnn_status xnn_define_static_constant_pad(
   uint32_t output_id,
   uint32_t flags);
 
+/// Define a Expand Dims Node with and add it to a Subgraph.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param num_new_axes - number of new axes of size 1 to be inserted.
+/// @param new_axes - The axis positions of the new axes in the expanded dimensions.
+/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+///                    shape must match the shape of the input tensor with padding.
+/// @param flags - binary features of the Constant Pad Node. No supported flags are currently defined.
+enum xnn_status xnn_define_static_expand_dims(
+  xnn_subgraph_t subgraph,
+  size_t num_new_axes,
+  const size_t* new_axes,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags);
+
 /// Define a Mean Node and add it to a Subgraph.
 ///
 /// @param subgraph - a Subgraph object that will own the created Node.
@@ -5169,12 +5186,29 @@ enum xnn_status xnn_create_mean_nd_f32(
   uint32_t flags,
   xnn_operator_t* mean_op_out);
 
+enum xnn_status xnn_create_mean_nd_qs8(
+  float scale,
+  int8_t input_zero_point,
+  int8_t output_zero_point,
+  uint32_t flags,
+  xnn_operator_t* mean_op_out);
+
 enum xnn_status xnn_reshape_mean_nd_f32(
   xnn_operator_t mean_op,
   size_t num_reduction_axes,
   const size_t* reduction_axes,
   size_t num_input_dims,
   const size_t* input_shape,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_reshape_mean_nd_qs8(
+  xnn_operator_t mean_op,
+  size_t num_reduction_axes,
+  const size_t* reduction_axes,
+  size_t num_input_dims,
+  const size_t* input_shape,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_mean_nd_f32(
@@ -5193,6 +5227,12 @@ enum xnn_status xnn_reshape_minimum_nd_f16(
   size_t num_input2_dims,
   const size_t* input2_shape,
   pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_mean_nd_qs8(
+  xnn_operator_t mean_op,
+  void* workspace,
+  const void* input,
+  void* output);
 
 enum xnn_status xnn_setup_minimum_nd_f16(
   xnn_operator_t minimum_op,

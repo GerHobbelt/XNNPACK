@@ -337,7 +337,7 @@ struct gemm_context {
   union {
     union xnn_qs8_conv_minmax_params qs8;
     union xnn_qu8_conv_minmax_params qu8;
-    union xnn_f16_scaleminmax_params f16;
+    struct xnn_f16_scaleminmax_params f16;
     union xnn_f32_minmax_params f32;
   } params;
 };
@@ -534,7 +534,7 @@ struct igemm_context {
   union {
     union xnn_qs8_conv_minmax_params qs8;
     union xnn_qu8_conv_minmax_params qu8;
-    union xnn_f16_scaleminmax_params f16;
+    struct xnn_f16_scaleminmax_params f16;
     union xnn_f32_minmax_params f32;
   } params;
 };
@@ -653,7 +653,7 @@ struct subgemm_context {
   union {
     union xnn_qs8_conv_minmax_params qs8;
     union xnn_qu8_conv_minmax_params qu8;
-    union xnn_f16_scaleminmax_params f16;
+    struct xnn_f16_scaleminmax_params f16;
     union xnn_f32_minmax_params f32;
   } params;
 };
@@ -708,7 +708,7 @@ struct subconv_context {
   union {
     union xnn_qs8_conv_minmax_params qs8;
     union xnn_qu8_conv_minmax_params qu8;
-    union xnn_f16_scaleminmax_params f16;
+    struct xnn_f16_scaleminmax_params f16;
     union xnn_f32_minmax_params f32;
   } params;
 };
@@ -907,8 +907,8 @@ struct max_pooling_context {
   size_t input_increment;
   size_t output_increment;
   union {
-    union xnn_u8_minmax_params u8;
-    union xnn_s8_minmax_params s8;
+    struct xnn_u8_minmax_params u8;
+    struct xnn_s8_minmax_params s8;
     union xnn_f16_minmax_params f16;
     union xnn_f32_minmax_params f32;
   } params;
@@ -1015,8 +1015,8 @@ struct average_pooling_context {
   size_t input_increment;
   size_t output_increment;
   union {
-    union xnn_f16_scaleminmax_params f16;
-    union xnn_f32_scaleminmax_params f32;
+    struct xnn_f16_scaleminmax_params f16;
+    struct xnn_f32_scaleminmax_params f32;
     union xnn_qu8_avgpool_minmax_params qu8;
   } params;
   union {
@@ -1072,7 +1072,7 @@ struct pixelwise_average_pooling_context {
   union {
     union xnn_f16_minmax_params f16;
     union xnn_f32_minmax_params f32;
-    union xnn_u8_minmax_params u8;
+    struct xnn_u8_minmax_params u8;
   } params;
   union {
     xnn_pavgpool_unipass_ukernel_fn unipass_ukernel;
@@ -1113,8 +1113,8 @@ struct global_average_pooling_nwc_context {
   union {
     union xnn_qs8_avgpool_minmax_params qs8;
     union xnn_qu8_avgpool_minmax_params qu8;
-    union xnn_f16_scaleminmax_params f16;
-    union xnn_f32_scaleminmax_params f32;
+    struct xnn_f16_scaleminmax_params f16;
+    struct xnn_f32_scaleminmax_params f32;
   } params;
   union {
     xnn_gavgpool_unipass_ukernel_fn unipass_ukernel;
@@ -1251,13 +1251,13 @@ struct elementwise_binary_context {
   size_t y_stride[XNN_MAX_TENSOR_DIMS - 1];
   size_t elements;
   union {
-    union xnn_qs8_add_minmax_params qs8_addsub;
-    union xnn_qu8_add_minmax_params qu8_addsub;
+    struct xnn_qs8_add_minmax_params qs8_addsub;
+    struct xnn_qu8_add_minmax_params qu8_addsub;
     union xnn_qs8_mul_minmax_params qs8_mul;
     union xnn_qu8_mul_minmax_params qu8_mul;
     union xnn_f16_minmax_params f16;
     union xnn_f32_minmax_params f32;
-    union xnn_s32_default_params s32;
+    struct xnn_s32_default_params s32;
   } params;
   xnn_vbinary_ukernel_fn ukernel;
   bool flip_a_b;
@@ -1347,35 +1347,35 @@ struct univector_strided_context {
   size_t y_stride;
   xnn_vunary_ukernel_fn ukernel;
   union {
-    union xnn_f16_default_params f16_default;
-    union xnn_f16_hswish_params f16_hswish;
-    union xnn_f16_lrelu_params f16_lrelu;
+    struct xnn_f16_default_params f16_default;
+    struct xnn_f16_hswish_params f16_hswish;
+    struct xnn_f16_lrelu_params f16_lrelu;
     union xnn_f16_minmax_params f16_minmax;
-    union xnn_f16_default_params f16_neg;
-    union xnn_f16_sigmoid_params f16_sigmoid;
+    struct xnn_f16_default_params f16_neg;
+    struct xnn_f16_sigmoid_params f16_sigmoid;
     union xnn_f16_tanh_params f16_tanh;
-    union xnn_f32_default_params f32_default;
-    union xnn_f32_elu_params f32_elu;
-    union xnn_f32_hswish_params f32_hswish;
-    union xnn_f32_lrelu_params f32_lrelu;
+    struct xnn_f32_default_params f32_default;
+    struct xnn_f32_elu_params f32_elu;
+    struct xnn_f32_hswish_params f32_hswish;
+    struct xnn_f32_lrelu_params f32_lrelu;
     union xnn_f32_minmax_params f32_minmax;
-    union xnn_f32_qs8_cvt_params f32_qs8_cvt;
-    union xnn_f32_qu8_cvt_params f32_qu8_cvt;
-    union xnn_f32_rnd_params f32_rnd;
-    union xnn_f32_sigmoid_params f32_sigmoid;
-    union xnn_f32_sqrt_params f32_sqrt;
+    struct xnn_f32_qs8_cvt_params f32_qs8_cvt;
+    struct xnn_f32_qu8_cvt_params f32_qu8_cvt;
+    struct xnn_f32_rnd_params f32_rnd;
+    struct xnn_f32_sigmoid_params f32_sigmoid;
+    struct xnn_f32_sqrt_params f32_sqrt;
     union xnn_f32_tanh_params f32_tanh;
-    union xnn_qs8_cvt_params qs8_cvt;
-    union xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
-    union xnn_qs8_f32_cvt_params qs8_f32_cvt;
+    struct xnn_qs8_cvt_params qs8_cvt;
+    struct xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
+    struct xnn_qs8_f32_cvt_params qs8_f32_cvt;
     union xnn_qs8_hswish_params qs8_hswish;
-    union xnn_qs8_lrelu_params qs8_lrelu;
-    union xnn_qu8_cvt_params qu8_cvt;
-    union xnn_qu8_f32_cvt_params qu8_f32_cvt;
+    struct xnn_qs8_lrelu_params qs8_lrelu;
+    struct xnn_qu8_cvt_params qu8_cvt;
+    struct xnn_qu8_f32_cvt_params qu8_f32_cvt;
     union xnn_qu8_hswish_params qu8_hswish;
-    union xnn_qu8_lrelu_params qu8_lrelu;
-    union xnn_s8_minmax_params s8_minmax;
-    union xnn_u8_minmax_params u8_minmax;
+    struct xnn_qu8_lrelu_params qu8_lrelu;
+    struct xnn_s8_minmax_params s8_minmax;
+    struct xnn_u8_minmax_params u8_minmax;
   } params;
 };
 
@@ -1393,32 +1393,32 @@ struct univector_contiguous_context {
   uint16_t log2_ysize;
   xnn_vunary_ukernel_fn ukernel;
   union {
-    union xnn_f16_default_params f16_default;
-    union xnn_f16_hswish_params f16_hswish;
-    union xnn_f16_lrelu_params f16_lrelu;
+    struct xnn_f16_default_params f16_default;
+    struct xnn_f16_hswish_params f16_hswish;
+    struct xnn_f16_lrelu_params f16_lrelu;
     union xnn_f16_minmax_params f16_minmax;
-    union xnn_f16_sigmoid_params f16_sigmoid;
-    union xnn_f32_default_params f32_default;
-    union xnn_f32_elu_params f32_elu;
-    union xnn_f32_hswish_params f32_hswish;
-    union xnn_f32_lrelu_params f32_lrelu;
+    struct xnn_f16_sigmoid_params f16_sigmoid;
+    struct xnn_f32_default_params f32_default;
+    struct xnn_f32_elu_params f32_elu;
+    struct xnn_f32_hswish_params f32_hswish;
+    struct xnn_f32_lrelu_params f32_lrelu;
     union xnn_f32_minmax_params f32_minmax;
-    union xnn_f32_qs8_cvt_params f32_qs8_cvt;
-    union xnn_f32_qu8_cvt_params f32_qu8_cvt;
-    union xnn_f32_rnd_params f32_rnd;
-    union xnn_f32_sigmoid_params f32_sigmoid;
-    union xnn_f32_sqrt_params f32_sqrt;
-    union xnn_qs8_cvt_params qs8_cvt;
-    union xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
-    union xnn_qs8_f32_cvt_params qs8_f32_cvt;
+    struct xnn_f32_qs8_cvt_params f32_qs8_cvt;
+    struct xnn_f32_qu8_cvt_params f32_qu8_cvt;
+    struct xnn_f32_rnd_params f32_rnd;
+    struct xnn_f32_sigmoid_params f32_sigmoid;
+    struct xnn_f32_sqrt_params f32_sqrt;
+    struct xnn_qs8_cvt_params qs8_cvt;
+    struct xnn_qs16_qs8_cvt_params qs16_qs8_cvt;
+    struct xnn_qs8_f32_cvt_params qs8_f32_cvt;
     union xnn_qs8_hswish_params qs8_hswish;
-    union xnn_qs8_lrelu_params qs8_lrelu;
-    union xnn_qu8_cvt_params qu8_cvt;
-    union xnn_qu8_f32_cvt_params qu8_f32_cvt;
+    struct xnn_qs8_lrelu_params qs8_lrelu;
+    struct xnn_qu8_cvt_params qu8_cvt;
+    struct xnn_qu8_f32_cvt_params qu8_f32_cvt;
     union xnn_qu8_hswish_params qu8_hswish;
-    union xnn_qu8_lrelu_params qu8_lrelu;
-    union xnn_s8_minmax_params s8_minmax;
-    union xnn_u8_minmax_params u8_minmax;
+    struct xnn_qu8_lrelu_params qu8_lrelu;
+    struct xnn_s8_minmax_params s8_minmax;
+    struct xnn_u8_minmax_params u8_minmax;
   } params;
 };
 
@@ -1445,11 +1445,13 @@ struct reduce_context {
     xnn_rdsum_ukernel_fn rdsum;
   } ukernel;
   xnn_vunary_ukernel_fn cvt_ukernel;
+  xnn_vunary_ukernel_fn s32_f32_cvt_ukernel;
   union {
-    union xnn_f32_default_params f32_default;
-    union xnn_f16_f32acc_scale_params scale_params;
-    union xnn_f32_scale_params f32_scale;
-    union xnn_f32_scaleminmax_params f32_scaleminmax;
+    struct xnn_qs8_mean_minmax_params qs8_mean;
+    struct xnn_f32_default_params f32_default;
+    struct xnn_f16_f32acc_scale_params scale_params;
+    struct xnn_f32_scale_params f32_scale;
+    struct xnn_f32_scaleminmax_params f32_scaleminmax;
   } params;
 };
 
@@ -1576,7 +1578,7 @@ struct f16_qd8_convert_context {
   xnn_vunary_ukernel_fn convert_ukernel;
   xnn_init_f16_qs8_cvt_params_fn init_params;
   union {
-    union xnn_f16_default_params f16_default;
+    struct xnn_f16_default_params f16_default;
   } params;
 };
 
@@ -1592,7 +1594,7 @@ struct f32_qd8_convert_context {
   xnn_vunary_ukernel_fn convert_ukernel;
   xnn_init_f32_qs8_cvt_params_fn init_params;
   union {
-    union xnn_f32_default_params f32_default;
+    struct xnn_f32_default_params f32_default;
   } params;
 };
 
@@ -1663,12 +1665,12 @@ struct floating_point_softmax_context {
     union xnn_f32_minmax_params f32;
   } minmax_params;
   union {
-    union xnn_f16_expminus_params f16;
-    union xnn_f32_expminus_params f32;
+    struct xnn_f16_expminus_params f16;
+    struct xnn_f32_expminus_params f32;
   } expminus_params;
   union {
-    union xnn_f16_default_params f16;
-    union xnn_f32_default_params f32;
+    struct xnn_f16_default_params f16;
+    struct xnn_f32_default_params f32;
   } rmax_params;
 };
 
@@ -1688,7 +1690,7 @@ struct rope_context {
   void* output;
   xnn_vbinary_ukernel_fn vcmul;
   union {
-    union xnn_f32_default_params f32;
+    struct xnn_f32_default_params f32;
   } params;
 };
 
@@ -1786,16 +1788,16 @@ struct scaled_dot_product_attention_context {
   xnn_vunary_ukernel_fn vtanh_ukernel;
 
   union {
-    union xnn_f16_expminus_params f16;
-    union xnn_f32_expminus_params f32;
+    struct xnn_f16_expminus_params f16;
+    struct xnn_f32_expminus_params f32;
   } expminus_params;
   union {
     union xnn_f16_minmax_params f16;
     union xnn_f32_minmax_params f32;
   } minmax_params;
   union {
-    union xnn_f16_default_params f16;
-    union xnn_f32_default_params f32;
+    struct xnn_f16_default_params f16;
+    struct xnn_f32_default_params f32;
   } rmax_params;
   union {
     union xnn_f16_tanh_params f16;

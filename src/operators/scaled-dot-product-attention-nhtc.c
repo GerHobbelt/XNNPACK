@@ -131,7 +131,7 @@ enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f16(
 
   union xnn_f16_minmax_params minmax_params;
   if XNN_LIKELY(gemm_config->init.f16 != NULL) {
-    gemm_config->init.f16(&minmax_params, fp16_ieee_from_fp32_value(-INFINITY), fp16_ieee_from_fp32_value(INFINITY));
+    gemm_config->init.f16(&minmax_params, xnn_float16_from_float(-INFINITY), xnn_float16_from_float(INFINITY));
   }
 
   const struct xnn_raddstoreexpminusmax_config* raddstoreexpminusmax_config =
@@ -143,7 +143,7 @@ enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f16(
     goto error;
   }
 
-  union xnn_f16_expminus_params expminus_params;
+  struct xnn_f16_expminus_params expminus_params;
   if (raddstoreexpminusmax_config->init.f16 != NULL) {
     raddstoreexpminusmax_config->init.f16(&expminus_params);
   }
@@ -156,7 +156,7 @@ enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f16(
     goto error;
   }
 
-  union xnn_f16_default_params rmax_params;
+  struct xnn_f16_default_params rmax_params;
   if (rmax_config->init.f16 != NULL) {
     rmax_config->init.f16(&rmax_params);
   }
@@ -253,7 +253,7 @@ enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f32(
     goto error;
   }
 
-  union xnn_f32_expminus_params expminus_params;
+  struct xnn_f32_expminus_params expminus_params;
   if (raddstoreexpminusmax_config->init.f32 != NULL) {
     raddstoreexpminusmax_config->init.f32(&expminus_params);
   }
@@ -266,7 +266,7 @@ enum xnn_status xnn_create_scaled_dot_product_attention_nhtc_f32(
     goto error;
   }
 
-  union xnn_f32_default_params rmax_params;
+  struct xnn_f32_default_params rmax_params;
   if (rmax_config->init.f32 != NULL) {
     rmax_config->init.f32(&rmax_params);
   }
@@ -334,10 +334,10 @@ error:
 }
 
 static void compute_reciprocal_f16(
-    const uint16_t input[XNN_MIN_ELEMENTS(1)],
-    uint16_t output[XNN_MIN_ELEMENTS(1)])
+    const xnn_float16 input[XNN_MIN_ELEMENTS(1)],
+    xnn_float16 output[XNN_MIN_ELEMENTS(1)])
 {
-  *output = fp16_ieee_from_fp32_value(1.0f / fp16_ieee_to_fp32_value(*input));
+  *output = xnn_float16_from_float(1.0f / xnn_float16_to_float(*input));
 }
 
 static void compute_reciprocal_f32(
@@ -484,7 +484,7 @@ static enum xnn_status reshape_scaled_dot_product_attention_nhtc(
   *workspace_alignment = XNN_ALLOCATION_ALIGNMENT;
 
   // Pack key.
-  attention_op->context.packw_gemm_goi = (struct packw_gemm_goi_context) {
+  attention_op->context.gemm.packw_gemm_goi = (struct packw_gemm_goi_context) {
     .kc = query_key_channels,
     .nr = nr,
     .kr = kr,
@@ -499,7 +499,7 @@ static enum xnn_status reshape_scaled_dot_product_attention_nhtc(
   attention_op->compute[0].type = xnn_parallelization_type_2d_tile_1d;
   attention_op->compute[0].task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_batched_packw_gemm_goi;
   attention_op->compute[0].context_offset =
-    offsetof(struct xnn_operator, context.packw_gemm_goi) - offsetof(struct xnn_operator, context);
+    offsetof(struct xnn_operator, context.gemm.packw_gemm_goi) - offsetof(struct xnn_operator, context);
   attention_op->compute[0].range[0] = batch_size * key_value_heads;
   attention_op->compute[0].range[1] = key_value_tokens;
   // We cannot tile key_value_tokens because we compute complete rows of Q*K,
@@ -507,7 +507,7 @@ static enum xnn_status reshape_scaled_dot_product_attention_nhtc(
   attention_op->compute[0].tile[0] = key_value_tokens;
 
   // Pack value.
-  attention_op->context.packw_gemm_gio = (struct packw_gemm_gio_context) {
+  attention_op->context.gemm.packw_gemm_gio = (struct packw_gemm_gio_context) {
     .kc = key_value_tokens,
     .nr = nr,
     .kr = kr,
@@ -524,14 +524,14 @@ static enum xnn_status reshape_scaled_dot_product_attention_nhtc(
   attention_op->compute[1].type = xnn_parallelization_type_2d_tile_1d;
   attention_op->compute[1].task_2d_tile_1d = (pthreadpool_task_2d_tile_1d_t) xnn_compute_batched_packw_gemm_gio;
   attention_op->compute[1].context_offset =
-    offsetof(struct xnn_operator, context.packw_gemm_gio) - offsetof(struct xnn_operator, context);
+    offsetof(struct xnn_operator, context.gemm.packw_gemm_gio) - offsetof(struct xnn_operator, context);
   attention_op->compute[1].range[0] = batch_size * key_value_heads;
   attention_op->compute[1].range[1] = value_channels;
   attention_op->compute[1].tile[0] = value_channels;
 
   struct xnn_hmp_gemm_ukernel gemm_ukernel = attention_op->ukernel.gemm.gemm_cases[mr - 1];
 
-  attention_op->context.attention = (struct scaled_dot_product_attention_context){
+  attention_op->context.gemm.gemm.attention = (struct scaled_dot_product_attention_context){
     .key_value_tokens = key_value_tokens,
     .key_value_tokens_scaled = key_value_tokens * element_size,
     .query_key_channels = query_key_channels,
@@ -562,9 +562,9 @@ static enum xnn_status reshape_scaled_dot_product_attention_nhtc(
   };
 
   if (attention_op->attention.cap_type == xnn_attention_logits_cap_type_tanh) {
-    attention_op->context.attention.logits_cap.type = xnn_attention_logits_cap_type_tanh;
-    memcpy(&attention_op->context.attention.logits_cap.cap, cap, cap_size);
-    memcpy(&attention_op->context.attention.logits_cap.cap_reciprocal, cap_reciprocal, cap_size);
+    attention_op->context.gemm.gemm.attention.logits_cap.type = xnn_attention_logits_cap_type_tanh;
+    memcpy(&attention_op->context.gemm.gemm.attention.logits_cap.cap, cap, cap_size);
+    memcpy(&attention_op->context.gemm.gemm.attention.logits_cap.cap_reciprocal, cap_reciprocal, cap_size);
   }
 
   #if XNN_MAX_UARCH_TYPES > 1
@@ -606,15 +606,15 @@ static enum xnn_status reshape_scaled_dot_product_attention_nhtc(
   attention_op->compute[2].range[2] = query_tokens;
   attention_op->compute[2].tile[0] = mr;
 
-  attention_op->context.attention.scaled_query_offset = 0;
-  attention_op->context.attention.packed_k_offset = scaled_query_size;
-  attention_op->context.attention.packed_v_offset = scaled_query_size + packed_key_size;
-  attention_op->context.attention.logits_offset = scaled_query_size + packed_key_size + packed_value_size;
+  attention_op->context.gemm.gemm.attention.scaled_query_offset = 0;
+  attention_op->context.gemm.gemm.attention.packed_k_offset = scaled_query_size;
+  attention_op->context.gemm.gemm.attention.packed_v_offset = scaled_query_size + packed_key_size;
+  attention_op->context.gemm.gemm.attention.logits_offset = scaled_query_size + packed_key_size + packed_value_size;
 
-  memcpy(&attention_op->context.attention.minmax_params, minmax_params, minmax_params_size);
-  memcpy(&attention_op->context.attention.expminus_params, expminus_params, expminus_params_size);
-  memcpy(&attention_op->context.attention.rmax_params, rmax_params, rmax_params_size);
-  memcpy(&attention_op->context.attention.tanh_params, tanh_params, tanh_params_size);
+  memcpy(&attention_op->context.gemm.gemm.attention.minmax_params, minmax_params, minmax_params_size);
+  memcpy(&attention_op->context.gemm.gemm.attention.expminus_params, expminus_params, expminus_params_size);
+  memcpy(&attention_op->context.gemm.gemm.attention.rmax_params, rmax_params, rmax_params_size);
+  memcpy(&attention_op->context.gemm.gemm.attention.tanh_params, tanh_params, tanh_params_size);
 
   attention_op->state = xnn_run_state_needs_setup;
 
@@ -635,8 +635,8 @@ enum xnn_status xnn_reshape_scaled_dot_product_attention_nhtc_f16(
   size_t* workspace_alignment,
   pthreadpool_t threadpool)
 {
-  uint16_t cap = fp16_ieee_from_fp32_value(attention_op->attention.cap_params.cap);
-  uint16_t cap_reciprocal = fp16_ieee_from_fp32_value(1.0f / attention_op->attention.cap_params.cap);
+  xnn_float16 cap = xnn_float16_from_float(attention_op->attention.cap_params.cap);
+  xnn_float16 cap_reciprocal = xnn_float16_from_float(1.0f / attention_op->attention.cap_params.cap);
 
   return reshape_scaled_dot_product_attention_nhtc(
     attention_op,
@@ -732,26 +732,26 @@ static enum xnn_status setup_scaled_dot_product_attention_nhtc(
       break;
   }
 
-  attention_op->context.packw_gemm_goi.kernel = key;
-  attention_op->context.packw_gemm_goi.packed_weights =
-    (void*) ((uintptr_t) workspace + attention_op->context.attention.packed_k_offset);
-  attention_op->context.packw_gemm_goi.bias = NULL;
+  attention_op->context.gemm.packw_gemm_goi.kernel = key;
+  attention_op->context.gemm.packw_gemm_goi.packed_weights =
+    (void*) ((uintptr_t) workspace + attention_op->context.gemm.gemm.attention.packed_k_offset);
+  attention_op->context.gemm.packw_gemm_goi.bias = NULL;
 
-  attention_op->context.packw_gemm_gio.kernel = value;
-  attention_op->context.packw_gemm_gio.packed_weights =
-    (void*) ((uintptr_t) workspace + attention_op->context.attention.packed_v_offset);
-  attention_op->context.packw_gemm_gio.bias = NULL;
+  attention_op->context.gemm.packw_gemm_gio.kernel = value;
+  attention_op->context.gemm.packw_gemm_gio.packed_weights =
+    (void*) ((uintptr_t) workspace + attention_op->context.gemm.gemm.attention.packed_v_offset);
+  attention_op->context.gemm.packw_gemm_gio.bias = NULL;
 
-  attention_op->context.attention.scaled_query =
-    (void*) ((uintptr_t) workspace + attention_op->context.attention.scaled_query_offset);
-  attention_op->context.attention.logits_buffer =
-    (void*) ((uintptr_t) workspace + attention_op->context.attention.logits_offset);
-  attention_op->context.attention.query = query;
-  attention_op->context.attention.key = attention_op->context.packw_gemm_goi.packed_weights;
-  attention_op->context.attention.value = attention_op->context.packw_gemm_gio.packed_weights;
-  attention_op->context.attention.scale = scale;
-  attention_op->context.attention.mask = mask;
-  attention_op->context.attention.output = output;
+  attention_op->context.gemm.gemm.attention.scaled_query =
+    (void*) ((uintptr_t) workspace + attention_op->context.gemm.gemm.attention.scaled_query_offset);
+  attention_op->context.gemm.gemm.attention.logits_buffer =
+    (void*) ((uintptr_t) workspace + attention_op->context.gemm.gemm.attention.logits_offset);
+  attention_op->context.gemm.gemm.attention.query = query;
+  attention_op->context.gemm.gemm.attention.key = attention_op->context.gemm.packw_gemm_goi.packed_weights;
+  attention_op->context.gemm.gemm.attention.value = attention_op->context.gemm.packw_gemm_gio.packed_weights;
+  attention_op->context.gemm.gemm.attention.scale = scale;
+  attention_op->context.gemm.gemm.attention.mask = mask;
+  attention_op->context.gemm.gemm.attention.output = output;
   attention_op->state = xnn_run_state_ready;
 
   return xnn_status_success;

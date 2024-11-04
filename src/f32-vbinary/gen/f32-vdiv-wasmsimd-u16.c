@@ -20,7 +20,7 @@ void xnn_f32_vdiv_ukernel__wasmsimd_u16(
     const float* input_a,
     const float* input_b,
     float* output,
-    const union xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
+    const struct xnn_f32_default_params params[restrict XNN_MIN_ELEMENTS(1)]) XNN_OOB_READS
 {
   assert(batch != 0);
   assert(batch % sizeof(float) == 0);
@@ -46,7 +46,6 @@ void xnn_f32_vdiv_ukernel__wasmsimd_u16(
     v128_t vacc1 = wasm_f32x4_div(va1, vb1);
     v128_t vacc2 = wasm_f32x4_div(va2, vb2);
     v128_t vacc3 = wasm_f32x4_div(va3, vb3);
-
 
 
     wasm_v128_store(output, vacc0);

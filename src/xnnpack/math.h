@@ -18,6 +18,7 @@
   #include <stdlib.h> // For _rotl.
 #endif
 
+#include <fp16/fp16.h>
 #include "xnnpack/common.h"
 
 // stdlib.h from Windows 10 SDK defines min & max macros.
@@ -410,7 +411,7 @@ XNN_INLINE static float math_cvt_fp32_bf16(uint16_t x) {
   return bits.as_float;
 }
 
-XNN_INLINE static float math_cvt_bf16_fp32(float x) {
+XNN_INLINE static uint16_t math_cvt_bf16_fp32(float x) {
    union {
     float as_float;
     uint32_t as_uint32;
@@ -419,6 +420,74 @@ XNN_INLINE static float math_cvt_bf16_fp32(float x) {
 
   // TODO Handle fraction rounding
   return bits.as_uint32 >> 16;
+}
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif
+
+// We want float16s to be a distinct type from uint16_t, to avoid accidental
+// reinterpret casts as integers. This type is designed to produce errors when
+// using it as an arithmetic type in C, and designed to emulate a native float16
+// type in C++.
+struct xnn_float16 {
+  uint16_t value;
+
+#ifdef __cplusplus
+  xnn_float16() = default;
+  xnn_float16(float x) : value(fp16_ieee_from_fp32_value(x)) {}
+
+  operator float() const { return fp16_ieee_to_fp32_value(value); }
+#endif
+};
+typedef struct xnn_float16 xnn_float16;
+
+struct xnn_bfloat16 {
+  uint16_t value;
+
+#ifdef __cplusplus
+  xnn_bfloat16() = default;
+  xnn_bfloat16(float x) : value(math_cvt_bf16_fp32(x)) {}
+
+  operator float() const { return math_cvt_fp32_bf16(value); }
+#endif
+};
+typedef struct xnn_bfloat16 xnn_bfloat16;
+
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+XNN_INLINE static xnn_float16 xnn_float16_from_float(float f) {
+  struct xnn_float16 result;
+  result.value = fp16_ieee_from_fp32_value(f);
+  return result;
+}
+
+XNN_INLINE static float xnn_float16_to_float(xnn_float16 fp16) {
+  return fp16_ieee_to_fp32_value(fp16.value);
+}
+
+XNN_INLINE static xnn_bfloat16 xnn_bfloat16_from_float(float f) {
+  xnn_bfloat16 result;
+  result.value = math_cvt_bf16_fp32(f);
+  return result;
+}
+
+XNN_INLINE static float xnn_bfloat16_to_float(xnn_bfloat16 bf16) {
+  return math_cvt_fp32_bf16(bf16.value);
+}
+
+XNN_INLINE static xnn_float16 xnn_float16_zero() {
+  struct xnn_float16 result;
+  result.value = 0;
+  return result;
+}
+
+XNN_INLINE static bool xnn_float16_is_zero(xnn_float16 f) {
+  // Check for +/- zero (0x0000/0x8000). uint16 overflow is well defined to wrap around.
+  return f.value * 2 == 0;
 }
 
 #ifdef __cplusplus

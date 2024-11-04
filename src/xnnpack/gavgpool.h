@@ -28,7 +28,7 @@ extern "C" {
       const float* zero,                                                \
       float* buffer,                                                    \
       float* output,                                                    \
-      const union xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F32_GAVGPOOL_MINMAX_MULTIPASS_UKERNEL_FUNCTION(xnn_f32_gavgpool_minmax_ukernel_7p7x__neon_c4)
 DECLARE_F32_GAVGPOOL_MINMAX_MULTIPASS_UKERNEL_FUNCTION(xnn_f32_gavgpool_minmax_ukernel_7p7x__rvv_c1v)
@@ -48,7 +48,7 @@ DECLARE_F32_GAVGPOOL_MINMAX_MULTIPASS_UKERNEL_FUNCTION(xnn_f32_gavgpool_minmax_u
       size_t input_stride,                                            \
       const float* zero,                                              \
       float* output,                                                  \
-      const union xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const struct xnn_f32_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F32_GAVGPOOL_MINMAX_UNIPASS_UKERNEL_FUNCTION(xnn_f32_gavgpool_minmax_ukernel_7x__neon_c4)
 DECLARE_F32_GAVGPOOL_MINMAX_UNIPASS_UKERNEL_FUNCTION(xnn_f32_gavgpool_minmax_ukernel_7x__rvv_c1v)
@@ -65,12 +65,12 @@ DECLARE_F32_GAVGPOOL_MINMAX_UNIPASS_UKERNEL_FUNCTION(xnn_f32_gavgpool_minmax_uke
   XNN_INTERNAL void fn_name(                                            \
       size_t rows,                                                      \
       size_t channels,                                                  \
-      const void* input,                                                \
+      const xnn_float16* input,                                       \
       size_t input_stride,                                              \
-      const void* zero,                                                 \
-      void* buffer,                                                     \
-      void* output,                                                     \
-      const union xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const xnn_float16* zero,                                        \
+      xnn_float16* buffer,                                            \
+      xnn_float16* output,                                            \
+      const struct xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F16_GAVGPOOL_MINMAX_MULTIPASS_UKERNEL_FUNCTION(xnn_f16_gavgpool_minmax_ukernel_7p7x__neonfp16arith_c8)
 DECLARE_F16_GAVGPOOL_MINMAX_MULTIPASS_UKERNEL_FUNCTION(xnn_f16_gavgpool_minmax_ukernel_7p7x__neonfp16arith_c16)
@@ -87,11 +87,11 @@ DECLARE_F16_GAVGPOOL_MINMAX_MULTIPASS_UKERNEL_FUNCTION(xnn_f16_gavgpool_minmax_u
   XNN_INTERNAL void fn_name(                                          \
       size_t rows,                                                    \
       size_t channels,                                                \
-      const void* input,                                              \
+      const xnn_float16* input,                                              \
       size_t input_stride,                                            \
-      const void* zero,                                               \
-      void* output,                                                   \
-      const union xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+      const xnn_float16* zero,                                               \
+      xnn_float16* output,                                                   \
+      const struct xnn_f16_scaleminmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F16_GAVGPOOL_MINMAX_UNIPASS_UKERNEL_FUNCTION(xnn_f16_gavgpool_minmax_ukernel_7x__neonfp16arith_c8)
 DECLARE_F16_GAVGPOOL_MINMAX_UNIPASS_UKERNEL_FUNCTION(xnn_f16_gavgpool_minmax_ukernel_7x__neonfp16arith_c16)
@@ -329,8 +329,8 @@ DECLARE_F32_GAVGPOOL_CW_UKERNEL_FUNCTION(xnn_f32_gavgpool_cw_ukernel__wasmsimd_x
   XNN_INTERNAL void fn_name(                              \
       size_t elements,                                    \
       size_t channels,                                    \
-      const void* input,                                  \
-      void* output,                                       \
+      const xnn_float16* input,                         \
+      xnn_float16* output,                              \
       const union xnn_f16_gavgpool_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 DECLARE_F16_GAVGPOOL_CW_UKERNEL_FUNCTION(xnn_f16_gavgpool_cw_ukernel__neonfp16arith_u8)

@@ -32,7 +32,7 @@ SET(PROD_SSE2_MICROKERNEL_SRCS
   src/f32-vrnd/gen/f32-vrndu-sse2-u8.c
   src/f32-vrnd/gen/f32-vrndz-sse2-u8.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-u8.c
-  src/f32-vtanh/gen/f32-vtanh-sse2-rational-9-6-div.c
+  src/f32-vtanh/gen/f32-vtanh-sse2-rational-9-8-div.c
   src/f32-vunary/gen/f32-vabs-sse2.c
   src/f32-vunary/gen/f32-vneg-sse2.c
   src/f32-vunary/gen/f32-vsqr-sse2.c
@@ -74,6 +74,7 @@ SET(PROD_SSE2_MICROKERNEL_SRCS
   src/qu8-gemm/gen/qu8-gemm-3x4c8-minmax-fp32-sse2-ld64.c
   src/qu8-igemm/gen/qu8-igemm-1x4c8-minmax-fp32-sse2-ld64.c
   src/qu8-igemm/gen/qu8-igemm-3x4c8-minmax-fp32-sse2-ld64.c
+  src/qu8-rsum/gen/qu8-rsum-sse2-u32.c
   src/qu8-vadd/gen/qu8-vadd-minmax-sse2-mul16-ld64-u8.c
   src/qu8-vaddc/gen/qu8-vaddc-minmax-sse2-mul16-ld64-u8.c
   src/qu8-vcvt/gen/qu8-vcvt-sse2-u32.c
@@ -135,6 +136,12 @@ SET(NON_PROD_SSE2_MICROKERNEL_SRCS
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-sse2-rr2-p5-u16.c
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-sse2-rr2-p5-u20-acc5.c
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-sse2-rr2-p5-u20.c
+  src/f32-vbinary/gen/f32-vprelu-sse2-u4.c
+  src/f32-vbinary/gen/f32-vprelu-sse2-u8.c
+  src/f32-vbinary/gen/f32-vpreluc-sse2-u4.c
+  src/f32-vbinary/gen/f32-vpreluc-sse2-u8.c
+  src/f32-vbinary/gen/f32-vrpreluc-sse2-u4.c
+  src/f32-vbinary/gen/f32-vrpreluc-sse2-u8.c
   src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u4.c
   src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u8.c
   src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u16.c
@@ -163,7 +170,7 @@ SET(NON_PROD_SSE2_MICROKERNEL_SRCS
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u16.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u20.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u24.c
-  src/f32-vtanh/gen/f32-vtanh-sse2-rational-9-6-nr.c
+  src/f32-vtanh/gen/f32-vtanh-sse2-rational-9-8-nr.c
   src/qd8-f32-qb4w-gemm/gen/qd8-f32-qb4w-gemm-1x4c8-minmax-sse2-ld64.c
   src/qd8-f32-qb4w-gemm/gen/qd8-f32-qb4w-gemm-2x4c8-minmax-sse2-ld64.c
   src/qd8-f32-qb4w-gemm/gen/qd8-f32-qb4w-gemm-2x4c8-minmax-sse2-ld128.c
@@ -346,6 +353,11 @@ SET(NON_PROD_SSE2_MICROKERNEL_SRCS
   src/qu8-requantization/qu8-requantization-fp32-sse2.c
   src/qu8-requantization/qu8-requantization-gemmlowp-sse2.c
   src/qu8-requantization/qu8-requantization-rndna-sse2.c
+  src/qu8-rsum/gen/qu8-rsum-sse2-u16.c
+  src/qu8-rsum/gen/qu8-rsum-sse2-u32-acc2.c
+  src/qu8-rsum/gen/qu8-rsum-sse2-u64-acc2.c
+  src/qu8-rsum/gen/qu8-rsum-sse2-u64-acc4.c
+  src/qu8-rsum/gen/qu8-rsum-sse2-u64.c
   src/qu8-vadd/gen/qu8-vadd-minmax-sse2-mul16-ld64-u16.c
   src/qu8-vaddc/gen/qu8-vaddc-minmax-sse2-mul16-ld64-u16.c
   src/qu8-vcvt/gen/qu8-vcvt-sse2-u16.c

@@ -28,25 +28,25 @@
 #include "replicable_random_device.h"
 
 void VCvtMicrokernelTester::Test(
-    xnn_f16_f32_vcvt_ukernel_fn vcvt) const {
+    xnn_f16_f32_vcvt_ukernel_fn vcvt, const void*) const {
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist(-100.0f, 100.0f);
 
-  std::vector<uint16_t> input(batch_size() +
-                              XNN_EXTRA_BYTES / sizeof(uint16_t));
+  std::vector<xnn_float16> input(batch_size() +
+                              XNN_EXTRA_BYTES / sizeof(xnn_float16));
   std::vector<float> output(batch_size());
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(),
-                  [&]() { return fp16_ieee_from_fp32_value(f32dist(rng)); });
+                  [&]() { return f32dist(rng); });
     std::fill(output.begin(), output.end(), nanf(""));
 
     // Call optimized micro-kernel.
-    vcvt(batch_size() * sizeof(uint16_t), input.data(), output.data(), nullptr);
+    vcvt(batch_size() * sizeof(xnn_float16), input.data(), output.data(), nullptr);
 
     // Verify results.
     for (size_t i = 0; i < batch_size(); i++) {
       ASSERT_EQ(float_as_uint32(output[i]),
-                float_as_uint32(fp16_ieee_to_fp32_value(input[i])))
+                float_as_uint32(input[i]))
           << "at " << i << " / " << batch_size() << ", x[" << i << "] = 0x"
           << std::hex << std::setw(4) << std::setfill('0') << input[i];
     }
@@ -54,22 +54,22 @@ void VCvtMicrokernelTester::Test(
 }
 
 void VCvtMicrokernelTester::Test(
-    xnn_f32_f16_vcvt_ukernel_fn vcvt) const {
+    xnn_f32_f16_vcvt_ukernel_fn vcvt, const void*) const {
   xnnpack::ReplicableRandomDevice rng;
   std::uniform_real_distribution<float> f32dist(-100.0f, 100.0f);
 
   std::vector<float> input(batch_size() + XNN_EXTRA_BYTES / sizeof(float));
-  std::vector<uint16_t> output(batch_size());
+  std::vector<xnn_float16> output(batch_size());
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
-    std::fill(output.begin(), output.end(), UINT16_C(0x7E00) /* NaN */);
+    std::fill(output.begin(), output.end(), std::nanf(""));
 
     // Call optimized micro-kernel.
     vcvt(batch_size() * sizeof(float), input.data(), output.data(), nullptr);
 
     // Verify results.
     for (size_t i = 0; i < batch_size(); i++) {
-      ASSERT_EQ(output[i], fp16_ieee_from_fp32_value(input[i]))
+      ASSERT_EQ(output[i], xnn_float16(input[i]))
           << "at " << i << " / " << batch_size() << ", x[" << i << "] = 0x"
           << std::hex << std::setw(8) << std::setfill('0')
           << float_as_uint32(input[i]) << " (" << input[i] << ")";
@@ -90,30 +90,29 @@ void VCvtMicrokernelTester::Test(xnn_f16_qs8_vcvt_ukernel_fn vcvt,
   std::uniform_real_distribution<float> f32dist(-1.0f, 1.0f);
 
   std::vector<float> input_float(batch_size());
-  std::vector<uint16_t> input(batch_size() +
-                              XNN_EXTRA_BYTES / sizeof(uint16_t));
+  std::vector<xnn_float16> input(batch_size() +
+                              XNN_EXTRA_BYTES / sizeof(xnn_float16));
   std::vector<int8_t> output(batch_size());
   std::vector<int8_t> output_ref(batch_size());
   const float scale_fp16 =
-      fp16_ieee_to_fp32_value(fp16_ieee_from_fp32_value(scale()));
+      xnn_float16(scale());
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input_float.begin(), input_float.end(),
                   [&]() { return f32dist(rng); });
-    std::transform(input_float.begin(), input_float.end(), input.begin(),
-                   [](float f) { return fp16_ieee_from_fp32_value(f); });
+    std::copy(input_float.begin(), input_float.end(), input.begin());
 
     std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
-    union xnn_f16_qs8_cvt_params params;
-    init_params(&params, fp16_ieee_from_fp32_value(scale()),
+    struct xnn_f16_qs8_cvt_params params;
+    init_params(&params, scale(),
                 output_zero_point(), qmin(), qmax());
 
     // Call optimized micro-kernel.
-    vcvt(batch_size() * sizeof(uint16_t), input.data(), output.data(), &params);
+    vcvt(batch_size() * sizeof(xnn_float16), input.data(), output.data(), &params);
 
     // Compute reference results
     for (size_t i = 0; i < batch_size(); i++) {
-      float scaled_input = fp16_ieee_to_fp32_value(input[i]) * scale_fp16;
+      float scaled_input = input[i] * scale_fp16;
       scaled_input = std::min<float>(
           scaled_input, static_cast<float>(qmax() - output_zero_point()));
       scaled_input = std::max<float>(
@@ -129,7 +128,7 @@ void VCvtMicrokernelTester::Test(xnn_f16_qs8_vcvt_ukernel_fn vcvt,
           << "at " << i << " / " << batch_size() << ", x[" << i << "] = 0x"
           << std::hex << std::setw(8) << std::setfill('0')
           << float_as_uint32(input[i]) << " (" << input[i] << ")" << " INPUT "
-          << fp16_ieee_to_fp32_value(input[i]) << " scale " << scale() << " zp "
+          << input[i] << " scale " << scale() << " zp "
           << (int)output_zero_point();
     }
   }
@@ -155,7 +154,7 @@ void VCvtMicrokernelTester::Test(
     std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
     std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
-    union xnn_f32_qs8_cvt_params params;
+    struct xnn_f32_qs8_cvt_params params;
     init_params(&params, scale(), output_zero_point(), qmin(), qmax());
 
     // Call optimized micro-kernel.
@@ -203,7 +202,7 @@ void VCvtMicrokernelTester::Test(
     std::generate(input.begin(), input.end(), [&]() { return f32dist(rng); });
     std::fill(output.begin(), output.end(), UINT8_C(0xA5));
 
-    union xnn_f32_qu8_cvt_params params;
+    struct xnn_f32_qu8_cvt_params params;
     init_params(&params, scale(), output_zero_point(), qmin(), qmax());
 
     // Call optimized micro-kernel.
@@ -231,6 +230,46 @@ void VCvtMicrokernelTester::Test(
   }
 }
 
+void VCvtMicrokernelTester::Test(
+    xnn_s32_f32_vcvt_ukernel_fn vcvt,
+    xnn_init_s32_f32_cvt_params_fn init_params) const {
+  ASSERT_GE(input_zero_point(), std::numeric_limits<int8_t>::min());
+  ASSERT_LE(input_zero_point(), std::numeric_limits<int8_t>::max());
+
+  xnnpack::ReplicableRandomDevice rng;
+  std::uniform_int_distribution<int32_t> i32dist(
+      std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max());
+
+  std::vector<int32_t> input(batch_size() + XNN_EXTRA_BYTES / sizeof(int32_t));
+  std::vector<float> output(batch_size());
+  std::vector<float> output_ref(batch_size());
+  for (size_t iteration = 0; iteration < iterations(); iteration++) {
+    std::generate(input.begin(), input.end(), [&]() { return i32dist(rng); });
+    std::fill(output.begin(), output.end(), 0.0f);
+
+    struct xnn_s32_f32_cvt_params params;
+    init_params(&params, static_cast<int32_t>(batch_size()),
+                static_cast<int8_t>(input_zero_point()));
+
+    // Call optimized micro-kernel.
+    vcvt(batch_size() * sizeof(int32_t), input.data(), output.data(), &params);
+
+    // Compute reference results
+    for (size_t i = 0; i < batch_size(); i++) {
+      const int32_t sub =
+          static_cast<int32_t>(input_zero_point()) *\
+          static_cast<int32_t>(batch_size());
+      output_ref[i] = static_cast<float>(input[i] - sub);
+    }
+
+    // Verify results.
+    for (size_t i = 0; i < batch_size(); i++) {
+      EXPECT_NEAR(output[i], output_ref[i], std::abs(output_ref[i] * 1e-6f))
+          << "at " << i << " / " << batch_size() << ", input = " << input[i];
+    }
+  }
+}
+
 void VCvtMicrokernelTester::Test(xnn_qs8_vcvt_ukernel_fn vcvt,
                                  xnn_init_qs8_cvt_params_fn init_params) const {
   ASSERT_GE(input_zero_point(), std::numeric_limits<int8_t>::min());
@@ -249,7 +288,7 @@ void VCvtMicrokernelTester::Test(xnn_qs8_vcvt_ukernel_fn vcvt,
     std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
     std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
-    union xnn_qs8_cvt_params params;
+    struct xnn_qs8_cvt_params params;
     init_params(&params, scale(), input_zero_point(), output_zero_point());
 
     // Call optimized micro-kernel.
@@ -296,7 +335,7 @@ void VCvtMicrokernelTester::Test(
     std::generate(input.begin(), input.end(), [&]() { return i16dist(rng); });
     std::fill(output.begin(), output.end(), INT8_C(0xA5));
 
-    union xnn_qs16_qs8_cvt_params params;
+    struct xnn_qs16_qs8_cvt_params params;
     init_params(&params, scale(), output_zero_point());
 
     // Call optimized micro-kernel.
@@ -339,14 +378,14 @@ void VCvtMicrokernelTester::Test(
       std::numeric_limits<int8_t>::min(), std::numeric_limits<int8_t>::max());
 
   std::vector<int8_t> input(batch_size() + XNN_EXTRA_BYTES / sizeof(int8_t));
-  std::vector<uint16_t> output(batch_size());
+  std::vector<xnn_float16> output(batch_size());
   std::vector<float> output_ref(batch_size());
   for (size_t iteration = 0; iteration < iterations(); iteration++) {
     std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
-    std::fill(output.begin(), output.end(), UINT16_C(0x7E00));
+    std::fill(output.begin(), output.end(), std::nanf(""));
 
-    union xnn_qs8_f16_cvt_params params;
-    init_params(&params, fp16_ieee_from_fp32_value(scale()),
+    struct xnn_qs8_f16_cvt_params params;
+    init_params(&params, scale(),
                 input_zero_point());
 
     // Call optimized micro-kernel.
@@ -354,15 +393,15 @@ void VCvtMicrokernelTester::Test(
 
     // Compute reference results
     for (size_t i = 0; i < batch_size(); i++) {
-      output_ref[i] = fp16_ieee_to_fp32_value(fp16_ieee_from_fp32_value(
+      output_ref[i] = xnn_float16(
           static_cast<float>(static_cast<int16_t>(input[i]) -
                              input_zero_point()) *
-          scale()));
+          scale());
     }
 
     // Verify results.
     for (size_t i = 0; i < batch_size(); i++) {
-      EXPECT_EQ(output_ref[i], fp16_ieee_to_fp32_value(output[i]))
+      EXPECT_EQ(output_ref[i], output[i])
           << "at " << i << " / " << batch_size() << ", x[" << i
           << "] = " << static_cast<int32_t>(input[i]);
     }
@@ -386,7 +425,7 @@ void VCvtMicrokernelTester::Test(
     std::generate(input.begin(), input.end(), [&]() { return i8dist(rng); });
     std::fill(output.begin(), output.end(), std::nanf(""));
 
-    union xnn_qs8_f32_cvt_params params;
+    struct xnn_qs8_f32_cvt_params params;
     init_params(&params, scale(), input_zero_point());
 
     // Call optimized micro-kernel.
@@ -426,7 +465,7 @@ void VCvtMicrokernelTester::Test(xnn_qu8_vcvt_ukernel_fn vcvt,
     std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
     std::fill(output.begin(), output.end(), UINT8_C(0xA5));
 
-    union xnn_qu8_cvt_params params;
+    struct xnn_qu8_cvt_params params;
     init_params(&params, scale(), input_zero_point(), output_zero_point());
 
     // Call optimized micro-kernel.
@@ -473,7 +512,7 @@ void VCvtMicrokernelTester::Test(
     std::generate(input.begin(), input.end(), [&]() { return u8dist(rng); });
     std::fill(output.begin(), output.end(), std::nanf(""));
 
-    union xnn_qu8_f32_cvt_params params;
+    struct xnn_qu8_f32_cvt_params params;
     init_params(&params, scale(), input_zero_point());
 
     // Call optimized micro-kernel.

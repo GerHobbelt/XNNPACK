@@ -14,18 +14,9 @@
 #include <type_traits>
 
 #include <gtest/gtest.h>
-#include <fp16/fp16.h>
 #include "xnnpack/isa-checks.h"
+#include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
-
-struct Float16 {
-  uint16_t value;
-
-  Float16() = default;
-  Float16(float value) : value(fp16_ieee_from_fp32_value(value)) {}
-
-  operator float() const { return fp16_ieee_to_fp32_value(value); }
-};
 
 class VBinaryMicrokernelTester {
  public:
@@ -41,6 +32,8 @@ class VBinaryMicrokernelTester {
     Sub,
     RSub,
     SqrDiff,
+    Prelu,
+    RPrelu,
   };
 
   template <typename A, typename B, typename Result>
@@ -77,6 +70,12 @@ class VBinaryMicrokernelTester {
           } else {
             result[i] = a[i] * b[i * stride_b];
           }
+          break;
+        case OpType::Prelu:
+          result[i] = a[i] < 0 ? static_cast<Result>(a[i] * b[i * stride_b]) : static_cast<Result>(a[i]);
+          break;
+        case OpType::RPrelu:
+          result[i] = b[i * stride_b] < 0 ? static_cast<Result>(a[i] * b[i * stride_b]) : static_cast<Result>(b[i * stride_b]);
           break;
         case OpType::SqrDiff: {
           const double diff = static_cast<double>(a[i]) - static_cast<double>(b[i * stride_b]);
@@ -205,9 +204,6 @@ class VBinaryMicrokernelTester {
 
   void Test(xnn_s32_vbinary_ukernel_fn vbinary, OpType op_type,
             xnn_init_s32_default_params_fn init_params = nullptr) const;
-
-  void Test(xnn_f32_vbinary_relu_ukernel_fn vbinary_relu, OpType op_type,
-            xnn_init_f32_relu_params_fn init_params = nullptr) const;
 
   void Test(xnn_qu8_vadd_minmax_ukernel_fn vadd_minmax,
             xnn_init_qu8_add_minmax_params_fn init_params) const;

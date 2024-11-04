@@ -31,6 +31,7 @@ MICROKERNEL_BENCHMARK_DEPS = [
     "//:all_microkernels",
     "//:common",
     "//:hardware_config",
+    "//:math",
     "//:microkernels_h",
     "//:microparams_init",
     "//:microparams",
@@ -45,6 +46,7 @@ OPERATOR_BENCHMARK_DEPS = [
     "//:aligned_allocator",
     "//:cache",
     "//:common",
+    "//:math",
     "@FP16",
 ]
 
@@ -108,7 +110,6 @@ xnnpack_cxx_library(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:config_hdrs",
-        "//:math",
         "@com_google_benchmark//:benchmark",
     ],
 )
@@ -122,22 +123,22 @@ xnnpack_cxx_library(
         ":gemm_benchmark",
         "//:allocator",
         "//:isa_checks",
-        "//:math",
     ],
 ) for kernel in [
+    "bf16_gemm",
     "qd8_f16_qb4w_gemm",
     "qd8_f32_qb4w_gemm",
     "qd8_f16_qc8w_gemm",
     "qd8_f32_qc8w_gemm",
     "qd8_f16_qc4w_gemm",
     "qd8_f32_qc4w_gemm",
-    "f32_qc4w_gemm",
-    "f32_qc8w_gemm",
+    "qs8_qc8w_gemm_fp32",
     "qu8_gemm_fp32",
     "qu8_gemm_rndnu",
-    "bf16_gemm",
     "f16_f32acc_gemm",
     "f16_gemm",
+    "f32_qc4w_gemm",
+    "f32_qc8w_gemm",
 ]]
 
 [xnnpack_benchmark(
@@ -150,7 +151,6 @@ xnnpack_cxx_library(
         ":gemm_benchmark",
         "//:allocator",
         "//:isa_checks",
-        "//:math",
     ] + xnnpack_optional_ruy_deps() + xnnpack_optional_gemmlowp_deps(),
 ) for kernel in [
     "qs8_gemm",
@@ -170,7 +170,6 @@ xnnpack_benchmark(
     copts = xnnpack_optional_ruy_copts(),
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:allocator",
-        "//:math",
     ] + xnnpack_optional_ruy_deps(),
 )
 
@@ -203,9 +202,11 @@ xnnpack_benchmark(
     "qu8_f32_vcvt",
     "qu8_vcvt",
     "f16_f32_vcvt",
+    "f16_qs8_vcvt",
     "f32_f16_vcvt",
     "f32_qs8_vcvt",
     "f32_qu8_vcvt",
+    "s32_f32_vcvt",
 ]]
 
 [xnnpack_benchmark(
@@ -217,7 +218,9 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS,
 ) for kernel in [
     "qs8_rdsum",
+    "qu8_rdsum",
     "qs8_rsum",
+    "qu8_rsum",
     "f16_rsum",
     "f16_f32acc_rsum",
     "f32_rsum",
@@ -258,6 +261,7 @@ xnnpack_benchmark(
     "f32_rmin",
     "f32_vscaleexpminusmax",
     "f32_vscaleextexp",
+    "f16_vcmul",
     "f32_vcmul",
     "s16_rmaxabs",
     "s16_window",
@@ -271,11 +275,7 @@ xnnpack_benchmark(
     "cs16_fftr",
     "x8_lut",
     "xx_transposev",
-    "x8_transpose",
-    "x16_transpose",
-    "x24_transpose",
-    "x32_transpose",
-    "x64_transpose",
+    "xN_transposec",
 ]]
 
 xnnpack_benchmark(
@@ -315,7 +315,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":conv",
         "//:indirection",
-        "//:math",
     ],
 )
 
@@ -327,7 +326,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":conv",
         "//:indirection",
-        "//:math",
     ],
 )
 
@@ -392,7 +390,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":conv",
         "//:indirection",
-        "//:math",
     ],
 )
 
@@ -506,7 +503,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":conv",
         "//:im2col",
-        "//:math",
     ],
 )
 
@@ -531,7 +527,6 @@ xnnpack_benchmark(
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         ":packq_benchmark",
         "//:allocator",
-        "//:math",
     ],
 )
 
@@ -544,7 +539,18 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:allocator",
-        "//:math",
+    ],
+)
+
+xnnpack_benchmark(
+    name = "qs8_packw_bench",
+    srcs = [
+        "bgemm.h",
+        "packw-benchmark.h",
+        "qs8-packw.cc",
+    ],
+    deps = MICROKERNEL_BENCHMARK_DEPS + [
+        "//:allocator",
     ],
 )
 
@@ -557,7 +563,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:allocator",
-        "//:math",
     ],
 )
 
@@ -570,7 +575,6 @@ xnnpack_benchmark(
     ],
     deps = MICROKERNEL_BENCHMARK_DEPS + [
         "//:allocator",
-        "//:math",
     ],
 )
 

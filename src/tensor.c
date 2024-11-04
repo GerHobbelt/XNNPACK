@@ -12,13 +12,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <xnnpack.h>
-#include <xnnpack/allocation-type.h>
-#include <xnnpack/common.h>
-#include <xnnpack/log.h>
-#include <xnnpack/math.h>
-#include <xnnpack/params.h>
-#include <xnnpack/subgraph.h>
+#include "xnnpack.h"
+#include "xnnpack/allocation-type.h"
+#include "xnnpack/common.h"
+#include "xnnpack/log.h"
+#include "xnnpack/math.h"
+#include "xnnpack/params.h"
+#include "xnnpack/subgraph.h"
 
 static void set_allocation_type(struct xnn_value* value)
 {
@@ -513,6 +513,7 @@ size_t xnn_tensor_get_size(const struct xnn_value* value)
     case xnn_datatype_qint8:
     case xnn_datatype_quint8:
     case xnn_datatype_qcint8:
+    case xnn_datatype_qpint8:
       size = 1;
       break;
     case xnn_datatype_qint32:
@@ -528,6 +529,11 @@ size_t xnn_tensor_get_size(const struct xnn_value* value)
   // Adjustments for nibbles, assume that we can't have sizes are byte-aligned (rounded up).
   if (value->datatype == xnn_datatype_qcint4) {
     size = round_up_po2(size, 2) >> 1;
+  } else if (value->datatype == xnn_datatype_qpint8) {
+    // TODO(b/340399245): Compute the correct size depending on the shape and
+    // packing constraints/alignment.
+    xnn_log_fatal("Support for %s is not yet implemented.",
+                  xnn_datatype_to_string(value->datatype));
   }
 
   return size;

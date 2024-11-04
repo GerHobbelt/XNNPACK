@@ -39,7 +39,7 @@ parser.set_defaults(defines=list())
 
 def split_ukernel_name(name):
   match = re.fullmatch(
-      r"(?:xnn_|xnn_generate_)(s8|u8|bf16|f16|f32|u32|u64)(_(s8|u8|bf16|f16|f32|u32|u64))*_v(abs|clamp|elu|hswish|lrelu|neg|relu|rndd|rndne|rndu|rndz|rsqrt|sigmoid|sqr|sqrt|sqrtshift|tanh)_(fact_)?ukernel__(.+)_u(\d+)(v)?",
+      r"(?:xnn_|xnn_generate_)(s8|u8|bf16|f16|f32|u32|u64)(_(s8|u8|bf16|f16|f32|u32|u64))*_v(abs|clamp|elu|hswish|log|lrelu|neg|relu|rndd|rndne|rndu|rndz|rsqrt|sigmoid|sqr|sqrt|sqrtshift|tanh)_(fact_)?ukernel__(.+)_u(\d+)(v)?",
       name,
   )
   if match is None:
@@ -49,6 +49,7 @@ def split_ukernel_name(name):
       "clamp": "Clamp",
       "elu": "ELU",
       "hswish": "HardSwish",
+      "log": "Log",
       "lrelu": "LeakyReLU",
       "neg": "Negate",
       "relu": "ReLU",
@@ -86,6 +87,15 @@ SPECIAL_VALUES_F32 = {
         # TODO: b/338934971 - This should be `1` ulp, but this fails on
         # `cmake-linux-riscv64-rvv` (but not on `cmake-linux-riscv64`).
         3,
+    ),
+    # TODO(b/338031720) - These kernels currently do not handle inputs `<= 0.0f`
+    # correctly. Add tests for `0.0f`, `-0.0f`, and `+/-INFINITY` once they do.
+    "Log": (
+        1,  # Number of elements.
+        "{1.0f}",  # Inputs.
+        "{0.0f}",  # Expected outputs.
+        "xnn_f32_default_params",
+        1,  # Error margin in ULP.
     ),
 }
 
@@ -323,6 +333,7 @@ def generate_test_cases(
           "TEST_FN": {
               "Square": "TestSqr",
               "Abs": "TestAbs",
+              "Log": "TestLog",
               "Negate": "TestNeg",
           }.get(op_type, "Test"),
       },
@@ -353,12 +364,12 @@ def main(args):
 #include <cstddef>
 #include <limits>
 
-#include <xnnpack.h>
-#include <xnnpack/common.h>
-#include <xnnpack/isa-checks.h>
-#include <xnnpack/microparams-init.h>
-#include <xnnpack/microparams.h>
-#include <xnnpack/vunary.h>
+#include "xnnpack.h"
+#include "xnnpack/common.h"
+#include "xnnpack/isa-checks.h"
+#include "xnnpack/microparams-init.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/vunary.h"
 
 #include <gtest/gtest.h>
 #include "vunary-microkernel-tester.h"

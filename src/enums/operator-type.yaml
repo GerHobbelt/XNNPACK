@@ -67,6 +67,8 @@
   string: "Convert (NC, F32, F16)"
 - name: xnn_operator_type_convert_nc_f32_qd8
   string: "Convert (NC, F32, QD8)"
+- name: xnn_operator_type_convert_nc_f32_qp8
+  string: "Convert (NC, F32, QP8)"
 - name: xnn_operator_type_convert_nc_f32_qs8
   string: "Convert (NC, F32, QS8)"
 - name: xnn_operator_type_convert_nc_f32_qu8
@@ -115,6 +117,8 @@
   string: "Deconvolution (NHWC, QD8, F32, QC8W)"
 - name: xnn_operator_type_deconvolution_nhwc_qs8
   string: "Deconvolution (NHWC, QS8)"
+- name: xnn_operator_type_deconvolution_nhwc_qs8_qc8w
+  string: "Deconvolution (NC, QS8, QC8W)"
 - name: xnn_operator_type_deconvolution_nhwc_qu8
   string: "Deconvolution (NHWC, QU8)"
 - name: xnn_operator_type_depth_to_space_nchw2nhwc_x16
@@ -195,6 +199,8 @@
   string: "Leaky ReLU (NC, QS8)"
 - name: xnn_operator_type_leaky_relu_nc_qu8
   string: "Leaky ReLU (NC, QU8)"
+- name: xnn_operator_type_log_nc_f32
+  string: "Log (NC, F32)"
 - name: xnn_operator_type_max_pooling_nhwc_f16
   string: "Max Pooling (NHWC, F16)"
 - name: xnn_operator_type_max_pooling_nhwc_f32

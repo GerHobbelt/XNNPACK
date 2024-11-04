@@ -5,8 +5,11 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 # Bazel rule definitions
 http_archive(
     name = "rules_cc",
-    strip_prefix = "rules_cc-main",
-    urls = ["https://github.com/bazelbuild/rules_cc/archive/main.zip"],
+    sha256 = "3868eab488bd5be37a6acedbd222a196bea14408a2857916f33cce7b4780897d",
+    strip_prefix = "rules_cc-5e848c1434d3458018734238dbc4781f43992ea5",
+    urls = [
+        "https://github.com/bazelbuild/rules_cc/archive/5e848c1434d3458018734238dbc4781f43992ea5.zip",
+    ],
 )
 
 # Bazel Python rule definitions.
@@ -33,6 +36,7 @@ http_archive(
     ],
 )
 
+# LINT.IfChange
 # Google Test framework, used by most unit-tests.
 http_archive(
     name = "com_google_googletest",
@@ -40,7 +44,9 @@ http_archive(
     strip_prefix = "googletest-e23cdb78e9fef1f69a9ef917f447add5638daf2a",
     urls = ["https://github.com/google/googletest/archive/e23cdb78e9fef1f69a9ef917f447add5638daf2a.zip"],
 )
+# LINT.ThenChange(cmake/DownloadGoogleTest.cmake)
 
+# LINT.IfChange
 # Google Benchmark library, used in micro-benchmarks.
 http_archive(
     name = "com_google_benchmark",
@@ -48,7 +54,9 @@ http_archive(
     strip_prefix = "benchmark-d2a8a4ee41b923876c034afb939c4fc03598e622",
     urls = ["https://github.com/google/benchmark/archive/d2a8a4ee41b923876c034afb939c4fc03598e622.zip"],
 )
+# LINT.ThenChange(cmake/DownloadGoogleBenchmark.cmake)
 
+# LINT.IfChange
 # FP16 library, used for half-precision conversions
 http_archive(
     name = "FP16",
@@ -59,7 +67,9 @@ http_archive(
         "https://github.com/Maratyszcza/FP16/archive/0a92994d729ff76a58f692d3028ca1b64b145d91.zip",
     ],
 )
+# LINT.ThenChange(cmake/DownloadFP16.cmake)
 
+# LINT.IfChange
 # FXdiv library, used for repeated integer division by the same factor
 http_archive(
     name = "FXdiv",
@@ -67,6 +77,7 @@ http_archive(
     strip_prefix = "FXdiv-b408327ac2a15ec3e43352421954f5b1967701d1",
     urls = ["https://github.com/Maratyszcza/FXdiv/archive/b408327ac2a15ec3e43352421954f5b1967701d1.zip"],
 )
+# LINT.ThenChange(cmake/DownloadFXdiv.cmake)
 
 # LINT.IfChange
 # pthreadpool library, used for parallelization
@@ -78,15 +89,30 @@ http_archive(
 )
 # LINT.ThenChange(cmake/DownloadPThreadPool.cmake)
 
+# LINT.IfChange
 # cpuinfo library, used for detecting processor characteristics
 http_archive(
     name = "cpuinfo",
-    sha256 = "a615cac78fad03952cc3e1fd231ce789a8df6e81a5957b64350cb8200364b385",
-    strip_prefix = "cpuinfo-d6860c477c99f1fce9e28eb206891af3c0e1a1d7",
+    sha256 = "5d7f00693e97bd7525753de94be63f99b0490ae6855df168f5a6b2cfc452e49e",
+    strip_prefix = "cpuinfo-3c8b1533ac03dd6531ab6e7b9245d488f13a82a5",
     urls = [
-        "https://github.com/pytorch/cpuinfo/archive/d6860c477c99f1fce9e28eb206891af3c0e1a1d7.zip"
+        "https://github.com/pytorch/cpuinfo/archive/3c8b1533ac03dd6531ab6e7b9245d488f13a82a5.zip",
     ],
 )
+# LINT.ThenChange(cmake/DownloadCpuinfo.cmake)
+
+# TODO: b/349993583 - Uncomment when KleidiAI has an official BUILD file.
+# LINT.IfChange
+# KleidiAI library, used for ARM microkernels.
+# http_archive(
+#     name = "KleidiAI",
+#     sha256 = "39b26d8840ec719afaa480b0622a77952d0f22dbb8e8ba58ec9f93e39895a205",
+#     strip_prefix = "kleidiai-1976f8661e8d5aa7d4cdca0f3d2a915e5ecb4c53",
+#     urls = [
+#         "https://gitlab.arm.com/kleidi/kleidiai/-/archive/1976f8661e8d5aa7d4cdca0f3d2a915e5ecb4c53/kleidiai-1976f8661e8d5aa7d4cdca0f3d2a915e5ecb4c53.zip",
+#     ],
+# )
+# LINT.ThenChange(cmake/DownloadKleidiAI.cmake)
 
 # Ruy library, used to benchmark against
 http_archive(

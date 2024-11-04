@@ -9,7 +9,7 @@
 
 #pragma once
 
-#include <xnnpack/common.h>
+#include "xnnpack/common.h"
 
 
 #ifdef __cplusplus
@@ -48,6 +48,7 @@ enum xnn_operator_type {
   xnn_operator_type_convert_nc_f16_qd8,
   xnn_operator_type_convert_nc_f32_f16,
   xnn_operator_type_convert_nc_f32_qd8,
+  xnn_operator_type_convert_nc_f32_qp8,
   xnn_operator_type_convert_nc_f32_qs8,
   xnn_operator_type_convert_nc_f32_qu8,
   xnn_operator_type_convert_nc_qs8,
@@ -72,6 +73,7 @@ enum xnn_operator_type {
   xnn_operator_type_deconvolution_nhwc_f32,
   xnn_operator_type_deconvolution_nhwc_qd8_f32_qc8w,
   xnn_operator_type_deconvolution_nhwc_qs8,
+  xnn_operator_type_deconvolution_nhwc_qs8_qc8w,
   xnn_operator_type_deconvolution_nhwc_qu8,
   xnn_operator_type_depth_to_space_nchw2nhwc_x16,
   xnn_operator_type_depth_to_space_nchw2nhwc_x32,
@@ -112,6 +114,7 @@ enum xnn_operator_type {
   xnn_operator_type_leaky_relu_nc_f32,
   xnn_operator_type_leaky_relu_nc_qs8,
   xnn_operator_type_leaky_relu_nc_qu8,
+  xnn_operator_type_log_nc_f32,
   xnn_operator_type_max_pooling_nhwc_f16,
   xnn_operator_type_max_pooling_nhwc_f32,
   xnn_operator_type_max_pooling_nhwc_s8,

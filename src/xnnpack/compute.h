@@ -9,10 +9,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <xnnpack.h>
-#include <xnnpack/common.h>
-#include <xnnpack/config.h>
-#include <xnnpack/math.h>
+#include "xnnpack.h"
+#include "xnnpack/common.h"
+#include "xnnpack/microfnptr.h"
+#include "xnnpack/microparams.h"
+#include "xnnpack/math.h"
 
 
 enum xnn_parallelization_type {
@@ -1405,25 +1406,25 @@ struct univector_contiguous_context {
 struct reduce_context {
   const void* input;
   void* output;
+  void* workspace;
   const void* zero;
   size_t input_shape[XNN_MAX_TENSOR_DIMS];
   size_t input_stride[XNN_MAX_TENSOR_DIMS];
   size_t output_stride[XNN_MAX_TENSOR_DIMS];
-  size_t scaled_elements;
   size_t channels;
-  size_t element_size;
-  size_t input_pixel_stride;
-  size_t output_pixel_stride;
-  size_t input_batch_stride;
-  size_t output_batch_stride;
+  size_t accumulation_element_size;
+  size_t output_element_size;
   union {
     xnn_reduce_ukernel_fn rsum;
     xnn_rdsum_ukernel_fn rdsum;
   } ukernel;
+  xnn_vunary_ukernel_fn cvt_ukernel;
   union {
     union xnn_f32_default_params f32_default;
+    union xnn_f16_f32acc_scale_params scale_params;
     union xnn_f32_scale_params f32_scale;
   } params;
+  union xnn_f32_f16_cvt_params cvt_params;
 };
 
 #ifndef __cplusplus
@@ -1583,16 +1584,35 @@ struct f32_qd8_convert_context {
       size_t batch_index);
 #endif
 
-struct u8_softmax_context {
-  size_t n;
-  const uint8_t* x;
-  size_t x_stride;
-  const uint32_t* t;
-  uint8_t* y;
-  size_t y_stride;
-  xnn_u8_rmax_ukernel_fn rmax_ukernel;
-  xnn_u8_lut32norm_ukernel_fn lut_norm_ukernel;
+struct f32_qp8_convert_context {
+  size_t m;
+  size_t k;
+  size_t mr;
+  size_t kr;
+  size_t sr;
+  const float* XNN_RESTRICT lhs;
+  size_t lhs_stride;
+  int8_t* XNN_RESTRICT lhs_packed;
+  xnn_x8_packq_f32qp8_ukernel_fn packq_ukernel;
 };
+
+#ifndef __cplusplus
+  XNN_PRIVATE void xnn_compute_f32_qp8_convert(
+      const struct f32_qp8_convert_context
+          context[restrict XNN_MIN_ELEMENTS(1)],
+      size_t m_idx_start);
+#endif
+
+  struct u8_softmax_context {
+    size_t n;
+    const uint8_t* x;
+    size_t x_stride;
+    const uint32_t* t;
+    uint8_t* y;
+    size_t y_stride;
+    xnn_u8_rmax_ukernel_fn rmax_ukernel;
+    xnn_u8_lut32norm_ukernel_fn lut_norm_ukernel;
+  };
 
 #ifndef __cplusplus
   XNN_PRIVATE void xnn_compute_u8_softmax(

@@ -22,7 +22,11 @@ extern "C" {
 /// The caller must allocate at least this many extra bytes after the tensor data passed to XNNPACK.
 ///
 /// Note: XNNPACK reads, but never writes beyond array bounds.
+#if XNN_ARCH_HEXAGON
+#define XNN_EXTRA_BYTES 128
+#else
 #define XNN_EXTRA_BYTES 16
+#endif  // XNN_ARCH_HEXAGON
 
 /// Maximum number of dimensions in tensor shape.
 #define XNN_MAX_TENSOR_DIMS 6
@@ -92,7 +96,7 @@ extern "C" {
 /// The caller must allocate at least this many extra xnn_dynamic_quantization_params before passing the array to XNNPACK.
 ///
 /// Note: XNNPACK reads, but never writes beyond array bounds.
-#define XNN_EXTRA_QUANTIZATION_PARAMS 8
+#define XNN_EXTRA_QUANTIZATION_PARAMS 10
 
 struct xnn_dynamic_quantization_params {
   int32_t zero_point;
@@ -236,20 +240,30 @@ enum xnn_datatype {
   xnn_datatype_fp32 = 1,
   /// IEEE754 half-precision floating-point.
   xnn_datatype_fp16 = 2,
-  /// Quantized 8-bit signed integer with shared per-Value quantization parameters.
+  /// Quantized 8-bit signed integer with shared per-Value quantization
+  /// parameters.
   xnn_datatype_qint8 = 3,
-  /// Quantized 8-bit unsigned integer with shared per-Value quantization parameters.
+  /// Quantized 8-bit unsigned integer with shared per-Value quantization
+  /// parameters.
   xnn_datatype_quint8 = 4,
-  /// Quantized 32-bit signed integer with shared per-Value quantization parameters.
+  /// Quantized 32-bit signed integer with shared per-Value quantization
+  /// parameters.
   xnn_datatype_qint32 = 5,
-  /// Quantized 8-bit signed integer with shared per-channel quantization parameters.
+  /// Quantized 8-bit signed integer with shared per-channel quantization
+  /// parameters.
   xnn_datatype_qcint8 = 6,
-  /// Quantized 32-bit signed integer with shared per-channel quantization parameters.
+  /// Quantized 32-bit signed integer with shared per-channel quantization
+  /// parameters.
   xnn_datatype_qcint32 = 7,
-  /// Quantized 4-bit signed integer with shared per-channel quantization parameters.
+  /// Quantized 4-bit signed integer with shared per-channel quantization
+  /// parameters.
   xnn_datatype_qcint4 = 8,
-  /// Dynamically quantized 8-bit signed integer with per-batch quantization parameters.
+  /// Dynamically quantized 8-bit signed integer with per-batch quantization
+  /// parameters.
   xnn_datatype_qdint8 = 9,
+  /// Dynamically quantized 8-bit signed integers packed with their per-row
+  /// quantization parameters.
+  xnn_datatype_qpint8 = 10,
 };
 
 /// Define a tensor-type Value and add it to a Subgraph.
@@ -1680,6 +1694,19 @@ enum xnn_status xnn_define_leaky_relu(
   uint32_t output_id,
   uint32_t flags);
 
+/// Define a Log Node and add it to a Subgraph.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+///                    shape must match the shape of the input tensor.
+/// @param flags - binary features of the Log Node. No supported flags are currently defined.
+enum xnn_status xnn_define_log(
+  xnn_subgraph_t subgraph,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags);
+
 /// Define a Negate Node and add it to a Subgraph.
 ///
 /// @param subgraph - a Subgraph object that will own the created Node.
@@ -2846,6 +2873,17 @@ enum xnn_status xnn_setup_convert_nc_f32_qd8(
   int8_t* output,
   struct xnn_dynamic_quantization_params* quantization_params);
 
+enum xnn_status xnn_create_convert_nc_f32_qp8(uint32_t flags,
+                                              xnn_operator_t* convert_op_out);
+
+enum xnn_status xnn_reshape_convert_nc_f32_qp8(
+    xnn_operator_t convert_op, size_t batch_size, size_t channels,
+    size_t input_stride, pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_convert_nc_f32_qp8(xnn_operator_t convert_op,
+                                             const float* input,
+                                             int8_t* output);
+
 enum xnn_status xnn_create_convert_nc_f32_f16(
   uint32_t flags,
   xnn_operator_t* convert_op_out);
@@ -3706,6 +3744,52 @@ enum xnn_status xnn_reshape_deconvolution2d_nhwc_qs8(
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_deconvolution2d_nhwc_qs8(
+  xnn_operator_t deconvolution_op,
+  const int8_t* input,
+  int8_t* output);
+
+enum xnn_status xnn_create_deconvolution2d_nhwc_qs8_qc8w(
+  uint32_t output_padding_top,
+  uint32_t output_padding_right,
+  uint32_t output_padding_bottom,
+  uint32_t output_padding_left,
+  uint32_t kernel_height,
+  uint32_t kernel_width,
+  uint32_t stride_height,
+  uint32_t stride_width,
+  uint32_t dilation_height,
+  uint32_t dilation_width,
+  uint32_t groups,
+  size_t group_input_channels,
+  size_t group_output_channels,
+  size_t input_pixel_stride,
+  size_t output_pixel_stride,
+  int8_t input_zero_point,
+  float input_scale,
+  const float* kernel_scale,
+  const int8_t* kernel,
+  const int32_t* bias,
+  int8_t output_zero_point,
+  float output_scale,
+  int8_t output_min,
+  int8_t output_max,
+  uint32_t flags,
+  xnn_code_cache_t code_cache,
+  xnn_weights_cache_t weights_cache,
+  xnn_operator_t* deconvolution_op_out);
+
+enum xnn_status xnn_reshape_deconvolution2d_nhwc_qs8_qc8w(
+  xnn_operator_t deconvolution_op,
+  size_t batch_size,
+  size_t input_height,
+  size_t input_width,
+  uint32_t adjustment_height,
+  uint32_t adjustment_width,
+  size_t* output_height_out,
+  size_t* output_width_out,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_deconvolution2d_nhwc_qs8_qc8w(
   xnn_operator_t deconvolution_op,
   const int8_t* input,
   int8_t* output);
@@ -4677,6 +4761,23 @@ enum xnn_status xnn_create_leaky_relu_nc_qu8(
   uint32_t flags,
   xnn_operator_t* leaky_relu_op_out);
 
+enum xnn_status xnn_create_log_nc_f32(
+  uint32_t flags,
+  xnn_operator_t* log_op_out);
+
+enum xnn_status xnn_reshape_log_nc_f32(
+  xnn_operator_t log_op,
+  size_t batch_size,
+  size_t channels,
+  size_t input_stride,
+  size_t output_stride,
+  pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_log_nc_f32(
+  xnn_operator_t log_op,
+  const float* input,
+  float* output);
+
 enum xnn_status xnn_reshape_leaky_relu_nc_qu8(
   xnn_operator_t leaky_relu_op,
   size_t batch_size,
@@ -4879,10 +4980,13 @@ enum xnn_status xnn_reshape_mean_nd_f16(
   const size_t* reduction_axes,
   size_t num_input_dims,
   const size_t* input_shape,
+  size_t* workspace_size,
+  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_mean_nd_f16(
   xnn_operator_t mean_op,
+  void* workspace,
   const void* input,
   void* output);
 

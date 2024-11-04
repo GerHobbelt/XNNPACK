@@ -7,6 +7,8 @@ load(
     "//:build_defs.bzl",
     "xnnpack_binary",
     "xnnpack_cc_library",
+    "xnnpack_simd_archs",
+    "xnnpack_simd_copts_for_arch",
     "xnnpack_test_deps_for_library",
     "xnnpack_unit_test",
 )
@@ -42,6 +44,7 @@ OPERATOR_TEST_DEPS = [
     "//:common",
     "//:jit",
     "//:math",
+    "//:microkernel_configs",
     "//:microparams",
     "//:normalization",
     "//:params",
@@ -137,6 +140,29 @@ xnnpack_cc_library(
     deps = MICROKERNEL_TEST_DEPS + xnnpack_test_deps_for_library(),
 )
 
+xnnpack_cc_library(
+    name = "packq_microkernel_tester",
+    testonly = True,
+    srcs = ["packq-microkernel-tester.cc"],
+    hdrs = ["packq-microkernel-tester.h"],
+    deps = MICROKERNEL_TEST_DEPS + xnnpack_test_deps_for_library(),
+)
+
+######################### Unit tests for simd wrappers #########################
+[xnnpack_unit_test(
+    name = "f32_simd_" + arch + "_test",
+    srcs = [
+        "f32-simd-" + arch + ".cc",
+    ],
+    copts = xnnpack_simd_copts_for_arch(arch),
+    deps = [
+        ":replicable_random_device",
+        "//:common",
+        "//:isa_checks",
+        "//:microkernels_h",
+    ],
+) for arch in xnnpack_simd_archs()]
+
 ######################### Unit tests for micro-kernels #########################
 
 [xnnpack_unit_test(
@@ -166,6 +192,7 @@ xnnpack_cc_library(
     "f32_vclamp",
     "f32_velu",
     "f32_vhswish",
+    "f32_vlog",
     "f32_vlrelu",
     "f32_vneg",
     "f32_vrelu",
@@ -312,7 +339,7 @@ xnnpack_cc_library(
     "f16_rsum",
     "f16_f32acc_rsum",
     "f32_rsum",
-    "qs8_rsum_minmax_fp32",
+    "qs8_rsum",
 ]]
 
 [xnnpack_unit_test(
@@ -950,6 +977,17 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "qp8_f32_qc4w_gemm_minmax_test",
+    timeout = "moderate",
+    srcs = [
+        "qp8-f32-qc4w-gemm-minmax.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
     name = "qs8_qc8w_gemm_jit_fp32_test",
     srcs = [
         "qs8-qc8w-gemm-jit-fp32.cc",
@@ -1310,6 +1348,16 @@ xnnpack_unit_test(
     deps = MICROKERNEL_TEST_DEPS,
 )
 
+xnnpack_unit_test(
+    name = "x8_packq_test",
+    srcs = [
+        "x8-packq.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":packq_microkernel_tester",
+    ],
+)
+
 [xnnpack_unit_test(
     name = "%s_test" % kernel,
     srcs = [
@@ -1426,6 +1474,7 @@ xnnpack_binary(
     "floor_nc",
     "hardswish_nc",
     "leaky_relu_nc",
+    "log_nc",
     "negate_nc",
     "reciprocal_square_root_nc",
     "sigmoid_nc",
@@ -1527,7 +1576,7 @@ xnnpack_unit_test(
         "convert-operator-tester.h",
     ],
     shard_count = 5,
-    deps = OPERATOR_TEST_DEPS,
+    deps = OPERATOR_TEST_DEPS + ["//:microkernels_h"],
 )
 
 xnnpack_unit_test(
@@ -1536,7 +1585,7 @@ xnnpack_unit_test(
         "convert-nc-eager.cc",
         "convert-operator-tester.h",
     ],
-    deps = OPERATOR_TEST_DEPS,
+    deps = OPERATOR_TEST_DEPS + ["//:microkernels_h"],
 )
 
 xnnpack_unit_test(
@@ -1883,6 +1932,7 @@ xnnpack_cc_library(
     "floor",
     "hardswish",
     "leaky_relu",
+    "log",
     "negate",
     "reciprocal_square_root",
     "sigmoid",
@@ -2568,6 +2618,7 @@ xnnpack_unit_test(
     name = "operator_utils_test",
     srcs = ["operator-utils.cc"],
     deps = [
+        "//:microkernel_configs",
         "//:operator_utils",
         "//:params",
     ],

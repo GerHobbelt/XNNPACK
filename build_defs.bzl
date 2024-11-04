@@ -71,6 +71,62 @@ def xnnpack_slinky_deps():
 def xnnpack_slinky_defines():
     return []
 
+def xnnpack_if_kleidiai_enabled(enabled = [], not_enabled = []):
+    return select({
+        # TODO: b/349993583 - Uncomment when KleidiAI has an official BUILD file.
+        # ":kleidiai_enabled": enabled,
+        "//conditions:default": not_enabled,
+    })
+
+def xnnpack_kleidiai_defines():
+    return xnnpack_if_kleidiai_enabled(
+        enabled = ["XNN_ENABLE_KLEIDIAI=1"],
+        not_enabled = ["XNN_ENABLE_KLEIDIAI=0"],
+    )
+
+_XNNPACK_ARCH_COPT_MAPPING = {
+    "avx": select({
+        "//build_config:x86": ["-mavx"],
+        "//conditions:default": [],
+    }),
+    "avx2": select({
+        "//build_config:x86": ["-mavx2"],
+        "//conditions:default": [],
+    }),
+    "avx512f": select({
+        "//build_config:x86": ["-mavx512f"],
+        "//conditions:default": [],
+    }),
+    "fma3": select({
+        "//build_config:x86": ["-mfma"],
+        "//conditions:default": [],
+    }),
+    "hvx": select({
+        "//build_config:hexagon": ["-mhvx-ieee-fp"],
+        "//conditions:default": [],
+    }),
+    "neon": select({
+        "//build_config:aarch32": [
+            "-marm",
+            "-march=armv7-a",
+            "-mfpu=neon",
+        ],
+        "//conditions:default": [],
+    }),
+    "scalar": [],
+    "sse2": select({
+        "//build_config:x86": ["-msse2"],
+        "//conditions:default": [],
+    }),
+    "wasmsimd": [],
+}
+
+def xnnpack_simd_archs():
+    return _XNNPACK_ARCH_COPT_MAPPING.keys()
+
+def xnnpack_simd_copts_for_arch(arch):
+    return _XNNPACK_ARCH_COPT_MAPPING[arch]
+
 def xnnpack_cc_library(
         name,
         srcs = [],
@@ -224,6 +280,124 @@ def xnnpack_cc_library(
             "//conditions:default": [],
         }),
         textual_hdrs = hdrs,
+        visibility = visibility,
+        testonly = testonly,
+    )
+
+def xnnpack_microkernel_cc_library(
+        name,
+        srcs_prod = [],
+        srcs_test = [],
+        x86_srcs_prod = [],
+        x86_srcs_test = [],
+        aarch32_srcs_prod = [],
+        aarch32_srcs_test = [],
+        aarch64_srcs_prod = [],
+        aarch64_srcs_test = [],
+        hexagon_srcs_prod = [],
+        hexagon_srcs_test = [],
+        riscv_srcs_prod = [],
+        riscv_srcs_test = [],
+        wasm_srcs_prod = [],
+        wasm_srcs_test = [],
+        wasmsimd_srcs_prod = [],
+        wasmsimd_srcs_test = [],
+        wasmrelaxedsimd_srcs_prod = [],
+        wasmrelaxedsimd_srcs_test = [],
+        linkopts = [],
+        copts = [],
+        gcc_copts = [],
+        msvc_copts = [],
+        mingw_copts = [],  # buildifier: disable=unused-variable
+        msys_copts = [],  # buildifier: disable=unused-variable
+        gcc_x86_copts = [],
+        msvc_x86_32_copts = [],
+        msvc_x86_64_copts = [],
+        aarch32_copts = [],
+        aarch64_copts = [],
+        hexagon_copts = [],
+        riscv_copts = [],
+        wasm_copts = [],
+        wasmsimd_copts = [],
+        wasmrelaxedsimd_copts = [],
+        optimized_copts = ["-O2"],
+        hdrs = [],
+        defines = [],
+        includes = [],
+        deps = [],
+        visibility = [":__subpackages__"],
+        testonly = False):
+    """C/C++/assembly library with architecture-specific configuration.
+
+    A wrapper for xnnpack_cc_library called twice, once with prod and once with test.
+    """
+    xnnpack_cc_library(
+        name = name + "_prod_microkernels",
+        srcs = srcs_prod,
+        x86_srcs = x86_srcs_prod,
+        aarch32_srcs = aarch32_srcs_prod,
+        aarch64_srcs = aarch64_srcs_prod,
+        hexagon_srcs = hexagon_srcs_prod,
+        riscv_srcs = riscv_srcs_prod,
+        wasm_srcs = wasm_srcs_prod,
+        wasmsimd_srcs = wasmsimd_srcs_prod,
+        wasmrelaxedsimd_srcs = wasmrelaxedsimd_srcs_prod,
+        linkopts = linkopts,
+        copts = copts,
+        gcc_copts = gcc_copts,
+        msvc_copts = msvc_copts,
+        mingw_copts = mingw_copts,  # buildifier: disable=unused-variable
+        msys_copts = msys_copts,  # buildifier: disable=unused-variable
+        gcc_x86_copts = gcc_x86_copts,
+        msvc_x86_32_copts = msvc_x86_32_copts,
+        msvc_x86_64_copts = msvc_x86_64_copts,
+        aarch32_copts = aarch32_copts,
+        aarch64_copts = aarch64_copts,
+        hexagon_copts = hexagon_copts,
+        riscv_copts = riscv_copts,
+        wasm_copts = wasm_copts,
+        wasmsimd_copts = wasmsimd_copts,
+        wasmrelaxedsimd_copts = wasmrelaxedsimd_copts,
+        optimized_copts = optimized_copts,
+        hdrs = hdrs,
+        defines = defines,
+        includes = includes,
+        deps = deps,
+        visibility = visibility,
+        testonly = testonly,
+    )
+    xnnpack_cc_library(
+        name = name + "_test_microkernels",
+        srcs = srcs_test,
+        x86_srcs = x86_srcs_test,
+        aarch32_srcs = aarch32_srcs_test,
+        aarch64_srcs = aarch64_srcs_test,
+        hexagon_srcs = hexagon_srcs_test,
+        riscv_srcs = riscv_srcs_test,
+        wasm_srcs = wasm_srcs_test,
+        wasmsimd_srcs = wasmsimd_srcs_test,
+        wasmrelaxedsimd_srcs = wasmrelaxedsimd_srcs_test,
+        linkopts = linkopts,
+        copts = copts,
+        gcc_copts = gcc_copts,
+        msvc_copts = msvc_copts,
+        mingw_copts = mingw_copts,  # buildifier: disable=unused-variable
+        msys_copts = msys_copts,  # buildifier: disable=unused-variable
+        gcc_x86_copts = gcc_x86_copts,
+        msvc_x86_32_copts = msvc_x86_32_copts,
+        msvc_x86_64_copts = msvc_x86_64_copts,
+        aarch32_copts = aarch32_copts,
+        aarch64_copts = aarch64_copts,
+        hexagon_copts = hexagon_copts,
+        riscv_copts = riscv_copts,
+        wasm_copts = wasm_copts,
+        wasmsimd_copts = wasmsimd_copts,
+        wasmrelaxedsimd_copts = wasmrelaxedsimd_copts,
+        optimized_copts = optimized_copts,
+        hdrs = hdrs,
+        defines = defines,
+        includes = includes,
+        deps = deps,
         visibility = visibility,
         testonly = testonly,
     )
@@ -391,7 +565,7 @@ def xnnpack_binary(name, srcs, copts = [], deps = [], linkopts = []):
         deps = deps,
     )
 
-def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
+def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = [], defines = []):
     """Microbenchmark binary based on Google Benchmark
 
     Args:
@@ -403,6 +577,8 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
       deps: The list of additional libraries to be linked. Google Benchmark
             library is always added as a dependency and does not need to be
             explicitly specified.
+      tags: The list of arbitrary text tags.
+      defines: The list of arbitrary defines tags.
     """
     native.cc_binary(
         name = name,
@@ -431,6 +607,7 @@ def xnnpack_benchmark(name, srcs, copts = [], deps = [], tags = []):
             "//conditions:default": [],
         }),
         tags = tags,
+        defines = defines,
     )
 
 SrcListInfo = provider("A list of source files.", fields = {"srcs": "sources"})
@@ -448,7 +625,8 @@ source_list_aspect = aspect(
 )
 
 def _transitive_source_list_rule_impl(ctx):
-    files = [p for dep in ctx.attr.deps for p in dep[SrcListInfo].srcs.to_list() if p.owner.repo_name == ctx.label.repo_name and p.owner.package.startswith(ctx.label.package)]
+    get_repo_name = lambda x: getattr(x, "repo_name", getattr(x, "workspace_name"))
+    files = [p for dep in ctx.attr.deps for p in dep[SrcListInfo].srcs.to_list() if get_repo_name(p.owner) == get_repo_name(ctx.label) and p.owner.package.startswith(ctx.label.package)]
     return [DefaultInfo(files = depset(files))]
 
 xnnpack_transitive_source_list = rule(

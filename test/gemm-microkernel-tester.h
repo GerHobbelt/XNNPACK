@@ -10,31 +10,51 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <functional>
+#include <iostream>
+#include <ostream>
 #include <string>
 
-#include "xnnpack/allocator.h"
+#include <gtest/gtest.h>
 #include "xnnpack/common.h"
-#include "xnnpack/gemm.h"
-#include "xnnpack/igemm.h"
-#include "xnnpack/isa-checks.h"
 #include "xnnpack/math.h"
 #include "xnnpack/microfnptr.h"
-#include "xnnpack/microparams-init.h"
 #include "xnnpack/pack.h"
-#include "xnnpack/ppmm.h"
 #include "xnnpack/requantization.h"
-
-#include <gtest/gtest.h>
 
 #if XNN_PLATFORM_JIT
 #include <vector>
+
 #include "xnnpack/post-operation.h"
 #endif  // XNN_PLATFORM_JIT
 
+inline bool IsPrime(size_t n) {
+    if (n == 1 || n == 2) {
+      return true;
+    }
+    for (size_t k = 3; k * k <= n; k += 2) {
+      if (n % k == 0) {
+        return false;
+      }
+    }
+    return true;
+}
+
+inline size_t NextPrime(size_t n) {
+    n = (n + 1) | static_cast<size_t>(1);
+    while (!IsPrime(n)) {
+      n++;
+    }
+    return n;
+}
 
 class GemmMicrokernelTester {
  public:
+  GemmMicrokernelTester clone() const {
+    return *this;
+  }
+
   GemmMicrokernelTester& mr(size_t mr) {
     this->mr_ = mr;
     return *this;
@@ -240,6 +260,18 @@ class GemmMicrokernelTester {
 
   bool relu() const {
     return relu_;
+  }
+
+  GemmMicrokernelTester& mr_packed(size_t mr_packed) {
+    this->mr_packed_ = mr_packed;
+    return *this;
+  }
+
+  size_t mr_packed() const {
+    if (this->mr_packed_ == 0) {
+      return this->mr_;
+    }
+    return this->mr_packed_;
   }
 
   size_t nc_mod_nr() const {
@@ -494,16 +526,35 @@ class GemmMicrokernelTester {
   size_t iterations_{15};
   bool known_nc_mod_nr_{true};
   bool relu_{false};
+  size_t mr_packed_{0};
+};
+
+enum class LoopStepType {
+  Linear,
+  NextPrime
 };
 
 struct LoopParams {
   LoopParams() = default;
-  explicit LoopParams(size_t from, size_t to, size_t step)
-      : is_set(true), from(from), to(to), step(step) {}
+  explicit LoopParams(size_t from, size_t to, size_t step, LoopStepType step_type)
+      : is_set(true), from(from), to(to), step(step), step_type(step_type) {}
   bool is_set = false;
   size_t from = 1;
   size_t to = 1;
   size_t step = 1;
+  LoopStepType step_type = LoopStepType::Linear;
+
+  size_t next(size_t n) const {
+    switch (step_type) {
+      case LoopStepType::Linear:
+        return n + step;
+      case LoopStepType::NextPrime:
+        return NextPrime(n + step);
+      default:
+        std::cerr << "Unknown loop step type " << static_cast<int>(step_type) << std::endl;
+        std::abort();
+    }
+  }
 };
 
 struct GemmTestParams {
@@ -516,28 +567,28 @@ struct GemmTestParams {
         isa_check(isa_check) {}
 
   // Setters for the loops over `k`, `m`, and `n`.
-  GemmTestParams& loop_k(size_t from, size_t to, size_t step = 1) {
-    loop_k_ = LoopParams(from, to, step);
+  GemmTestParams& loop_k(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::NextPrime) {
+    loop_k_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_m(size_t from, size_t to, size_t step = 1) {
-    loop_m_ = LoopParams(from, to, step);
+  GemmTestParams& loop_m(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_m_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_n(size_t from, size_t to, size_t step = 1) {
-    loop_n_ = LoopParams(from, to, step);
+  GemmTestParams& loop_n(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::NextPrime) {
+    loop_n_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_zi(size_t from, size_t to, size_t step = 1) {
-    loop_zi_ = LoopParams(from, to, step);
+  GemmTestParams& loop_zi(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_zi_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_bzp(size_t from, size_t to, size_t step = 1) {
-    loop_bzp_ = LoopParams(from, to, step);
+  GemmTestParams& loop_bzp(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_bzp_ = LoopParams(from, to, step, step_type);
     return *this;
   }
-  GemmTestParams& loop_bl(size_t from, size_t to, size_t step = 1) {
-    loop_bl_ = LoopParams(from, to, step);
+  GemmTestParams& loop_bl(size_t from, size_t to, size_t step = 1, LoopStepType step_type = LoopStepType::Linear) {
+    loop_bl_ = LoopParams(from, to, step, step_type);
     return *this;
   }
 
@@ -554,23 +605,3 @@ struct GemmTestParams {
 };
 
 using GemmTest = testing::TestWithParam<GemmTestParams>;
-
-inline bool IsPrime(size_t n) {
-    if (n == 1 || n == 2) {
-      return true;
-    }
-    for (size_t k = 3; k * k <= n; k += 2) {
-      if (n % k == 0) {
-        return false;
-      }
-    }
-    return true;
-}
-
-inline size_t NextPrime(size_t n) {
-    n = (n + 1) | static_cast<size_t>(1);
-    while (!IsPrime(n)) {
-      n++;
-    }
-    return n;
-}

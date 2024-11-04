@@ -100,6 +100,7 @@ struct xnn_unary_elementwise_config {
     xnn_init_f16_tanh_params_fn f16_tanh;
     xnn_init_f32_default_params_fn f32_default;
     xnn_init_f32_elu_params_fn f32_elu;
+    xnn_init_f32_exp_params_fn f32_exp;
     xnn_init_f32_f16_cvt_params_fn f32_f16_cvt;
     xnn_init_f32_hswish_params_fn f32_hswish;
     xnn_init_f32_log_params_fn f32_log;
@@ -337,6 +338,7 @@ struct xnn_gemm_config {
   uint8_t log2_kr;
   uint8_t log2_sr;
   uint8_t planes;  // number of 4 bit planes (1 for legacy, 2 for unzip)
+  uint8_t mr_packed;  // `mr` value used for packed left-hand operands.
 };
 
 struct xnn_maxpool_config {

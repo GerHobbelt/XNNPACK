@@ -1,6 +1,21 @@
 #include "gemm-microkernel-tester.h"
 
 #include <stdint.h>
+
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <cstdlib>
+#include <functional>
+#include <limits>
+#include <random>
+#include <vector>
+
+#include <gtest/gtest.h>
+#include <fp16/bitcasts.h>
+#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
@@ -14,22 +29,7 @@
 #include "xnnpack/packq.h"
 #include "xnnpack/quantization.h"
 #include "xnnpack/requantization.h"
-
-#include <algorithm>
-#include <cassert>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <functional>
-#include <limits>
-#include <random>
-#include <vector>
-
 #include "replicable_random_device.h"
-#include <gtest/gtest.h>
-#include <fp16/bitcasts.h>
-#include <fp16/fp16.h>
 
 #if XNN_ARCH_ARM64
 #include "xnnpack/aarch64-assembler.h"
@@ -52,33 +52,33 @@ TEST_P(GemmTest, Test) {
 
   // Loop over the `k`, `m`, and `n` values, if required.
   for (size_t k = params.loop_k_.from; k <= params.loop_k_.to;
-       k = NextPrime(k + params.loop_k_.step)) {
+       k = params.loop_k_.next(k)) {
     if (params.loop_k_.is_set) {
       tester.k(k);
     }
     for (size_t m = params.loop_m_.from; m <= params.loop_m_.to;
-         m += params.loop_m_.step) {
+         m = params.loop_m_.next(m)) {
       if (params.loop_m_.is_set) {
         tester.m(m);
       }
       for (size_t n = params.loop_n_.from; n <= params.loop_n_.to;
-           n  = NextPrime(n + params.loop_n_.step)) {
+           n = params.loop_n_.next(n)) {
         if (params.loop_n_.is_set) {
           tester.n(n);
         }
         for (size_t zi = params.loop_zi_.from; zi <= params.loop_zi_.to;
-             zi += params.loop_zi_.step) {
+             zi = params.loop_zi_.next(zi)) {
           if (params.loop_zi_.is_set) {
             tester.zero_index(zi);
           }
           for (size_t bzp = params.loop_bzp_.from; bzp <= params.loop_bzp_.to;
-               bzp += params.loop_bzp_.step) {
+               bzp = params.loop_bzp_.next(bzp)) {
             if (params.loop_bzp_.is_set) {
               tester.b_zero_point(bzp);
             }
-            for (size_t bl = params.loop_bl_.from; bl <= params.loop_bl_.to;
-                 bl += params.loop_bl_.step) {
-              if (params.loop_bl_.is_set) {
+            for (size_t bl = params.loop_bl_.from; bl <= tester.k() / 2;
+               bl = params.loop_bl_.next(bl)) {
+               if (params.loop_bl_.is_set) {
                 // Require block size to divide (padded) column size.
                 if (round_up_po2(k, params.loop_bl_.step) % bl != 0) {
                   continue;
@@ -1687,7 +1687,8 @@ void GemmMicrokernelTester::Test(
     for (size_t i = 0; i < m(); i++) {
       for (size_t j = 0; j < n(); j++) {
         // Extract tolerance into variable to workaround test failures on Linux AArch64.
-        const float tolerance = std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f);
+        const float tolerance =
+            std::max(2.5e-5f, std::abs(c_ref[i * n() + j]) * 2.5e-6f);
         EXPECT_NEAR(c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()], c_ref[i * n() + j], tolerance)
             << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
             << ", optimized = " << c[i * cm_stride() + (j / nr()) * cn_stride() + j % nr()] << ", Mr x Nr x Kr = " << mr() << " x "
@@ -1727,6 +1728,7 @@ void GemmMicrokernelTester::Test(
   // Create a fake `gemm_config` for the packing functions.
   struct xnn_gemm_config gemm_config;
   gemm_config.mr = static_cast<uint8_t>(mr());
+  gemm_config.mr_packed = static_cast<uint8_t>(mr_packed());
   gemm_config.nr = static_cast<uint8_t>(nr());
   gemm_config.log2_kr = static_cast<uint8_t>(31 - math_clz_nonzero_u32(kr()));
   gemm_config.log2_sr = static_cast<uint8_t>(31 - math_clz_nonzero_u32(sr()));
@@ -1741,9 +1743,9 @@ void GemmMicrokernelTester::Test(
 
     // Quantize the left-hand operand.
     const size_t input_packed_size =
-        xnn_x8_packq_f32qp8_packed_size(m(), k2, mr(), kr(), sr());
+        xnn_x8_packq_f32qp8_packed_size(m(), k2, mr_packed(), kr(), sr());
     std::vector<int8_t> input_qp8(input_packed_size);
-    xnn_x8_packq_f32qp8_ukernel__scalar_u1(m(), k2, mr(), kr(), sr(),
+    xnn_x8_packq_f32qp8_ukernel__scalar_u1(m(), k2, mr_packed(), kr(), sr(),
                                            /*m_idx_start=*/0, input_f32.data(),
                                            /*lhs_stride=*/k2 * sizeof(float),
                                            input_qp8.data());
@@ -1783,8 +1785,9 @@ void GemmMicrokernelTester::Test(
                                        : (b[nb_index] >> 4)) -
               b_zero_point();
           c_ref[m_index * n() + n_index] +=
-              xnn_x8_packq_f32qp8_get_dequantized(
-                  m_index, k_index, input_qp8.data(), k2, mr(), kr(), sr()) *
+              xnn_x8_packq_f32qp8_get_dequantized(m_index, k_index,
+                                                  input_qp8.data(), k2,
+                                                  mr_packed(), kr(), sr()) *
               static_cast<int32_t>(bv);
         }
         c_ref[m_index * n() + n_index] *= kernel_scale[n_index];

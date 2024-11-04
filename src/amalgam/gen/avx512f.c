@@ -9,6 +9,9 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#ifndef M_LN2
+#define M_LN2 0.69314718055994531
+#endif  // M_LN2
 
 #include <immintrin.h>
 
@@ -4805,6 +4808,415 @@ void xnn_f32_vabs_ukernel__avx512f_u16(
   }
 }
 
+void xnn_f32_vcopysign_ukernel__avx512f_u32(
+    size_t batch,
+    const float* mag,
+    const float* sign,
+    float* output,
+    const union xnn_f32_default_params unused_params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(mag != NULL);
+  assert(sign != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_f32 == 16);
+
+  XNN_SIMD_CONST_F32(vsign_mask, -0.f);
+
+  for (; batch >= 32 * sizeof(float); batch -= 32 * sizeof(float)) {
+    xnn_simd_f32_t vsign_0 = xnn_loadu_f32(sign);
+    xnn_simd_f32_t vsign_1 = xnn_loadu_f32(sign + 1 * xnn_simd_size_f32);
+    sign += 32;
+
+    vsign_0 = xnn_and_f32(vsign_0, vsign_mask);
+    vsign_1 = xnn_and_f32(vsign_1, vsign_mask);
+
+    xnn_simd_f32_t vmag_0 = xnn_abs_f32(xnn_loadu_f32(mag));
+    xnn_simd_f32_t vmag_1 = xnn_abs_f32(xnn_loadu_f32(mag + 1 * xnn_simd_size_f32));
+    mag += 32;
+
+    xnn_simd_f32_t vy_0 = xnn_or_f32(vsign_0, vmag_0);
+    xnn_simd_f32_t vy_1 = xnn_or_f32(vsign_1, vmag_1);
+
+    xnn_storeu_f32(output, vy_0);
+    xnn_storeu_f32(output + 1 * xnn_simd_size_f32, vy_1);
+    output += 32;
+  }
+  for (; batch >= xnn_simd_bytes_f32; batch -= xnn_simd_bytes_f32) {
+    xnn_simd_f32_t vsign = xnn_loadu_f32(sign);
+    sign += xnn_simd_size_f32;
+
+    vsign = xnn_and_f32(vsign, vsign_mask);
+
+    xnn_simd_f32_t vmag = xnn_abs_f32(xnn_loadu_f32(mag));
+    mag += xnn_simd_size_f32;
+
+    xnn_simd_f32_t vy = xnn_or_f32(vsign, vmag);
+
+    xnn_storeu_f32(output, vy);
+    output += xnn_simd_size_f32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_f32_t vsign = xnn_load_tail_f32(sign, batch >> XNN_LOG2_SIZEOF_FLOAT);
+    vsign = xnn_and_f32(vsign, vsign_mask);
+
+    xnn_simd_f32_t vmag = xnn_abs_f32(xnn_load_tail_f32(mag, batch >> XNN_LOG2_SIZEOF_FLOAT));
+
+    xnn_simd_f32_t vy = xnn_or_f32(vsign, vmag);
+
+    xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
+  }
+}
+
+void xnn_f32_vcopysignc_ukernel__avx512f_u32(
+    size_t batch,
+    const float* mag,
+    const float* sign,
+    float* output,
+    const union xnn_f32_default_params unused_params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(mag != NULL);
+  assert(sign != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_f32 == 16);
+
+  XNN_SIMD_CONST_F32(vsign_mask, -0.f);
+  xnn_simd_f32_t vsign = xnn_set1_f32(*sign);
+  vsign = xnn_and_f32(vsign, vsign_mask);
+
+  for (; batch >= 32 * sizeof(float); batch -= 32 * sizeof(float)) {
+
+    xnn_simd_f32_t vmag_0 = xnn_abs_f32(xnn_loadu_f32(mag));
+    xnn_simd_f32_t vmag_1 = xnn_abs_f32(xnn_loadu_f32(mag + 1 * xnn_simd_size_f32));
+    mag += 32;
+
+    xnn_simd_f32_t vy_0 = xnn_or_f32(vsign, vmag_0);
+    xnn_simd_f32_t vy_1 = xnn_or_f32(vsign, vmag_1);
+
+    xnn_storeu_f32(output, vy_0);
+    xnn_storeu_f32(output + 1 * xnn_simd_size_f32, vy_1);
+    output += 32;
+  }
+  for (; batch >= xnn_simd_bytes_f32; batch -= xnn_simd_bytes_f32) {
+    xnn_simd_f32_t vmag = xnn_abs_f32(xnn_loadu_f32(mag));
+    mag += xnn_simd_size_f32;
+
+    xnn_simd_f32_t vy = xnn_or_f32(vsign, vmag);
+
+    xnn_storeu_f32(output, vy);
+    output += xnn_simd_size_f32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_f32_t vmag = xnn_abs_f32(xnn_load_tail_f32(mag, batch >> XNN_LOG2_SIZEOF_FLOAT));
+
+    xnn_simd_f32_t vy = xnn_or_f32(vsign, vmag);
+
+    xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
+  }
+}
+
+void xnn_f32_vgelu_ukernel__avx512f_rational_12_10_nr_u32(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_default_params unused_params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(input != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_f32 == 16);
+
+  // Cap the inputs to this value as `erf(x/sqrt(2))` will always be `+/-1.0f`
+  // beyond this point. This value is chosen as the first floating point
+  // number as of which the interpolation returns +/-1.0f.
+  #if XNN_SIMD_HAS_NATIVE_FMA || (XNN_ARCH_RISCV && XNN_ENABLE_RISCV_VECTOR)
+    XNN_SIMD_CONST_F32(vmax_abs_x, 5.1164608002e+00f);
+  #else
+    XNN_SIMD_CONST_F32(vmax_abs_x, 5.1158981323e+00f);
+  #endif  // XNN_SIMD_HAS_NATIVE_FMA
+
+  // The monomial coefficients of the numerator polynomial (odd).
+  XNN_SIMD_CONST_F32(valpha_1, 7.9788452387e-01f);
+  XNN_SIMD_CONST_F32(valpha_3, 6.6972173750e-02f);
+  XNN_SIMD_CONST_F32(valpha_5, 9.3065137044e-03f);
+  XNN_SIMD_CONST_F32(valpha_7, 3.2973114867e-04f);
+  XNN_SIMD_CONST_F32(valpha_9, 1.2609783880e-05f);
+  XNN_SIMD_CONST_F32(valpha_11, 4.5835321316e-08f);
+
+  // The monomial coefficients of the denominator polynomial (even).
+  // XNN_SIMD_CONST_F32(vbeta_0, 1.0f);
+  XNN_SIMD_CONST_F32(vbeta_2, 2.5060352683e-01f);
+  XNN_SIMD_CONST_F32(vbeta_4, 2.8431978077e-02f);
+  XNN_SIMD_CONST_F32(vbeta_6, 1.8622842617e-03f);
+  XNN_SIMD_CONST_F32(vbeta_8, 7.2267655923e-05f);
+  XNN_SIMD_CONST_F32(vbeta_10, 1.1988805682e-06f);
+
+  XNN_SIMD_CONST_F32(vone, 1.0f);
+  XNN_SIMD_CONST_F32(vhalf, 0.5f);
+  // Constant needed for the Newton-Raphson iteration of the reciprocal.
+  XNN_SIMD_CONST_F32(vtwo, 2.0f);
+
+  for (; batch >= 32 * sizeof(float); batch -= 32 * sizeof(float)) {
+    const xnn_simd_f32_t vx_orig_0 = xnn_loadu_f32(input);
+    const xnn_simd_f32_t vx_orig_1 = xnn_loadu_f32(input + 1 * xnn_simd_size_f32);
+    input += 32;
+
+    // Clamp the inputs to the interpolation range.
+    xnn_simd_f32_t vx_0 = xnn_min_f32(vmax_abs_x, vx_orig_0);
+    xnn_simd_f32_t vx_1 = xnn_min_f32(vmax_abs_x, vx_orig_1);
+    vx_0 = xnn_max_f32(xnn_neg_f32(vmax_abs_x), vx_0);
+    vx_1 = xnn_max_f32(xnn_neg_f32(vmax_abs_x), vx_1);
+
+    // Since the polynomials are odd/even, we need x^2.
+    const xnn_simd_f32_t vx2_0 = xnn_mul_f32(vx_0, vx_0);
+    const xnn_simd_f32_t vx2_1 = xnn_mul_f32(vx_1, vx_1);
+
+    // Evaluate the numerator polynomial p.
+    xnn_simd_f32_t vp_0 = xnn_fmadd_f32(vx2_0, valpha_11, valpha_9);
+    xnn_simd_f32_t vp_1 = xnn_fmadd_f32(vx2_1, valpha_11, valpha_9);
+    vp_0 = xnn_fmadd_f32(vx2_0, vp_0, valpha_7);
+    vp_1 = xnn_fmadd_f32(vx2_1, vp_1, valpha_7);
+    vp_0 = xnn_fmadd_f32(vx2_0, vp_0, valpha_5);
+    vp_1 = xnn_fmadd_f32(vx2_1, vp_1, valpha_5);
+    vp_0 = xnn_fmadd_f32(vx2_0, vp_0, valpha_3);
+    vp_1 = xnn_fmadd_f32(vx2_1, vp_1, valpha_3);
+    vp_0 = xnn_fmadd_f32(vx2_0, vp_0, valpha_1);
+    vp_1 = xnn_fmadd_f32(vx2_1, vp_1, valpha_1);
+    vp_0 = xnn_mul_f32(vx_0, vp_0);
+    vp_1 = xnn_mul_f32(vx_1, vp_1);
+
+    // Evaluate the denominator polynomial q.
+    xnn_simd_f32_t vq_0 = xnn_fmadd_f32(vx2_0, vbeta_10, vbeta_8);
+    xnn_simd_f32_t vq_1 = xnn_fmadd_f32(vx2_1, vbeta_10, vbeta_8);
+    vq_0 = xnn_fmadd_f32(vx2_0, vq_0, vbeta_6);
+    vq_1 = xnn_fmadd_f32(vx2_1, vq_1, vbeta_6);
+    vq_0 = xnn_fmadd_f32(vx2_0, vq_0, vbeta_4);
+    vq_1 = xnn_fmadd_f32(vx2_1, vq_1, vbeta_4);
+    vq_0 = xnn_fmadd_f32(vx2_0, vq_0, vbeta_2);
+    vq_1 = xnn_fmadd_f32(vx2_1, vq_1, vbeta_2);
+    vq_0 = xnn_fmadd_f32(vx2_0, vq_0, vone);
+    vq_1 = xnn_fmadd_f32(vx2_1, vq_1, vone);
+
+    // Divide the numerator by the denominator.
+    xnn_simd_f32_t vrq_0 = xnn_rcp_f32(vq_0);
+    xnn_simd_f32_t vrq_1 = xnn_rcp_f32(vq_1);
+    for (size_t iter = 0; iter < XNN_SIMD_NUM_RCP_ITER_F32; iter++) {
+      vrq_0 = xnn_mul_f32(vrq_0, xnn_fnmadd_f32(vrq_0, vq_0, vtwo));
+      vrq_1 = xnn_mul_f32(vrq_1, xnn_fnmadd_f32(vrq_1, vq_1, vtwo));
+    }
+    // Note that we _could_ use a fused multiply-add to compute `p * rq + 1`,
+    // but we actually want this to round to zero near the edges, so we
+    // don't want the extended precision of the fused multiply-add.
+    const xnn_simd_f32_t verf_0 = xnn_mul_f32(vp_0, vrq_0);
+    const xnn_simd_f32_t verf_1 = xnn_mul_f32(vp_1, vrq_1);
+
+    // Add one to the rational interpolant, and multiply by 0.5 times the
+    // original input.
+    const xnn_simd_f32_t vy_0 = xnn_mul_f32(xnn_mul_f32(vx_orig_0, vhalf),
+                                        xnn_add_f32(verf_0, vone));
+    const xnn_simd_f32_t vy_1 = xnn_mul_f32(xnn_mul_f32(vx_orig_1, vhalf),
+                                        xnn_add_f32(verf_1, vone));
+
+    xnn_storeu_f32(output, vy_0);
+    xnn_storeu_f32(output + 1 * xnn_simd_size_f32, vy_1);
+    output += 32;
+  }
+  for (; batch >= xnn_simd_bytes_f32; batch -= xnn_simd_bytes_f32) {
+    const xnn_simd_f32_t vx_orig = xnn_loadu_f32(input);
+    input += xnn_simd_size_f32;
+
+    // Clamp the inputs to the interpolation range.
+    xnn_simd_f32_t vx = xnn_min_f32(vmax_abs_x, vx_orig);
+    vx = xnn_max_f32(xnn_neg_f32(vmax_abs_x), vx);
+
+    // Since the polynomials are odd/even, we need x^2.
+    const xnn_simd_f32_t vx2 = xnn_mul_f32(vx, vx);
+
+    // Evaluate the numerator polynomial p.
+    xnn_simd_f32_t vp = xnn_fmadd_f32(vx2, valpha_11, valpha_9);
+    vp = xnn_fmadd_f32(vx2, vp, valpha_7);
+    vp = xnn_fmadd_f32(vx2, vp, valpha_5);
+    vp = xnn_fmadd_f32(vx2, vp, valpha_3);
+    vp = xnn_fmadd_f32(vx2, vp, valpha_1);
+    vp = xnn_mul_f32(vx, vp);
+
+    // Evaluate the denominator polynomial q.
+    xnn_simd_f32_t vq = xnn_fmadd_f32(vx2, vbeta_10, vbeta_8);
+    vq = xnn_fmadd_f32(vx2, vq, vbeta_6);
+    vq = xnn_fmadd_f32(vx2, vq, vbeta_4);
+    vq = xnn_fmadd_f32(vx2, vq, vbeta_2);
+    vq = xnn_fmadd_f32(vx2, vq, vone);
+
+    // Divide the numerator by the denominator and add one
+    xnn_simd_f32_t vrq = xnn_rcp_f32(vq);
+    for (size_t iter = 0; iter < XNN_SIMD_NUM_RCP_ITER_F32; iter++) {
+      vrq = xnn_mul_f32(vrq, xnn_fnmadd_f32(vrq, vq, vtwo));
+    }
+    // Note that we _could_ use a fused multiply-add to compute `p * rq + 1`,
+    // but we actually want this to round to zero near the edges, so we
+    // don't want the extended precision of the fused multiply-add.
+    const xnn_simd_f32_t verf = xnn_mul_f32(vp, vrq);
+
+    // Add one to the rational interpolant, and multiply by 0.5 times the
+    // original input.
+    const xnn_simd_f32_t vy = xnn_mul_f32(xnn_mul_f32(vx_orig, vhalf),
+                                          xnn_add_f32(verf, vone));
+
+    xnn_storeu_f32(output, vy);
+    output += xnn_simd_size_f32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_f32_t vx_orig = xnn_load_tail_f32(input, batch >> XNN_LOG2_SIZEOF_FLOAT);
+
+  // See above for comments.
+  xnn_simd_f32_t vx = xnn_min_f32(vmax_abs_x, vx_orig);
+  vx = xnn_max_f32(xnn_neg_f32(vmax_abs_x), vx);
+  const xnn_simd_f32_t vx2 = xnn_mul_f32(vx, vx);
+  xnn_simd_f32_t vp = xnn_fmadd_f32(vx2, valpha_11, valpha_9);
+  vp = xnn_fmadd_f32(vx2, vp, valpha_7);
+  vp = xnn_fmadd_f32(vx2, vp, valpha_5);
+  vp = xnn_fmadd_f32(vx2, vp, valpha_3);
+  vp = xnn_fmadd_f32(vx2, vp, valpha_1);
+  vp = xnn_mul_f32(vx, vp);
+  xnn_simd_f32_t vq = xnn_fmadd_f32(vx2, vbeta_10, vbeta_8);
+  vq = xnn_fmadd_f32(vx2, vq, vbeta_6);
+  vq = xnn_fmadd_f32(vx2, vq, vbeta_4);
+  vq = xnn_fmadd_f32(vx2, vq, vbeta_2);
+  vq = xnn_fmadd_f32(vx2, vq, vone);
+  xnn_simd_f32_t vrq = xnn_rcp_f32(vq);
+  for (size_t iter = 0; iter < XNN_SIMD_NUM_RCP_ITER_F32; iter++) {
+    vrq = xnn_mul_f32(vrq, xnn_fnmadd_f32(vrq, vq, vtwo));
+  }
+  const xnn_simd_f32_t verf = xnn_mul_f32(vp, vrq);
+  const xnn_simd_f32_t vy = xnn_mul_f32(xnn_mul_f32(vx_orig, vhalf),
+                                        xnn_add_f32(verf, vone));
+
+    xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
+  }
+}
+
+static XNN_INLINE xnn_simd_f32_t xnn_signed_getexp_f32(xnn_simd_f32_t a) {
+  // Create a mask of the zeros in the input.
+  __mmask16 zero_mask = _mm512_cmp_ps_mask(a, _mm512_setzero_ps(), _CMP_EQ_OQ);
+
+  // Create a mask of the negative inputs.
+  __mmask16 neg_mask = _mm512_cmp_ps_mask(a, _mm512_setzero_ps(), _CMP_LT_OQ);
+
+  // Extract the exponent.
+  __m512 res = _mm512_getexp_ps(a);
+
+  // Set the zero inputs to `-Inf` and the negative inputs to `NaN`.
+  res = _mm512_castsi512_ps(_mm512_mask_set1_epi32(
+      _mm512_castps_si512(res), zero_mask, 0xFF800000 /*Inf*/));
+  res = _mm512_castsi512_ps(_mm512_mask_set1_epi32(
+      _mm512_castps_si512(res), neg_mask, 0x7FC00001 /*NaN*/));
+
+  return res;
+}
+
+void xnn_f32_vlog_ukernel__avx512f_rational_3_3_div_u16(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_default_params unused_params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(input != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_f32 == 16);
+
+  // Some useful constants.
+  XNN_SIMD_CONST_F32(vone, 1.0f);
+  XNN_SIMD_CONST_F32(vln2, M_LN2);
+  XNN_SIMD_CONST_U32(vmantissa_bits_mask, 0x007FFFFFUL);
+
+  // Note that these two values are not _exactly_ `(float)M_SQRT2` and
+  // `(float)M_SQRT1_2`, but are instead chosen such that their product is
+  // exactly `1.0f` when evaluated in `float` precision.
+  XNN_SIMD_CONST_F32(vsqrt2, 1.4142134190e+00);
+  XNN_SIMD_CONST_F32(vsqrt1_2, 7.0710688829e-01);
+
+  // The monomial coefficients of the numerator polynomial.
+  // XNN_SIMD_CONST_F32(valpha_0, 0.0f);
+  // XNN_SIMD_CONST_F32(valpha_1, 1.0f);
+  // XNN_SIMD_CONST_F32(valpha_2, 1.0f);
+  XNN_SIMD_CONST_F32(valpha_3, 1.824996918440e-01);
+
+  // The monomial coefficients of the denominator polynomial.
+  // XNN_SIMD_CONST_F32(vbeta_0, 1.0f);
+  XNN_SIMD_CONST_F32(vbeta_1, 1.5f);
+  XNN_SIMD_CONST_F32(vbeta_2, 0.599170029163);
+  XNN_SIMD_CONST_F32(vbeta_3, 0.049584995955);
+
+
+  for (; batch >= xnn_simd_bytes_f32; batch -= xnn_simd_bytes_f32) {
+    xnn_simd_f32_t vx = xnn_loadu_f32(input);
+    input += xnn_simd_size_f32;
+
+    // Scale `x` with `sqrt(2)` so that the exponent is rounded up.
+    vx = xnn_mul_f32(vx, vsqrt2);
+
+    // Extract the exponent.
+    const xnn_simd_f32_t vexp = xnn_signed_getexp_f32(vx);
+
+    // Normalize `x` to an exponent of zero.
+    vx = xnn_or_f32(xnn_and_f32(vx, vmantissa_bits_mask), vone);
+
+    // Scale `x` back with `1/sqrt(2)` to move its range from `[1.0, 2.0)` to
+    // `[sqrt(1/2), sqrt(2))`, and further subtract `1.0` so that it is around
+    // zero, i.e. `[sqrt(1/2) - 1, sqrt(2) - 1)`, or `[−0.29289, 0.4142136)`.
+    vx = xnn_sub_f32(xnn_mul_f32(vx, vsqrt1_2), vone);
+
+    // In the following, we use a 3/2-degree rational polynomial to
+    // approximate the (shifted) `log(x + 1)` on the (shifted) interval
+    // `[sqrt(1/2) - 1, sqrt(2) - 1)`. The shifted interval is chosen so that
+    // `f(0) = 0`.
+
+    // Evaluate the numerator polynomial p.
+    xnn_simd_f32_t vp = xnn_fmadd_f32(vx, valpha_3, vone);
+    vp = xnn_fmadd_f32(vx, vp, vone);
+    vp = xnn_mul_f32(vx, vp);
+
+    // Evaluate the denominator polynomial q.
+    xnn_simd_f32_t vq = xnn_fmadd_f32(vx, vbeta_3, vbeta_2);
+    vq = xnn_fmadd_f32(vx, vq, vbeta_1);
+    vq = xnn_fmadd_f32(vx, vq, vone);
+
+    // Divide the numerator by the denominator.
+    xnn_simd_f32_t vy =  xnn_div_f32(vp, vq);
+
+    // Put it all together, i.e. `log(x) = `log(2)*exp + y`.
+    vy = xnn_fmadd_f32(vexp, vln2, vy);
+
+    xnn_storeu_f32(output, vy);
+    output += xnn_simd_size_f32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_f32_t vx = xnn_load_tail_f32(input, batch >> XNN_LOG2_SIZEOF_FLOAT);
+
+    // See the loop above for comments.
+    vx = xnn_mul_f32(vx, vsqrt2);
+    const xnn_simd_f32_t vexp = xnn_signed_getexp_f32(vx);
+    vx = xnn_or_f32(xnn_and_f32(vx, vmantissa_bits_mask), vone);
+    vx = xnn_sub_f32(xnn_mul_f32(vx, vsqrt1_2), vone);
+    xnn_simd_f32_t vp = xnn_fmadd_f32(vx, valpha_3, vone);
+    vp = xnn_fmadd_f32(vx, vp, vone);
+    vp = xnn_mul_f32(vx, vp);
+    xnn_simd_f32_t vq = xnn_fmadd_f32(vx, vbeta_3, vbeta_2);
+    vq = xnn_fmadd_f32(vx, vq, vbeta_1);
+    vq = xnn_fmadd_f32(vx, vq, vone);
+    xnn_simd_f32_t vy =  xnn_div_f32(vp, vq);
+    vy = xnn_fmadd_f32(vexp, vln2, vy);
+
+    xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
+  }
+}
+
 void xnn_f32_vneg_ukernel__avx512f_u16(
     size_t batch,
     const float* input,
@@ -4833,6 +5245,59 @@ void xnn_f32_vneg_ukernel__avx512f_u16(
         xnn_load_tail_f32(input, batch >> XNN_LOG2_SIZEOF_FLOAT);
 
     const xnn_simd_f32_t vy = xnn_neg_f32(vx);
+
+    xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
+  }
+}
+
+void xnn_f32_vrcopysignc_ukernel__avx512f_u32(
+    size_t batch,
+    const float* sign,
+    const float* mag,
+    float* output,
+    const union xnn_f32_default_params unused_params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(float) == 0);
+  assert(sign != NULL);
+  assert(mag != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_f32 == 16);
+
+  XNN_SIMD_CONST_F32(vsign_mask, -0.f);
+  xnn_simd_f32_t vmag = xnn_abs_f32(xnn_set1_f32(*mag));
+
+  for (; batch >= 32 * sizeof(float); batch -= 32 * sizeof(float)) {
+    xnn_simd_f32_t vsign_0 = xnn_loadu_f32(sign);
+    xnn_simd_f32_t vsign_1 = xnn_loadu_f32(sign + 1 * xnn_simd_size_f32);
+    sign += 32;
+
+    vsign_0 = xnn_and_f32(vsign_0, vsign_mask);
+    vsign_1 = xnn_and_f32(vsign_1, vsign_mask);
+
+    xnn_simd_f32_t vy_0 = xnn_or_f32(vsign_0, vmag);
+    xnn_simd_f32_t vy_1 = xnn_or_f32(vsign_1, vmag);
+
+    xnn_storeu_f32(output, vy_0);
+    xnn_storeu_f32(output + 1 * xnn_simd_size_f32, vy_1);
+    output += 32;
+  }
+  for (; batch >= xnn_simd_bytes_f32; batch -= xnn_simd_bytes_f32) {
+    xnn_simd_f32_t vsign = xnn_loadu_f32(sign);
+    sign += xnn_simd_size_f32;
+
+    vsign = xnn_and_f32(vsign, vsign_mask);
+
+    xnn_simd_f32_t vy = xnn_or_f32(vsign, vmag);
+
+    xnn_storeu_f32(output, vy);
+    output += xnn_simd_size_f32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_f32_t vsign = xnn_load_tail_f32(sign, batch >> XNN_LOG2_SIZEOF_FLOAT);
+    vsign = xnn_and_f32(vsign, vsign_mask);
+
+    xnn_simd_f32_t vy = xnn_or_f32(vsign, vmag);
 
     xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
   }

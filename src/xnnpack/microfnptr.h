@@ -1774,6 +1774,15 @@ typedef void (*xnn_u8_vclamp_ukernel_fn)(
     uint8_t* output,
     const union xnn_u8_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
+// VCOPYSIGN: Vector Copysign elementwise
+
+typedef void (*xnn_f32_vcopysign_ukernel_fn)(
+    size_t batch,
+    const float* input_a,
+    const float* input_b,
+    float* output,
+    const union xnn_f32_default_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
 // VCVT: Vector ConVerT elementwise
 
 typedef void (*xnn_f16_f32_vcvt_ukernel_fn)(
@@ -1855,6 +1864,14 @@ typedef void (*xnn_f32_velu_ukernel_fn)(
     const float* input,
     float* output,
     const union xnn_f32_elu_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
+// VGELU: Vector Gaussian Error Linear Unit elementwise
+
+typedef void (*xnn_f32_vgelu_ukernel_fn)(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_default_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 // VHSWISH: Vector Hard SWISH elementwise
 
@@ -2023,6 +2040,14 @@ typedef void (*xnn_f32_vtanh_ukernel_fn)(
     const float* input,
     float* output,
     const union xnn_f32_tanh_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
+// VEXP: Vector Exp elementwise
+
+typedef void (*xnn_f32_vexp_ukernel_fn)(
+    size_t batch,
+    const float* input,
+    float* output,
+    const union xnn_f32_default_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
 // VLOG: Vector Log elementwise
 
@@ -2621,6 +2646,9 @@ typedef size_t (*xnn_init_f16_elu_params_fn)(
   uint16_t alpha,
   uint16_t beta);
 
+typedef size_t (*xnn_init_f32_exp_params_fn)(
+  union xnn_f32_default_params params[XNN_MIN_ELEMENTS(1)]);
+
 typedef size_t (*xnn_init_f32_elu_params_fn)(
   union xnn_f32_elu_params params[XNN_MIN_ELEMENTS(1)],
   float prescale,
@@ -2963,6 +2991,13 @@ struct xnn_hmp_igemm_ukernel {
 #endif  // XNN_PLATFORM_JIT
 };
 
+struct xnn_hmp_qp8gemm_ukernel {
+  xnn_qp8_f32_qc4w_gemm_minmax_ukernel_fn function[XNN_MAX_UARCH_TYPES];
+#if XNN_PLATFORM_JIT
+  struct xnn_generated_code_chunk generated_code_chunk[XNN_MAX_UARCH_TYPES];
+#endif  // XNN_PLATFORM_JIT
+};
+
 // Largest GEMM/IGEMM MR used in init.c is 16 (x86 AVX512AMX).
 // Largest GEMM/IGEMM MR is 8 in e2e benchmarks.
 #define XNN_MAX_MR 16
@@ -2971,6 +3006,7 @@ struct gemm_fused_ukernels {
   union {
     struct xnn_hmp_gemm_ukernel gemm[XNN_MAX_MR];
     struct xnn_hmp_dqgemm_ukernel dqgemm[XNN_MAX_MR];
+    struct xnn_hmp_qp8gemm_ukernel qp8gemm[XNN_MAX_MR];
   };
   union {
     struct xnn_hmp_igemm_ukernel igemm[XNN_MAX_MR];

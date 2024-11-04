@@ -3,18 +3,19 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+#include "xnnpack/microparams-init.h"
+
 #include <assert.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+#include <fp16/fp16.h>
 #include "xnnpack/common.h"
 #include "xnnpack/math.h"
 #include "xnnpack/microparams.h"
-#include "xnnpack/microparams-init.h"
 #include "xnnpack/unaligned.h"
-
-#include <fp16/fp16.h>
 
 size_t xnn_init_qs8_qc8w_conv_minmax_fp32_scalar_fmagic_params(
   union xnn_qs8_qc8w_conv_minmax_params params[XNN_MIN_ELEMENTS(1)],
@@ -1017,11 +1018,11 @@ size_t xnn_init_qs8_rsum_avx2_params(
 size_t xnn_init_qs8_rsum_neon_params(
   union xnn_qs8_rsum_params params[XNN_MIN_ELEMENTS(1)])
 {
-  for (uint32_t i = 0; i < 15; i++) {
-    params->neon.mask_table[i] = 1;
+  for (uint32_t i = 0; i < 16; i++) {
+    params->neon.onemask_table[i] = 1;
   }
-  for (uint32_t i = 15; i < 30; i++) {
-    params->neon.mask_table[i] = 0;
+  for (uint32_t i = 16; i < 32; i++) {
+    params->neon.onemask_table[i] = 0;
   }
   return sizeof(params->neon);
 }
@@ -4384,6 +4385,24 @@ size_t xnn_init_f32_expminus_wasmsimd_rr2_p5_params(
 }
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
 
+#if XNN_ARCH_HEXAGON
+size_t xnn_init_f32_expminus_hvx_rr2_p5_params(
+  union xnn_f32_expminus_params params[XNN_MIN_ELEMENTS(1)])
+{
+  params->hvx_rr2_p5.log2e = 0x1.715476p+0f;
+  params->hvx_rr2_p5.magic_bias = 0x1.8000FEp23f;
+  params->hvx_rr2_p5.minus_ln2_hi = -0x1.62E400p-1f;
+  params->hvx_rr2_p5.minus_ln2_lo = -0x1.7F7D1Cp-20f;
+  params->hvx_rr2_p5.c5 = 0x1.0F9F9Cp-7f;
+  params->hvx_rr2_p5.c4 = 0x1.573A1Ap-5f;
+  params->hvx_rr2_p5.c3 = 0x1.555A80p-3f;
+  params->hvx_rr2_p5.c2 = 0x1.FFFDC6p-2f;
+  params->hvx_rr2_p5.c1 = 0x1.FFFFF6p-1f;
+  params->hvx_rr2_p5.denorm_cutoff = -0x1.5D589Ep6f;
+  return sizeof(params->hvx_rr2_p5);
+}
+#endif  // XNN_ARCH_HEXAGON
+
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
 size_t xnn_init_f16_lrelu_fp16arith_params(
   union xnn_f16_lrelu_params params[XNN_MIN_ELEMENTS(1)],
@@ -7407,6 +7426,23 @@ size_t xnn_init_f32_qs8_cvt_wasmsimd_magic_params(
   return sizeof(params->wasmsimd_magic);
 }
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+
+#if XNN_ARCH_HEXAGON
+size_t xnn_init_f32_qs8_cvt_hvx_params(
+  union xnn_f32_qs8_cvt_params params[XNN_MIN_ELEMENTS(1)],
+  float scale,
+  int8_t output_zero_point,
+  int8_t output_min,
+  int8_t output_max)
+{
+  params->hvx.scale = scale;
+  params->hvx.magic_bias = 12582912.0f;
+  params->hvx.magic_bias_less_zero_point = INT32_C(0x4B400000) - (int32_t) output_zero_point;
+  params->hvx.output_min = output_min;
+  params->hvx.output_max = output_max;
+  return sizeof(params->hvx);
+}
+#endif  // XNN_ARCH_HEXAGON
 
 size_t xnn_init_f32_qu8_cvt_scalar_fmagic_params(
   union xnn_f32_qu8_cvt_params params[XNN_MIN_ELEMENTS(1)],

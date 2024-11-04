@@ -442,6 +442,9 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/f32-vcmul/gen/f32-vcmul-scalar-u2.c
   src/f32-vcmul/gen/f32-vcmul-scalar-u4.c
   src/f32-vcmul/gen/f32-vcmul-scalar-u8.c
+  src/f32-vcopysign/gen/f32-vcopysign-scalar.c
+  src/f32-vcopysign/gen/f32-vcopysignc-scalar.c
+  src/f32-vcopysign/gen/f32-vrcopysignc-scalar.c
   src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-u1.c
   src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-u2.c
   src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-u3.c
@@ -454,6 +457,9 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/f32-velu/gen/f32-velu-scalar-rr2-p6-u4.c
   src/f32-velu/gen/f32-velu-scalar-rr2-p6-u5.c
   src/f32-velu/gen/f32-velu-scalar-rr2-p6-u6.c
+  src/f32-vexp/gen/f32-vexp-scalar-exp.c
+  src/f32-vgelu/gen/f32-vgelu-scalar-rational-12-10-div.c
+  src/f32-vgelu/gen/f32-vgelu-scalar.c
   src/f32-vhswish/gen/f32-vhswish-scalar-u1.c
   src/f32-vhswish/gen/f32-vhswish-scalar-u2.c
   src/f32-vhswish/gen/f32-vhswish-scalar-u4.c
@@ -1088,6 +1094,8 @@ SET(ALL_SCALAR_MICROKERNEL_SRCS
   src/x8-zip/x8-zip-xm-scalar.c
   src/x16-packw/gen/x16-packw-x8-gemm-goi-scalar-int-u4.c
   src/x16-packw/gen/x16-packw-x16-gemm-goi-scalar-int-u4.c
+  src/x16-packw/gen/x16-packw-x32-gemm-goi-scalar-int-u4.c
+  src/x16-packw/gen/x16-packw-x64-gemm-goi-scalar-int-u4.c
   src/x16-transposec/gen/x16-transposec-1x2-scalar-int.c
   src/x16-transposec/gen/x16-transposec-1x4-scalar-int.c
   src/x16-transposec/gen/x16-transposec-2x1-scalar-int.c

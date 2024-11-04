@@ -1050,12 +1050,12 @@ union xnn_qs8_rsum_params {
   } scalar;
 #if XNN_ARCH_ARM || XNN_ARCH_ARM64
   struct {
-    int8_t mask_table[30];
+    int8_t onemask_table[32];  // 16 ones, 16 zeros
   } neon;
 #endif  // XNN_ARCH_ARM || XNN_ARCH_ARM64
 #if XNN_ARCH_X86 || XNN_ARCH_X86_64
   struct {
-    int8_t onemask_table[32];  // 16 ones, 16 zeros
+    XNN_ALIGN(16) int8_t onemask_table[32];  // 16 ones, 16 zeros
   } ssse3;
   struct {
     XNN_ALIGN(16) int8_t mask_table[30];
@@ -1505,6 +1505,15 @@ union xnn_f32_qs8_cvt_params {
     XNN_ALIGN(8) int8_t output_max[8];
   } wasmsimd_magic;
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+#if XNN_ARCH_HEXAGON
+  struct {
+    float scale;
+    float magic_bias;
+    int32_t magic_bias_less_zero_point;
+    int8_t output_min;
+    int8_t output_max;
+  } hvx;
+#endif  // XNN_ARCH_HEXAGON
 };
 
 union xnn_f32_qu8_cvt_params {
@@ -2278,8 +2287,21 @@ union xnn_f32_expminus_params {
     XNN_ALIGN(8) float denorm_cutoff[2];
   } wasmsimd_rr2_p5;
 #endif  // XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
+#if XNN_ARCH_HEXAGON
+  struct {
+    float log2e;
+    float magic_bias;
+    float minus_ln2_hi;
+    float minus_ln2_lo;
+    float c5;
+    float c4;
+    float c3;
+    float c2;
+    float c1;
+    float denorm_cutoff;
+  } hvx_rr2_p5;
+#endif  // XNN_ARCH_HEXAGON
 };
-
 
 // HSwish: used by VHSWISH microkernels.
 

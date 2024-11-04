@@ -132,6 +132,7 @@ ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
     SET(XNNPACK_ENABLE_AVX512FP16 OFF)
   ENDIF()
 ENDIF()
+OPTION(XNNPACK_ENABLE_HVX "Build XNNPACK with Hexagon HVX micro-kernels" ON)
 
 # ---[ CMake options
 INCLUDE(GNUInstallDirs)
@@ -158,6 +159,7 @@ ADD_COMPILE_DEFINITIONS("XNN_ENABLE_MEMOPT=$<BOOL:${XNNPACK_ENABLE_MEMOPT}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_SPARSE=$<BOOL:${XNNPACK_ENABLE_SPARSE}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_GEMM_M_SPECIALIZATION=$<BOOL:${XNNPACK_ENABLE_GEMM_M_SPECIALIZATION}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_DWCONV_MULTIPASS=$<BOOL:${XNNPACK_ENABLE_DWCONV_MULTIPASS}>")
+ADD_COMPILE_DEFINITIONS("XNN_ENABLE_HVX=$<BOOL:${XNNPACK_ENABLE_HVX}>")
 
 IF(XNNPACK_PLATFORM_JIT STREQUAL "ON" OR XNNPACK_PLATFORM_JIT STREQUAL "OFF")
   ADD_COMPILE_DEFINITIONS("XNN_PLATFORM_JIT=$<BOOL:${XNNPACK_PLATFORM_JIT}>")
@@ -380,7 +382,8 @@ SET(XNNPACK_SRCS
   src/configs/x8-lut-config.c
   src/configs/zip-config.c
   src/init.c
-  src/params.c)
+  src/params.c
+  "${PROJECT_BINARY_DIR}/build_identifier.c")
 
 SET(TABLE_SRCS
   src/tables/exp2-k-over-64.c
@@ -586,6 +589,9 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "Hexagon")
   LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_HEXAGON_MICROKERNEL_SRCS})
+  IF(XNNPACK_ENABLE_HVX)
+    LIST(APPEND ALL_MICROKERNEL_SRCS ${ALL_HVX_MICROKERNEL_SRCS})
+  ENDIF()
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "^ppc64")
   IF(XNNPACK_ENABLE_VSX)
@@ -603,6 +609,14 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_RVVFP16ARITH_MICROKERNEL_SRCS})
   ENDIF()
 ENDIF()
+
+ADD_CUSTOM_COMMAND(
+  OUTPUT "${PROJECT_BINARY_DIR}/build_identifier.c"
+  COMMAND python3 "scripts/generate-build-identifier.py" --output "${PROJECT_BINARY_DIR}/build_identifier.c" ${PROD_MICROKERNEL_SRCS}
+  DEPENDS ${PROD_MICROKERNEL_SRCS}
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+)
+
 IF(XNNPACK_BUILD_ALL_MICROKERNELS)
   ADD_LIBRARY(microkernels-all OBJECT ${ALL_MICROKERNEL_SRCS} ${TABLE_SRCS})
 ENDIF()
@@ -941,9 +955,9 @@ ELSE()
 ENDIF()
 
 IF(XNNPACK_BUILD_ALL_MICROKERNELS)
-  TARGET_INCLUDE_DIRECTORIES(microkernels-all PRIVATE src)
+  TARGET_INCLUDE_DIRECTORIES(microkernels-all PRIVATE include src)
 ENDIF()
-TARGET_INCLUDE_DIRECTORIES(microkernels-prod PRIVATE src)
+TARGET_INCLUDE_DIRECTORIES(microkernels-prod PRIVATE include src)
 TARGET_INCLUDE_DIRECTORIES(hardware-config PRIVATE include src ${CPUINFO_SOURCE_DIR}/include)
 TARGET_INCLUDE_DIRECTORIES(indirection PRIVATE include src)
 TARGET_INCLUDE_DIRECTORIES(jit PRIVATE include src)
@@ -3790,7 +3804,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
 
     ADD_EXECUTABLE(negate-bench bench/negate.cc)
     TARGET_INCLUDE_DIRECTORIES(negate-bench PRIVATE .)
-    TARGET_LINK_LIBRARIES(negate-bench PRIVATE XNNPACK benchmark::benchmark bench-utils)
+    TARGET_LINK_LIBRARIES(negate-bench PRIVATE XNNPACK fp16 benchmark::benchmark bench-utils)
 
     ADD_EXECUTABLE(prelu-bench bench/prelu.cc)
     TARGET_INCLUDE_DIRECTORIES(prelu-bench PRIVATE .)
@@ -3798,7 +3812,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
 
     ADD_EXECUTABLE(reciprocal-square-root-bench bench/reciprocal-square-root.cc)
     TARGET_INCLUDE_DIRECTORIES(reciprocal-square-root-bench PRIVATE .)
-    TARGET_LINK_LIBRARIES(reciprocal-square-root-bench PRIVATE XNNPACK benchmark::benchmark bench-utils)
+    TARGET_LINK_LIBRARIES(reciprocal-square-root-bench PRIVATE XNNPACK fp16 benchmark::benchmark bench-utils)
 
     ADD_EXECUTABLE(sigmoid-bench bench/sigmoid.cc)
     TARGET_INCLUDE_DIRECTORIES(sigmoid-bench PRIVATE .)
@@ -3814,11 +3828,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
 
     ADD_EXECUTABLE(square-root-bench bench/square-root.cc)
     TARGET_INCLUDE_DIRECTORIES(square-root-bench PRIVATE .)
-    TARGET_LINK_LIBRARIES(square-root-bench PRIVATE XNNPACK benchmark::benchmark bench-utils)
+    TARGET_LINK_LIBRARIES(square-root-bench PRIVATE XNNPACK fp16 benchmark::benchmark bench-utils)
 
     ADD_EXECUTABLE(truncation-bench bench/truncation.cc)
     TARGET_INCLUDE_DIRECTORIES(truncation-bench PRIVATE .)
-    TARGET_LINK_LIBRARIES(truncation-bench PRIVATE XNNPACK benchmark::benchmark bench-utils)
+    TARGET_LINK_LIBRARIES(truncation-bench PRIVATE XNNPACK fp16 benchmark::benchmark bench-utils)
 
     ADD_EXECUTABLE(tanh-bench bench/tanh.cc)
     TARGET_INCLUDE_DIRECTORIES(tanh-bench PRIVATE .)
@@ -4286,6 +4300,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
   TARGET_INCLUDE_DIRECTORIES(qs8-requantization-bench PRIVATE . include src)
   TARGET_LINK_LIBRARIES(qs8-requantization-bench PRIVATE benchmark::benchmark pthreadpool)
   TARGET_LINK_LIBRARIES(qs8-requantization-bench PRIVATE bench-utils microkernels-all)
+
+  ADD_EXECUTABLE(qs8-rdsum-minmax-fp32-test test/qs8-rdsum-minmax-fp32.cc)
+  TARGET_INCLUDE_DIRECTORIES(qs8-rdsum-minmax-fp32-test PRIVATE include src test)
+  TARGET_LINK_LIBRARIES(qs8-rdsum-minmax-fp32-test PRIVATE fp16 pthreadpool GTest::gtest GTest::gtest_main microparams-init)
+  TARGET_LINK_LIBRARIES(qs8-rdsum-minmax-fp32-test PRIVATE hardware-config logging microkernels-all)
 
   ADD_EXECUTABLE(qs8-vadd-bench bench/qs8-vadd.cc)
   TARGET_INCLUDE_DIRECTORIES(qs8-vadd-bench PRIVATE . include src)

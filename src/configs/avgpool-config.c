@@ -28,7 +28,7 @@ static void init_f16_avgpool_config(void) {
     if (hardware_config->use_arm_neon_fp16_arith) {
       f16_avgpool_config.unipass = (xnn_avgpool_unipass_ukernel_fn) xnn_f16_avgpool_minmax_ukernel_9x__neonfp16arith_c8;
       f16_avgpool_config.multipass = (xnn_avgpool_multipass_ukernel_fn) xnn_f16_avgpool_minmax_ukernel_9p8x__neonfp16arith_c8;
-      f16_avgpool_config.init.f16 = xnn_init_f16_scaleminmax_fp16arith_params;
+      f16_avgpool_config.init.f16 = xnn_init_f16_scaleminmax_scalar_params;
       f16_avgpool_config.primary_tile = 9;
       f16_avgpool_config.incremental_tile = 8;
       f16_avgpool_config.channel_tile = 8;
@@ -39,7 +39,7 @@ static void init_f16_avgpool_config(void) {
     if (hardware_config->use_arm_neon_fp16_arith) {
       f16_avgpool_config.unipass = (xnn_avgpool_unipass_ukernel_fn) xnn_f16_avgpool_minmax_ukernel_9x__neonfp16arith_c8;
       f16_avgpool_config.multipass = (xnn_avgpool_multipass_ukernel_fn) xnn_f16_avgpool_minmax_ukernel_9p8x__neonfp16arith_c8;
-      f16_avgpool_config.init.f16 = xnn_init_f16_scaleminmax_fp16arith_params;
+      f16_avgpool_config.init.f16 = xnn_init_f16_scaleminmax_scalar_params;
       f16_avgpool_config.primary_tile = 9;
       f16_avgpool_config.incremental_tile = 8;
       f16_avgpool_config.channel_tile = 8;
@@ -50,7 +50,7 @@ static void init_f16_avgpool_config(void) {
     if (hardware_config->use_x86_f16c) {
       f16_avgpool_config.unipass = (xnn_avgpool_unipass_ukernel_fn) xnn_f16_avgpool_minmax_ukernel_9x__f16c_c8;
       f16_avgpool_config.multipass = (xnn_avgpool_multipass_ukernel_fn) xnn_f16_avgpool_minmax_ukernel_9p8x__f16c_c8;
-      f16_avgpool_config.init.f16 = xnn_init_f16_scaleminmax_avx_params;
+      f16_avgpool_config.init.f16 = xnn_init_f16_scaleminmax_scalar_params;
       f16_avgpool_config.primary_tile = 9;
       f16_avgpool_config.incremental_tile = 8;
       f16_avgpool_config.channel_tile = 8;
@@ -87,7 +87,7 @@ static void init_f32_avgpool_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     f32_avgpool_config.unipass = (xnn_avgpool_unipass_ukernel_fn) xnn_f32_avgpool_minmax_ukernel_9x__sse_c4;
     f32_avgpool_config.multipass = (xnn_avgpool_multipass_ukernel_fn) xnn_f32_avgpool_minmax_ukernel_9p8x__sse_c4;
-    f32_avgpool_config.init.f32 = xnn_init_f32_scaleminmax_sse_params;
+    f32_avgpool_config.init.f32 = xnn_init_f32_scaleminmax_scalar_params;
     f32_avgpool_config.primary_tile = 9;
     f32_avgpool_config.incremental_tile = 8;
     f32_avgpool_config.channel_tile = 4;

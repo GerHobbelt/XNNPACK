@@ -198,9 +198,12 @@ void xnn_f16_gavgpool_minmax_ukernel_7p7x__f16c_c16(
   }
   uint16_t* o = (uint16_t*) output;
 
-  const __m256 vscale = _mm256_load_ps(params->avx.scale);
-  const __m256 vmin = _mm256_load_ps(params->avx.min);
-  const __m256 vmax = _mm256_load_ps(params->avx.max);
+  const __m256 vscale = _mm256_cvtph_ps(_mm_set1_epi16(*(const uint16_t*) &params->scalar.scale));
+  const __m256 vmin = _mm256_cvtph_ps(_mm_set1_epi16(*(const uint16_t*) &params->scalar.min));
+  const __m256 vmax = _mm256_cvtph_ps(_mm_set1_epi16(*(const uint16_t*) &params->scalar.max));
+  XNN_FORCE_REALIZATION(vscale);
+  XNN_FORCE_REALIZATION(vmin);
+  XNN_FORCE_REALIZATION(vmax);
   for (; channels >= 16; channels -= 16) {
     __m128i vacc01234567 = _mm_loadu_si128((const __m128i*) buffer); buffer = (uint16_t*) buffer + 8;
     __m128i vacc89ABCDEF = _mm_loadu_si128((const __m128i*) buffer); buffer = (uint16_t*) buffer + 8;

@@ -24,7 +24,7 @@
       .batch_size(8)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_scalar_params);
   }
 
   TEST(F16_QS8_VCVT__NEONFP16ARITH_U8, batch_div_8) {
@@ -34,7 +34,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -45,7 +45,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -56,7 +56,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -68,7 +68,7 @@
         .scale(50)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -81,7 +81,7 @@
           .output_zero_point(output_zero_point)
           .qmin(std::numeric_limits<int8_t>::min())
           .qmax(std::numeric_limits<int8_t>::max())
-          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u8, xnn_init_f16_qs8_cvt_scalar_params);
       }
     }
   }
@@ -95,7 +95,7 @@
       .batch_size(16)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_scalar_params);
   }
 
   TEST(F16_QS8_VCVT__NEONFP16ARITH_U16, batch_div_16) {
@@ -105,7 +105,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -116,7 +116,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -127,7 +127,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -139,7 +139,7 @@
         .scale(50)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -152,7 +152,7 @@
           .output_zero_point(output_zero_point)
           .qmin(std::numeric_limits<int8_t>::min())
           .qmax(std::numeric_limits<int8_t>::max())
-          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u16, xnn_init_f16_qs8_cvt_scalar_params);
       }
     }
   }
@@ -166,7 +166,7 @@
       .batch_size(24)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_scalar_params);
   }
 
   TEST(F16_QS8_VCVT__NEONFP16ARITH_U24, batch_div_24) {
@@ -176,7 +176,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -187,7 +187,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -198,7 +198,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -210,7 +210,7 @@
         .scale(50)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -223,7 +223,7 @@
           .output_zero_point(output_zero_point)
           .qmin(std::numeric_limits<int8_t>::min())
           .qmax(std::numeric_limits<int8_t>::max())
-          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u24, xnn_init_f16_qs8_cvt_scalar_params);
       }
     }
   }
@@ -237,7 +237,7 @@
       .batch_size(32)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_scalar_params);
   }
 
   TEST(F16_QS8_VCVT__NEONFP16ARITH_U32, batch_div_32) {
@@ -247,7 +247,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -258,7 +258,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -269,7 +269,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -281,7 +281,7 @@
         .scale(50)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -294,7 +294,7 @@
           .output_zero_point(output_zero_point)
           .qmin(std::numeric_limits<int8_t>::min())
           .qmax(std::numeric_limits<int8_t>::max())
-          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32, xnn_init_f16_qs8_cvt_scalar_params);
       }
     }
   }
@@ -308,7 +308,7 @@
       .batch_size(64)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_scalar_params);
   }
 
   TEST(F16_QS8_VCVT__NEONFP16ARITH_U64, batch_div_64) {
@@ -318,7 +318,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -329,7 +329,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -340,7 +340,7 @@
         .batch_size(batch_size)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -352,7 +352,7 @@
         .scale(50)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 
@@ -365,7 +365,7 @@
           .output_zero_point(output_zero_point)
           .qmin(std::numeric_limits<int8_t>::min())
           .qmax(std::numeric_limits<int8_t>::max())
-          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_neonfp16arith_params);
+          .Test(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u64, xnn_init_f16_qs8_cvt_scalar_params);
       }
     }
   }
@@ -377,7 +377,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U1, batch_eq_1) {
     .batch_size(1)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U1, batch_gt_1) {
@@ -386,7 +386,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U1, batch_gt_1) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -397,7 +397,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U1, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -409,7 +409,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U1, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -420,7 +420,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, batch_eq_2) {
     .batch_size(2)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, batch_div_2) {
@@ -429,7 +429,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, batch_div_2) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -439,7 +439,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, batch_lt_2) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -449,7 +449,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, batch_gt_2) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -460,7 +460,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -472,7 +472,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U2, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -483,7 +483,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, batch_eq_3) {
     .batch_size(3)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, batch_div_3) {
@@ -492,7 +492,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, batch_div_3) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -502,7 +502,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, batch_lt_3) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -512,7 +512,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, batch_gt_3) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -523,7 +523,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -535,7 +535,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U3, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -546,7 +546,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, batch_eq_4) {
     .batch_size(4)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, batch_div_4) {
@@ -555,7 +555,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, batch_div_4) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -565,7 +565,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, batch_lt_4) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -575,7 +575,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, batch_gt_4) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -586,7 +586,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -598,7 +598,7 @@ TEST(F16_QS8_VCVT__SCALAR_FMAGIC_U4, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_fmagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_fmagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -609,7 +609,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U1, batch_eq_1) {
     .batch_size(1)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U1, batch_gt_1) {
@@ -618,7 +618,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U1, batch_gt_1) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -629,7 +629,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U1, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -641,7 +641,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U1, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u1, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -652,7 +652,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, batch_eq_2) {
     .batch_size(2)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, batch_div_2) {
@@ -661,7 +661,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, batch_div_2) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -671,7 +671,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, batch_lt_2) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -681,7 +681,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, batch_gt_2) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -692,7 +692,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -704,7 +704,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U2, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u2, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -715,7 +715,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, batch_eq_3) {
     .batch_size(3)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, batch_div_3) {
@@ -724,7 +724,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, batch_div_3) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -734,7 +734,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, batch_lt_3) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -744,7 +744,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, batch_gt_3) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -755,7 +755,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -767,7 +767,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U3, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u3, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }
@@ -778,7 +778,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, batch_eq_4) {
     .batch_size(4)
     .qmin(std::numeric_limits<int8_t>::min())
     .qmax(std::numeric_limits<int8_t>::max())
-    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+    .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
 }
 
 TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, batch_div_4) {
@@ -787,7 +787,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, batch_div_4) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -797,7 +797,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, batch_lt_4) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -807,7 +807,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, batch_gt_4) {
       .batch_size(batch_size)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -818,7 +818,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, scale) {
       .scale(50)
       .qmin(std::numeric_limits<int8_t>::min())
       .qmax(std::numeric_limits<int8_t>::max())
-      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+      .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
   }
 }
 
@@ -830,7 +830,7 @@ TEST(F16_QS8_VCVT__SCALAR_IMAGIC_U4, output_zero_point) {
         .output_zero_point(output_zero_point)
         .qmin(std::numeric_limits<int8_t>::min())
         .qmax(std::numeric_limits<int8_t>::max())
-        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_imagic_params);
+        .Test(xnn_f16_qs8_vcvt_ukernel__scalar_imagic_u4, xnn_init_f16_qs8_cvt_scalar_params);
     }
   }
 }

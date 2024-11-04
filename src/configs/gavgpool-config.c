@@ -30,8 +30,8 @@ static void init_f16_gavgpool_config(void) {
     if (hardware_config->use_arm_neon_fp16_arith) {
       f16_gavgpool_config.unipass = (xnn_gavgpool_unipass_ukernel_fn) xnn_f16_gavgpool_minmax_ukernel_7x__neonfp16arith_c8;
       f16_gavgpool_config.multipass = (xnn_gavgpool_multipass_ukernel_fn) xnn_f16_gavgpool_minmax_ukernel_7p7x__neonfp16arith_c8;
-      f16_gavgpool_config.init.f16 = xnn_init_f16_scaleminmax_fp16arith_params;
-      f16_gavgpool_config.update.f16 = xnn_update_f16_scaleminmax_fp16arith_params;
+      f16_gavgpool_config.init.f16 = xnn_init_f16_scaleminmax_scalar_params;
+      f16_gavgpool_config.update.f16 = xnn_update_f16_scaleminmax_scalar_params;
       f16_gavgpool_config.row_tile = 7;
       f16_gavgpool_config.channel_tile = 8;
     }
@@ -41,8 +41,8 @@ static void init_f16_gavgpool_config(void) {
     if (hardware_config->use_arm_neon_fp16_arith) {
       f16_gavgpool_config.unipass = (xnn_gavgpool_unipass_ukernel_fn) xnn_f16_gavgpool_minmax_ukernel_7x__neonfp16arith_c8;
       f16_gavgpool_config.multipass = (xnn_gavgpool_multipass_ukernel_fn) xnn_f16_gavgpool_minmax_ukernel_7p7x__neonfp16arith_c8;
-      f16_gavgpool_config.init.f16 = xnn_init_f16_scaleminmax_fp16arith_params;
-      f16_gavgpool_config.update.f16 = xnn_update_f16_scaleminmax_fp16arith_params;
+      f16_gavgpool_config.init.f16 = xnn_init_f16_scaleminmax_scalar_params;
+      f16_gavgpool_config.update.f16 = xnn_update_f16_scaleminmax_scalar_params;
       f16_gavgpool_config.row_tile = 7;
       f16_gavgpool_config.channel_tile = 8;
     }
@@ -52,8 +52,8 @@ static void init_f16_gavgpool_config(void) {
     if (hardware_config->use_x86_f16c) {
       f16_gavgpool_config.unipass = (xnn_gavgpool_unipass_ukernel_fn) xnn_f16_gavgpool_minmax_ukernel_7x__f16c_c8;
       f16_gavgpool_config.multipass = (xnn_gavgpool_multipass_ukernel_fn) xnn_f16_gavgpool_minmax_ukernel_7p7x__f16c_c8;
-      f16_gavgpool_config.init.f16 = xnn_init_f16_scaleminmax_avx_params;
-      f16_gavgpool_config.update.f16 = xnn_update_f16_scaleminmax_avx_params;
+      f16_gavgpool_config.init.f16 = xnn_init_f16_scaleminmax_scalar_params;
+      f16_gavgpool_config.update.f16 = xnn_update_f16_scaleminmax_scalar_params;
       f16_gavgpool_config.row_tile = 7;
       f16_gavgpool_config.channel_tile = 8;
     }
@@ -89,8 +89,8 @@ static void init_f32_gavgpool_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     f32_gavgpool_config.unipass = (xnn_gavgpool_unipass_ukernel_fn) xnn_f32_gavgpool_minmax_ukernel_7x__sse_c4;
     f32_gavgpool_config.multipass = (xnn_gavgpool_multipass_ukernel_fn) xnn_f32_gavgpool_minmax_ukernel_7p7x__sse_c4;
-    f32_gavgpool_config.init.f32 = xnn_init_f32_scaleminmax_sse_params;
-    f32_gavgpool_config.update.f32 = xnn_update_f32_scaleminmax_sse_params;
+    f32_gavgpool_config.init.f32 = xnn_init_f32_scaleminmax_scalar_params;
+    f32_gavgpool_config.update.f32 = xnn_update_f32_scaleminmax_scalar_params;
     f32_gavgpool_config.row_tile = 7;
     f32_gavgpool_config.channel_tile = 4;
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD

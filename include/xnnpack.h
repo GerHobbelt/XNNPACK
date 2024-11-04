@@ -119,6 +119,7 @@ enum xnn_status {
   xnn_status_unsupported_hardware = 5,
   xnn_status_out_of_memory = 6,
   xnn_status_reallocation_required = 7,
+  xnn_status_deprecated = 8,
 };
 
 struct xnn_allocator {
@@ -1524,24 +1525,6 @@ enum xnn_status xnn_define_static_reshape(
   uint32_t input_id,
   uint32_t output_id,
   uint32_t flags);
-
-/// Define a Node that reshapes a tensor to two dimensions, retaining the
-/// trailing dimension, and add it to a Subgraph.
-///
-/// This operator is experimental.
-///
-/// @param subgraph - a Subgraph object that will own the created Node.
-/// @param input_id - Value ID for the input tensor. The input tensor must be
-///                   defined in the @a subgraph.
-/// @param output_id - Value ID for the output tensor. The output tensor must be
-///                    defined in the @a subgraph, and its
-///                    size must match the shape of the input tensor with
-///                    padding.
-/// @param flags - binary features of the Reshape Node. No supported flags are
-///                currently defined.
-enum xnn_status xnn_define_reshape_2d(xnn_subgraph_t subgraph,
-                                      uint32_t input_id, uint32_t output_id,
-                                      uint32_t flags);
 
 /// Define a 2D Resize Bilinear Node with static output height & width specification and add it to a Subgraph.
 ///
@@ -3359,11 +3342,7 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32(
 // Forward declare.
 struct xnn_post_operation;
 
-/// Create a convolution operator with a number of post operations. The
-/// convolution operator created using this function does not have output_min
-/// and output_max. The list of operators in post_operations will be applied in
-/// order. Convolution with post operations is only supported on JIT platforms
-/// and when JIT is enabled.
+/// Deprecated
 enum xnn_status xnn_create_fused_convolution2d_nhwc_f32(
     uint32_t input_padding_top,
     uint32_t input_padding_right,

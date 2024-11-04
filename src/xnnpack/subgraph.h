@@ -29,6 +29,7 @@
 #define XNN_INVALID_NODE_ID UINT32_MAX
 
 #define XNN_MAX_OPERATOR_OBJECTS 5
+#define XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS 16
 
 /// Disable fusion of nodes in subgraph. Fusion is enabled by default, set this flag to turn it off.
 #define XNN_FLAG_NO_OPERATOR_FUSION 0x80000000
@@ -97,8 +98,8 @@ struct xnn_value {
         /// Number of non-batch dimensions. 1 for FC, 3 for Conv2D.
         size_t num_nonbatch_dims;
         /// Per-batch quantization parameters factor to convert quantized elements to real representation.
-        struct xnn_dynamic_quantization_params* dynamic_params;
-        /// Number of (struct xnn_dynamic_quantization_params) * sizeof(struct xnn_dynamic_quantization_params)
+        struct xnn_quantization_params* dynamic_params;
+        /// Number of (struct xnn_quantization_params) * sizeof(struct xnn_quantization_params)
         size_t dynamic_params_size;
       };
     };
@@ -481,8 +482,8 @@ struct xnn_runtime {
   slinky_pipeline_t slinky_pipeline;
   size_t num_inputs;
   size_t num_outputs;
-  struct xnn_value* input_values[XNN_MAX_OPERATOR_OBJECTS];
-  struct xnn_value* output_values[XNN_MAX_OPERATOR_OBJECTS];
+  struct xnn_value* input_values[XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS];
+  struct xnn_value* output_values[XNN_MAX_SUBGRAPH_INPUT_OR_OUTPUTS];
 #endif
 };
 
@@ -545,7 +546,7 @@ XNN_INLINE static size_t xnn_tensor_get_rounded_dynamic_quant_param_size(const s
 
   // We may read out of bounds for qparams.
   return xnn_get_rounded_size(value->quantization.dynamic_params_size
-    + XNN_EXTRA_QUANTIZATION_PARAMS * sizeof(struct xnn_dynamic_quantization_params));
+    + XNN_EXTRA_QUANTIZATION_PARAMS * sizeof(struct xnn_quantization_params));
 }
 
 
@@ -584,6 +585,9 @@ enum xnn_status resize_fully_connected_output_tensor(
   size_t num_values,
   size_t old_workspace_size,
   pthreadpool_t threadpool);
+
+XNN_INTERNAL enum xnn_node_type xnn_binary_operator_to_node_type(enum xnn_binary_operator type);
+XNN_INTERNAL enum xnn_binary_operator xnn_node_type_to_binary_operator(enum xnn_node_type type);
 
 #ifdef __cplusplus
 }  // extern "C"

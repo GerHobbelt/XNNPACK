@@ -13,7 +13,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
@@ -30,7 +29,7 @@ class AveragePoolingTest : public ::testing::Test {
  protected:
   AveragePoolingTest() {
     input_size_dist = std::uniform_int_distribution<uint32_t>(10, 15);
-    pooling_size_dist = std::uniform_int_distribution<uint32_t>(2, 5);
+    pooling_size_dist = std::uniform_int_distribution<uint32_t>(1, 5);
     stride_dist = std::uniform_int_distribution<uint32_t>(1, 2);
     batch_size = input_size_dist(rng);
     input_height = input_size_dist(rng);

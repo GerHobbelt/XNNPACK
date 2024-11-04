@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/allocator.h"
 #include "xnnpack/common.h"
@@ -2679,7 +2678,7 @@ enum xnn_status xnn_setup_convert_nc_f16_qd8(
   xnn_operator_t convert_op,
   const void* input,
   int8_t* output,
-  struct xnn_dynamic_quantization_params* quantization_params)
+  struct xnn_quantization_params* quantization_params)
 {
   if (convert_op->type != xnn_operator_type_convert_nc_f16_qd8) {
     xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",
@@ -2715,7 +2714,7 @@ enum xnn_status xnn_setup_convert_nc_f32_qd8(
   xnn_operator_t convert_op,
   const float* input,
   int8_t* output,
-  struct xnn_dynamic_quantization_params* quantization_params)
+  struct xnn_quantization_params* quantization_params)
 {
   if (convert_op->type != xnn_operator_type_convert_nc_f32_qd8) {
     xnn_log_error("failed to setup operator: operator type mismatch (expected %s, got %s)",

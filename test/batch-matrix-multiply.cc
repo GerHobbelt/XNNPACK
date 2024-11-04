@@ -20,7 +20,6 @@
 #include <vector>  // For std::vector.
 
 #include <gtest/gtest.h>
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/aligned-allocator.h"
 #include "xnnpack/common.h"
@@ -580,7 +579,7 @@ TEST_F(BatchMatrixMultiplyTestQD8ToF32, matches_operator_api) {
   // Create the dynamically quantized input data with the corresponding
   // `quantization_params`.
   const size_t input_batch_size = NumElements(input1_dims) / m / k;
-  std::vector<xnn_dynamic_quantization_params> quantization_params(
+  std::vector<xnn_quantization_params> quantization_params(
       input_batch_size * m + XNN_EXTRA_QUANTIZATION_PARAMS);
   std::vector<float> input1_f32(NumElements(input1_dims) +
                                 XNN_EXTRA_BYTES / sizeof(float));

@@ -9,7 +9,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/allocator.h"
 #include "xnnpack/common.h"
@@ -397,7 +396,9 @@ static enum xnn_status reshape_dynamic_fully_connected_nc(
     const size_t target_tiles_per_thread = 5;
     const size_t max_nc = divide_round_up(output_channels * num_other_tiles, num_threads * target_tiles_per_thread);
     if (max_nc < nc) {
-      nc = min(nc, divide_round_up(nc, max_nc * nr) * nr);
+      nc = min(nc, divide_round_up(output_channels,
+                                   divide_round_up(nc, max_nc) * nr) *
+                       nr);
     }
   }
 

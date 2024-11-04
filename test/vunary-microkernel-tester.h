@@ -18,7 +18,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/microfnptr.h"
 #include "replicable_random_device.h"
@@ -269,9 +268,6 @@ class VUnaryMicrokernelTester {
 
   void Test(xnn_u8_vclamp_ukernel_fn vclamp,
             xnn_init_u8_minmax_params_fn init_params,
-            Default = Default()) const;
-
-  void Test(xnn_u64_u32_vsqrtshift_ukernel_fn vsqrtshift, uint32_t,
             Default = Default()) const;
 
  private:

@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/allocator.h"
 #include "xnnpack/cache.h"
@@ -2754,7 +2753,7 @@ enum xnn_status xnn_setup_convolution2d_nhwc_qd8_f16_qc8w(
     void* workspace,
     const int8_t* input,
     void* output,
-    const struct xnn_dynamic_quantization_params* quantization_params)
+    const struct xnn_quantization_params* quantization_params)
 {
   return setup_convolution2d_nhwc(
     convolution_op, xnn_operator_type_convolution_nhwc_qd8_f16_qc8w,
@@ -2767,7 +2766,7 @@ enum xnn_status xnn_setup_convolution2d_nhwc_qd8_f32_qc8w(
     void* workspace,
     const int8_t* input,
     float* output,
-    const struct xnn_dynamic_quantization_params* quantization_params)
+    const struct xnn_quantization_params* quantization_params)
 {
   return setup_convolution2d_nhwc(
     convolution_op, xnn_operator_type_convolution_nhwc_qd8_f32_qc8w,

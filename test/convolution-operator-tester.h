@@ -21,7 +21,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-#include <fp16/fp16.h>
 #include "xnnpack.h"
 #include "xnnpack/aligned-allocator.h"
 #include "xnnpack/cache.h"
@@ -989,7 +988,7 @@ class ConvolutionOperatorTester {
             xnn_status_success,
             xnn_setup_convolution2d_nhwc_qd8_f16_qc8w(
                 convolution_op, workspace.data(), input.data(), output.data(),
-                reinterpret_cast<const struct xnn_dynamic_quantization_params*>(
+                reinterpret_cast<const struct xnn_quantization_params*>(
                     quantization_params.data())));
       } else {
         ASSERT_NE(workspace_size, SIZE_MAX);
@@ -998,7 +997,7 @@ class ConvolutionOperatorTester {
             xnn_status_success,
             xnn_setup_convolution2d_nhwc_qd8_f16_qc8w(
                 convolution_op, workspace.data(), input.data(), output.data(),
-                reinterpret_cast<const struct xnn_dynamic_quantization_params*>(
+                reinterpret_cast<const struct xnn_quantization_params*>(
                     quantization_params.data())));
       }
       ASSERT_EQ(xnn_status_success,
@@ -1051,7 +1050,7 @@ class ConvolutionOperatorTester {
                         convolution_op2, workspace.data(), input.data(),
                         output2.data(),
                         reinterpret_cast<
-                            const struct xnn_dynamic_quantization_params*>(
+                            const struct xnn_quantization_params*>(
                             quantization_params.data())));
         } else {
           ASSERT_NE(workspace_size, SIZE_MAX);
@@ -1061,7 +1060,7 @@ class ConvolutionOperatorTester {
                         convolution_op2, workspace.data(), input.data(),
                         output2.data(),
                         reinterpret_cast<
-                            const struct xnn_dynamic_quantization_params*>(
+                            const struct xnn_quantization_params*>(
                             quantization_params.data())));
         }
         ASSERT_EQ(xnn_status_success,
@@ -1209,7 +1208,7 @@ class ConvolutionOperatorTester {
             xnn_status_success,
             xnn_setup_convolution2d_nhwc_qd8_f32_qc8w(
                 convolution_op, workspace.data(), input.data(), output.data(),
-                reinterpret_cast<const struct xnn_dynamic_quantization_params*>(
+                reinterpret_cast<const struct xnn_quantization_params*>(
                     quantization_params.data())));
       } else {
         ASSERT_NE(workspace_size, SIZE_MAX);
@@ -1218,7 +1217,7 @@ class ConvolutionOperatorTester {
             xnn_status_success,
             xnn_setup_convolution2d_nhwc_qd8_f32_qc8w(
                 convolution_op, workspace.data(), input.data(), output.data(),
-                reinterpret_cast<const struct xnn_dynamic_quantization_params*>(
+                reinterpret_cast<const struct xnn_quantization_params*>(
                     quantization_params.data())));
       }
       ASSERT_EQ(xnn_status_success,
@@ -1271,7 +1270,7 @@ class ConvolutionOperatorTester {
                         convolution_op2, workspace.data(), input.data(),
                         output2.data(),
                         reinterpret_cast<
-                            const struct xnn_dynamic_quantization_params*>(
+                            const struct xnn_quantization_params*>(
                             quantization_params.data())));
         } else {
           ASSERT_NE(workspace_size, SIZE_MAX);
@@ -1281,7 +1280,7 @@ class ConvolutionOperatorTester {
                         convolution_op2, workspace.data(), input.data(),
                         output2.data(),
                         reinterpret_cast<
-                            const struct xnn_dynamic_quantization_params*>(
+                            const struct xnn_quantization_params*>(
                             quantization_params.data())));
         }
         ASSERT_EQ(xnn_status_success,

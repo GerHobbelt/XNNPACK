@@ -325,7 +325,6 @@ struct gemm_context {
     struct xnn_hmp_gemm_ukernel ukernel;
     struct xnn_hmp_dqgemm_ukernel dq_ukernel;
     struct xnn_hmp_qp8gemm_ukernel qp8_ukernel;
-    struct xnn_hmp_dqgemm_bl_ukernel dq_bl_ukernel;
   };
   // Parameters for dynamically quantized inputs.
   const struct xnn_qd8_quantization_params* quantization_params;
@@ -365,18 +364,10 @@ struct gemm_context {
       size_t mr_block_size,
       size_t nr_block_size);
 
-  XNN_PRIVATE void xnn_compute_dqgemm_bl(
-      const struct gemm_context context[restrict XNN_MIN_ELEMENTS(1)],
-      size_t mr_block_start,
-      size_t nr_block_start,
-      size_t mr_block_size,
-      size_t nr_block_size);
-
   XNN_PRIVATE void xnn_compute_qp8gemm(
       const struct gemm_context context[restrict XNN_MIN_ELEMENTS(1)],
       size_t mr_block_start, size_t nr_block_start, size_t mr_block_size,
       size_t nr_block_size);
-
 #if XNN_MAX_UARCH_TYPES > 1
     XNN_PRIVATE void xnn_compute_hmp_grouped_gemm(
         const struct gemm_context context[restrict XNN_MIN_ELEMENTS(1)],
@@ -407,14 +398,6 @@ struct gemm_context {
         const struct gemm_context context[restrict XNN_MIN_ELEMENTS(1)],
         uint32_t uarch_index, size_t mr_block_start, size_t nr_block_start,
         size_t mr_block_size, size_t nr_block_size);
-
-    XNN_PRIVATE void xnn_compute_hmp_dqgemm_bl(
-        const struct gemm_context context[restrict XNN_MIN_ELEMENTS(1)],
-        uint32_t uarch_index,
-        size_t mr_block_start,
-        size_t nr_block_start,
-        size_t mr_block_size,
-        size_t nr_block_size);
   #endif  // XNN_MAX_UARCH_TYPES > 1
 #endif
 
@@ -1446,8 +1429,10 @@ struct reduce_context {
   } ukernel;
   xnn_vunary_ukernel_fn cvt_ukernel;
   xnn_vunary_ukernel_fn s32_f32_cvt_ukernel;
+  xnn_vunary_ukernel_fn u32_f32_cvt_ukernel;
   union {
     struct xnn_qs8_mean_minmax_params qs8_mean;
+    struct xnn_qu8_mean_minmax_params qu8_mean;
     struct xnn_f32_default_params f32_default;
     struct xnn_f16_f32acc_scale_params scale_params;
     struct xnn_f32_scale_params f32_scale;

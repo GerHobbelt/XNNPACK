@@ -10,6 +10,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <cstddef>
 #include <limits>
 
@@ -20,6 +21,7 @@
 #include "xnnpack/microparams-init.h"
 #include "xnnpack/microparams.h"
 #include "xnnpack/vunary.h"
+#include "next_prime.h"
 #include "vunary-microkernel-tester.h"
 
 
@@ -130,7 +132,7 @@
     TEST_REQUIRES_X86_SSE2;
     VUnaryMicrokernelTester()
       .batch_size(8)
-      .TestNeg(xnn_f16_vneg_ukernel__sse2_u8, xnn_init_f16_neg_sse_params);
+      .TestNeg(xnn_f16_vneg_ukernel__sse2_u8);
   }
 
   TEST(F16_VNEG__SSE2_U8, batch_div_8) {
@@ -139,7 +141,7 @@
     for (size_t batch_size = 2 * batch_step; batch_size < 10 * batch_step; batch_size += batch_step) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8);
     }
   }
 
@@ -149,7 +151,7 @@
     for (size_t batch_size = 1; batch_size < batch_step; batch_size++) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8);
     }
   }
 
@@ -159,7 +161,7 @@
     for (size_t batch_size = batch_step + 1; batch_size < 2 * batch_step; batch_size++) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8);
     }
   }
 
@@ -170,7 +172,7 @@
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
         .inplace(true)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u8);
     }
   }
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
@@ -181,7 +183,7 @@
     TEST_REQUIRES_X86_SSE2;
     VUnaryMicrokernelTester()
       .batch_size(16)
-      .TestNeg(xnn_f16_vneg_ukernel__sse2_u16, xnn_init_f16_neg_sse_params);
+      .TestNeg(xnn_f16_vneg_ukernel__sse2_u16);
   }
 
   TEST(F16_VNEG__SSE2_U16, batch_div_16) {
@@ -190,7 +192,7 @@
     for (size_t batch_size = 2 * batch_step; batch_size < 10 * batch_step; batch_size += batch_step) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16);
     }
   }
 
@@ -200,7 +202,7 @@
     for (size_t batch_size = 1; batch_size < batch_step; batch_size++) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16);
     }
   }
 
@@ -210,7 +212,7 @@
     for (size_t batch_size = batch_step + 1; batch_size < 2 * batch_step; batch_size++) {
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16);
     }
   }
 
@@ -221,7 +223,7 @@
       VUnaryMicrokernelTester()
         .batch_size(batch_size)
         .inplace(true)
-        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16, xnn_init_f16_neg_sse_params);
+        .TestNeg(xnn_f16_vneg_ukernel__sse2_u16);
     }
   }
 #endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64

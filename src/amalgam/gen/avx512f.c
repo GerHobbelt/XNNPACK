@@ -27,6 +27,7 @@
 #include "xnnpack/prelu.h"
 #include "xnnpack/reduce.h"
 #include "xnnpack/simd/f32-avx512f.h"
+#include "xnnpack/simd/s32-avx512f.h"
 #include "xnnpack/vbinary.h"
 #include "xnnpack/vunary.h"
 
@@ -2004,7 +2005,7 @@ void xnn_f32_rdsum_ukernel_7p7x__avx512f_c64(
     size_t input_stride,
     const float* zero,
     float* output,
-    const union xnn_f32_scale_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(rows != 0);
   assert(channels != 0);
@@ -2012,6 +2013,8 @@ void xnn_f32_rdsum_ukernel_7p7x__avx512f_c64(
   assert(output != NULL);
 
   const __m512 vscale = _mm512_set1_ps(params->scalar.scale);
+  const __m512 vmin = _mm512_set1_ps(params->scalar.min);
+  const __m512 vmax = _mm512_set1_ps(params->scalar.max);
 
   size_t input_increment = 7 * input_stride;
   for (; channels >= 64; channels -= 64) {
@@ -2116,9 +2119,17 @@ void xnn_f32_rdsum_ukernel_7p7x__avx512f_c64(
       i6 = (const float*) ((uintptr_t) i6 + input_increment);
     }
     vacc0 = _mm512_mul_ps(vacc0, vscale);
+    vacc0 = _mm512_max_ps(vacc0, vmin);
+    vacc0 = _mm512_min_ps(vacc0, vmax);
     vacc1 = _mm512_mul_ps(vacc1, vscale);
+    vacc1 = _mm512_max_ps(vacc1, vmin);
+    vacc1 = _mm512_min_ps(vacc1, vmax);
     vacc2 = _mm512_mul_ps(vacc2, vscale);
+    vacc2 = _mm512_max_ps(vacc2, vmin);
+    vacc2 = _mm512_min_ps(vacc2, vmax);
     vacc3 = _mm512_mul_ps(vacc3, vscale);
+    vacc3 = _mm512_max_ps(vacc3, vmin);
+    vacc3 = _mm512_min_ps(vacc3, vmax);
 
     const float* o = output;
     const __m512 vo0 = _mm512_loadu_ps(o); o += 16;
@@ -2209,6 +2220,8 @@ void xnn_f32_rdsum_ukernel_7p7x__avx512f_c64(
     }
     for (size_t i = 0; i < num_chunks; ++i) {
       vacc[i] = _mm512_mul_ps(vacc[i], vscale);
+      vacc[i] = _mm512_max_ps(vacc[i], vmin);
+      vacc[i] = _mm512_min_ps(vacc[i], vmax);
     }
 
     __m512 vo[4];
@@ -2363,7 +2376,7 @@ void xnn_f32_rsum_ukernel__avx512f_u64_acc4(
     size_t batch,
     const float* input,
     float* output,
-    const union xnn_f32_scale_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const union xnn_f32_scaleminmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(batch != 0);
   assert(batch % sizeof(float) == 0);
@@ -2412,6 +2425,8 @@ void xnn_f32_rsum_ukernel__avx512f_u64_acc4(
   vacc = _mm_add_ps(vacc, _mm_movehl_ps(vacc, vacc));
   vacc = _mm_add_ss(vacc, _mm_movehdup_ps(vacc));
   vacc = _mm_mul_ss(vacc, _mm_load_ss(&params->scalar.scale));
+  vacc = _mm_max_ss(vacc, _mm_load_ss(&params->scalar.min));
+  vacc = _mm_min_ss(vacc, _mm_load_ss(&params->scalar.max));
   *output += _mm_cvtss_f32(vacc);
 }
 
@@ -3878,8 +3893,8 @@ void xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u32(
   assert(output != NULL);
 
   // Constants for the Newton-Raphson iteration.
-  const __m512 vthree = _mm512_set1_ps(params->avx512.three);
-  const __m512 vneg_half = _mm512_set1_ps(params->avx512.neg_half);
+  const __m512 vthree = _mm512_set1_ps(3.0f);
+  const __m512 vneg_half = _mm512_set1_ps(-0.5f);
 
   for (; batch >= 32 * sizeof(float); batch -= 32 * sizeof(float)) {
     const __m512 vx0 = _mm512_loadu_ps(input);
@@ -4111,8 +4126,8 @@ void xnn_f32_vsqrt_ukernel__avx512f_rsqrt_u16(
   assert(output != NULL);
 
   // Constants for the Newton-Raphson iteration.
-  const __m512 vneg_three = _mm512_set1_ps(params->avx512.neg_three);
-  const __m512 vneg_half = _mm512_set1_ps(params->avx512.neg_half);
+  const __m512 vneg_three = _mm512_set1_ps(-3.0f);
+  const __m512 vneg_half = _mm512_set1_ps(-0.5f);
 
   for (; batch >= 16 * sizeof(float); batch -= 16 * sizeof(float)) {
     const __m512 vx = _mm512_loadu_ps(input);
@@ -5438,5 +5453,105 @@ void xnn_f32_vtanh_ukernel__avx512f_rational_9_6_nr_u16(
     const xnn_simd_f32_t vy = xnn_mul_f32(vp, vrq);
 
     xnn_store_tail_f32(output, vy, batch >> XNN_LOG2_SIZEOF_FLOAT);
+  }
+}
+
+void xnn_s32_vmul_ukernel__avx512f_u32(
+    size_t batch,
+    const int32_t* input_a,
+    const int32_t* input_b,
+    int32_t* output,
+    const union xnn_s32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(int32_t) == 0);
+  assert(input_b != NULL);
+  assert(input_a != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_s32 == 16);
+
+  for (; batch >= 32 * sizeof(int32_t); batch -= 32 * sizeof(int32_t)) {
+    xnn_simd_s32_t vin1_0 = xnn_loadu_s32(input_a);
+    xnn_simd_s32_t vin1_1 = xnn_loadu_s32(input_a + 1 * xnn_simd_size_s32);
+    input_a += 32;
+
+    xnn_simd_s32_t vin2_0 = xnn_loadu_s32(input_b);
+    xnn_simd_s32_t vin2_1 = (xnn_loadu_s32(input_b + 1 * xnn_simd_size_s32));
+    input_b += 32;
+
+    xnn_simd_s32_t vy_0 = xnn_mul_s32(vin1_0, vin2_0);
+    xnn_simd_s32_t vy_1 = xnn_mul_s32(vin1_1, vin2_1);
+
+    xnn_storeu_s32(output, vy_0);
+    xnn_storeu_s32(output + 1 * xnn_simd_size_s32, vy_1);
+    output += 32;
+  }
+  for (; batch >= xnn_simd_bytes_s32; batch -= xnn_simd_bytes_s32) {
+    xnn_simd_s32_t vin1 = xnn_loadu_s32(input_a);
+    input_a += xnn_simd_size_s32;
+
+    xnn_simd_s32_t vin2 = xnn_loadu_s32(input_b);
+    input_b += xnn_simd_size_s32;
+
+    xnn_simd_s32_t vy = xnn_mul_s32(vin1, vin2);
+
+    xnn_storeu_s32(output, vy);
+    output += xnn_simd_size_s32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_s32_t vin1 = xnn_load_tail_s32(input_a, batch >> XNN_LOG2_SIZEOF_INT32_T);
+
+    xnn_simd_s32_t vin2 = xnn_load_tail_s32(input_b, batch >> XNN_LOG2_SIZEOF_INT32_T);
+
+    xnn_simd_s32_t vy = xnn_mul_s32(vin1, vin2);
+
+    xnn_store_tail_s32(output, vy, batch >> XNN_LOG2_SIZEOF_INT32_T);
+  }
+}
+
+void xnn_s32_vmulc_ukernel__avx512f_u32(
+    size_t batch,
+    const int32_t* input1,
+    const int32_t* input2,
+    int32_t* output,
+    const union xnn_s32_default_params params[restrict XNN_MIN_ELEMENTS(1)])
+{
+  assert(batch != 0);
+  assert(batch % sizeof(int32_t) == 0);
+  assert(input1 != NULL);
+  assert(input2 != NULL);
+  assert(output != NULL);
+  assert(xnn_simd_size_s32 == 16);
+
+  xnn_simd_s32_t vin2 = xnn_set1_s32(*input2);
+
+  for (; batch >= 32 * sizeof(int32_t); batch -= 32 * sizeof(int32_t)) {
+
+    xnn_simd_s32_t vin1_0 = (xnn_loadu_s32(input1));
+    xnn_simd_s32_t vin1_1 = (xnn_loadu_s32(input1 + 1 * xnn_simd_size_s32));
+    input1 += 32;
+
+    xnn_simd_s32_t vy_0 = xnn_mul_s32(vin1_0, vin2);
+    xnn_simd_s32_t vy_1 = xnn_mul_s32(vin1_1, vin2);
+
+    xnn_storeu_s32(output, vy_0);
+    xnn_storeu_s32(output + 1 * xnn_simd_size_s32, vy_1);
+    output += 32;
+  }
+  for (; batch >= xnn_simd_bytes_s32; batch -= xnn_simd_bytes_s32) {
+    xnn_simd_s32_t vin1 = xnn_loadu_s32(input1);
+    input1 += xnn_simd_size_s32;
+
+    xnn_simd_s32_t vy = xnn_mul_s32(vin1, vin2);
+
+    xnn_storeu_s32(output, vy);
+    output += xnn_simd_size_s32;
+  }
+  if XNN_UNLIKELY(batch != 0) {
+    xnn_simd_s32_t vin1 = (xnn_load_tail_s32(input1, batch >> XNN_LOG2_SIZEOF_INT32_T));
+
+    xnn_simd_s32_t vy = xnn_mul_s32(vin1, vin2);
+
+    xnn_store_tail_s32(output, vy, batch >> XNN_LOG2_SIZEOF_INT32_T);
   }
 }

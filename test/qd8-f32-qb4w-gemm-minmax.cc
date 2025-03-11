@@ -11,6 +11,7 @@
 //   Generator: tools/generate-gemm-test.py
 
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <string>
 #include <vector>
@@ -2485,3 +2486,4 @@ INSTANTIATE_TEST_SUITE_P(
         return info.param.test_name;
       });
 #endif  // XNN_ENABLE_AVX512VNNIGFNI && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
+

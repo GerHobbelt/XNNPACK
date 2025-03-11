@@ -245,15 +245,11 @@ ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
 ENDIF()
 OPTION(XNNPACK_ENABLE_AVX512AMX "Build XNNPACK with AVX512-AMX micro-kernels" ON)
 IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-  IF(CMAKE_C_COMPILER_VERSION VERSION_LESS "13")
-    SET(XNNPACK_ENABLE_AVX512AMX OFF)
-  ENDIF()
+  SET(XNNPACK_ENABLE_AVX512AMX OFF)
 ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
   IF(CMAKE_C_COMPILER_VERSION VERSION_LESS "15")
     SET(XNNPACK_ENABLE_AVX512AMX OFF)
   ENDIF()
-ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-  SET(XNNPACK_ENABLE_AVX512AMX OFF)
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR STREQUAL "x86")
   SET(XNNPACK_ENABLE_AVX512AMX OFF)
@@ -281,6 +277,12 @@ ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
   ENDIF()
 ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
   SET(XNNPACK_ENABLE_AVX512BF16 OFF)
+  IF(MSVC_VERSION LESS_EQUAL 1941)
+    # /vlen option not supported
+    SET(XNNPACK_ENABLE_AVX256SKX OFF)
+    SET(XNNPACK_ENABLE_AVX256VNNI OFF)
+    SET(XNNPACK_ENABLE_AVX256VNNIGFNI OFF)
+  ENDIF()
 ENDIF()
 OPTION(XNNPACK_ENABLE_HVX "Build XNNPACK with Hexagon HVX micro-kernels" ON)
 OPTION(XNNPACK_ENABLE_KLEIDIAI "Use KleidiAI GEMM microkernels for Arm" ON)
@@ -345,6 +347,8 @@ IF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
   # Test files have many sections, increase the limit. See
   # https://learn.microsoft.com/en-us/cpp/build/reference/bigobj-increase-number-of-sections-in-dot-obj-file.
   ADD_COMPILE_OPTIONS("/bigobj")
+  # Our float16 datatypes have constructors in C++ and not in C, which prompts a warning in MSVC
+  ADD_COMPILE_OPTIONS("/wd4190")
 ENDIF()
 
 IF(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
@@ -526,7 +530,6 @@ SET(XNNPACK_SRCS
   src/configs/conv-hwc2chw-config.c
   src/configs/dwconv-config.c
   src/configs/dwconv2d-chw-config.c
-  src/configs/experiments-config.c
   src/configs/gemm-config.c
   src/configs/ibilinear-chw-config.c
   src/configs/ibilinear-config.c
@@ -817,6 +820,7 @@ ADD_CUSTOM_COMMAND(
 ADD_LIBRARY(xnnpack-base INTERFACE)
 
 ADD_LIBRARY(microkernels-prod STATIC ${PROD_MICROKERNEL_SRCS} ${TABLE_SRCS})
+TARGET_LINK_LIBRARIES(microkernels-prod PUBLIC sanitizers)
 IF(XNNPACK_BUILD_ALL_MICROKERNELS)
   ADD_LIBRARY(microkernels-all STATIC ${NON_PROD_MICROKERNEL_SRCS})
   TARGET_LINK_LIBRARIES(microkernels-all PUBLIC microkernels-prod)
@@ -848,6 +852,7 @@ IF(XNNPACK_BUILD_LIBRARY)
   ADD_LIBRARY(operator-run OBJECT src/operator-run.c)
   ADD_LIBRARY(operator-utils OBJECT src/operator-utils.c)
   ADD_LIBRARY(reference-ukernels OBJECT ${REFERENCE_SRCS})
+  ADD_LIBRARY(sanitizers OBJECT src/sanitizers.c)
   ADD_LIBRARY(subgraph OBJECT ${SUBGRAPH_SRCS})
   # Need C_EXTENSIONS to get constants for mmap (MAP_ANONYMOUS).
   SET_TARGET_PROPERTIES(memory PROPERTIES C_EXTENSIONS YES)
@@ -984,12 +989,14 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
       SET_PROPERTY(SOURCE ${ALL_AVX512AMX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni -clang:-mamx-tile -clang:-mamx-int8 ")
     ENDIF()
   ELSE()
-    IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
-      SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mpreferred-stack-boundary=6 -fomit-frame-pointer -mstackrealign -mincoming-stack-boundary=4 ")
-    ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
-      SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mstack-alignment=64 -fomit-frame-pointer -mstackrealign")
-    ELSE()
-      SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -fomit-frame-pointer ")
+    IF (NOT CMAKE_SYSTEM_NAME MATCHES "^(iOS|Fuchsia)$")
+      IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+        SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mpreferred-stack-boundary=6 -fomit-frame-pointer -mstackrealign -mincoming-stack-boundary=4 ")
+      ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mstack-alignment=64 -fomit-frame-pointer -mstackrealign")
+      ELSE()
+        SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -fomit-frame-pointer ")
+      ENDIF()
     ENDIF()
     SET_PROPERTY(SOURCE ${ALL_SSE_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -msse -mno-sse2 ")
     SET_PROPERTY(SOURCE ${ALL_SSE2_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -msse2 -mno-sse3 ")
@@ -1104,7 +1111,7 @@ IF(XNNPACK_BUILD_LIBRARY)
     TARGET_COMPILE_DEFINITIONS(XNNPACK PRIVATE _WIN32_WINNT=0x0601)
     TARGET_COMPILE_DEFINITIONS(mutex PRIVATE _WIN32_WINNT=0x0601)
   ENDIF()
-  SET_PROPERTY(TARGET XNNPACK PROPERTY PUBLIC_HEADER include/xnnpack.h include/experiments-config.h)
+  SET_PROPERTY(TARGET XNNPACK PROPERTY PUBLIC_HEADER include/xnnpack.h)
 ENDIF()
 
 # ---[ Find libm
@@ -1273,12 +1280,12 @@ IF(XNNPACK_BUILD_TESTS)
 
   ADD_LIBRARY(gemm-microkernel-tester STATIC test/gemm-microkernel-tester.cc)
   TARGET_INCLUDE_DIRECTORIES(gemm-microkernel-tester PRIVATE include src test)
-  TARGET_LINK_LIBRARIES(gemm-microkernel-tester PRIVATE xnnpack-base pthreadpool GTest::gtest)
-  TARGET_LINK_LIBRARIES(gemm-microkernel-tester PRIVATE packing)
+  TARGET_LINK_LIBRARIES(gemm-microkernel-tester PRIVATE XNNPACK packing)
+  TARGET_LINK_LIBRARIES(gemm-microkernel-tester PRIVATE pthreadpool GTest::gtest)
+  TARGET_LINK_LIBRARIES(gemm-microkernel-tester PUBLIC next-prime)
   IF(XNNPACK_ENABLE_KLEIDIAI)
     TARGET_LINK_LIBRARIES(gemm-microkernel-tester PRIVATE kleidiai)
   ENDIF()
-  TARGET_LINK_LIBRARIES(gemm-microkernel-tester PUBLIC next-prime)
 
   ADD_LIBRARY(dwconv-microkernel-tester STATIC test/dwconv-microkernel-tester.cc)
   TARGET_INCLUDE_DIRECTORIES(dwconv-microkernel-tester PRIVATE include src test)
@@ -1461,6 +1468,8 @@ IF(XNNPACK_BUILD_TESTS)
       f16-ibilinear-chw
       f16-raddstoreexpminusmax
       f16-rmax
+      f16-rmin
+      f16-rminmax
       f16-rsum
       f16-spmm-minmax
       f16-vcmul
@@ -1596,6 +1605,7 @@ IF(XNNPACK_BUILD_TESTS)
       f32-qc8w-gemm
       f32-qc8w-gemm-minmax
       f32-qc8w-gemm-relu
+      pf32-gemm-minmax
       qd8-f16-qb4w-gemm-minmax
       qd8-f16-qc4w-gemm-minmax
       qd8-f16-qc8w-gemm-minmax
@@ -1929,6 +1939,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
     ADD_LIBRARY(models STATIC
       bench/models/fp32-attention.cc
       bench/models/fp32-elementwise.cc
+      bench/models/fp32-layer-norm.cc
       bench/models/fp32-mobilenet-v1.cc
       bench/models/fp32-mobilenet-v2.cc
       bench/models/fp32-mobilenet-v3-large.cc
@@ -2010,6 +2021,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
       f32-vcmul
       f32-vscaleexpminusmax
       f32-vscaleextexp
+      pf32-gemm-minmax
       qd8-f16-qb4w-gemm
       qd8-f16-qc4w-gemm
       qd8-f16-qc8w-gemm

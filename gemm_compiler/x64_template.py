@@ -11,6 +11,18 @@ from gemm_compiler import base_architecture as base_architecture
 
 class X64(base_architecture.BaseArchitecture):
 
+  def __init__(self):
+    self.c = 1
+
+  def element_size(self):
+    return 4
+
+  def mask(self):
+    return ''
+
+  def outer_loop_prepare(self, M, N):
+    return ''
+
   def astride_register(self):
     return 'r8'
 
@@ -48,9 +60,9 @@ class X64(base_architecture.BaseArchitecture):
 
   def acc_registers(self):
     return [
-        'mm7',
-        'mm8',
-        'mm9',
+        'mm11',
+        'mm12',
+        'mm13',
         'mm14',
         'mm15',
         'mm16',
@@ -68,9 +80,12 @@ class X64(base_architecture.BaseArchitecture):
         'mm28',
         'mm29',
         'mm30',
-        'mm12',
-        'mm13',
+        'mm9',
+        'mm10',
     ]
+
+  def bias_registers(self):
+    return self.acc_registers()
 
   def w_ptr_register(self):
     return 'r9'
@@ -141,21 +156,31 @@ class X64(base_architecture.BaseArchitecture):
     return f'xnn_f32_gemm_minmax_ukernel_{M}x{N}__asm_amd64_{isa}_broadcast'
 
   def params_offset(self):
-    return 80
+    return 96
 
-  def header(self, M, N, prefix, isa):
-    HEADER = """// Copyright 2025 Google LLC
+  def pre_header(self):
+    return ''
+
+  def copyright(self):
+    return '''// Copyright 2025 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
 #include "xnnpack/assembly.h"
+'''
 
+  def header(self, M, N, prefix, isa):
+    HEADER = self.copyright()
+    HEADER += self.pre_header()
+    HEADER += """
 BEGIN_FUNCTION {function_name}
 
       .intel_syntax noprefix
-
       # Free up GP registers.
+      # Save register arguments for tail call to msan annotation helper.
+      push rdi
+      push rsi
       push rbx
       push rbp
       push r15
@@ -169,14 +194,24 @@ BEGIN_FUNCTION {function_name}
       vbroadcastss {prefix}mm1, DWORD PTR [r13 + 4]
 
       # Load c pointer.
-      mov r10, [rsp + 56]
+      mov r10, [rsp + 72]
       # Load cm_stride.
-      mov r11, [rsp + 64]
+      mov r11, [rsp + 80]
 """.format(
         function_name=self.function_name(M, N, isa),
         M=M, N=N, prefix=prefix, isa=isa, params_offset=self.params_offset()
     )
     return HEADER
+
+  # Quantization parameters are pushed to the stack at this offset.
+  def quantization_params_offset(self):
+    return 0
+
+  def a_ptr_stack_offset(self):
+    return 16
+
+  def c_ptr_stack_offset(self):
+    return self.a_ptr_stack_offset() + 8
 
   def input_output_register_setup(self, M):
     registers = self.am_registers()
@@ -195,6 +230,21 @@ BEGIN_FUNCTION {function_name}
       mov [rsp + {a_rsp_offset}], {aM}
       mov [rsp + {c_rsp_offset}], {cM}\n"""
     ret = ''
+    if self.quantization_params_offset() != 0:
+      ret += '\n# Move stack parameters which have not yet been loaded\n'
+      ret += 'mov r12, [rsp + {stack_params_offset}]\n'.format(
+          stack_params_offset=self.params_offset() + 8
+      )
+    ret += '\n# Align the stack pointer.\n'
+    ret += 'mov r13, rsp\n'
+    ret += 'sub rsp, 64\n'
+    ret += 'and rsp, 0xFFFFFFFFFFFFFFC0\n'
+    ret += '# Store the old stack pointer containing the return address\n'
+    ret += 'mov [rsp], r13\n'
+    if self.quantization_params_offset() != 0:
+      ret += '# Push additional stack parameters to the new stack\n'
+      offset = self.quantization_params_offset()
+      ret += f'mov [rsp + {offset}], r12\n'
     if self.stack_size(M) != 0:
       ret += '\n# Allocate some space on the stack.\n'
       ret += """sub rsp, {stack_size}\n""".format(
@@ -202,14 +252,16 @@ BEGIN_FUNCTION {function_name}
       )
     # Write rsi & r10 if required to the stack.
     if M > self.max_M_before_spilling():
+      offset = self.a_ptr_stack_offset()
       ret += (
-          '# Write rsi (a pointer) to the stack as we need the register.\n'
+          f'# Write rsi (a pointer) to the stack as we need the register.\n'
       )
-      ret += 'mov [rsp], rcx\n'
+      ret += f'mov [rsp + {offset}], rcx\n'
+      offset = self.c_ptr_stack_offset()
       ret += (
           '# Write r10 (c pointer) to the stack as we need the register.\n'
       )
-      ret += 'mov [rsp + 8], r10\n'
+      ret += f'mov [rsp + {offset}], r10\n'
     for mr in range(1, M):
       # cycle size of 2 if required
       if M > self.max_M_before_spilling():
@@ -222,7 +274,7 @@ BEGIN_FUNCTION {function_name}
         c_pos = mr + self.max_M_before_spilling()
         a_pos_1 = a_pos - 1
         c_pos_1 = c_pos - 1
-      a_rsp_offset = 16 + (mr - 1) * 16
+      a_rsp_offset = 32 + (mr - 1) * 16
       ret += INPUT_OUTPUT_REGISTER_SETUP.format(
           M=mr,
           aM=registers[a_pos],
@@ -261,7 +313,7 @@ BEGIN_FUNCTION {function_name}
     ret = '# Read a pointers from stack into GP registers.\n'
     POP_A = 'mov {aM}, [rsp + {a_rsp_offset}]\n'
     for mr in range(0, M):
-      a_rsp_offset = mr * 16
+      a_rsp_offset = mr * 16 + self.a_ptr_stack_offset()
       ret += POP_A.format(aM=registers[mr], a_rsp_offset=a_rsp_offset)
     ret += '\n'
     return ret
@@ -273,7 +325,8 @@ BEGIN_FUNCTION {function_name}
     return f'mov {reg}, 0\n'
 
   def inner_loop_increment(self):
-    return 4
+    return self.c * self.element_size()
+
 
   def cmp_k_and_jump_if_less(self, label):
     kc_register = self.kc_register()
@@ -294,6 +347,8 @@ BEGIN_FUNCTION {function_name}
       restore_stack += 'add rsp, {stack_ptr_sub}\n'.format(
           stack_ptr_sub=isa.stack_size(M)
       )
+    restore_stack += """mov r13, [rsp]
+    mov rsp, r13"""
     restore_stack += """
       # Restore the callee saved registers.
       pop r12
@@ -302,11 +357,16 @@ BEGIN_FUNCTION {function_name}
       pop r15
       pop rbp
       pop rbx
+      pop rsi
+      pop rdi
+#if XNN_HAS_FEATURE(memory_sanitizer)
+      jmp xnn_gemm_ukernel_msan_sizeof_c_{sizeof_c}
+#else
       ret
+#endif
 END_FUNCTION {function_name}
 
-#ifdef __has_feature
-#if __has_feature(dataflow_sanitizer)
+#if XNN_HAS_FEATURE(dataflow_sanitizer)
 BEGIN_FUNCTION {function_name}.dfsan
       .intel_syntax noprefix
       # We could implement this by calling a function that implements the dfsan instrumentation.
@@ -315,9 +375,8 @@ BEGIN_FUNCTION {function_name}.dfsan
       ret
 END_FUNCTION {function_name}.dfsan
 #endif
-#endif
 """.format(
-        M=M, N=N, function_name=isa.function_name(M, N, isa.isa())
+        M=M, N=N, function_name=isa.function_name(M, N, isa.isa()), sizeof_c=4
     )
     return restore_stack
 

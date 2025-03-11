@@ -12,7 +12,7 @@ from gemm_compiler import avx512f_template as isa
 class Avx512Bf16(isa.Avx512F):
 
   def __init__(self):
-    pass  # Empty constructor
+    self.c = 2
 
   def isa(self):
     return 'avx512bf16'
@@ -33,18 +33,6 @@ class Avx512Bf16(isa.Avx512F):
   def function_name(self, M, N, isa):
     return f'xnn_bf16_f32_gemm_minmax_ukernel_{M}x{N}c2__asm_amd64_{isa}_broadcast'
 
-  def outer_loop_prepare(self, M, N):
-    k_register = self.k_register()
-    kc_register = self.kc_register()
-    offset = M * 16
-    asm_string = f"""
-      # Copy k and flip bit.
-      mov {k_register}, rdx
-      and {k_register}, 0x2
-      and {kc_register}, 0xFFFFFFFFFFFFFFFD
-      mov [rsp + {offset}], {k_register}\n"""
-    return asm_string
-
   def init_accumulators(self, M, N):
     asm_string = super().init_accumulators(M, N)
     asm_string += """
@@ -54,14 +42,30 @@ class Avx512Bf16(isa.Avx512F):
 
     return asm_string
 
+  def outer_loop_prepare(self, M, N):
+    k_register = self.k_register()
+    kc_register = self.kc_register()
+    offset = M * 16 + self.c_ptr_stack_offset()
+    kmask = self.k_mask()
+    asm_string = f"""
+      # Copy k and flip bit.
+      mov {k_register}, rdx
+      and {k_register}, 0x2
+      and {kc_register}, {kmask}
+      mov [rsp + {offset}], {k_register}\n"""
+    return asm_string
+
   def inner_loop_tail(self, M, N):
     k_register = self.k_register()
     nc_register = self.nc_register()
-    offset = M * 16
+    offset = M * 16 + self.c_ptr_stack_offset()
     nc_offset = offset + 8
     asm_string = f"""
+      # Store nc_register.
       mov [rsp + {nc_offset}], {nc_register}
+      # Load odd k bit.
       mov {nc_register}, [rsp + {offset}]
+      # Check if channels are odd.
       test {nc_register}, {nc_register}
       mov {nc_register}, [rsp + {nc_offset}]
       jz inner_loop_end
@@ -72,3 +76,9 @@ class Avx512Bf16(isa.Avx512F):
     else:
       asm_string += self.inner_loop_small_M_N(M=M, N=N, tail=True)
     return asm_string
+
+  def element_size(self):
+    return 2
+
+  def k_mask(self):
+    return "0xFFFFFFFFFFFFFFFD"

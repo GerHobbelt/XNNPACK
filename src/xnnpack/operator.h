@@ -41,6 +41,9 @@ struct xnn_ukernel_dwconv {
     xnn_dwconv_unipass_ukernel_fn unipass_fn;
     xnn_dwconv_multipass_ukernel_fn multipass_fn;
   };
+  uint8_t channel_round;
+  uint8_t channel_subtile;
+  uint8_t channel_tile;
   uint8_t primary_tile;
   uint8_t middle_tile;
   uint8_t last_tile;
@@ -87,6 +90,7 @@ struct xnn_ukernel_spmm {
 struct xnn_ukernel_vmulcaddc {
   xnn_vmulcaddc_ukernel_fn function;
   uint8_t mr;
+  uint8_t channel_tile;
 };
 
 struct xnn_ukernel_vbinary {
@@ -214,8 +218,9 @@ struct xnn_operator {
       uint32_t log2_element_size;
     } binary_elementwise;
     struct {
-      uint32_t log2_input_size;
-      uint32_t log2_output_size;
+      uint8_t num_nonbatch_dims;
+      uint8_t log2_input_size;
+      uint8_t log2_output_size;
     } unary_elementwise;
     struct {
       uint32_t log2_data_element_size;
@@ -237,7 +242,6 @@ struct xnn_operator {
       union xnn_f32_minmax_params f32_minmax;
       struct xnn_f32_scaleminmax_params f32_scaleminmax;
     };
-    struct xnn_bf16_minmax_params bf16_minmax;
     struct xnn_f32_scale_params f32_scale;
     union xnn_f16_minmax_params f16_chw;
     union xnn_f32_minmax_params f32_chw;

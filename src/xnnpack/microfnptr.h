@@ -376,6 +376,30 @@ typedef void (*xnn_qp8_f32_qb4w_gemm_minmax_ukernel_fn)(
     const struct xnn_f32_qb4w_minmax_params
         minmax_params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
 
+// GEMM: GEneral Matrix Multiplication with packed LHS operand.
+
+typedef void (*xnn_pf32_gemm_minmax_ukernel_fn)(
+    size_t mr,         //
+    size_t nc,         //
+    size_t kc,         //
+    const void* a,     //
+    const float* w,    //
+    float* c,          //
+    size_t cm_stride,  //
+    size_t cn_stride,  //
+    const union xnn_f32_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
+typedef void (*xnn_pf16_gemm_minmax_ukernel_fn)(
+    size_t mr,         //
+    size_t nc,         //
+    size_t kc,         //
+    const void* a,     //
+    const void* w,     //
+    void* c,           //
+    size_t cm_stride,  //
+    size_t cn_stride,  //
+    const union xnn_f32_minmax_params params[XNN_RESTRICT XNN_MIN_ELEMENTS(1)]);
+
 // GEMMINC: GEMM INCremental with Min+Max activation
 
 typedef void (*xnn_f32_gemminc_minmax_ukernel_fn)(
@@ -860,6 +884,18 @@ typedef void (*xnn_u8_ibilinear_ukernel_fn)(
     const int16_t* weights,
     uint8_t* output,
     size_t output_increment);
+
+// BILINEAR: Direct BILINEAR resampling
+
+typedef void (*xnn_bilinear_ukernel_fn)(
+    size_t output_width,
+    size_t output_height,
+    size_t channels,
+    const void* input,
+    size_t input_stride,
+    void* output,
+    size_t output_stride,
+    const void* params);
 
 // AVGPOOL: AVeraGe POOLing single-pass
 
@@ -2290,6 +2326,18 @@ typedef size_t (*xnn_packed_stride_weights_and_biases_fn)(
 typedef void (*xnn_indirection_init_resize_bilinear2d_hwc_fn)(
   size_t output_y_start,
   size_t output_y_end,
+  size_t input_pixel_stride,
+  size_t input_height,
+  size_t input_width,
+  size_t output_height,
+  size_t output_width,
+  const void* input,
+  const void** indirection_buffer,
+  void* packed_weights,
+  bool align_corners,
+  bool tensorflow_legacy);
+
+typedef void (*xnn_indirection_init_resize_bilinear2d_chw_fn)(
   size_t input_pixel_stride,
   size_t input_height,
   size_t input_width,

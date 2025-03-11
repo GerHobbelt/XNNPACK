@@ -255,6 +255,15 @@ _XNNPACK_SIMD_ARCH_COPT_MAPPING = {
         ],
         "//conditions:default": [],
     }),
+    "neonfp16arith": select({
+        "//build_config:aarch32": [
+            "-marm",
+            "-march=armv8.2-a+fp16",
+            "-mfpu=neon-fp-armv8",
+        ],
+        "//build_config:aarch64": ["-march=armv8.2-a+fp16"],
+        "//conditions:default": [],
+    }),
     "scalar": [],
     "sse2": xnnpack_select_if("//build_config:x86", ["-msse2"]),
     "sse41": xnnpack_select_if("//build_config:x86", ["-msse4.1"]),
@@ -268,7 +277,7 @@ def xnnpack_simd_f32_archs():
     return ["avx", "avx2", "avx512f", "fma3", "hvx", "neon", "scalar", "sse2", "wasmsimd"]
 
 def xnnpack_simd_f16_archs():
-    return ["scalar"]
+    return ["scalar", "neonfp16arith"]
 
 def xnnpack_simd_s16_archs():
     return ["avx2", "avx512skx", "neon", "scalar", "sse41", "wasmsimd"]
@@ -292,7 +301,7 @@ def _x86_align_stack(alignment):
         log2_alignment += 1
         temp = temp // 2
     return select({
-        "//build_config:clang": [
+        "//build_config:clang_and_not_fuchsia_or_ios": [
             "-mstack-alignment=" + str(alignment),
             "-fomit-frame-pointer",
             "-mstackrealign",
@@ -303,8 +312,6 @@ def _x86_align_stack(alignment):
             "-mstackrealign",
             "-mincoming-stack-boundary=4",
         ],
-        "//build_config:fuchsia_clang": [],
-        "//build_config:ios_clang": [],
         "//conditions:default": [],
     })
 

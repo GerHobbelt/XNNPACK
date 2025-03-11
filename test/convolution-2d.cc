@@ -11,7 +11,6 @@
 #include <limits>     // For std::numeric_limits.
 #include <memory>     // For std::unique_ptr.
 #include <random>     // For std::uniform_real_distribution.
-#include <vector>     // For std::vector.
 
 #include <gtest/gtest.h>
 #include "xnnpack.h"
@@ -144,11 +143,14 @@ protected:
   xnnpack::Buffer<int32_t> accumulators;
 };
 
-using ConvolutionTestQC8 = QuantizedConvolutionTestBase<int8_t, int8_t, int32_t,int8_t>;
+using ConvolutionTestQC8 =
+    QuantizedConvolutionTestBase<int8_t, int8_t, int32_t, int8_t>;
 using ConvolutionTestQD8F16QC8W = QuantizedConvolutionTestBase<float, int8_t, float, xnn_float16>;
 using ConvolutionTestQD8F32QC8W = QuantizedConvolutionTestBase<float, int8_t, float, float>;
-using ConvolutionTestQS8 = QuantizedConvolutionTestBase<int8_t, int8_t, int32_t,int8_t>;
-using ConvolutionTestQU8 = QuantizedConvolutionTestBase<uint8_t, uint8_t, int32_t,uint8_t>;
+using ConvolutionTestQS8 =
+    QuantizedConvolutionTestBase<int8_t, int8_t, int32_t, int8_t>;
+using ConvolutionTestQU8 =
+    QuantizedConvolutionTestBase<uint8_t, uint8_t, int32_t, uint8_t>;
 using ConvolutionTestF16 = ConvolutionTestBase<xnn_float16, float, float>;
 using ConvolutionTestF32 = ConvolutionTestBase<float>;
 

@@ -195,12 +195,13 @@ xnnpack_cxx_library(
         "f16-simd-" + arch + ".cc",
     ],
     copts = xnnpack_simd_copts_for_arch(arch),
+    features = ["-use_header_modules"],
     deps = [
         ":replicable_random_device",
         "//:buffer",
         "//:common",
-        "//:fp16",
         "//:isa_checks",
+        "//:math",
         "//:microkernels_h",
     ],
 ) for arch in xnnpack_simd_f16_archs()]
@@ -262,6 +263,7 @@ xnnpack_cxx_library(
     "f16_vabs",
     "f16_vclamp",
     "f16_velu",
+    "f16_vgelu",
     "f16_vhswish",
     "f16_vlrelu",
     "f16_vneg",
@@ -685,6 +687,17 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "pf32_gemm_minmax_test",
+    srcs = [
+        "pf32-gemm-minmax.cc",
+    ],
+    defines = xnnpack_kleidiai_defines(),
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
     name = "f32_qc8w_gemm_test",
     srcs = [
         "f32-qc8w-gemm.cc",
@@ -982,6 +995,7 @@ xnnpack_unit_test(
         "qd8-f32-qc8w-igemm-minmax-2.cc",
         "qd8-f32-qc8w-igemm-minmax-3.cc",
     ],
+    shard_count = 5,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
     ],
@@ -1223,12 +1237,12 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "batch_matrix_multiply_nc_test",
-    timeout = "long",
+    timeout = "moderate",
     srcs = [
         "batch-matrix-multiply-nc.cc",
         "batch-matrix-multiply-operator-tester.h",
     ],
-    shard_count = 2,
+    shard_count = 5,
     deps = OPERATOR_TEST_DEPS + ["//:microkernels_h"],
 )
 
@@ -2136,6 +2150,7 @@ xnnpack_unit_test(
         ":replicable_random_device",
         "//:XNNPACK",
         "//:buffer",
+        "//:node_type",
         "//:subgraph",
     ],
 )

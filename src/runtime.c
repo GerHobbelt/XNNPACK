@@ -15,11 +15,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#elif XNN_PLATFORM_WINDOWS
+#include <windows.h>
+#else
+#include <errno.h>
+#include <time.h>
+#endif
+
 #include "xnnpack.h"
 #include "xnnpack/allocation-type.h"
 #include "xnnpack/allocator.h"
 #include "xnnpack/cache.h"
 #include "xnnpack/common.h"
+#include "xnnpack/internal.h"
 #include "xnnpack/log.h"
 #include "xnnpack/memory-planner.h"
 #include "xnnpack/memory.h"
@@ -30,15 +40,6 @@
 #include "xnnpack/params.h"
 #include "xnnpack/subgraph.h"
 #include "pthreadpool.h"
-
-#if defined(__EMSCRIPTEN__)
-#include <emscripten/emscripten.h>
-#elif XNN_PLATFORM_WINDOWS
-#include <windows.h>
-#else
-#include <errno.h>
-#include <time.h>
-#endif
 
 enum xnn_status xnn_reshape_external_value(
     xnn_runtime_t runtime,
@@ -531,7 +532,7 @@ enum xnn_status xnn_create_runtime_v4(
 
   if (workspace == NULL) {
     xnn_log_debug("Allocating non-shared workspace");
-    workspace = xnn_allocate_zero_simd_memory(sizeof(struct xnn_workspace));
+    workspace = xnn_allocate_zero_memory(sizeof(struct xnn_workspace));
   }
 
   const uint32_t optimization_flags = XNN_FLAG_HINT_SPARSE_INFERENCE | XNN_FLAG_HINT_FP16_INFERENCE |
@@ -549,6 +550,8 @@ enum xnn_status xnn_create_runtime_v4(
     xnn_log_error("failed to allocate %zu bytes for runtime descriptor", sizeof(struct xnn_runtime));
     goto error;
   }
+
+  runtime->flags = flags;
 
   runtime->opdata = xnn_allocate_zero_memory(sizeof(struct xnn_operator_data) * subgraph->num_nodes);
   if (runtime->opdata == NULL) {
@@ -647,7 +650,7 @@ enum xnn_status xnn_create_runtime_v4(
 #endif
   if (use_slinky) {
     #ifdef XNN_SLINKY_AVAILABLE
-    // slinky_init_pipeline(runtime, flags);
+    // slinky_init_pipeline(runtime);
     #else
     xnn_log_warning("Slinky requested but not available");
     #endif
@@ -661,7 +664,7 @@ enum xnn_status xnn_create_runtime_v4(
 
     if (value->fp16_compatible && xnn_value_is_static(value)) {
       // Value is static and has been converted to FP16 in a new buffer.
-      value->allocation_type = xnn_allocation_type_dynamic;
+      value->flags |= XNN_VALUE_FLAG_NEEDS_CLEANUP;
       // Runtime takes ownership of the data from subgraph.
       value->data = subgraph->values[i].data;
       subgraph->values[i].data = NULL;
@@ -741,6 +744,22 @@ error:
 enum xnn_status xnn_reshape_runtime(
   xnn_runtime_t runtime)
 {
+#ifdef XNN_SLINKY_ENABLED
+  // If compiling with XNN_SLINKY_ENABLED defined, assume we always
+  // want Slinky enabled, regardless of the runtime flag
+  const bool use_slinky = true;
+#else
+  const bool use_slinky = (runtime->flags & XNN_FLAG_SLINKY_ENABLED) != 0;
+#endif
+  if (use_slinky) {
+    #ifdef XNN_SLINKY_AVAILABLE
+    if ((runtime->flags & XNN_FLAG_SLINKY_CONCRETE_BOUNDS) != 0) {
+      // slinky_init_pipeline(runtime);
+    }
+    // TODO: Reshape should not necessary when using slinky with symbolic (not concrete) bounds.
+    #endif
+  }
+
   bool reallocation_required = false;
 
   for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
@@ -1095,7 +1114,8 @@ enum xnn_status xnn_delete_runtime(
         // Release the buffers created during FP16 rewrite.
         for (size_t i = 0; i < runtime->num_values; i++) {
           struct xnn_value* value = &runtime->values[i];
-          if (value->allocation_type == xnn_allocation_type_dynamic) {
+          if (value->allocation_type == xnn_allocation_type_dynamic ||
+              value->flags & XNN_VALUE_FLAG_NEEDS_CLEANUP) {
             xnn_release_memory(value->data);
           }
         }

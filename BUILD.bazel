@@ -89,6 +89,7 @@ MICROKERNEL_DEFS = [
     "src/f16-vbinary/f16-vsubc.h",
     "src/f16-vclamp/f16-vclamp.h",
     "src/f16-velu/f16-velu.h",
+    "src/f16-vgelu/f16-vgelu.h",
     "src/f16-vhswish/f16-vhswish.h",
     "src/f16-vlrelu/f16-vlrelu.h",
     "src/f16-vmulcaddc/f16-vmulcaddc.h",
@@ -259,11 +260,13 @@ MICROKERNEL_DEPS = [
     ":microkernels_h",
     ":microparams",
     ":prefetch",
+    ":sanitizers",
     ":tables",
     ":unaligned",
 ]
 
 SIMD_HEADERS = [
+    "src/xnnpack/simd/f16-generic-functions.h",
     "src/xnnpack/simd/f32-avx-base.h",
     "src/xnnpack/simd/f32-generic-functions.h",
 ] + [
@@ -331,13 +334,6 @@ xnnpack_cc_library(
     deps = [
         "@pthreadpool",
     ],
-)
-
-xnnpack_cc_library(
-    name = "experiments_config",
-    srcs = ["src/configs/experiments-config.c"],
-    hdrs = ["include/experiments-config.h"],
-    visibility = xnnpack_visibility(),
 )
 
 xnnpack_cc_library(
@@ -412,8 +408,8 @@ xnnpack_cc_library(
     deps = [
         ":common",
         ":config_hdrs",
-        ":experiments_config",
         ":hardware_config",
+        ":indirection",
         ":init_once",
         ":logging",
         ":math",
@@ -1016,6 +1012,14 @@ xnnpack_cc_library(
         ":xnnpack_h",
         "@pthreadpool",
     ],
+)
+
+xnnpack_cc_library(
+    name = "sanitizers",
+    srcs = [
+        "src/sanitizers.c",
+    ],
+    compatible_with = [],
 )
 
 xnnpack_cc_library(
@@ -1749,13 +1753,27 @@ alias(
     }),
 )
 
+selects.config_setting_group(
+    name = "arm_sme_enabled_by_default",
+    match_any = [
+        "//build_config:aarch64",
+    ],
+)
+
 alias(
     name = "arm_sme_enabled",
     actual = select({
         ":xnn_enable_arm_sme_explicit_true": ":xnn_enable_arm_sme_explicit_true",
         ":xnn_enable_arm_sme_explicit_false": ":xnn_enable_arm_sme_explicit_true",
-        "//conditions:default": ":xnn_enable_arm_sme_explicit_true",
+        "//conditions:default": ":arm_sme_enabled_by_default",
     }),
+)
+
+selects.config_setting_group(
+    name = "arm_sme2_enabled_by_default",
+    match_any = [
+        "//build_config:aarch64",
+    ],
 )
 
 alias(
@@ -1763,6 +1781,7 @@ alias(
     actual = select({
         ":xnn_enable_arm_sme2_explicit_true": ":xnn_enable_arm_sme2_explicit_true",
         ":xnn_enable_arm_sme2_explicit_false": ":xnn_enable_arm_sme2_explicit_true",
+        # Only enable this by default once we're sure it doesn't break anything.
         "//conditions:default": ":xnn_enable_arm_sme2_explicit_true",
     }),
 )

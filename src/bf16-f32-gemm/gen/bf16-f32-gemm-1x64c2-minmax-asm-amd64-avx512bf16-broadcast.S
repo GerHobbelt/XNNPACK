@@ -8,8 +8,10 @@
 BEGIN_FUNCTION xnn_bf16_f32_gemm_minmax_ukernel_1x64c2__asm_amd64_avx512bf16_broadcast
 
       .intel_syntax noprefix
-
       # Free up GP registers.
+      # Save register arguments for tail call to msan annotation helper.
+      push rdi
+      push rsi
       push rbx
       push rbp
       push r15
@@ -18,31 +20,38 @@ BEGIN_FUNCTION xnn_bf16_f32_gemm_minmax_ukernel_1x64c2__asm_amd64_avx512bf16_bro
       push r12
 
       # load params to free up a GP registers
-      mov r13, [rsp + 80] # params
+      mov r13, [rsp + 96] # params
       vbroadcastss zmm0, DWORD PTR [r13]
       vbroadcastss zmm1, DWORD PTR [r13 + 4]
 
       # Load c pointer.
-      mov r10, [rsp + 56]
+      mov r10, [rsp + 72]
       # Load cm_stride.
-      mov r11, [rsp + 64]
+      mov r11, [rsp + 80]
+
+      # Align the stack pointer.
+      mov r13, rsp
+      sub rsp, 64
+      and rsp, 0xFFFFFFFFFFFFFFC0
+      # Store the old stack pointer containing the return address
+      mov [rsp], r13
 
       # Allocate some space on the stack.
-      sub rsp, 48
+      sub rsp, 128
 
       # Copy k and flip bit.
       mov r11, rdx
       and r11, 0x2
       and rdx, 0xFFFFFFFFFFFFFFFD
-      mov [rsp + 16], r11
+      mov [rsp + 40], r11
 
 outer_loop:
       # Initialize k counter.
       mov r11, 0
       # Initialize accumulators with the biases.
-      vmovaps  zmm7, [r9 + 0]
-      vmovaps  zmm8, [r9 + 64]
-      vmovaps  zmm9, [r9 + 128]
+      vmovaps  zmm11, [r9 + 0]
+      vmovaps  zmm12, [r9 + 64]
+      vmovaps  zmm13, [r9 + 128]
       vmovaps  zmm14, [r9 + 192]
       add r9, 256
 
@@ -51,68 +60,71 @@ outer_loop:
       js inner_loop_tail
 
 inner_loop:
-      vmovaps  zmm10, [r9 + 0]
-      vmovaps  zmm11, [r9 + 64]
-      vmovaps  zmm12, [r9 + 128]
-      vmovaps  zmm13, [r9 + 192]
+      vmovaps  zmm7, [r9 + 0]
+      vmovaps  zmm8, [r9 + 64]
+      vmovaps  zmm9, [r9 + 128]
+      vmovaps  zmm10, [r9 + 192]
       add r9, 256
       vbroadcastss zmm2, DWORD PTR [rcx + r11]
-      vdpbf16ps  zmm7, zmm2, zmm10
-      vdpbf16ps  zmm8, zmm2, zmm11
-      vdpbf16ps  zmm9, zmm2, zmm12
-      vdpbf16ps  zmm14, zmm2, zmm13
+      vdpbf16ps  zmm11, zmm2, zmm7
+      vdpbf16ps  zmm12, zmm2, zmm8
+      vdpbf16ps  zmm13, zmm2, zmm9
+      vdpbf16ps  zmm14, zmm2, zmm10
 
       add r11, 4
       cmp rdx, r11
       jne inner_loop
 
-      mov [rsp + 24], rsi
-      mov rsi, [rsp + 16]
+      # Store nc_register.
+      mov [rsp + 48], rsi
+      # Load odd k bit.
+      mov rsi, [rsp + 40]
+      # Check if channels are odd.
       test rsi, rsi
-      mov rsi, [rsp + 24]
+      mov rsi, [rsp + 48]
       jz inner_loop_end
 
 inner_loop_tail:
-      vmovaps  zmm10, [r9 + 0]
-      vmovaps  zmm11, [r9 + 64]
-      vmovaps  zmm12, [r9 + 128]
-      vmovaps  zmm13, [r9 + 192]
+      vmovaps  zmm7, [r9 + 0]
+      vmovaps  zmm8, [r9 + 64]
+      vmovaps  zmm9, [r9 + 128]
+      vmovaps  zmm10, [r9 + 192]
       add r9, 256
       vbroadcastss zmm2, DWORD PTR [rcx + r11]
       vpslld zmm2, zmm2, 16
       vpsrad zmm2, zmm2, 16
-      vdpbf16ps  zmm7, zmm2, zmm10
+      vdpbf16ps  zmm11, zmm2, zmm7
 
       vpslld zmm2, zmm2, 16
       vpsrad zmm2, zmm2, 16
-      vdpbf16ps  zmm8, zmm2, zmm11
+      vdpbf16ps  zmm12, zmm2, zmm8
 
       vpslld zmm2, zmm2, 16
       vpsrad zmm2, zmm2, 16
-      vdpbf16ps  zmm9, zmm2, zmm12
+      vdpbf16ps  zmm13, zmm2, zmm9
 
       vpslld zmm2, zmm2, 16
       vpsrad zmm2, zmm2, 16
-      vdpbf16ps  zmm14, zmm2, zmm13
+      vdpbf16ps  zmm14, zmm2, zmm10
 
 inner_loop_end:
       # Min/max clamping.
-      vminps  zmm7, zmm1, zmm7
-      vminps  zmm8, zmm1, zmm8
-      vminps  zmm9, zmm1, zmm9
+      vminps  zmm11, zmm1, zmm11
+      vminps  zmm12, zmm1, zmm12
+      vminps  zmm13, zmm1, zmm13
       vminps  zmm14, zmm1, zmm14
-      vmaxps  zmm7, zmm0, zmm7
-      vmaxps  zmm8, zmm0, zmm8
-      vmaxps  zmm9, zmm0, zmm9
+      vmaxps  zmm11, zmm0, zmm11
+      vmaxps  zmm12, zmm0, zmm12
+      vmaxps  zmm13, zmm0, zmm13
       vmaxps  zmm14, zmm0, zmm14
 
       # Check whether full or partial store.
       cmp rsi, 64
       jl tail
 
-      vmovups  [r10], zmm7
-      vmovups  [r10 + 64], zmm8
-      vmovups  [r10 + 128], zmm9
+      vmovups  [r10], zmm11
+      vmovups  [r10 + 64], zmm12
+      vmovups  [r10 + 128], zmm13
       vmovups  [r10 + 192], zmm14
       add r10, 256
 
@@ -132,14 +144,15 @@ tail:
       shr r11, 16
       kmovw k4, r11d
 
-      vmovups  ZMMWORD PTR [r10]{k1}, zmm7
-      vmovups  ZMMWORD PTR [r10 + 64]{k2}, zmm8
-      vmovups  ZMMWORD PTR [r10 + 128]{k3}, zmm9
+      vmovups  ZMMWORD PTR [r10]{k1}, zmm11
+      vmovups  ZMMWORD PTR [r10 + 64]{k2}, zmm12
+      vmovups  ZMMWORD PTR [r10 + 128]{k3}, zmm13
       vmovups  ZMMWORD PTR [r10 + 192]{k4}, zmm14
 
 return:
-      add rsp, 48
-
+      add rsp, 128
+      mov r13, [rsp]
+      mov rsp, r13
       # Restore the callee saved registers.
       pop r12
       pop r13
@@ -147,11 +160,16 @@ return:
       pop r15
       pop rbp
       pop rbx
+      pop rsi
+      pop rdi
+      #if XNN_HAS_FEATURE(memory_sanitizer)
+      jmp xnn_gemm_ukernel_msan_sizeof_c_4
+      #else
       ret
+      #endif
 END_FUNCTION xnn_bf16_f32_gemm_minmax_ukernel_1x64c2__asm_amd64_avx512bf16_broadcast
 
-      #ifdef __has_feature
-      #if __has_feature(dataflow_sanitizer)
+      #if XNN_HAS_FEATURE(dataflow_sanitizer)
 BEGIN_FUNCTION xnn_bf16_f32_gemm_minmax_ukernel_1x64c2__asm_amd64_avx512bf16_broadcast.dfsan
       .intel_syntax noprefix
       # We could implement this by calling a function that implements the dfsan instrumentation.
@@ -159,5 +177,4 @@ BEGIN_FUNCTION xnn_bf16_f32_gemm_minmax_ukernel_1x64c2__asm_amd64_avx512bf16_bro
       int 3
       ret
 END_FUNCTION xnn_bf16_f32_gemm_minmax_ukernel_1x64c2__asm_amd64_avx512bf16_broadcast.dfsan
-      #endif
       #endif

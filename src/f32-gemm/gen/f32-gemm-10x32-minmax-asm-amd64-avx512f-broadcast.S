@@ -8,8 +8,10 @@
 BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
 
       .intel_syntax noprefix
-
       # Free up GP registers.
+      # Save register arguments for tail call to msan annotation helper.
+      push rdi
+      push rsi
       push rbx
       push rbp
       push r15
@@ -18,21 +20,28 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       push r12
 
       # load params to free up a GP registers
-      mov r13, [rsp + 80] # params
+      mov r13, [rsp + 96] # params
       vbroadcastss zmm0, DWORD PTR [r13]
       vbroadcastss zmm1, DWORD PTR [r13 + 4]
 
       # Load c pointer.
-      mov r10, [rsp + 56]
+      mov r10, [rsp + 72]
       # Load cm_stride.
-      mov r11, [rsp + 64]
+      mov r11, [rsp + 80]
+
+      # Align the stack pointer.
+      mov r13, rsp
+      sub rsp, 64
+      and rsp, 0xFFFFFFFFFFFFFFC0
+      # Store the old stack pointer containing the return address
+      mov [rsp], r13
 
       # Allocate some space on the stack.
-      sub rsp, 192
+      sub rsp, 256
       # Write rsi (a pointer) to the stack as we need the register.
-      mov [rsp], rcx
+      mov [rsp + 16], rcx
       # Write r10 (c pointer) to the stack as we need the register.
-      mov [rsp + 8], r10
+      mov [rsp + 24], r10
 
       # Clamp a & c pointers if mr <= 1
       mov rax, rcx
@@ -43,8 +52,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rax, rcx
       cmovle r13, r10
 
-      mov [rsp + 16], rax
-      mov [rsp + 24], r13
+      mov [rsp + 32], rax
+      mov [rsp + 40], r13
 
       # Clamp a & c pointers if mr <= 2
       mov rcx, rax
@@ -55,8 +64,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rcx, rax
       cmovle r10, r13
 
-      mov [rsp + 32], rcx
-      mov [rsp + 40], r10
+      mov [rsp + 48], rcx
+      mov [rsp + 56], r10
 
       # Clamp a & c pointers if mr <= 3
       mov rax, rcx
@@ -67,8 +76,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rax, rcx
       cmovle r13, r10
 
-      mov [rsp + 48], rax
-      mov [rsp + 56], r13
+      mov [rsp + 64], rax
+      mov [rsp + 72], r13
 
       # Clamp a & c pointers if mr <= 4
       mov rcx, rax
@@ -79,8 +88,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rcx, rax
       cmovle r10, r13
 
-      mov [rsp + 64], rcx
-      mov [rsp + 72], r10
+      mov [rsp + 80], rcx
+      mov [rsp + 88], r10
 
       # Clamp a & c pointers if mr <= 5
       mov rax, rcx
@@ -91,8 +100,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rax, rcx
       cmovle r13, r10
 
-      mov [rsp + 80], rax
-      mov [rsp + 88], r13
+      mov [rsp + 96], rax
+      mov [rsp + 104], r13
 
       # Clamp a & c pointers if mr <= 6
       mov rcx, rax
@@ -103,8 +112,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rcx, rax
       cmovle r10, r13
 
-      mov [rsp + 96], rcx
-      mov [rsp + 104], r10
+      mov [rsp + 112], rcx
+      mov [rsp + 120], r10
 
       # Clamp a & c pointers if mr <= 7
       mov rax, rcx
@@ -115,8 +124,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rax, rcx
       cmovle r13, r10
 
-      mov [rsp + 112], rax
-      mov [rsp + 120], r13
+      mov [rsp + 128], rax
+      mov [rsp + 136], r13
 
       # Clamp a & c pointers if mr <= 8
       mov rcx, rax
@@ -127,8 +136,8 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rcx, rax
       cmovle r10, r13
 
-      mov [rsp + 128], rcx
-      mov [rsp + 136], r10
+      mov [rsp + 144], rcx
+      mov [rsp + 152], r10
 
       # Clamp a & c pointers if mr <= 9
       mov rax, rcx
@@ -139,36 +148,36 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
       cmovle rax, rcx
       cmovle r13, r10
 
-      mov [rsp + 144], rax
-      mov [rsp + 152], r13
+      mov [rsp + 160], rax
+      mov [rsp + 168], r13
 
 outer_loop:
       # Initialize k counter.
       mov r11, 0
       # Read a pointers from stack into GP registers.
-      mov rcx, [rsp + 0]
-      mov rax, [rsp + 16]
-      mov r15, [rsp + 32]
-      mov r14, [rsp + 48]
-      mov r12, [rsp + 64]
-      mov r10, [rsp + 80]
-      mov r13, [rsp + 96]
-      mov rbx, [rsp + 112]
-      mov rbp, [rsp + 128]
-      mov r8, [rsp + 144]
+      mov rcx, [rsp + 16]
+      mov rax, [rsp + 32]
+      mov r15, [rsp + 48]
+      mov r14, [rsp + 64]
+      mov r12, [rsp + 80]
+      mov r10, [rsp + 96]
+      mov r13, [rsp + 112]
+      mov rbx, [rsp + 128]
+      mov rbp, [rsp + 144]
+      mov r8, [rsp + 160]
 
       # Initialize accumulators with the biases.
-      vmovaps  zmm7, [r9 + 0]
+      vmovaps  zmm11, [r9 + 0]
       vmovaps  zmm21, [r9 + 64]
-      vmovaps zmm8, zmm7
-      vmovaps zmm9, zmm7
-      vmovaps zmm14, zmm7
-      vmovaps zmm15, zmm7
-      vmovaps zmm16, zmm7
-      vmovaps zmm17, zmm7
-      vmovaps zmm18, zmm7
-      vmovaps zmm19, zmm7
-      vmovaps zmm20, zmm7
+      vmovaps zmm12, zmm11
+      vmovaps zmm13, zmm11
+      vmovaps zmm14, zmm11
+      vmovaps zmm15, zmm11
+      vmovaps zmm16, zmm11
+      vmovaps zmm17, zmm11
+      vmovaps zmm18, zmm11
+      vmovaps zmm19, zmm11
+      vmovaps zmm20, zmm11
       vmovaps zmm22, zmm21
       vmovaps zmm23, zmm21
       vmovaps zmm24, zmm21
@@ -181,48 +190,48 @@ outer_loop:
       add r9, 128
 
 inner_loop:
-      vmovaps  zmm10, [r9 + 0]
-      vmovaps  zmm11, [r9 + 64]
+      vmovaps  zmm7, [r9 + 0]
+      vmovaps  zmm8, [r9 + 64]
       add r9, 128
       vbroadcastss zmm2, DWORD PTR [rcx + r11]
-      vfmadd231ps  zmm7, zmm2, zmm10
-      vfmadd231ps  zmm21, zmm2, zmm11
+      vfmadd231ps  zmm11, zmm2, zmm7
+      vfmadd231ps  zmm21, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [rax + r11]
-      vfmadd231ps  zmm8, zmm2, zmm10
-      vfmadd231ps  zmm22, zmm2, zmm11
+      vfmadd231ps  zmm12, zmm2, zmm7
+      vfmadd231ps  zmm22, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [r15 + r11]
-      vfmadd231ps  zmm9, zmm2, zmm10
-      vfmadd231ps  zmm23, zmm2, zmm11
+      vfmadd231ps  zmm13, zmm2, zmm7
+      vfmadd231ps  zmm23, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [r14 + r11]
-      vfmadd231ps  zmm14, zmm2, zmm10
-      vfmadd231ps  zmm24, zmm2, zmm11
+      vfmadd231ps  zmm14, zmm2, zmm7
+      vfmadd231ps  zmm24, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [r12 + r11]
-      vfmadd231ps  zmm15, zmm2, zmm10
-      vfmadd231ps  zmm25, zmm2, zmm11
+      vfmadd231ps  zmm15, zmm2, zmm7
+      vfmadd231ps  zmm25, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [r10 + r11]
-      vfmadd231ps  zmm16, zmm2, zmm10
-      vfmadd231ps  zmm26, zmm2, zmm11
+      vfmadd231ps  zmm16, zmm2, zmm7
+      vfmadd231ps  zmm26, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [r13 + r11]
-      vfmadd231ps  zmm17, zmm2, zmm10
-      vfmadd231ps  zmm27, zmm2, zmm11
+      vfmadd231ps  zmm17, zmm2, zmm7
+      vfmadd231ps  zmm27, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [rbx + r11]
-      vfmadd231ps  zmm18, zmm2, zmm10
-      vfmadd231ps  zmm28, zmm2, zmm11
+      vfmadd231ps  zmm18, zmm2, zmm7
+      vfmadd231ps  zmm28, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [rbp + r11]
-      vfmadd231ps  zmm19, zmm2, zmm10
-      vfmadd231ps  zmm29, zmm2, zmm11
+      vfmadd231ps  zmm19, zmm2, zmm7
+      vfmadd231ps  zmm29, zmm2, zmm8
       vbroadcastss zmm2, DWORD PTR [r8 + r11]
-      vfmadd231ps  zmm20, zmm2, zmm10
-      vfmadd231ps  zmm30, zmm2, zmm11
+      vfmadd231ps  zmm20, zmm2, zmm7
+      vfmadd231ps  zmm30, zmm2, zmm8
 
       add r11, 4
       cmp rdx, r11
       jne inner_loop
 inner_loop_end:
       # Min/max clamping.
-      vminps  zmm7, zmm1, zmm7
-      vminps  zmm8, zmm1, zmm8
-      vminps  zmm9, zmm1, zmm9
+      vminps  zmm11, zmm1, zmm11
+      vminps  zmm12, zmm1, zmm12
+      vminps  zmm13, zmm1, zmm13
       vminps  zmm14, zmm1, zmm14
       vminps  zmm15, zmm1, zmm15
       vminps  zmm16, zmm1, zmm16
@@ -240,9 +249,9 @@ inner_loop_end:
       vminps  zmm28, zmm1, zmm28
       vminps  zmm29, zmm1, zmm29
       vminps  zmm30, zmm1, zmm30
-      vmaxps  zmm7, zmm0, zmm7
-      vmaxps  zmm8, zmm0, zmm8
-      vmaxps  zmm9, zmm0, zmm9
+      vmaxps  zmm11, zmm0, zmm11
+      vmaxps  zmm12, zmm0, zmm12
+      vmaxps  zmm13, zmm0, zmm13
       vmaxps  zmm14, zmm0, zmm14
       vmaxps  zmm15, zmm0, zmm15
       vmaxps  zmm16, zmm0, zmm16
@@ -262,26 +271,26 @@ inner_loop_end:
       vmaxps  zmm30, zmm0, zmm30
 
       # Pop output pointers from the stack.
-      mov rcx, [rsp + 8]
-      mov rax, [rsp + 24]
-      mov r15, [rsp + 40]
-      mov r14, [rsp + 56]
-      mov r12, [rsp + 72]
-      mov r10, [rsp + 88]
-      mov r13, [rsp + 104]
-      mov rbx, [rsp + 120]
-      mov rbp, [rsp + 136]
-      mov r8, [rsp + 152]
+      mov rcx, [rsp + 24]
+      mov rax, [rsp + 40]
+      mov r15, [rsp + 56]
+      mov r14, [rsp + 72]
+      mov r12, [rsp + 88]
+      mov r10, [rsp + 104]
+      mov r13, [rsp + 120]
+      mov rbx, [rsp + 136]
+      mov rbp, [rsp + 152]
+      mov r8, [rsp + 168]
 
       # Check whether full or partial store.
       cmp rsi, 32
       jl tail
 
-      vmovups  [rcx], zmm7
+      vmovups  [rcx], zmm11
       vmovups  [rcx + 64], zmm21
-      vmovups  [rax], zmm8
+      vmovups  [rax], zmm12
       vmovups  [rax + 64], zmm22
-      vmovups  [r15], zmm9
+      vmovups  [r15], zmm13
       vmovups  [r15 + 64], zmm23
       vmovups  [r14], zmm14
       vmovups  [r14 + 64], zmm24
@@ -309,16 +318,16 @@ inner_loop_end:
       add r8, 128
 
       # Write output pointers to the stack.
-      mov [rsp + 8], rcx
-      mov [rsp + 24], rax
-      mov [rsp + 40], r15
-      mov [rsp + 56], r14
-      mov [rsp + 72], r12
-      mov [rsp + 88], r10
-      mov [rsp + 104], r13
-      mov [rsp + 120], rbx
-      mov [rsp + 136], rbp
-      mov [rsp + 152], r8
+      mov [rsp + 24], rcx
+      mov [rsp + 40], rax
+      mov [rsp + 56], r15
+      mov [rsp + 72], r14
+      mov [rsp + 88], r12
+      mov [rsp + 104], r10
+      mov [rsp + 120], r13
+      mov [rsp + 136], rbx
+      mov [rsp + 152], rbp
+      mov [rsp + 168], r8
 
       sub rsi, 32
       jne outer_loop
@@ -331,11 +340,11 @@ tail:
       kmovw k1, r11d
       shr r11d, 16
       kmovw k2, r11d
-      vmovups  ZMMWORD PTR [rcx]{k1}, zmm7
+      vmovups  ZMMWORD PTR [rcx]{k1}, zmm11
       vmovups  ZMMWORD PTR [rcx + 64]{k2}, zmm21
-      vmovups  ZMMWORD PTR [rax]{k1}, zmm8
+      vmovups  ZMMWORD PTR [rax]{k1}, zmm12
       vmovups  ZMMWORD PTR [rax + 64]{k2}, zmm22
-      vmovups  ZMMWORD PTR [r15]{k1}, zmm9
+      vmovups  ZMMWORD PTR [r15]{k1}, zmm13
       vmovups  ZMMWORD PTR [r15 + 64]{k2}, zmm23
       vmovups  ZMMWORD PTR [r14]{k1}, zmm14
       vmovups  ZMMWORD PTR [r14 + 64]{k2}, zmm24
@@ -353,8 +362,9 @@ tail:
       vmovups  ZMMWORD PTR [r8 + 64]{k2}, zmm30
 
 return:
-      add rsp, 192
-
+      add rsp, 256
+      mov r13, [rsp]
+      mov rsp, r13
       # Restore the callee saved registers.
       pop r12
       pop r13
@@ -362,11 +372,16 @@ return:
       pop r15
       pop rbp
       pop rbx
+      pop rsi
+      pop rdi
+      #if XNN_HAS_FEATURE(memory_sanitizer)
+      jmp xnn_gemm_ukernel_msan_sizeof_c_4
+      #else
       ret
+      #endif
 END_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast
 
-      #ifdef __has_feature
-      #if __has_feature(dataflow_sanitizer)
+      #if XNN_HAS_FEATURE(dataflow_sanitizer)
 BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast.dfsan
       .intel_syntax noprefix
       # We could implement this by calling a function that implements the dfsan instrumentation.
@@ -374,5 +389,4 @@ BEGIN_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast.df
       int 3
       ret
 END_FUNCTION xnn_f32_gemm_minmax_ukernel_10x32__asm_amd64_avx512f_broadcast.dfsan
-      #endif
       #endif

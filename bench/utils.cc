@@ -49,13 +49,14 @@ static size_t wipe_buffer_size = 0;
 static std::once_flag wipe_buffer_guard;
 
 static void InitWipeBuffer() {
-  // Default: the largest known cache size (128 MB Intel Crystalwell L4 cache).
-  wipe_buffer_size = 128 * 1024 * 1024;
 #if XNN_ENABLE_CPUINFO
   if (cpuinfo_initialize()) {
     wipe_buffer_size = GetMaxCacheSize();
   }
 #endif  // XNN_ENABLE_CPUINFO
+  if (wipe_buffer_size == 0) {
+    return;
+  }
 
 #if defined(_WIN32)
   wipe_buffer = _aligned_malloc(wipe_buffer_size, 128);
@@ -142,7 +143,9 @@ int ProcessArgs(int& argc, char**& argv) {
       ++i;
     }
   }
+#if !XNN_PLATFORM_QURT
   // InitGoogle(...);
+#endif
   return 0;
 }
 
@@ -181,6 +184,9 @@ void WipePthreadpoolL2Caches(benchmark::State& state,
 
 uint32_t WipeCache() {
   std::call_once(wipe_buffer_guard, InitWipeBuffer);
+  if (!wipe_buffer) {
+    return 0;
+  }
   return PrefetchToL1(wipe_buffer, wipe_buffer_size);
 }
 
@@ -396,6 +402,28 @@ bool CheckArchFlags(benchmark::State& state, uint64_t arch_flags) {
     const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     if (hardware_config == nullptr || !hardware_config->use_arm_neon_i8mm) {
       state.SkipWithError("no NEON-I8MM extension");
+      return false;
+    }
+    return true;
+  }
+#endif  // XNN_ARCH_ARM64
+
+#if XNN_ARCH_ARM64
+  bool CheckNEONSME(benchmark::State& state) {
+    const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+    if (hardware_config == nullptr || !hardware_config->use_arm_sme) {
+      state.SkipWithError("no NEON-SME extension");
+      return false;
+    }
+    return true;
+  }
+#endif  // XNN_ARCH_ARM64
+
+#if XNN_ARCH_ARM64
+  bool CheckNEONSME2(benchmark::State& state) {
+    const xnn_hardware_config* hardware_config = xnn_init_hardware_config();
+    if (hardware_config == nullptr || !hardware_config->use_arm_sme2) {
+      state.SkipWithError("no NEON-SME2 extension");
       return false;
     }
     return true;

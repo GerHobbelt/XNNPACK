@@ -156,9 +156,9 @@ static void init_hardware_config(void) {
 #else
     hardware_config.use_x86_avx512bf16 = 0;
 #endif
-#if XNN_ENABLE_AVX512AMX
+#if XNN_ENABLE_AVX512AMX && XNN_ARCH_X86_64
     hardware_config.use_x86_avx512amx = hardware_config.use_x86_avx512vnnigfni && cpuinfo_has_x86_amx_int8();
-#if XNN_ARCH_X86_64 && defined(__linux__) && !defined(CHROMIUM)
+#if defined(__linux__) && !defined(CHROMIUM)
     if (hardware_config.use_x86_avx512amx) {
       size_t status = xnn_syscall(SYS_arch_prctl, ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA, 0);
       if (status) {
@@ -431,8 +431,16 @@ static void init_hardware_config(void) {
         xnn_log_warning("Unable to determine L1/L2 data cache properties.");
       }
     }
+
+#if XNN_MAX_UARCH_TYPES > 1
+    // Print what we think we know about the microarchs.
+    xnn_log_info("cpuinfo_get_uarchs_count: %u.", cpuinfo_get_uarchs_count());
+    for (int i = 0; i < cpuinfo_get_uarchs_count(); i++) {
+      xnn_log_info("cpu_get_uarch(%i): 0x%x", i, cpuinfo_get_uarch(i)->uarch);
+    }
+#endif  // XNN_MAX_UARCH_TYPES > 1
 #else
-    xnn_log_warning("Unable to determine L1/L2 data cache properties.");
+  xnn_log_warning("Unable to determine L1/L2 data cache properties.");
 #endif  // XNN_ENABLE_CPUINFO
 }
 

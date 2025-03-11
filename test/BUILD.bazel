@@ -20,7 +20,6 @@ load(
     "xnnpack_simd_s16_archs",
     "xnnpack_simd_s32_archs",
     "xnnpack_simd_s8_archs",
-    "xnnpack_simd_u32_archs",
 )
 
 MICROKERNEL_TEST_DEPS = [
@@ -242,21 +241,6 @@ sh_test(
     ],
 ) for arch in xnnpack_simd_s8_archs()]
 
-[xnnpack_unit_test(
-    name = "u32_simd_" + arch + "_test",
-    srcs = [
-        "u32-simd-" + arch + ".cc",
-    ],
-    copts = xnnpack_simd_copts_for_arch(arch),
-    deps = [
-        ":replicable_random_device",
-        "//:buffer",
-        "//:common",
-        "//:isa_checks",
-        "//:microkernels_h",
-    ],
-) for arch in xnnpack_simd_u32_archs()]
-
 ######################### Unit tests for micro-kernels #########################
 
 [xnnpack_unit_test(
@@ -310,7 +294,6 @@ sh_test(
     "f32_qs8_vcvt",
     "f32_qu8_vcvt",
     "s32_f32_vcvt",
-    "u32_f32_vcvt",
     "qs8_f16_vcvt",
     "qs8_f32_vcvt",
     "qs8_vcvt",
@@ -838,7 +821,6 @@ xnnpack_unit_test(
     name = "f32_vscaleextexp_test",
     srcs = [
         "f32-vscaleextexp.cc",
-        "vscaleextexp-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
 )
@@ -894,6 +876,7 @@ xnnpack_unit_test(
         "qd8-f32-qc4w-gemm-minmax-3.cc",
         "qd8-f32-qc4w-gemm-minmax-4.cc",
     ],
+    shard_count = 5,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
     ],
@@ -1120,6 +1103,7 @@ xnnpack_unit_test(
 ) for kernel in [
     "x8_packw",
     "qs8_packw",
+    "qs8_qc4w_packw",
     "x16_packw",
     "x32_packw",
 ]]
@@ -1267,7 +1251,6 @@ xnnpack_unit_test(
     name = "convert_nc_test",
     srcs = [
         "convert-nc.cc",
-        "convert-operator-tester.h",
     ],
     deps = OPERATOR_TEST_DEPS + ["//:microkernels_h"],
 )
@@ -1584,6 +1567,7 @@ xnnpack_unit_test(
         ":replicable_random_device",
         ":subgraph_unary_tester",
         "//:XNNPACK",
+        "//:buffer",
         "//:math",
         "//:node_type",
         "//:operators",

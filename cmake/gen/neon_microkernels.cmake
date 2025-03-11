@@ -122,10 +122,12 @@ SET(PROD_NEON_MICROKERNEL_SRCS
   src/qu8-f32-vcvt/gen/qu8-f32-vcvt-neon-u32.c
   src/qu8-gemm/gen/qu8-gemm-1x8-minmax-rndnu-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-1x16-minmax-rndnu-neon-mlal-lane.c
+  src/qu8-gemm/gen/qu8-gemm-1x16-minmax-rndnu16-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-3x8-minmax-rndnu-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-4x16-minmax-rndnu-neon-mlal-lane.c
   src/qu8-igemm/gen/qu8-igemm-1x8-minmax-rndnu-neon-mlal-lane.c
   src/qu8-igemm/gen/qu8-igemm-1x16-minmax-rndnu-neon-mlal-lane.c
+  src/qu8-igemm/gen/qu8-igemm-1x16-minmax-rndnu16-neon-mlal-lane.c
   src/qu8-igemm/gen/qu8-igemm-3x8-minmax-rndnu-neon-mlal-lane.c
   src/qu8-igemm/gen/qu8-igemm-4x16-minmax-rndnu-neon-mlal-lane.c
   src/qu8-rdsum/gen/qu8-rdsum-7p7x-neon-u16.c
@@ -149,7 +151,6 @@ SET(PROD_NEON_MICROKERNEL_SRCS
   src/u8-maxpool/u8-maxpool-9p8x-minmax-neon-c16.c
   src/u8-rmax/u8-rmax-neon-u16.c
   src/u8-vclamp/u8-vclamp-neon-u64.c
-  src/u32-f32-vcvt/gen/u32-f32-vcvt-neon.c
   src/x8-transposec/gen/x8-transposec-16x16-reuse-dec-zip-neon.c
   src/x8-zip/x8-zip-x2-neon.c
   src/x8-zip/x8-zip-x3-neon.c
@@ -759,7 +760,6 @@ SET(NON_PROD_NEON_MICROKERNEL_SRCS
   src/qu8-f32-vcvt/gen/qu8-f32-vcvt-neon-u24.c
   src/qu8-gemm/gen/qu8-gemm-1x8-minmax-fp32-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-1x16-minmax-fp32-neon-mlal-lane.c
-  src/qu8-gemm/gen/qu8-gemm-1x16-minmax-rndnu16-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-2x8-minmax-rndnu-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-2x16-minmax-rndnu-neon-mlal-lane.c
   src/qu8-gemm/gen/qu8-gemm-3x16-minmax-rndnu-neon-mlal-lane.c

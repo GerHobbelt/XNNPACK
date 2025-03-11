@@ -33,7 +33,6 @@ load(
     "xnnpack_simd_s16_archs",
     "xnnpack_simd_s32_archs",
     "xnnpack_simd_s8_archs",
-    "xnnpack_simd_u32_archs",
 )
 load(
     "//gen:microkernels.bzl",
@@ -149,6 +148,7 @@ MICROKERNEL_DEFS = [
     "src/f32-vrnd/f32-vrndu.h",
     "src/f32-vrnd/f32-vrndz.h",
     "src/f32-vrsqrt/f32-vrsqrt.h",
+    "src/f32-vscaleextexp/f32-vscaleextexp.h",
     "src/f32-vsigmoid/f32-vsigmoid.h",
     "src/f32-vsqr/f32-vsqr.h",
     "src/f32-vsqrt/f32-vsqrt.h",
@@ -160,6 +160,7 @@ MICROKERNEL_DEFS = [
     "src/qs8-f16-vcvt/qs8-f16-vcvt.h",
     "src/qs8-f32-vcvt/qs8-f32-vcvt.h",
     "src/qs8-packw/qs8-packw.h",
+    "src/qs8-qc4w-packw/qs8-qc4w-packw.h",
     "src/qs8-qc8w-dwconv/qs8-qc8w-dwconv-minmax-multipass-fp32.h",
     "src/qs8-qc8w-dwconv/qs8-qc8w-dwconv-minmax-unipass-fp32.h",
     "src/qs8-vadd/qs8-vadd-minmax.h",
@@ -189,7 +190,6 @@ MICROKERNEL_DEFS = [
     "src/s32-f32-vcvt/s32-f32-vcvt.h",
     "src/u8-maxpool/u8-maxpool-minmax.h",
     "src/u8-vclamp/u8-vclamp.h",
-    "src/u32-f32-vcvt/u32-f32-vcvt.h",
     "src/xx-fill/xx-fill.h",
     "src/xx-pad/xx-pad.h",
     "src/xx-transposev/xx-transposev.h",
@@ -275,9 +275,6 @@ SIMD_HEADERS = [
 ] + [
     "src/xnnpack/simd/s8-" + arch + ".h"
     for arch in xnnpack_simd_s8_archs()
-] + [
-    "src/xnnpack/simd/u32-" + arch + ".h"
-    for arch in xnnpack_simd_u32_archs()
 ]
 
 exports_files(SIMD_HEADERS)
@@ -477,7 +474,6 @@ xnnpack_cc_library(
     hdrs = ["src/xnnpack/microparams-init.h"],
     deps = [
         ":common",
-        ":logging",
         ":math",
         ":microparams",
         ":requantization",
@@ -563,6 +559,7 @@ xnnpack_cc_library(
 xnnpack_cxx_library(
     name = "buffer",
     hdrs = ["src/xnnpack/buffer.h"],
+    deps = [":datatype"],
 )
 
 xnnpack_cc_library(
@@ -798,11 +795,6 @@ xnnpack_cxx_library(
         ":xnnpack_h",
     ] + xnnpack_if_kleidiai_enabled([
         "@KleidiAI//kai/ukernels/matmul",
-        "@KleidiAI//kai/ukernels/matmul:rhs_pack_kxn_qsi4cxp_qs4cxs1s0",
-        "@KleidiAI//kai/ukernels/matmul:rhs_pack_nxk_qsi4cxp_qs4cxs1s0",
-        "@KleidiAI//kai/ukernels/matmul:rhs_pack_kxn_f32p2vlx1biasf32_f32_f32_sme",
-        "@KleidiAI//kai/ukernels/matmul:rhs_pack_kxn_qsi4c32p_qsu4c32s1s0",
-        "@KleidiAI//kai/ukernels/matmul:rhs_pack_nxk_qsi4c32p_qsu4c32s1s0",
     ]),
 )
 
@@ -954,6 +946,7 @@ xnnpack_cxx_library(
     deps = [
         ":common",
         ":config_hdrs",
+        ":datatype",
         ":hardware_config",
         ":math",
         ":xnnpack_h",

@@ -14,6 +14,7 @@
 #include "xnnpack/common.h"
 #include "xnnpack/math.h"
 #include "xnnpack/node-type.h"
+#include "pthreadpool.h"
 
 #if defined(EMSCRIPTEN)
 #include <emscripten/emscripten.h>
@@ -300,7 +301,7 @@ struct xnn_node {
     } static_resize;
     struct {
       size_t num_dims;
-      size_t offsets[XNN_MAX_TENSOR_DIMS];
+      int64_t offsets[XNN_MAX_TENSOR_DIMS];
       size_t sizes[XNN_MAX_TENSOR_DIMS];
     } slice;
     struct {
@@ -308,7 +309,7 @@ struct xnn_node {
     } space_to_depth_2d;
     struct {
       size_t num_reduction_axes;
-      size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+      int64_t reduction_axes[XNN_MAX_TENSOR_DIMS];
     } reduce;
     struct {
       size_t perm[XNN_MAX_TENSOR_DIMS];
@@ -378,7 +379,7 @@ struct xnn_operator_data {
     // Used for reduction.
     struct {
       size_t num_reduction_axes;
-      size_t reduction_axes[XNN_MAX_TENSOR_DIMS];
+      int64_t reduction_axes[XNN_MAX_TENSOR_DIMS];
     };
     // Used for reshape.
     struct {
@@ -394,7 +395,7 @@ struct xnn_operator_data {
     };
     // Used for static slice.
     struct {
-      size_t offsets[XNN_MAX_TENSOR_DIMS];
+      int64_t offsets[XNN_MAX_TENSOR_DIMS];
       size_t sizes[XNN_MAX_TENSOR_DIMS];
     };
   };

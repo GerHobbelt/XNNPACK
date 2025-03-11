@@ -104,6 +104,7 @@ std::vector<GemmTestParams> CreateTests(
       size_t mr_packed,
     bool is_igemm,
     bool unsigned_inputs,
+    uint8_t planes,
     std::function<void(GemmMicrokernelTester& tester)> test_func,
     std::function<void()> isa_check = nullptr) {
   std::string kbs = std::to_string(k_block);
@@ -115,10 +116,10 @@ std::vector<GemmTestParams> CreateTests(
 
   $if DATATYPE in ('qp8',):
     const GemmMicrokernelTester tester = GemmMicrokernelTester()
-        .mr(mr).nr(nr).kr(kr).sr(sr).mr_packed(mr_packed).unsigned_inputs(unsigned_inputs);
+        .mr(mr).nr(nr).kr(kr).sr(sr).mr_packed(mr_packed).unsigned_inputs(unsigned_inputs).planes(planes);
   $else:
     const GemmMicrokernelTester tester = GemmMicrokernelTester()
-        .mr(mr).nr(nr).kr(kr).sr(sr).unsigned_inputs(unsigned_inputs);
+        .mr(mr).nr(nr).kr(kr).sr(sr).unsigned_inputs(unsigned_inputs).planes(planes);
 
   std::vector<GemmTestParams> gemm_tests;
   gemm_tests.reserve(42);
@@ -148,7 +149,7 @@ std::vector<GemmTestParams> CreateTests(
   gemm_tests.push_back(GemmTestParams(
       "k_eq_" + kbs + "_subtile",
       tester.clone()
-          .k(k_block).iterations(1)
+          .k(k_block)
           $if KERNELTYPE in ['qb4w', 'qc4w']:
             .b_zero_point(8)
           $if KERNELTYPE in ['qb4w']:
@@ -159,7 +160,7 @@ std::vector<GemmTestParams> CreateTests(
   gemm_tests.push_back(GemmTestParams(
       "k_eq_" + kbs + "_subtile_m",
       tester.clone()
-          .n(nr).k(k_block).iterations(1)
+          .n(nr).k(k_block)
           $if KERNELTYPE in ['qb4w', 'qc4w']:
             .b_zero_point(8)
           $if KERNELTYPE in ['qb4w']:
@@ -169,7 +170,7 @@ std::vector<GemmTestParams> CreateTests(
   gemm_tests.push_back(GemmTestParams(
       "k_eq_" + kbs + "_subtile_n",
       tester.clone()
-          .m(mr).k(k_block).iterations(1)
+          .m(mr).k(k_block)
           $if KERNELTYPE in ['qb4w', 'qc4w']:
             .b_zero_point(8)
           $if KERNELTYPE in ['qb4w']:
@@ -202,7 +203,7 @@ std::vector<GemmTestParams> CreateTests(
     gemm_tests.push_back(GemmTestParams(
         "k_eq_" + kb2s + "_subtile",
         tester.clone()
-            .k(k_block * 2).iterations(1)
+            .k(k_block * 2)
             $if KERNELTYPE in ['qb4w', 'qc4w']:
               .b_zero_point(8)
             $if KERNELTYPE in ['qb4w']:
@@ -239,7 +240,6 @@ std::vector<GemmTestParams> CreateTests(
         gemm_tests.push_back(GemmTestParams(
             "k_lt_" + akbs + "_subtile",
             tester.clone()
-                .iterations(1)
                 $if KERNELTYPE in ['qb4w', 'qc4w']:
                   .b_zero_point(8)
                 $if KERNELTYPE in ['qb4w']:
@@ -276,7 +276,6 @@ std::vector<GemmTestParams> CreateTests(
       gemm_tests.push_back(GemmTestParams(
           "k_gt_" + akbs + "_subtile",
           tester.clone()
-              .iterations(1)
               $if KERNELTYPE in ['qb4w', 'qc4w']:
                 .b_zero_point(8)
               $if KERNELTYPE in ['qb4w']:
@@ -313,7 +312,6 @@ std::vector<GemmTestParams> CreateTests(
         gemm_tests.push_back(GemmTestParams(
             "k_div_" + kbs + "_subtile",
             tester.clone()
-                .iterations(1)
                 $if KERNELTYPE in ['qb4w', 'qc4w']:
                   .b_zero_point(8)
                 $if KERNELTYPE in ['qb4w']:
@@ -358,7 +356,6 @@ std::vector<GemmTestParams> CreateTests(
       gemm_tests.push_back(GemmTestParams(
           "n_gt_" + nrs + "_subtile",
           tester.clone()
-              .iterations(1)
               $if KERNELTYPE in ['qb4w', 'qc4w']:
                 .b_zero_point(8)
               $if KERNELTYPE in ['qb4w']:
@@ -399,7 +396,6 @@ std::vector<GemmTestParams> CreateTests(
       gemm_tests.push_back(GemmTestParams(
           "n_div_" + nrs + "_subtile",
           tester.clone()
-              .iterations(1)
               $if KERNELTYPE in ['qb4w', 'qc4w']:
                 .b_zero_point(8)
               $if KERNELTYPE in ['qb4w']:
@@ -422,7 +418,7 @@ std::vector<GemmTestParams> CreateTests(
         gemm_tests.push_back(GemmTestParams(
             "small_kernel_subtile",
             tester.clone()
-                .ks(3).iterations(1)
+                .ks(3)
                 $if KERNELTYPE in ['qb4w', 'qc4w']:
                   .b_zero_point(8)
                 $if KERNELTYPE in ['qb4w']:
@@ -462,7 +458,6 @@ std::vector<GemmTestParams> CreateTests(
           tester.clone()
               .mr(mr).nr(nr).kr(kr).sr(sr)
               .cm_stride(xnnpack::NextPrime(nr + 1))
-              .iterations(1)
               $if KERNELTYPE in ['qb4w', 'qc4w']:
                 .b_zero_point(8)
               $if KERNELTYPE in ['qb4w']:
@@ -580,6 +575,7 @@ INSTANTIATE_TEST_SUITE_P(
           /*mr_packed=*/${MR_PACKED},
         /*is_igemm=*/${"true" if UKERNEL_TYPE.startswith("IGEMM") else "false"},
         /*unsigned_inputs=*/${"true" if UNSIGNED_INPUTS else "false"},
+        /*planes=*/${PLANES},
         [](GemmMicrokernelTester& tester) {
           tester.${TEST_FUN}(${",\\n                      ".join(TEST_ARGS)});
         $if ISA_CHECK:
@@ -612,7 +608,6 @@ $if TEST_NAME.startswith('GENERATE') and DATATYPE in ['f32', 'f16']:
             $if NR > 1:
               .n(${NR})
             .k(k)
-            .iterations(1)
             $if KERNELTYPE in ['qb4w', 'qc4w']:
               .b_zero_point(8)
             .${TEST_FUN}(${", ".join(TEST_ARGS)});
@@ -659,6 +654,7 @@ def generate_test_cases(
     mr_packed,
     k_block,
     unsigned_inputs,
+    planes,
     vector_tile,
     init_fn,
     pack_fn,
@@ -682,6 +678,7 @@ def generate_test_cases(
       the micro-kernel.
     unsigned_inputs: whether the inputs should be converted to unsigned
       integers. Some microkernels are more efficient with unsigned inputs.
+    planes: the number of packing planes used by the microkernel.
     vector_tile: Indicates if vector tile for NR is specified in vectors rather
       than elements.
     init_fn: C name of the function to initialize microkernel parameters.
@@ -769,6 +766,7 @@ def generate_test_cases(
       "MR_PACKED": mr_packed,
       "KBLOCK": k_block,
       "UNSIGNED_INPUTS": unsigned_inputs,
+      "PLANES": planes,
       "NR_SCALE": nr_scale,
       "ADJKBLOCK": 2 * k_block if is_pipelined else k_block,
       "IS_PIPELINED": is_pipelined,
@@ -888,6 +886,10 @@ def main(args):
         unsigned_inputs = int(ukernel_spec["unsigned-inputs"])
       else:
         unsigned_inputs = False
+      if "planes" in ukernel_spec:
+        planes = int(ukernel_spec["planes"])
+      else:
+        planes = 1
       init_fn = ukernel_spec.get("init")
       pack_fn = ukernel_spec.get("pack")
       packed_stride_fn = ukernel_spec.get("packed-stride")
@@ -916,6 +918,7 @@ def main(args):
           mr_packed,
           k_block,
           unsigned_inputs,
+          planes,
           vector_tile,
           init_fn,
           pack_fn,
@@ -960,7 +963,7 @@ def main(args):
 
     bench_outputs += """\n
 #ifndef XNNPACK_BENCHMARK_NO_MAIN
-BENCHMARK_MAIN();
+XNN_BENCHMARK_MAIN();
 #endif
 """
 

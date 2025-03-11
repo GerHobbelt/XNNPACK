@@ -101,6 +101,13 @@ class GemmMicrokernelTester {
     return *this;
   }
 
+  uint8_t planes() const { return this->planes_; }
+
+  GemmMicrokernelTester& planes(uint8_t planes) {
+    this->planes_ = planes;
+    return *this;
+  }
+
   GemmMicrokernelTester& a_stride(size_t a_stride) {
     this->a_stride_ = a_stride;
     return *this;
@@ -162,13 +169,6 @@ class GemmMicrokernelTester {
   }
 
   size_t zero_index() const { return this->zero_index_; }
-
-  GemmMicrokernelTester& iterations(size_t iterations) {
-    this->iterations_ = iterations;
-    return *this;
-  }
-
-  size_t iterations() const { return this->iterations_; }
 
   GemmMicrokernelTester& known_nc_mod_nr(bool known_nc_mod_nr) {
     this->known_nc_mod_nr_ = known_nc_mod_nr;
@@ -254,6 +254,10 @@ class GemmMicrokernelTester {
             xnn_init_qs8_conv_minmax_params_fn init_params,
             xnn_pack_qs8_igemm_fn pack, xnn_qs8_requantize_fn requantize) const;
 
+  void Test(xnn_bf16_f32_gemm_minmax_ukernel_fn gemm_minmax,
+            xnn_init_f32_minmax_params_fn init_params,
+            xnn_pack_bf16_f32_gemm_fn pack) const;
+
   void Test(xnn_bf16_gemm_minmax_ukernel_fn gemm_minmax,
             xnn_init_bf16_minmax_params_fn init_params,
             xnn_pack_f16_gemm_fn pack) const;
@@ -335,6 +339,7 @@ class GemmMicrokernelTester {
   size_t ks_{1};
   size_t bl_{SIZE_MAX};
   bool unsigned_inputs_{false};
+  uint8_t planes_{1};
   size_t a_stride_{0};
   size_t cm_stride_{0};
   uint8_t a_zero_point_{127};
@@ -343,7 +348,6 @@ class GemmMicrokernelTester {
   uint8_t qmax_{255};
   size_t a_offset_{0};
   size_t zero_index_{SIZE_MAX};
-  size_t iterations_{15};
   bool known_nc_mod_nr_{true};
   bool relu_{false};
   size_t mr_packed_{0};

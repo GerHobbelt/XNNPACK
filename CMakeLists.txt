@@ -44,7 +44,12 @@ SET(CMAKE_CXX_EXTENSIONS NO)
 # ---[ Options.
 SET(XNNPACK_LIBRARY_TYPE "default" CACHE STRING "Type of library (shared, static, or default) to build")
 SET_PROPERTY(CACHE XNNPACK_LIBRARY_TYPE PROPERTY STRINGS default static shared)
-OPTION(XNNPACK_ENABLE_ASSEMBLY "Build XNNPACK with assembly micro-kernels" ON)
+IF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  # Disable assembly when using MSVC until support is added.
+  OPTION(XNNPACK_ENABLE_ASSEMBLY "Build XNNPACK with assembly micro-kernels" OFF)
+ELSE()
+  OPTION(XNNPACK_ENABLE_ASSEMBLY "Build XNNPACK with assembly micro-kernels" ON)
+ENDIF()
 OPTION(XNNPACK_ENABLE_MEMOPT "Build XNNPACK with optimized memory allocation scheme" ON)
 OPTION(XNNPACK_ENABLE_SPARSE "Build XNNPACK with graph rewriting for sparse inference" ON)
 OPTION(XNNPACK_ENABLE_GEMM_M_SPECIALIZATION "Build XNNPACK with support for selecting microkernel with different MR" ON)
@@ -154,6 +159,9 @@ ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
   IF(CMAKE_C_COMPILER_VERSION VERSION_LESS "17")
     SET(XNNPACK_ENABLE_AVXVNNIINT8 OFF)
   ENDIF()
+# Disable AVXVNNIINT8 when using MSVC until support is added.
+ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  SET(XNNPACK_ENABLE_AVXVNNIINT8 OFF)
 ENDIF()
 OPTION(XNNPACK_ENABLE_AVX256SKX "Build XNNPACK with AVX256SKX micro-kernels" ON)
 IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
@@ -259,6 +267,20 @@ ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
   IF(CMAKE_C_COMPILER_VERSION VERSION_LESS "15")
     SET(XNNPACK_ENABLE_AVX512FP16 OFF)
   ENDIF()
+ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  SET(XNNPACK_ENABLE_AVX512FP16 OFF)
+ENDIF()
+OPTION(XNNPACK_ENABLE_AVX512BF16 "Build XNNPACK with AVX512-BF16 micro-kernels" ON)
+IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+  IF(CMAKE_C_COMPILER_VERSION VERSION_LESS "13")
+    SET(XNNPACK_ENABLE_AVX512BF16 OFF)
+  ENDIF()
+ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+  IF(CMAKE_C_COMPILER_VERSION VERSION_LESS "15")
+    SET(XNNPACK_ENABLE_AVX512BF16 OFF)
+  ENDIF()
+ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+  SET(XNNPACK_ENABLE_AVX512BF16 OFF)
 ENDIF()
 OPTION(XNNPACK_ENABLE_HVX "Build XNNPACK with Hexagon HVX micro-kernels" ON)
 OPTION(XNNPACK_ENABLE_KLEIDIAI "Use KleidiAI GEMM microkernels for Arm" ON)
@@ -297,6 +319,7 @@ ADD_COMPILE_DEFINITIONS("XNN_ENABLE_AVX512VNNI=$<BOOL:${XNNPACK_ENABLE_AVX512VNN
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_AVX512VNNIGFNI=$<BOOL:${XNNPACK_ENABLE_AVX512VNNIGFNI}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_AVX512AMX=$<BOOL:${XNNPACK_ENABLE_AVX512AMX}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_AVX512FP16=$<BOOL:${XNNPACK_ENABLE_AVX512FP16}>")
+ADD_COMPILE_DEFINITIONS("XNN_ENABLE_AVX512BF16=$<BOOL:${XNNPACK_ENABLE_AVX512BF16}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_VSX=$<BOOL:${XNNPACK_ENABLE_VSX}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_ASSEMBLY=$<BOOL:${XNNPACK_ENABLE_ASSEMBLY}>")
 ADD_COMPILE_DEFINITIONS("XNN_ENABLE_MEMOPT=$<BOOL:${XNNPACK_ENABLE_MEMOPT}>")
@@ -658,11 +681,17 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_F16C_MICROKERNEL_SRCS})
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_FMA3_MICROKERNEL_SRCS})
   LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AVX2_MICROKERNEL_SRCS})
+  IF(XNNPACK_ENABLE_ASSEMBLY AND XNNPACK_TARGET_PROCESSOR MATCHES "x86_64")
+    LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AMD64_ASM_MICROKERNEL_SRCS})
+  ENDIF()
   IF(XNNPACK_ENABLE_AVX512AMX)
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AVX512AMX_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_AVX512FP16)
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AVX512FP16_MICROKERNEL_SRCS})
+  ENDIF()
+  IF(XNNPACK_ENABLE_AVX512BF16)
+    LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AVX512BF16_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_AVXVNNI)
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_AVXVNNI_MICROKERNEL_SRCS})
@@ -705,11 +734,17 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
   LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_F16C_MICROKERNEL_SRCS})
   LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_FMA3_MICROKERNEL_SRCS})
   LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_AVX2_MICROKERNEL_SRCS})
+  IF(XNNPACK_ENABLE_ASSEMBLY AND XNNPACK_TARGET_PROCESSOR MATCHES "x86_64")
+    LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_AMD64_ASM_MICROKERNEL_SRCS})
+  ENDIF()
   IF(XNNPACK_ENABLE_AVX512AMX)
     LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_AVX512AMX_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_AVX512FP16)
     LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_AVX512FP16_MICROKERNEL_SRCS})
+  ENDIF()
+  IF(XNNPACK_ENABLE_AVX512BF16)
+    LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_AVX512BF16_MICROKERNEL_SRCS})
   ENDIF()
   IF(XNNPACK_ENABLE_AVXVNNI)
     LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_AVXVNNI_MICROKERNEL_SRCS})
@@ -830,7 +865,7 @@ IF(XNNPACK_BUILD_LIBRARY)
   TARGET_LINK_LIBRARIES(cache PRIVATE xnnpack-base logging)
   TARGET_LINK_LIBRARIES(datatype PRIVATE xnnpack-base)
   TARGET_LINK_LIBRARIES(memory PRIVATE xnnpack-base logging)
-  TARGET_LINK_LIBRARIES(microkernel-utils PRIVATE xnnpack-base logging)
+  TARGET_LINK_LIBRARIES(microkernel-utils PRIVATE xnnpack-base hardware-config logging)
   TARGET_LINK_LIBRARIES(mutex PRIVATE xnnpack-base logging)
   TARGET_LINK_LIBRARIES(operators PRIVATE xnnpack-base allocator indirection logging microkernel-utils normalization operator-utils packing reference-ukernels datatype)
   TARGET_LINK_LIBRARIES(operator-run PRIVATE xnnpack-base logging)
@@ -923,9 +958,9 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
     SET_PROPERTY(SOURCE ${ALL_AVX512VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 ")
     SET_PROPERTY(SOURCE ${ALL_AVXVNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX2 ")
     SET_PROPERTY(SOURCE ${ALL_AVXVNNIINT8_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX2 ")
-    SET_PROPERTY(SOURCE ${ALL_AVX256SKX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 ")
-    SET_PROPERTY(SOURCE ${ALL_AVX256VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 ")
-    SET_PROPERTY(SOURCE ${ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 ")
+    SET_PROPERTY(SOURCE ${ALL_AVX256SKX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 /vlen=256 ")
+    SET_PROPERTY(SOURCE ${ALL_AVX256VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 /vlen=256 ")
+    SET_PROPERTY(SOURCE ${ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " /arch:AVX512 /vlen=256 ")
     IF(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       SET_PROPERTY(SOURCE ${ALL_SSE_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-msse -clang:-mno-sse2 ")
       SET_PROPERTY(SOURCE ${ALL_SSE2_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-msse2 -clang:-mno-sse3 ")
@@ -935,20 +970,27 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
       SET_PROPERTY(SOURCE ${ALL_F16C_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mno-avx2 -clang:-mno-fma ")
       SET_PROPERTY(SOURCE ${ALL_FMA3_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mno-avx2 ")
       SET_PROPERTY(SOURCE ${ALL_AVX2_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx2 ")
-      SET_PROPERTY(SOURCE ${ALL_AVXVNNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx2 -clang:-mavxvnni ")
-      SET_PROPERTY(SOURCE ${ALL_AVXVNNIINT8_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx2 -clang:-mavxvnniint8 ")
-      SET_PROPERTY(SOURCE ${ALL_AVX256SKX_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl ")
-      SET_PROPERTY(SOURCE ${ALL_AVX256VNNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni ")
-      SET_PROPERTY(SOURCE ${ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni ")
+      SET_PROPERTY(SOURCE ${ALL_AVXVNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx2 -clang:-mavxvnni ")
+      SET_PROPERTY(SOURCE ${ALL_AVXVNNIINT8_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx2 -clang:-mavxvnniint8 ")
+      SET_PROPERTY(SOURCE ${ALL_AVX256SKX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl ")
+      SET_PROPERTY(SOURCE ${ALL_AVX256VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni ")
+      SET_PROPERTY(SOURCE ${ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni ")
       SET_PROPERTY(SOURCE ${ALL_AVX512F_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mavx512f ")
-      SET_PROPERTY(SOURCE ${ALL_AVX512SKX_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl ")
-      SET_PROPERTY(SOURCE ${ALL_AVX512VBMI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vbmi ")
-      SET_PROPERTY(SOURCE ${ALL_AVX512VNNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni ")
-      SET_PROPERTY(SOURCE ${ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni ")
-      SET_PROPERTY(SOURCE ${ALL_AVX512FP16_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni -clang:-mavx512fp16 ")
-      SET_PROPERTY(SOURCE ${ALL_AVX512AMX_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni -clang:-mamx-tile -clang:-mamx-int8 ")
+      SET_PROPERTY(SOURCE ${ALL_AVX512SKX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl ")
+      SET_PROPERTY(SOURCE ${ALL_AVX512VBMI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vbmi ")
+      SET_PROPERTY(SOURCE ${ALL_AVX512VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni ")
+      SET_PROPERTY(SOURCE ${ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni ")
+      SET_PROPERTY(SOURCE ${ALL_AVX512FP16_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni -clang:-mavx512fp16 ")
+      SET_PROPERTY(SOURCE ${ALL_AVX512AMX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -clang:-mf16c -clang:-mfma -clang:-mavx512f -clang:-mavx512cd -clang:-mavx512bw -clang:-mavx512dq -clang:-mavx512vl -clang:-mavx512vnni -clang:-mgfni -clang:-mamx-tile -clang:-mamx-int8 ")
     ENDIF()
   ELSE()
+    IF(CMAKE_C_COMPILER_ID STREQUAL "GNU")
+      SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mpreferred-stack-boundary=6 -fomit-frame-pointer -mstackrealign -mincoming-stack-boundary=4 ")
+    ELSEIF(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+      SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mstack-alignment=64 -fomit-frame-pointer -mstackrealign")
+    ELSE()
+      SET_PROPERTY(SOURCE ${ALL_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -fomit-frame-pointer ")
+    ENDIF()
     SET_PROPERTY(SOURCE ${ALL_SSE_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -msse -mno-sse2 ")
     SET_PROPERTY(SOURCE ${ALL_SSE2_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -msse2 -mno-sse3 ")
     SET_PROPERTY(SOURCE ${ALL_SSSE3_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mssse3 -mno-sse4.1 ")
@@ -957,18 +999,18 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
     SET_PROPERTY(SOURCE ${ALL_F16C_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mno-avx2 -mno-fma ")
     SET_PROPERTY(SOURCE ${ALL_FMA3_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mno-avx2 ")
     SET_PROPERTY(SOURCE ${ALL_AVX2_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx2 ")
-    SET_PROPERTY(SOURCE ${ALL_AVXVNNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx2 -mavxvnni ")
-    SET_PROPERTY(SOURCE ${ALL_AVXVNNIINT8_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx2 -mavxvnniint8 ")
-    SET_PROPERTY(SOURCE ${ALL_AVX256SKX_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl ")
-    SET_PROPERTY(SOURCE ${ALL_AVX256VNNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni ")
-    SET_PROPERTY(SOURCE ${ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni ")
+    SET_PROPERTY(SOURCE ${ALL_AVXVNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx2 -mavxvnni ")
+    SET_PROPERTY(SOURCE ${ALL_AVXVNNIINT8_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx2 -mavxvnniint8 ")
+    SET_PROPERTY(SOURCE ${ALL_AVX256SKX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl ")
+    SET_PROPERTY(SOURCE ${ALL_AVX256VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni ")
+    SET_PROPERTY(SOURCE ${ALL_AVX256VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni ")
     SET_PROPERTY(SOURCE ${ALL_AVX512F_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mavx512f ")
-    SET_PROPERTY(SOURCE ${ALL_AVX512SKX_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl ")
-    SET_PROPERTY(SOURCE ${ALL_AVX512VBMI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vbmi ")
-    SET_PROPERTY(SOURCE ${ALL_AVX512VNNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni ")
-    SET_PROPERTY(SOURCE ${ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni ")
-    SET_PROPERTY(SOURCE ${ALL_AVX512FP16_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni -mavx512fp16 ")
-    SET_PROPERTY(SOURCE ${ALL_AVX512AMX_MICROKERNEL_SRCS} APPEND_STRIDE PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni -mamx-tile -mamx-int8 ")
+    SET_PROPERTY(SOURCE ${ALL_AVX512SKX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl ")
+    SET_PROPERTY(SOURCE ${ALL_AVX512VBMI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vbmi ")
+    SET_PROPERTY(SOURCE ${ALL_AVX512VNNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni ")
+    SET_PROPERTY(SOURCE ${ALL_AVX512VNNIGFNI_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni ")
+    SET_PROPERTY(SOURCE ${ALL_AVX512FP16_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni -mavx512fp16 ")
+    SET_PROPERTY(SOURCE ${ALL_AVX512AMX_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -mf16c -mfma -mavx512f -mavx512cd -mavx512bw -mavx512dq -mavx512vl -mavx512vnni -mgfni -mamx-tile -mamx-int8 ")
     IF(MINGW OR CMAKE_SYSTEM_NAME MATCHES "^(CYGWIN|MSYS)$")
       # Work-around for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
       SET_PROPERTY(SOURCE ${ALL_AVX512F_MICROKERNEL_SRCS} APPEND_STRING PROPERTY COMPILE_FLAGS " -fno-asynchronous-unwind-tables ")
@@ -1191,15 +1233,24 @@ ENDIF()
 # ---[ XNNPACK unit tests
 IF(XNNPACK_BUILD_TESTS)
   # ---[ Macro to shard a test.
-  MACRO(ADD_SHARDED_TEST TEST_NAME NUM_SHARDS)
+  MACRO(SHARD_TEST TEST_NAME NUM_SHARDS)
+    SET_PROPERTY(
+        TEST ${TEST_NAME}
+          APPEND
+          PROPERTY ENVIRONMENT "GTEST_TOTAL_SHARDS=${NUM_SHARDS};"
+                  "GTEST_SHARD_INDEX=0")
+    SET_PROPERTY(
+        TEST ${TEST_NAME} PROPERTY COST 1000.0)
     math(EXPR NUM_SHARDS_MINUS_ONE "${NUM_SHARDS} - 1")
-    FOREACH(SHARD RANGE 0 ${NUM_SHARDS_MINUS_ONE})
+    FOREACH(SHARD RANGE 1 ${NUM_SHARDS_MINUS_ONE})
       ADD_TEST(NAME ${TEST_NAME}-${SHARD} COMMAND ${TEST_NAME})
       SET_PROPERTY(
           TEST ${TEST_NAME}-${SHARD}
             APPEND
             PROPERTY ENVIRONMENT "GTEST_TOTAL_SHARDS=${NUM_SHARDS};"
                     "GTEST_SHARD_INDEX=${SHARD}")
+      SET_PROPERTY(
+          TEST ${TEST_NAME}-${SHARD} PROPERTY COST 1000.0)
     ENDFOREACH()
   ENDMACRO()
 
@@ -1254,73 +1305,41 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(packq-microkernel-tester PRIVATE kleidiai)
   ENDIF()
 
-  # ---[ Launch heavy tests first.
-  SET(SHARDED_TESTS
-    fully-connected-nc
-    avgpool-minmax
-    maxpool-minmax
-    f32-vclamp
-    f32-vlrelu
-    f32-rdsum
-    f32-velu
-    f32-argmaxpool
-    s8-vclamp
-    u8-vclamp
-  )
-  FOREACH(TEST ${SHARDED_TESTS})
-    ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
-    TARGET_INCLUDE_DIRECTORIES(${TEST}-test PRIVATE include src test)
-    TARGET_LINK_LIBRARIES(${TEST}-test PRIVATE
-      GTest::gtest
-      GTest::gtest_main
-      hardware-config
-      logging
-      microkernels-all
-      microparams-init
-      next-prime
-      pthreadpool
-      runtime-flags
-      XNNPACK)
-    ADD_SHARDED_TEST(${TEST}-test 10)
-  ENDFOREACH()
-
   IF(XNNPACK_BUILD_LIBRARY)
-    # ---[ Launch heavy tests first.
-    SET(LIBRARY_SHARDED_TESTS
+    # ---[ Build size tests
+    ADD_EXECUTABLE(subgraph-size-test test/subgraph-size.c)
+    TARGET_LINK_LIBRARIES(subgraph-size-test PRIVATE XNNPACK)
+
+    # ---[ Build operator-level unit tests
+    SET(LIBRARY_OPERATOR_TESTS
       batch-matrix-multiply-nc
-      batch-matrix-multiply
       deconvolution-nhwc
-      fully-connected
-      scaled-dot-product-attention
+      fully-connected-nc
       binary-elementwise-nd
+      unary-elementwise-nc
     )
-    FOREACH(TEST ${LIBRARY_SHARDED_TESTS})
+    FOREACH(TEST ${LIBRARY_OPERATOR_TESTS})
       ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
       TARGET_INCLUDE_DIRECTORIES(${TEST}-test PRIVATE src test)
       TARGET_LINK_LIBRARIES(${TEST}-test PRIVATE
         GTest::gmock
         GTest::gtest
         GTest::gtest_main
+        hardware-config
+        logging
+        microkernels-all
+        microparams-init
+        next-prime
+        pthreadpool
         runtime-flags
+        unary-ops
         XNNPACK)
-      ADD_SHARDED_TEST(${TEST}-test 10)
+      ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
     ENDFOREACH()
-
-    # ---[ Build size tests
-    ADD_EXECUTABLE(subgraph-size-test test/subgraph-size.c)
-    TARGET_LINK_LIBRARIES(subgraph-size-test PRIVATE XNNPACK)
-
-    # ---[ Build operator-level unit tests
-    ADD_EXECUTABLE(unary-elementwise-nc-test test/unary-elementwise-nc.cc)
-    TARGET_INCLUDE_DIRECTORIES(unary-elementwise-nc-test PRIVATE src test)
-    TARGET_LINK_LIBRARIES(unary-elementwise-nc-test PRIVATE
-      GTest::gtest
-      GTest::gtest_main
-      datatype
-      runtime-flags
-      unary-ops
-      XNNPACK)
-    ADD_TEST(NAME unary-elementwise-nc-test COMMAND unary-elementwise-nc-test)
+    SHARD_TEST(batch-matrix-multiply-nc-test 10)
+    SHARD_TEST(deconvolution-nhwc-test 10)
+    SHARD_TEST(fully-connected-nc-test 10)
+    SHARD_TEST(binary-elementwise-nd-test 30)
 
     # ---[ Build subgraph optimizations unit tests
     SET(LIBRARY_SUBGRAPH_OPTIMIZATION_TESTS
@@ -1348,6 +1367,7 @@ IF(XNNPACK_BUILD_TESTS)
         argmax-pooling-2d
         average-pooling-2d
         average-pooling-2d-reshape
+        batch-matrix-multiply
         binary
         concatenate2
         concatenate3
@@ -1358,12 +1378,14 @@ IF(XNNPACK_BUILD_TESTS)
         even-split2
         even-split3
         even-split4
+        fully-connected
         global-average-pooling-1d
         global-average-pooling-2d
         global-sum-pooling-1d
         global-sum-pooling-2d
         max-pooling-2d
         reshape-helpers
+        scaled-dot-product-attention
         static-slice
         softmax
         space-to-depth-2d
@@ -1391,6 +1413,9 @@ IF(XNNPACK_BUILD_TESTS)
       ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
       SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
     ENDFOREACH()
+    IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
+      SHARD_TEST(static-reduce-test 20)
+    ENDIF()
 
     SET(LIBRARY_SUBGRAPH_CONVOLUTION_UNIT_TESTS
         convolution-2d
@@ -1410,6 +1435,7 @@ IF(XNNPACK_BUILD_TESTS)
       ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
       SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
     ENDFOREACH()
+    SHARD_TEST(deconvolution-2d-test 10)
   ENDIF()
 
   # ---[ Normalization unit tests
@@ -1426,24 +1452,28 @@ IF(XNNPACK_BUILD_TESTS)
 
   # ---[ Build microkernel-level unit tests
   SET(MICROKERNEL_UNIT_TESTS
+      avgpool-minmax
+      maxpool-minmax
       f16-conv-hwc2chw
       f16-f32acc-rdsum
       f16-f32acc-rsum
-      f16-ibilinear-chw
       f16-ibilinear
+      f16-ibilinear-chw
       f16-raddstoreexpminusmax
       f16-rmax
       f16-rsum
       f16-spmm-minmax
       f16-vcmul
       f16-vmulcaddc-minmax
+      f32-argmaxpool
       f32-conv-hwc
       f32-conv-hwc2chw
-      f32-ibilinear-chw
       f32-ibilinear
+      f32-ibilinear-chw
       f32-raddexpminusmax
       f32-raddextexp
       f32-raddstoreexpminusmax
+      f32-rdsum
       f32-rmax
       f32-rmin
       f32-rminmax
@@ -1455,11 +1485,12 @@ IF(XNNPACK_BUILD_TESTS)
       f32-vscaleextexp
       indirection
       packing
+      qs8-packw
+      qs8-qc4w-packw
       qs8-rdsum-minmax-fp32
-      qu8-rdsum
       qs8-rsum
+      qu8-rdsum
       qu8-rsum
-      qs8-vlrelu
       qu8-vlrelu
       s8-ibilinear
       u8-ibilinear
@@ -1472,8 +1503,6 @@ IF(XNNPACK_BUILD_TESTS)
       x32-unpool
       x8-lut
       x8-packw
-      qs8-packw
-      qs8-qc4w-packw
       xN-transpose
       xx-fill
       xx-pad)
@@ -1498,20 +1527,28 @@ IF(XNNPACK_BUILD_TESTS)
     ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
     SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
   ENDFOREACH()
+  SHARD_TEST(avgpool-minmax-test 10)
+  SHARD_TEST(maxpool-minmax-test 10)
+  IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
+    SHARD_TEST(f32-argmaxpool-test 10)
+    SHARD_TEST(f32-rdsum-test 10)
+  ENDIF()
 
   SET(MICROKERNEL_DWCONV_UNIT_TESTS
       f16-dwconv-minmax-multipass
       f16-dwconv-minmax-unipass
-      f32-dwconv-multipass
+      f16-dwconv2d-chw
       f32-dwconv-minmax-multipass
-      f32-dwconv-unipass
       f32-dwconv-minmax-unipass
-      qs8-qc8w-dwconv-minmax-multipass-fp32
-      qs8-qc8w-dwconv-minmax-unipass-fp32
+      f32-dwconv-multipass
+      f32-dwconv-unipass
+      f32-dwconv2d-chw
       qs8-dwconv-minmax-multipass-fp32
       qs8-dwconv-minmax-multipass-rndnu
       qs8-dwconv-minmax-unipass-fp32
       qs8-dwconv-minmax-unipass-rndnu
+      qs8-qc8w-dwconv-minmax-multipass-fp32
+      qs8-qc8w-dwconv-minmax-unipass-fp32
       qu8-dwconv-minmax-multipass-fp32
       qu8-dwconv-minmax-multipass-rndnu
       qu8-dwconv-minmax-unipass-fp32
@@ -1533,36 +1570,42 @@ IF(XNNPACK_BUILD_TESTS)
     ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
     SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
   ENDFOREACH()
+  SHARD_TEST(f16-dwconv-minmax-multipass-test 10)
+  SHARD_TEST(qs8-dwconv-minmax-unipass-fp32-test 10)
+  SHARD_TEST(qs8-qc8w-dwconv-minmax-unipass-fp32-test 10)
+  SHARD_TEST(qu8-dwconv-minmax-multipass-fp32-test 10)
+  SHARD_TEST(qs8-dwconv-minmax-multipass-fp32-test 10)
+  SHARD_TEST(qs8-qc8w-dwconv-minmax-multipass-fp32-test 10)
 
   SET(MICROKERNEL_GEMM_UNIT_TESTS
       bf16-gemm-minmax
       f16-f32acc-gemm-minmax
-      f16-gemm-minmax
       f16-f32acc-igemm-minmax
+      f16-gemm-minmax
       f16-igemm-minmax
-      qd8-f16-qc8w-gemm-minmax
       f32-gemm
-      f32-gemm-relu
-      f32-gemm-minmax
       f32-gemm-goi-minmax
-      f32-qc8w-gemm
-      f32-qc8w-gemm-relu
-      f32-qc8w-gemm-minmax
-      f32-qc4w-gemm-minmax
+      f32-gemm-minmax
+      f32-gemm-relu
       f32-gemminc-minmax
       f32-igemm
-      f32-igemm-relu
       f32-igemm-minmax
+      f32-igemm-relu
       f32-ppmm-minmax
-      qd8-f32-qc8w-gemm-minmax
+      f32-qc4w-gemm-minmax
+      f32-qc8w-gemm
+      f32-qc8w-gemm-minmax
+      f32-qc8w-gemm-relu
       qd8-f16-qb4w-gemm-minmax
       qd8-f16-qc4w-gemm-minmax
+      qd8-f16-qc8w-gemm-minmax
       qd8-f32-qb4w-gemm-minmax
       qd8-f32-qc4w-gemm-minmax
+      qd8-f32-qc8w-gemm-minmax
       qd8-f32-qc8w-igemm-minmax
+      qp8-f32-qb4w-gemm-minmax
       qp8-f32-qc4w-gemm-minmax
       qp8-f32-qc8w-gemm-minmax
-      qp8-f32-qb4w-gemm-minmax
       qs8-qc8w-gemm-minmax-fp32
       qs8-qc8w-igemm-minmax-fp32
       qu8-gemm-minmax-fp32
@@ -1589,6 +1632,12 @@ IF(XNNPACK_BUILD_TESTS)
         SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
     ENDIF()
   ENDFOREACH()
+  SHARD_TEST(qd8-f16-qc8w-gemm-minmax-test 10)
+  SHARD_TEST(qd8-f32-qc4w-gemm-minmax-test 10)
+  SHARD_TEST(qd8-f32-qc8w-gemm-minmax-test 10)
+  SHARD_TEST(qd8-f32-qc8w-igemm-minmax-test 10)
+  SHARD_TEST(qs8-qc8w-gemm-minmax-fp32-test 10)
+  SHARD_TEST(qs8-qc8w-igemm-minmax-fp32-test 10)
 
   SET(MICROKERNEL_PACKQ_UNIT_TESTS
       x8-packq)
@@ -1683,6 +1732,7 @@ IF(XNNPACK_BUILD_TESTS)
   SET(MICROKERNEL_VCVT_TESTS
       f16-f32-vcvt
       f16-qs8-vcvt
+      f16-qu8-vcvt
       f32-f16-vcvt
       f32-qs8-vcvt
       f32-qu8-vcvt
@@ -1691,6 +1741,7 @@ IF(XNNPACK_BUILD_TESTS)
       qs8-vcvt
       qu8-f32-vcvt
       qu8-vcvt)
+  LIST(REMOVE_ITEM MICROKERNEL_VCVT_TESTS ${SHARDED_TESTS})
   FOREACH(TEST ${MICROKERNEL_VCVT_TESTS})
     ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
     TARGET_INCLUDE_DIRECTORIES(${TEST}-test PRIVATE include src test)
@@ -1707,6 +1758,16 @@ IF(XNNPACK_BUILD_TESTS)
     ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
     SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
   ENDFOREACH()
+  IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
+    SHARD_TEST(f16-qs8-vcvt-test 10)
+    SHARD_TEST(f16-qu8-vcvt-test 10)
+    SHARD_TEST(f32-qs8-vcvt-test 10)
+    SHARD_TEST(f32-qu8-vcvt-test 10)
+    SHARD_TEST(qs8-f32-vcvt-test 10)
+    SHARD_TEST(qu8-f32-vcvt-test 10)
+    SHARD_TEST(qs8-vcvt-test 10)
+    SHARD_TEST(qu8-vcvt-test 10)
+  ENDIF()
 
   SET(MICROKERNEL_VUNARY_TESTS
       f16-vabs
@@ -1715,31 +1776,38 @@ IF(XNNPACK_BUILD_TESTS)
       f16-vhswish
       f16-vlrelu
       f16-vneg
-      f16-vrndne
-      f16-vrndz
-      f16-vrndu
       f16-vrndd
+      f16-vrndne
+      f16-vrndu
+      f16-vrndz
       f16-vrsqrt
       f16-vsigmoid
       f16-vsqr
       f16-vsqrt
       f16-vtanh
       f32-vabs
-      f32-vhswish
-      f32-vgelu
+      f32-vclamp
+      f32-velu
       f32-vexp
+      f32-vgelu
+      f32-vhswish
       f32-vlog
+      f32-vlrelu
       f32-vneg
       f32-vrelu
-      f32-vrndne
-      f32-vrndz
-      f32-vrndu
       f32-vrndd
+      f32-vrndne
+      f32-vrndu
+      f32-vrndz
+      f32-vrsqrt
       f32-vsigmoid
       f32-vsqr
       f32-vsqrt
-      f32-vrsqrt
-      f32-vtanh)
+      f32-vtanh
+      qs8-vlrelu
+      s8-vclamp
+      u8-vclamp)
+  LIST(REMOVE_ITEM MICROKERNEL_VUNARY_TESTS ${SHARDED_TESTS})
   FOREACH(TEST ${MICROKERNEL_VUNARY_TESTS})
     ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
     TARGET_INCLUDE_DIRECTORIES(${TEST}-test PRIVATE include src test)
@@ -1757,6 +1825,15 @@ IF(XNNPACK_BUILD_TESTS)
     ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
     SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
   ENDFOREACH()
+  IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
+    SHARD_TEST(f32-vclamp-test 10)
+    SHARD_TEST(f32-velu-test 10)
+    SHARD_TEST(f32-vlrelu-test 10)
+    SHARD_TEST(qs8-vlrelu-test 10)
+    SHARD_TEST(qu8-vlrelu-test 10)
+    SHARD_TEST(s8-vclamp-test 10)
+    SHARD_TEST(u8-vclamp-test 10)
+  ENDIF()
 
   # Special-case
   IF(XNNPACK_ENABLE_KLEIDIAI)
@@ -1775,7 +1852,7 @@ IF(XNNPACK_BUILD_TESTS)
 
     ADD_EXECUTABLE(microkernel-utils-test test/microkernel-utils.cc)
     TARGET_INCLUDE_DIRECTORIES(microkernel-utils-test PRIVATE include src)
-    TARGET_LINK_LIBRARIES(microkernel-utils-test PRIVATE microkernel-utils GTest::gtest GTest::gtest_main pthreadpool)
+    TARGET_LINK_LIBRARIES(microkernel-utils-test PRIVATE microkernel-utils hardware-config logging GTest::gtest GTest::gtest_main pthreadpool)
 
     ADD_EXECUTABLE(operator-utils-test test/operator-utils.cc)
     TARGET_INCLUDE_DIRECTORIES(operator-utils-test PRIVATE include src)
@@ -1851,6 +1928,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
     # ---[ Build end-to-end microbenchmarks
     ADD_LIBRARY(models STATIC
       bench/models/fp32-attention.cc
+      bench/models/fp32-elementwise.cc
       bench/models/fp32-mobilenet-v1.cc
       bench/models/fp32-mobilenet-v2.cc
       bench/models/fp32-mobilenet-v3-large.cc
@@ -1861,7 +1939,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
     TARGET_LINK_LIBRARIES(models PRIVATE XNNPACK)
 
     ADD_EXECUTABLE(bench-models bench/models/benchmark.cc)
-    TARGET_INCLUDE_DIRECTORIES(bench-models PRIVATE bench ${GOOGLEBENCHMARK_SOURCE_DIR})
+    TARGET_INCLUDE_DIRECTORIES(bench-models PRIVATE bench)
     TARGET_LINK_LIBRARIES(bench-models PRIVATE
       bench-utils
       benchmark::benchmark

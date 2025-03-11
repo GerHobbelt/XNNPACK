@@ -14,6 +14,7 @@ xnnpack_cxx_library(
     name = "models",
     srcs = [
         "fp32-attention.cc",
+        "fp32-elementwise.cc",
         "fp32-mobilenet-v1.cc",
         "fp32-mobilenet-v2.cc",
         "fp32-mobilenet-v3-large.cc",
@@ -32,7 +33,6 @@ xnnpack_cxx_library(
 xnnpack_benchmark(
     name = "benchmark",
     srcs = ["benchmark.cc"],
-    features = ["-layering_check"],
     tags = xnnpack_slow_benchmark_tags(),
     deps = [
         ":models",

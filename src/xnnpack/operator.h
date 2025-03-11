@@ -63,6 +63,7 @@ struct xnn_ukernel_gemm {
   xnn_packw_gemm_goi_ukernel_fn packw_gemm_goi;
   xnn_packw_gemm_gio_ukernel_fn packw_gemm_gio;
   uint8_t mr;
+  uint8_t mr_packed;
   uint8_t nr;
   uint8_t kr;
   uint8_t sr;
@@ -236,6 +237,7 @@ struct xnn_operator {
       union xnn_f32_minmax_params f32_minmax;
       struct xnn_f32_scaleminmax_params f32_scaleminmax;
     };
+    struct xnn_bf16_minmax_params bf16_minmax;
     struct xnn_f32_scale_params f32_scale;
     union xnn_f16_minmax_params f16_chw;
     union xnn_f32_minmax_params f32_chw;
@@ -378,7 +380,7 @@ struct xnn_operator {
     struct unpooling_context unpooling;
     struct vmulcaddc_context vmulcaddc;
     struct rope_context rope;
-    struct x32_pack_lh_context x32_pack_lh;
+    struct pack_lh_context pack_lh;
   } context;
 
   struct xnn_code_cache* code_cache;

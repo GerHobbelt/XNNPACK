@@ -30,9 +30,10 @@
 #endif  // XNN_ENABLE_CPUINFO
 
 #if XNN_ARCH_RISCV
-  #include <sys/auxv.h>
+#include <inttypes.h>
+#include <sys/auxv.h>
 
-  #define COMPAT_HWCAP_ISA_V (1 << ('V' - 'A'))
+#define COMPAT_HWCAP_ISA_V (1 << ('V' - 'A'))
 #endif
 
 #if XNN_ARCH_PPC64
@@ -150,6 +151,11 @@ static void init_hardware_config(void) {
 #else
     hardware_config.use_x86_avx512fp16 = 0;
 #endif
+#if XNN_ENABLE_AVX512BF16
+    hardware_config.use_x86_avx512bf16 = cpuinfo_has_x86_avx512bf16();
+#else
+    hardware_config.use_x86_avx512bf16 = 0;
+#endif
 #if XNN_ENABLE_AVX512AMX
     hardware_config.use_x86_avx512amx = hardware_config.use_x86_avx512vnnigfni && cpuinfo_has_x86_amx_int8();
 #if XNN_ARCH_X86_64 && defined(__linux__) && !defined(CHROMIUM)
@@ -175,19 +181,19 @@ static void init_hardware_config(void) {
     hardware_config.use_x86_avxvnniint8 = 0;
 #endif
 #if XNN_ENABLE_AVX256SKX
-    // Using cpuinfo_has_x86_amx_int8 as placeholder for cpuinfo_has_x86_avx10
-    hardware_config.use_x86_avx256skx = hardware_config.use_x86_avx512skx || cpuinfo_has_x86_amx_int8();
+    // TODO: Enable for avx10 when Visual C has a way to avoid evex512
+    hardware_config.use_x86_avx256skx = hardware_config.use_x86_avx512skx;
 #else
     hardware_config.use_x86_avx256skx = 0;
 #endif
 #if XNN_ENABLE_AVX256VNNI
-    // Using cpuinfo_has_x86_amx_int8 as placeholder for cpuinfo_has_x86_avx10
-    hardware_config.use_x86_avx256vnni = (hardware_config.use_x86_avx512skx && cpuinfo_has_x86_avx512vnni()) || cpuinfo_has_x86_amx_int8();
+    // TODO: Enable for avx10 when Visual C has a way to avoid evex512
+    hardware_config.use_x86_avx256vnni = hardware_config.use_x86_avx512skx && cpuinfo_has_x86_avx512vnni();
 #else
     hardware_config.use_x86_avx256vnni = 0;
 #endif
 #if XNN_ENABLE_AVX256VNNIGFNI
-    // Using cpuinfo_has_x86_amx_int8 as placeholder for cpuinfo_has_x86_avx10
+    // TODO: Enable for avx10 when Visual C has a way to avoid evex512
     hardware_config.use_x86_avx256vnnigfni = hardware_config.use_x86_avx256vnni && cpuinfo_has_x86_gfni();
 #else
     hardware_config.use_x86_avx256vnnigfni = 0;
@@ -392,9 +398,9 @@ static void init_hardware_config(void) {
           hardware_config.l1_data_cache_associativity =
               l1_data_cache->associativity;
           hardware_config.l1_data_cache_num_sets = l1_data_cache->sets;
-          xnn_log_debug(
+          xnn_log_info(
               "l1_data_cache_bytes=%zu, l1_data_cache_line_size=%zu, "
-              "l1_data_cache_associativity=%zu, l1_data_cache_num_sets=%zu.\n",
+              "l1_data_cache_associativity=%zu, l1_data_cache_num_sets=%zu.",
               hardware_config.l1_data_cache_bytes,
               hardware_config.l1_data_cache_line_size,
               hardware_config.l1_data_cache_associativity,
@@ -411,9 +417,9 @@ static void init_hardware_config(void) {
           hardware_config.l2_data_cache_associativity =
               l2_data_cache->associativity;
           hardware_config.l2_data_cache_num_sets = l2_data_cache->sets;
-          xnn_log_debug(
+          xnn_log_info(
               "l2_data_cache_bytes=%zu, l2_data_cache_line_size=%zu, "
-              "l2_data_cache_associativity=%zu, l2_data_cache_num_sets=%zu.\n",
+              "l2_data_cache_associativity=%zu, l2_data_cache_num_sets=%zu.",
               hardware_config.l2_data_cache_bytes,
               hardware_config.l2_data_cache_line_size,
               hardware_config.l2_data_cache_associativity,

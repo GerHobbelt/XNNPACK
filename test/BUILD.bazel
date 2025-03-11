@@ -468,6 +468,16 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "bf16_f32_gemm_minmax_test",
+    srcs = [
+        "bf16-f32-gemm-minmax.cc",
+    ],
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
     name = "avgpool_minmax_test",
     srcs = [
         "avgpool-microkernel-tester.h",
@@ -841,6 +851,7 @@ xnnpack_unit_test(
         "qd8-f16-qc8w-gemm-minmax-3.cc",
         "qd8-f16-qc8w-gemm-minmax-4.cc",
     ],
+    shard_count = 5,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
     ],
@@ -855,6 +866,7 @@ xnnpack_unit_test(
         "qd8-f32-qc8w-gemm-minmax-3.cc",
         "qd8-f32-qc8w-gemm-minmax-4.cc",
     ],
+    shard_count = 10,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
     ],
@@ -943,6 +955,7 @@ xnnpack_unit_test(
         "qs8-qc8w-gemm-minmax-fp32-2.cc",
         "qs8-qc8w-gemm-minmax-fp32-3.cc",
     ],
+    shard_count = 5,
     deps = MICROKERNEL_TEST_DEPS + [
         ":gemm_microkernel_tester",
     ],
@@ -976,7 +989,7 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "qs8_qc8w_igemm_minmax_fp32_test",
-    timeout = "moderate",
+    timeout = "long",
     srcs = [
         "qs8-qc8w-igemm-minmax-fp32.cc",
         "qs8-qc8w-igemm-minmax-fp32-2.cc",
@@ -1216,7 +1229,7 @@ xnnpack_unit_test(
         "batch-matrix-multiply-operator-tester.h",
     ],
     shard_count = 2,
-    deps = OPERATOR_TEST_DEPS,
+    deps = OPERATOR_TEST_DEPS + ["//:microkernels_h"],
 )
 
 xnnpack_unit_test(
@@ -1836,6 +1849,7 @@ xnnpack_unit_test(
         "//:math",
         "//:node_type",
         "//:operators",
+        "//:params",
         "//:requantization",
         "//:subgraph",
     ],

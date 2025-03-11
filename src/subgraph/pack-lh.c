@@ -7,7 +7,7 @@
 #include <inttypes.h>
 #include <stddef.h>
 #include <stdint.h>
-#include <stdio.h>
+#include <string.h>
 
 #include "xnnpack.h"
 #include "xnnpack/common.h"
@@ -16,7 +16,6 @@
 #include "xnnpack/node-type.h"
 #include "xnnpack/operator-type.h"
 #include "xnnpack/operator.h"
-#include "xnnpack/reshape-helpers.h"
 #include "xnnpack/subgraph-validation.h"
 #include "xnnpack/subgraph.h"
 #include "pthreadpool.h"
@@ -38,6 +37,16 @@ static enum xnn_status create_pack_lh_operator(
   const struct xnn_value *input_value = &values[input_id];
   enum xnn_status status;
   switch (input_value->datatype) {
+    case xnn_datatype_qint8:
+      status = xnn_create_pack_lh_x8(
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
+    case xnn_datatype_fp16:
+      status = xnn_create_pack_lh_x16(
+        node->flags,
+        &opdata->operator_objects[0]);
+      break;
     case xnn_datatype_fp32:
       status = xnn_create_pack_lh_x32(
         node->flags,
@@ -61,17 +70,41 @@ static enum xnn_status reshape_pack_lh_operator(
   const uint32_t output_id = opdata->outputs[0];
   assert(output_id < num_values);
   struct xnn_value* output_value = &values[output_id];
-  const size_t batch_size = xnn_shape_multiply_non_channel_dims(&input_value->shape);
+
   const size_t num_input_dims = input_value->shape.num_dims;
-  const size_t channels = num_input_dims == 0 ? 1 : input_value->shape.dim[num_input_dims - 1];
+  const size_t channels =
+      num_input_dims < 1 ? 1 : input_value->shape.dim[num_input_dims - 1];
+  const size_t batch_size =
+      num_input_dims < 2 ? 1 : input_value->shape.dim[num_input_dims - 2];
+  const size_t num_groups =
+      xnn_shape_multiply_leading_dims(&input_value->shape, num_input_dims - 2);
   const size_t old_workspace_size = opdata->workspace_size;
   enum xnn_status status = xnn_status_invalid_state;
   size_t output_size_bytes = 0;
 
   switch (opdata->operator_objects[0]->type) {
+    case xnn_operator_type_pack_lh_x8:
+      status = xnn_reshape_pack_lh_x8(
+        opdata->operator_objects[0],
+        num_groups,
+        batch_size,
+        channels,
+        &output_size_bytes,
+        threadpool);
+      break;
+    case xnn_operator_type_pack_lh_x16:
+      status = xnn_reshape_pack_lh_x16(
+        opdata->operator_objects[0],
+        num_groups,
+        batch_size,
+        channels,
+        &output_size_bytes,
+        threadpool);
+      break;
     case xnn_operator_type_pack_lh_x32:
       status = xnn_reshape_pack_lh_x32(
         opdata->operator_objects[0],
+        num_groups,
         batch_size,
         channels,
         &output_size_bytes,
@@ -87,7 +120,8 @@ static enum xnn_status reshape_pack_lh_operator(
   // an appropriate format for the following operation so the number of bytes
   // required cannot be determined from the shape alone.
   output_value->shape.num_dims = num_input_dims;
-  memcpy(&output_value->shape.dim[0], &input_value->shape.dim[0], num_input_dims * sizeof(size_t));
+  memcpy(output_value->shape.dim, input_value->shape.dim,
+         num_input_dims * sizeof(size_t));
   if (output_size_bytes > output_value->size || opdata->workspace_size > old_workspace_size) {
     output_value->size = output_size_bytes;
     return xnn_status_reallocation_required;
@@ -123,6 +157,16 @@ static enum xnn_status setup_pack_lh_operator(
         opdata->operator_objects[0],
         input_data,
         output_data);
+    case xnn_operator_type_pack_lh_x16:
+      return xnn_setup_pack_lh_x16(
+        opdata->operator_objects[0],
+        input_data,
+        output_data);
+    case xnn_operator_type_pack_lh_x8:
+      return xnn_setup_pack_lh_x8(
+        opdata->operator_objects[0],
+        input_data,
+        output_data);
     default:
       XNN_UNREACHABLE;
   }
@@ -151,6 +195,8 @@ enum xnn_status xnn_define_pack_lh(
   }
 
   switch (input_value->datatype) {
+    case xnn_datatype_qint8:
+    case xnn_datatype_fp16:
     case xnn_datatype_fp32:
       break;
     default:
@@ -173,6 +219,16 @@ enum xnn_status xnn_define_pack_lh(
   }
 
   switch (output_value->datatype) {
+    case xnn_datatype_qint8:
+      // Coerce the output from `xnn_datatype_qint8` to `xnn_datatype_pqint8` so
+      // that the correct GEMM path is taken.
+      output_value->datatype = xnn_datatype_pqint8;
+      break;
+    case xnn_datatype_fp16:
+      // Coerce the output from `xnn_datatype_fp16` to `xnn_datatype_pfp16` so
+      // that the correct GEMM path is taken.
+      output_value->datatype = xnn_datatype_pfp16;
+      break;
     case xnn_datatype_fp32:
       // Coerce the output from `xnn_datatype_fp32` to `xnn_datatype_pfp32` so
       // that the correct GEMM path is taken.

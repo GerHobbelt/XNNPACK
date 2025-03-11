@@ -1958,26 +1958,6 @@ void xnn_compute_elementwise_binary_5d(
   context->ukernel(context->elements, a, b, y, &context->params);
 }
 
-void xnn_compute_channel_shuffle_fixed(
-    const struct channel_shuffle_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t index)
-{
-  const void* x = (const void*) ((uintptr_t) context->x + index * context->x_stride);
-  void* y = (void*) ((uintptr_t) context->y + index * context->y_stride);
-
-  context->fixed_ukernel(context->n, x, y);
-}
-
-void xnn_compute_channel_shuffle_variable(
-    const struct channel_shuffle_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t index)
-{
-  const void* x = (const void*) ((uintptr_t) context->x + index * context->x_stride);
-  void* y = (void*) ((uintptr_t) context->y + index * context->y_stride);
-
-  context->variable_ukernel(context->n, context->m, x, y);
-}
-
 void xnn_compute_lut_strided(
     const struct lut_strided_context context[restrict XNN_MIN_ELEMENTS(1)],
     size_t batch_index)
@@ -2091,29 +2071,7 @@ void xnn_compute_contiguous_reduce(
     void* workspace_ptr = (void*) ((uintptr_t) context->workspace + workspace_offset);
     output_ptr = (void*) ((uintptr_t) context->output + output_offset);
 
-    if (context->s32_f32_cvt_ukernel) {
-      struct xnn_s32_f32_cvt_params s32_f32_cvt_params;
-      s32_f32_cvt_params.scalar.zero_point = context->params.qs8.num_elements * (int32_t) context->params.qs8.input_zero_point;
-      context->s32_f32_cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                                   workspace_ptr, (union xnn_unary_uparams*) &s32_f32_cvt_params);
-      struct xnn_f32_qs8_cvt_params cvt_params;
-      cvt_params.scalar.scale = context->params.qs8.scale;
-      cvt_params.scalar.output_zero_point = context->params.qs8.output_zero_point;
-      context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                           output_ptr, (union xnn_unary_uparams*) &cvt_params);
-    } else if (context->u32_f32_cvt_ukernel) {
-      struct xnn_s32_f32_cvt_params s32_f32_cvt_params;
-      s32_f32_cvt_params.scalar.zero_point = context->params.qu8.num_elements * (int32_t) context->params.qu8.input_zero_point;
-      context->u32_f32_cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                                   workspace_ptr, (union xnn_unary_uparams*) &s32_f32_cvt_params);
-      struct xnn_f32_qu8_cvt_params cvt_params;
-      cvt_params.scalar.scale = context->params.qu8.scale;
-      cvt_params.scalar.output_zero_point = context->params.qu8.output_zero_point;
-      context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                           output_ptr, (union xnn_unary_uparams*) &cvt_params);
-    } else {
-      context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr, output_ptr, /*params=*/NULL);
-    }
+    context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr, output_ptr, &context->cvt_params);
   }
 }
 
@@ -2174,29 +2132,7 @@ void xnn_compute_discontiguous_reduce(
     void* workspace_ptr = (void*) ((uintptr_t) context->workspace + workspace_offset);
     output_ptr = (void*) ((uintptr_t) context->output + output_offset);
 
-    if (context->s32_f32_cvt_ukernel) {
-      struct xnn_s32_f32_cvt_params s32_f32_cvt_params;
-      s32_f32_cvt_params.scalar.zero_point = context->params.qs8.num_elements * (int32_t) context->params.qs8.input_zero_point;
-      context->s32_f32_cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                                   workspace_ptr, (union xnn_unary_uparams*) &s32_f32_cvt_params);
-      struct xnn_f32_qs8_cvt_params cvt_params;
-      cvt_params.scalar.scale = context->params.qs8.scale;
-      cvt_params.scalar.output_zero_point = context->params.qs8.output_zero_point;
-      context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                           output_ptr, (union xnn_unary_uparams*) &cvt_params);
-    } else if (context->u32_f32_cvt_ukernel) {
-      struct xnn_s32_f32_cvt_params s32_f32_cvt_params;
-      s32_f32_cvt_params.scalar.zero_point = context->params.qu8.num_elements * (int32_t) context->params.qu8.input_zero_point;
-      context->u32_f32_cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                                   workspace_ptr, (union xnn_unary_uparams*) &s32_f32_cvt_params);
-      struct xnn_f32_qu8_cvt_params cvt_params;
-      cvt_params.scalar.scale = context->params.qu8.scale;
-      cvt_params.scalar.output_zero_point = context->params.qu8.output_zero_point;
-      context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr,
-                           output_ptr, (union xnn_unary_uparams*) &cvt_params);
-    } else {
-      context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr, output_ptr, /*params=*/NULL);
-    }
+    context->cvt_ukernel(context->accumulation_element_size * output2_block_size, workspace_ptr, output_ptr, &context->cvt_params);
   }
 }
 
@@ -2211,8 +2147,12 @@ void xnn_compute_pad_qd8_params(
   }
 }
 
-void xnn_compute_f16_qd8_convert(
+typedef struct xnn_qd8_quantization_params(f16_quantization_params_fn)(xnn_float16 min, xnn_float16 max, xnn_float16* f32_scale);
+typedef struct xnn_qd8_quantization_params(f32_quantization_params_fn)(float min, float max, float* f32_scale);
+
+void xnn_compute_f16_qx8_convert(
     const struct f16_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
+    f16_quantization_params_fn quantization_params_function,
     size_t batch_index)
 {
   const size_t x_stride = context->x_stride;
@@ -2224,7 +2164,7 @@ void xnn_compute_f16_qd8_convert(
   xnn_float16 minmax[2];
   context->rminmax_ukernel(n, input, minmax, &context->params);
   xnn_float16 f16_scale;
-  context->quantization_params[batch_index] = xnn_f16_qd8_asymmetric_quantization_params(minmax[0], minmax[1], &f16_scale);
+  context->quantization_params[batch_index] = quantization_params_function(minmax[0], minmax[1], &f16_scale);
 
   struct xnn_f16_qs8_cvt_params params;
   params.scalar.scale = f16_scale;
@@ -2232,8 +2172,23 @@ void xnn_compute_f16_qd8_convert(
   context->convert_ukernel(n, input, output, (union xnn_unary_uparams*) &params);
 }
 
-void xnn_compute_f32_qd8_convert(
+void xnn_compute_f16_qd8_convert(
+    const struct f16_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t batch_index)
+{
+  return xnn_compute_f16_qx8_convert(context, xnn_f16_qd8_asymmetric_quantization_params, batch_index);
+}
+
+void xnn_compute_f16_qdu8_convert(
+    const struct f16_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t batch_index)
+{
+  return xnn_compute_f16_qx8_convert(context, xnn_f16_qdu8_asymmetric_quantization_params, batch_index);
+}
+
+void xnn_compute_f32_qx8_convert(
     const struct f32_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
+    f32_quantization_params_fn quantization_params_function,
     size_t batch_index)
 {
   const size_t x_stride = context->x_stride;
@@ -2245,12 +2200,26 @@ void xnn_compute_f32_qd8_convert(
   float minmax[2];
   context->rminmax_ukernel(n, input, minmax, &context->params);
   float scale;
-  context->quantization_params[batch_index] = xnn_f32_qd8_asymmetric_quantization_params(minmax[0], minmax[1], &scale);
+  context->quantization_params[batch_index] = quantization_params_function(minmax[0], minmax[1], &scale);
 
   struct xnn_f32_qs8_cvt_params params;
   params.scalar.scale = scale;
   params.scalar.output_zero_point = context->quantization_params[batch_index].zero_point;
   context->convert_ukernel(n, input, output, (union xnn_unary_uparams*) &params);
+}
+
+void xnn_compute_f32_qd8_convert(
+    const struct f32_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t batch_index)
+{
+  return xnn_compute_f32_qx8_convert(context, xnn_f32_qd8_asymmetric_quantization_params, batch_index);
+}
+
+void xnn_compute_f32_qdu8_convert(
+    const struct f32_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t batch_index)
+{
+  return xnn_compute_f32_qx8_convert(context, xnn_f32_qdu8_asymmetric_quantization_params, batch_index);
 }
 
 void xnn_compute_x32_pack_lh(

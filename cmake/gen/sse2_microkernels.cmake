@@ -86,18 +86,10 @@ SET(PROD_SSE2_MICROKERNEL_SRCS
   src/u8-rmax/u8-rmax-sse2-u16.c
   src/u8-vclamp/u8-vclamp-sse2-u64.c
   src/x8-transposec/gen/x8-transposec-16x16-reuse-mov-sse2.c
-  src/x8-zip/x8-zip-x2-sse2.c
-  src/x8-zip/x8-zip-x3-sse2.c
-  src/x8-zip/x8-zip-x4-sse2.c
-  src/x8-zip/x8-zip-xm-sse2.c
   src/x16-transposec/gen/x16-transposec-8x8-reuse-multi-sse2.c
   src/x32-packw/gen/x32-packw-x2c4-gemm-goi-sse2-u4.c
   src/x32-packw/gen/x32-packw-x8-gemm-goi-sse2-u4.c
   src/x32-unpool/x32-unpool-sse2.c
-  src/x32-zip/x32-zip-x2-sse2.c
-  src/x32-zip/x32-zip-x3-sse2.c
-  src/x32-zip/x32-zip-x4-sse2.c
-  src/x32-zip/x32-zip-xm-sse2.c
   src/x64-transposec/gen/x64-transposec-2x2-multi-mov-sse2.c
   src/xx-fill/xx-fill-sse2-u64.c
   src/xx-pad/xx-pad-p16-sse2-u16.c)
@@ -130,14 +122,10 @@ SET(NON_PROD_SSE2_MICROKERNEL_SRCS
   src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u4.c
   src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u8.c
   src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u16.c
-  src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u20.c
-  src/f32-velu/gen/f32-velu-sse2-rr2-lut16-p3-u24.c
   src/f32-velu/gen/f32-velu-sse2-rr2-p6-u4.c
   src/f32-velu/gen/f32-velu-sse2-rr2-p6-u8.c
   src/f32-velu/gen/f32-velu-sse2-rr2-p6-u12.c
   src/f32-velu/gen/f32-velu-sse2-rr2-p6-u16.c
-  src/f32-velu/gen/f32-velu-sse2-rr2-p6-u20.c
-  src/f32-velu/gen/f32-velu-sse2-rr2-p6-u24.c
   src/f32-vlrelu/gen/f32-vlrelu-sse2-u4.c
   src/f32-vlrelu/gen/f32-vlrelu-sse2-u8.c
   src/f32-vrnd/gen/f32-vrndd-sse2-u4.c
@@ -147,14 +135,10 @@ SET(NON_PROD_SSE2_MICROKERNEL_SRCS
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-u4.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-u12.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-u16.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-u20.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-lut64-p2-div-u24.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u4.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u8.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u12.c
   src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u16.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u20.c
-  src/f32-vsigmoid/gen/f32-vsigmoid-sse2-rr2-p5-div-u24.c
   src/f32-vtanh/gen/f32-vtanh-sse2-rational-9-8-nr.c
   src/qd8-f32-qb4w-gemm/gen/qd8-f32-qb4w-gemm-1x4c8-minmax-sse2-ld64.c
   src/qd8-f32-qb4w-gemm/gen/qd8-f32-qb4w-gemm-2x4c8-minmax-sse2-ld64.c

@@ -28,6 +28,7 @@
 #include "xnnpack/operator.h"
 #include "xnnpack/subgraph.h"
 #include "replicable_random_device.h"
+#include "runtime-flags.h"
 
 template <class InputType, class OutputType>
 class BatchMatrixMultiplyTestBase : public ::testing::Test {
@@ -40,7 +41,7 @@ class BatchMatrixMultiplyTestBase : public ::testing::Test {
         -std::numeric_limits<uint8_t>::max(),
         std::numeric_limits<uint8_t>::max());
     auto shape_dist =
-        std::uniform_int_distribution<size_t>(4, XNN_MAX_TENSOR_DIMS);
+        std::uniform_int_distribution<size_t>(2, XNN_MAX_TENSOR_DIMS);
     auto broadcast_dist =
         std::uniform_int_distribution<size_t>(0, 4);
     dim_dist = std::uniform_int_distribution<size_t>(5, 15);
@@ -51,7 +52,6 @@ class BatchMatrixMultiplyTestBase : public ::testing::Test {
     // where G is an integer multiple of H.
     size_t num_input_dims = shape_dist(rng);
     input1_dims = RandomShape(num_input_dims);
-    assert(input1_dims.size() >= 3);
     m = input1_dims[num_input_dims - 2];
 
     k = input1_dims.back();
@@ -330,7 +330,7 @@ TEST_F(BatchMatrixMultiplyTestF16, matches_operator_api)
     xnn_define_batch_matrix_multiply(subgraph, input1_id, input2_id, output_id, /*flags=*/0));
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
   std::array<xnn_external_value, 3> external = {
@@ -419,7 +419,7 @@ TEST_F(BatchMatrixMultiplyTestF32, matches_operator_api)
     xnn_define_batch_matrix_multiply(subgraph, input1_id, input2_id, output_id, /*flags=*/0));
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
   std::array<xnn_external_value, 3> external = {
@@ -508,7 +508,7 @@ TEST_F(BatchMatrixMultiplyTestF32, matches_operator_api_transposed)
     xnn_define_batch_matrix_multiply(subgraph, input1_id, input2_id, output_id, /*flags=*/XNN_FLAG_TRANSPOSE_B));
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
   std::array<xnn_external_value, 3> external = {
@@ -697,7 +697,7 @@ TEST_F(BatchMatrixMultiplyTestQD8ToF32, matches_operator_api) {
   xnn_runtime_t runtime = nullptr;
   ASSERT_EQ(
       xnn_status_success,
-      xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+      xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(
       runtime, xnn_delete_runtime);
@@ -768,7 +768,7 @@ void DefineAndReshapeBatchMatrixMultiplySubgraph(
   xnn_runtime_t runtime = nullptr;
   ASSERT_EQ(
       xnn_status_success,
-      xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+      xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_subgraph, decltype(&xnn_delete_subgraph)>
       clean_up_subgraph(subgraph, xnn_delete_subgraph);
@@ -801,7 +801,7 @@ TEST(BatchMatrixMultiplyReshapeTest, reshape_input1) {
   ASSERT_EQ(xnn_status_success, status);
 
   xnn_runtime_t runtime = nullptr;
-  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, /*flags=*/0, &runtime));
+  ASSERT_EQ(xnn_status_success, xnn_create_runtime_v3(subgraph, nullptr, nullptr, xnn_test_runtime_flags(), &runtime));
   ASSERT_NE(nullptr, runtime);
   std::unique_ptr<xnn_runtime, decltype(&xnn_delete_runtime)> auto_runtime(runtime, xnn_delete_runtime);
 

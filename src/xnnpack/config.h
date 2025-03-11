@@ -9,9 +9,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#include "xnnpack/common.h"
-#include "xnnpack/config-types.h"
-#include "xnnpack/microfnptr.h"
+#include "src/xnnpack/common.h"
+#include "src/xnnpack/config-types.h"
+#include "src/xnnpack/microfnptr.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +51,7 @@ XNN_INTERNAL const struct xnn_binary_elementwise_config* xnn_init_qu8_vadd_confi
 XNN_INTERNAL const struct xnn_binary_elementwise_config* xnn_init_qu8_vmul_config();
 
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_abs_config();
+XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_approxgelu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_clamp_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_elu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_gelu_config();
@@ -71,6 +72,7 @@ XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_to_f32_cvt_
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_to_qs8_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f16_to_qu8_cvt_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_abs_config();
+XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_approxgelu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_clamp_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_elu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config* xnn_init_f32_exp_config();
@@ -124,10 +126,9 @@ XNN_INTERNAL const struct xnn_xx_pad_config* xnn_init_xx_pad_config();
 
 XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_f16_avgpool_config();
 XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_f32_avgpool_config();
-XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_qu8_avgpool_config();
 
-XNN_INTERNAL const struct xnn_pavgpool_config* xnn_init_f16_pavgpool_config();
-XNN_INTERNAL const struct xnn_pavgpool_config* xnn_init_f32_pavgpool_config();
+XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_f16_pavgpool_config();
+XNN_INTERNAL const struct xnn_avgpool_config* xnn_init_f32_pavgpool_config();
 
 #define XNN_MAX_F16_DWCONV_UKERNELS 4
 #define XNN_MAX_F32_DWCONV_UKERNELS 4
@@ -296,8 +297,6 @@ XNN_INTERNAL const struct xnn_vmulcaddc_config* xnn_init_f32_vmulcaddc_config();
 
 XNN_INTERNAL const struct xnn_raddstoreexpminusmax_config* xnn_init_f16_raddstoreexpminusmax_config();
 XNN_INTERNAL const struct xnn_raddstoreexpminusmax_config* xnn_init_f32_raddstoreexpminusmax_config();
-
-#define XNN_MAX_F32_ARGMAXPOOL_UKERNELS 3
 
 XNN_INTERNAL const struct xnn_argmaxpool_config* xnn_init_f32_argmaxpool_config();
 

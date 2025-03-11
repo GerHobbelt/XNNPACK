@@ -26,7 +26,7 @@
 
 #include <immintrin.h>
 
-#include "xnnpack/common.h"
+#include "src/xnnpack/common.h"
 
 
 // SIMD vector type for f32 using AVX.
@@ -43,7 +43,7 @@ typedef __m256 xnn_simd_f32_t;
 
 // Include the header for generic functions _after_ declaring the arch-specific
 // types and sizes.
-#include "xnnpack/simd/f32-generic-functions.h"
+#include "src/xnnpack/simd/f32-generic-functions.h"
 
 // Mask table used for masked load/store operations.
 static const int32_t mask_table_avx_f32[14] = {-1, -1, -1, -1, -1, -1, -1,
@@ -158,6 +158,11 @@ static XNN_INLINE xnn_simd_f32_t xnn_load_tail_f32(const float* input,
   const __m256i vmask = _mm256_loadu_si256(
       (const __m256i*)(&mask_table_avx_f32[7] - num_elements));
   return _mm256_maskload_ps(input, vmask);
+}
+
+static XNN_INLINE xnn_simd_f32_t xnn_load_tail_safe_f32(const float* input,
+                                                        size_t num_elements) {
+  return xnn_load_tail_f32(input, num_elements);
 }
 
 static XNN_INLINE void xnn_store_tail_f32(float* output, xnn_simd_f32_t v,

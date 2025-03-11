@@ -24,22 +24,22 @@
 #include <time.h>
 #endif
 
-#include "xnnpack.h"
-#include "xnnpack/allocation-type.h"
-#include "xnnpack/allocator.h"
-#include "xnnpack/cache.h"
-#include "xnnpack/common.h"
-#include "xnnpack/internal.h"
-#include "xnnpack/log.h"
-#include "xnnpack/memory-planner.h"
-#include "xnnpack/memory.h"
-#include "xnnpack/microkernel-type.h"
-#include "xnnpack/node-type.h"
-#include "xnnpack/operator-type.h"
-#include "xnnpack/operator.h"
-#include "xnnpack/params.h"
-#include "xnnpack/subgraph.h"
-#include "pthreadpool.h"
+#include "include/xnnpack.h"
+#include "src/xnnpack/allocation-type.h"
+#include "src/xnnpack/allocator.h"
+#include "src/xnnpack/cache.h"
+#include "src/xnnpack/common.h"
+#include "src/xnnpack/internal.h"
+#include "src/xnnpack/log.h"
+#include "src/xnnpack/memory-planner.h"
+#include "src/xnnpack/memory.h"
+#include "src/xnnpack/microkernel-type.h"
+#include "src/xnnpack/node-type.h"
+#include "src/xnnpack/operator-utils.h"
+#include "src/xnnpack/operator.h"
+#include "src/xnnpack/params.h"
+#include "src/xnnpack/subgraph.h"
+#include <pthreadpool.h>
 
 enum xnn_status xnn_reshape_external_value(
     xnn_runtime_t runtime,
@@ -530,11 +530,6 @@ enum xnn_status xnn_create_runtime_v4(
     goto error;
   }
 
-  if (workspace == NULL) {
-    xnn_log_debug("Allocating non-shared workspace");
-    workspace = xnn_allocate_zero_memory(sizeof(struct xnn_workspace));
-  }
-
   const uint32_t optimization_flags = XNN_FLAG_HINT_SPARSE_INFERENCE | XNN_FLAG_HINT_FP16_INFERENCE |
     XNN_FLAG_FORCE_FP16_INFERENCE | XNN_FLAG_NO_OPERATOR_FUSION;
   status = xnn_subgraph_optimize(subgraph, flags & optimization_flags);
@@ -671,6 +666,16 @@ enum xnn_status xnn_create_runtime_v4(
     }
   }
 
+  // Create and/or add a workspace.
+  if (workspace == NULL) {
+    xnn_log_debug("Allocating non-shared workspace");
+    workspace = xnn_allocate_zero_memory(sizeof(struct xnn_workspace));
+    if (workspace == NULL) {
+      xnn_log_error("failed to allocate %zu bytes for non-shared workspace",
+                    sizeof(struct xnn_workspace));
+      goto error;
+    }
+  }
   xnn_retain_workspace(workspace);
   runtime->workspace = workspace;
   runtime->next_workspace_user = runtime->workspace->first_user;
@@ -770,12 +775,14 @@ enum xnn_status xnn_reshape_runtime(
     }
     assert(opdata->reshape != NULL);
     xnn_log_debug("reshaping operator %u (%s)", opdata_id,
-                  xnn_operator_type_to_string(opdata->operator_objects[0]->type));
+                  xnn_operator_type_to_string_v2(opdata->operator_objects[0]));
     enum xnn_status status = opdata->reshape(opdata, runtime->values, runtime->num_values, runtime->threadpool);
     if (status == xnn_status_reallocation_required) {
       reallocation_required = true;
     } else if (status != xnn_status_success) {
-      xnn_log_error("Operator #%u: %s failed reshape", opdata_id, xnn_operator_type_to_string(opdata->operator_objects[0]->type));
+      xnn_log_error(
+          "Operator #%u: %s failed reshape", opdata_id,
+          xnn_operator_type_to_string_v2(opdata->operator_objects[0]));
       return status;
     }
   }
@@ -999,7 +1006,8 @@ enum xnn_status xnn_get_runtime_profiling_info(xnn_runtime_t runtime,
     case xnn_profile_info_operator_name:
       for (size_t i = 0; i < runtime->num_ops; ++i) {
         if (opdata[i].operator_objects[0] != NULL) {
-          const char* op_name = xnn_operator_type_to_string(opdata[i].operator_objects[0]->type);
+          const char* op_name =
+              xnn_operator_type_to_string_v2(opdata[i].operator_objects[0]);
           size_t op_name_len = strlen(op_name) + 1;
           if (opdata[i].operator_objects[0]->ukernel.type != xnn_microkernel_type_default ) {
             op_name_len += strlen(xnn_microkernel_type_to_string(opdata[i].operator_objects[0]->ukernel.type)) + 1;
@@ -1014,7 +1022,8 @@ enum xnn_status xnn_get_runtime_profiling_info(xnn_runtime_t runtime,
         char* name_out = (char*) param_value;
         for (size_t i = 0; i < runtime->num_ops; ++i) {
           if (opdata[i].operator_objects[0] != NULL) {
-            const char* op_name = xnn_operator_type_to_string(opdata[i].operator_objects[0]->type);
+            const char* op_name =
+                xnn_operator_type_to_string_v2(opdata[i].operator_objects[0]);
             size_t op_name_len = strlen(op_name) + 1;
             if (opdata[i].operator_objects[0]->ukernel.type != xnn_microkernel_type_default ) {
               const char* ukernel_type = xnn_microkernel_type_to_string(opdata[i].operator_objects[0]->ukernel.type);

@@ -11,8 +11,8 @@
 
 #include <immintrin.h>
 
-#include "xnnpack/gemm.h"
-#include "xnnpack/intrinsics-polyfill.h"
+#include "src/xnnpack/gemm.h"
+#include "src/xnnpack/intrinsics-polyfill.h"
 
 
 void xnn_f16_f32acc_gemm_minmax_ukernel_1x8__avx2_broadcast(
@@ -25,7 +25,7 @@ void xnn_f16_f32acc_gemm_minmax_ukernel_1x8__avx2_broadcast(
     xnn_float16* restrict c,
     size_t cm_stride,
     size_t cn_stride,
-    const union xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
+    const struct xnn_f16_minmax_params params[restrict XNN_MIN_ELEMENTS(1)])
 {
   assert(mr != 0);
   assert(mr <= 1);

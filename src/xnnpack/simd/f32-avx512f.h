@@ -13,7 +13,7 @@
 
 #include <immintrin.h>
 
-#include "xnnpack/common.h"
+#include "src/xnnpack/common.h"
 
 
 // SIMD vector type for f32 using AVX512F.
@@ -33,7 +33,7 @@ typedef __m512 xnn_simd_f32_t;
 
 // Include the header for generic functions _after_ declaring the arch-specific
 // types and sizes.
-#include "xnnpack/simd/f32-generic-functions.h"
+#include "src/xnnpack/simd/f32-generic-functions.h"
 
 // Arithmetic operations.
 static XNN_INLINE xnn_simd_f32_t xnn_zero_f32() { return _mm512_setzero_ps(); }
@@ -184,6 +184,11 @@ static XNN_INLINE xnn_simd_f32_t xnn_load_tail_f32(const float* input,
   const __mmask16 vmask =
       _cvtu32_mask16((uint32_t)((UINT32_C(1) << num_elements) - UINT32_C(1)));
   return _mm512_maskz_loadu_ps(vmask, input);
+}
+
+static XNN_INLINE xnn_simd_f32_t xnn_load_tail_safe_f32(const float* input,
+                                                        size_t num_elements) {
+  return xnn_load_tail_f32(input, num_elements);
 }
 
 static XNN_INLINE void xnn_store_tail_f32(float* output, xnn_simd_f32_t v,

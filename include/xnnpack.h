@@ -12,7 +12,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "pthreadpool.h"
+#include <pthreadpool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -490,11 +490,20 @@ enum xnn_status xnn_define_dynamically_quantized_tensor_value(
 /// Type of unary operation
 enum xnn_unary_operator {
   xnn_unary_invalid = -1,
-  xnn_unary_convert,
-  xnn_unary_clamp,
   xnn_unary_abs,
+  // This is a GELU approximation that mimics the approximation:
+  //
+  //   0.5 * x * (1 + tanh(sqrt(2/π) * (x + 0.044715 * x^3)))
+  //
+  // which differs sufficiently from the exact GELU (`xnn_unary_gelu` below) to
+  // cause problems in some models. Note that both the approximation and the
+  // exact GELU use the same order rational approximation polynomials and are
+  // therefore both equally fast.
+  xnn_unary_approxgelu,
   xnn_unary_bankers_rounding,
   xnn_unary_ceiling,
+  xnn_unary_clamp,
+  xnn_unary_convert,
   xnn_unary_elu,
   xnn_unary_exp,
   xnn_unary_floor,
@@ -503,19 +512,19 @@ enum xnn_unary_operator {
   xnn_unary_leaky_relu,
   xnn_unary_log,
   xnn_unary_negate,
-  xnn_unary_sigmoid,
-  xnn_unary_square,
-  xnn_unary_square_root,
   xnn_unary_reciprocal_square_root,
+  xnn_unary_sigmoid,
+  xnn_unary_square_root,
+  xnn_unary_square,
   xnn_unary_tanh,
   // The following operators are experimental and may be removed.
-  xnn_unary_cube_root,
-  xnn_unary_cosine,
-  xnn_unary_sine,
-  xnn_unary_count_leading_zeros,
   xnn_unary_bitwise_not,
+  xnn_unary_cosine,
+  xnn_unary_count_leading_zeros,
+  xnn_unary_cube_root,
   xnn_unary_popcount,
   xnn_unary_sign,
+  xnn_unary_sine,
 };
 
 /// Parameters for xnn_define_unary
@@ -2547,15 +2556,12 @@ enum xnn_status xnn_reshape_argmax_pooling2d_nhwc_f32(
   size_t channels,
   size_t input_pixel_stride,
   size_t output_pixel_stride,
-  size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_argmax_pooling2d_nhwc_f32(
   xnn_operator_t argmax_pooling_op,
-  void* workspace,
   const float* input,
   float* output,
   uint32_t* index);
@@ -2582,15 +2588,12 @@ enum xnn_status xnn_reshape_average_pooling2d_nhwc_f16(
   size_t channels,
   size_t input_pixel_stride,
   size_t output_pixel_stride,
-  size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_average_pooling2d_nhwc_f16(
   xnn_operator_t average_pooling_op,
-  void* workspace,
   const void* input,
   void* output);
 
@@ -2616,59 +2619,21 @@ enum xnn_status xnn_reshape_average_pooling2d_nhwc_f32(
   size_t channels,
   size_t input_pixel_stride,
   size_t output_pixel_stride,
-  size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_average_pooling2d_nhwc_f32(
   xnn_operator_t average_pooling_op,
-  void* workspace,
   const float* input,
   float* output);
-
-enum xnn_status xnn_create_average_pooling2d_nhwc_qu8(
-  uint32_t input_padding_top,
-  uint32_t input_padding_right,
-  uint32_t input_padding_bottom,
-  uint32_t input_padding_left,
-  uint32_t pooling_height,
-  uint32_t pooling_width,
-  uint32_t stride_height,
-  uint32_t stride_width,
-  uint8_t input_zero_point,
-  float input_scale,
-  uint8_t output_zero_point,
-  float output_scale,
-  uint8_t output_min,
-  uint8_t output_max,
-  uint32_t flags,
-  xnn_operator_t* average_pooling_op_out);
-
-enum xnn_status xnn_reshape_average_pooling2d_nhwc_qu8(
-  xnn_operator_t average_pooling_op,
-  size_t batch_size,
-  size_t input_height,
-  size_t input_width,
-  size_t channels,
-  size_t input_pixel_stride,
-  size_t output_pixel_stride,
-  size_t* workspace_size,
-  size_t* workspace_alignment,
-  size_t* output_height_out,
-  size_t* output_width_out,
-  pthreadpool_t threadpool);
-
-enum xnn_status xnn_setup_average_pooling2d_nhwc_qu8(
-  xnn_operator_t average_pooling_op,
-  void* workspace,
-  const uint8_t* input,
-  uint8_t* output);
 
 enum xnn_status xnn_create_batch_matrix_multiply_nc_f16(
   uint32_t flags,
   xnn_operator_t* batch_matrix_multiply_op);
+
+enum xnn_status xnn_create_batch_matrix_multiply_nc_bf16_f32(
+    uint32_t flags, xnn_operator_t* batch_matrix_multiply_op);
 
 enum xnn_status xnn_create_batch_matrix_multiply_nc_f16_const_weights(
     size_t batch_size_b, size_t k, size_t n, const void* data_b, uint32_t flags,
@@ -2681,6 +2646,16 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f16(
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_batch_matrix_multiply_nc_f16(
+    xnn_operator_t batch_matrix_multiply_op, void* workspace,
+    const void* input_a, const void* input_b, void* output);
+
+enum xnn_status xnn_reshape_batch_matrix_multiply_nc_bf16_f32(
+    xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
+    const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
+    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_batch_matrix_multiply_nc_bf16_f32(
     xnn_operator_t batch_matrix_multiply_op, void* workspace,
     const void* input_a, const void* input_b, void* output);
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -44,6 +45,9 @@ TEST(Tensor, Basic) {
   ASSERT_TRUE(sliced.is_contiguous());
   ASSERT_EQ(sliced(0, 0, 0), transposed(1, 1, 1));
   ASSERT_EQ(sliced(1, 0, 0), transposed(2, 1, 1));
+
+  Tensor<int> scalar(std::vector<size_t>{});
+  scalar() = 1;
 }
 
 auto ElementsAreIndices(std::initializer_list<std::vector<size_t>> expected) {
@@ -184,8 +188,8 @@ TEST(Pad, Constant2D) {
   x(1, 1) = 9;
   Tensor<int> padded = x.pad(-1, {1, 2}, {0, 1});
   ASSERT_THAT(padded.extents(), testing::ElementsAre(3, 5));
-  ASSERT_THAT(padded, testing::ElementsAre(-1, -1, -1, -1, -1, -1, -1, 3, 5, -1, -1, -1,
-                                           7, 9, -1));
+  ASSERT_THAT(padded, testing::ElementsAre(-1, -1, -1, -1, -1, -1, -1, 3, 5, -1,
+                                           -1, -1, 7, 9, -1));
 }
 
 }  // namespace xnnpack

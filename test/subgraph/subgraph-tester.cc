@@ -46,6 +46,16 @@ SubgraphTester& SubgraphTester::AddInternalDynamicTensorF32(
   return *this;
 }
 
+SubgraphTester& SubgraphTester::AddInternalDynamicallyQuantizedTensor(
+    size_t rank, xnn_datatype datatype, size_t num_nonbatch_dims,
+    uint32_t* id_out, uint32_t flags) {
+  const xnn_status status = xnn_define_dynamically_quantized_tensor_value(
+      subgraph_.get(), xnn_datatype_qdint8, rank, num_nonbatch_dims, nullptr,
+      XNN_INVALID_VALUE_ID, flags, id_out);
+  EXPECT_EQ(status, xnn_status_success);
+  return *this;
+}
+
 SubgraphTester& SubgraphTester::AddDynamicTensor(
     const std::vector<size_t>& dims, uint32_t external_id,
     xnn_datatype datatype, xnn_quantization_params quantization,
@@ -88,34 +98,6 @@ std::vector<size_t> SubgraphTester::GetExternalTensorShape(
   return shape;
 }
 
-SubgraphTester& SubgraphTester::AddStaticTensorF32(
-    const std::vector<size_t>& dims, uint32_t external_id, void* data,
-    uint32_t flags) {
-  assert(external_id < subgraph_->external_value_ids);
-  uint32_t id_out = 0;
-  const xnn_status status =
-      xnn_define_tensor_value(subgraph_.get(), xnn_datatype_fp32, dims.size(),
-                              dims.data(), data, external_id, flags, &id_out);
-  EXPECT_EQ(status, xnn_status_success);
-  EXPECT_EQ(id_out, external_id);
-
-  return *this;
-}
-
-SubgraphTester& SubgraphTester::AddStaticTensorF16(
-    const std::vector<size_t>& dims, uint32_t external_id, void* data,
-    uint32_t flags) {
-  assert(external_id < subgraph_->external_value_ids);
-  uint32_t id_out = 0;
-  const xnn_status status =
-      xnn_define_tensor_value(subgraph_.get(), xnn_datatype_fp16, dims.size(),
-                              dims.data(), data, external_id, flags, &id_out);
-  EXPECT_EQ(status, xnn_status_success);
-  EXPECT_EQ(id_out, external_id);
-
-  return *this;
-}
-
 SubgraphTester& SubgraphTester::AddDynamicallyQuantizedTensor(
     const std::vector<size_t>& dims, uint32_t external_id, uint32_t flags) {
   assert(external_id < subgraph_->external_value_ids);
@@ -129,9 +111,22 @@ SubgraphTester& SubgraphTester::AddDynamicallyQuantizedTensor(
   return *this;
 }
 
+SubgraphTester& SubgraphTester::AddStaticChannelwiseQuantizedTensor(
+    const std::vector<size_t>& dims, size_t channel_dim, xnn_datatype datatype,
+    const float* scale, uint32_t external_id, uint32_t flags, void* data) {
+  assert(external_id < subgraph_->external_value_ids);
+  uint32_t id_out;
+  const xnn_status status = xnn_define_channelwise_quantized_tensor_value(
+      subgraph_.get(), datatype, scale, dims.size(), channel_dim, dims.data(),
+      data, external_id, flags, &id_out);
+  EXPECT_EQ(status, xnn_status_success);
+  EXPECT_EQ(id_out, external_id);
+  return *this;
+}
+
 SubgraphTester& SubgraphTester::AddStaticTensorQS8(
-    const std::vector<size_t>& dims, TensorType tensor_type, const float* scale,
-    uint32_t external_id, uint32_t flags, int8_t* data) {
+    const std::vector<size_t>& dims, size_t channel_dim, TensorType tensor_type,
+    const float* scale, uint32_t external_id, uint32_t flags, int8_t* data) {
   assert(external_id < subgraph_->external_value_ids);
   if (data == nullptr) {
     const size_t num_elements = NumElements(dims);
@@ -154,8 +149,8 @@ SubgraphTester& SubgraphTester::AddStaticTensorQS8(
 
   uint32_t id_out;
   const xnn_status status = xnn_define_channelwise_quantized_tensor_value(
-      subgraph_.get(), xnn_datatype_qcint8, scale, dims.size(), 0, dims.data(),
-      data, external_id, flags, &id_out);
+      subgraph_.get(), xnn_datatype_qcint8, scale, dims.size(), channel_dim,
+      dims.data(), data, external_id, flags, &id_out);
   EXPECT_EQ(status, xnn_status_success);
   EXPECT_EQ(id_out, external_id);
   return *this;
@@ -320,6 +315,17 @@ SubgraphTester& SubgraphTester::AddReshape(const std::vector<size_t>& new_dims,
   return *this;
 }
 
+SubgraphTester& SubgraphTester::AddResizeBilinear(size_t new_height,
+                                                  size_t new_width,
+                                                  uint32_t input_id,
+                                                  uint32_t output_id,
+                                                  uint32_t flags) {
+  const xnn_status status = xnn_define_static_resize_bilinear_2d(
+      subgraph_.get(), new_height, new_width, input_id, output_id, flags);
+  EXPECT_EQ(status, xnn_status_success);
+  return *this;
+}
+
 SubgraphTester& SubgraphTester::AddFuseDims(size_t first_dim, size_t num_dims,
                                             uint32_t input_id,
                                             uint32_t output_id) {
@@ -413,8 +419,7 @@ SubgraphTester& SubgraphTester::AddConvolution2D(ConvolutionParams params,
       params.kernel.width, params.subsampling.height, params.subsampling.width,
       params.dilation.height, params.dilation.width, params.groups,
       params.group_input_channels, params.group_output_channels,
-      -std::numeric_limits<float>::infinity(),
-      std::numeric_limits<float>::infinity(), input_id, filter_id, bias_id,
+      params.output_min, params.output_max, input_id, filter_id, bias_id,
       output_id, /*flags=*/0);
   EXPECT_EQ(status, xnn_status_success);
 
@@ -436,9 +441,8 @@ SubgraphTester& SubgraphTester::AddDepthwiseConvolution2D(
       params.padding.bottom, params.padding.left, params.kernel.height,
       params.kernel.width, params.subsampling.height, params.subsampling.width,
       params.dilation.height, params.dilation.width, params.depth_multiplier,
-      params.input_channels, -std::numeric_limits<float>::infinity(),
-      std::numeric_limits<float>::infinity(), input_id, filter_id, bias_id,
-      output_id, /*flags=*/0);
+      params.input_channels, params.output_min, params.output_max, input_id,
+      filter_id, bias_id, output_id, /*flags=*/0);
   EXPECT_EQ(status, xnn_status_success);
 
   return *this;
@@ -529,9 +533,8 @@ SubgraphTester& SubgraphTester::AddDeconvolution2D(DeconvolutionParams params,
       params.adjustment.width, params.kernel.height, params.kernel.width,
       params.upsampling.height, params.upsampling.width, params.dilation.height,
       params.dilation.width, params.groups, params.group_input_channels,
-      params.group_output_channels, -std::numeric_limits<float>::infinity(),
-      std::numeric_limits<float>::infinity(), input_id, filter_id, bias_id,
-      output_id, /*flags=*/0);
+      params.group_output_channels, params.output_min, params.output_max,
+      input_id, filter_id, bias_id, output_id, /*flags=*/0);
   EXPECT_EQ(status, xnn_status_success);
 
   return *this;
@@ -560,18 +563,25 @@ SubgraphTester& SubgraphTester::AddEvenSplit(size_t split_dim,
   return *this;
 }
 
+SubgraphTester& SubgraphTester::AddFullyConnected(
+    float output_min, float output_max, uint32_t input_id, uint32_t filter_id,
+    uint32_t bias_id, uint32_t output_id, uint32_t flags) {
+  const xnn_status status = xnn_define_fully_connected(
+      subgraph_.get(), output_min, output_max, input_id, filter_id, bias_id,
+      output_id, flags);
+  EXPECT_EQ(status, xnn_status_success);
+
+  return *this;
+}
+
 SubgraphTester& SubgraphTester::AddFullyConnected(uint32_t input_id,
                                                   uint32_t filter_id,
                                                   uint32_t bias_id,
                                                   uint32_t output_id,
                                                   uint32_t flags) {
-  const xnn_status status = xnn_define_fully_connected(
-      subgraph_.get(), -std::numeric_limits<float>::infinity(),
-      std::numeric_limits<float>::infinity(), input_id, filter_id, bias_id,
-      output_id, flags);
-  EXPECT_EQ(status, xnn_status_success);
-
-  return *this;
+  return AddFullyConnected(-std::numeric_limits<float>::infinity(),
+                           std::numeric_limits<float>::infinity(), input_id,
+                           filter_id, bias_id, output_id, flags);
 }
 
 SubgraphTester& SubgraphTester::AddBatchMatrixMultiply(uint32_t input_a_id,

@@ -4,6 +4,7 @@
 // LICENSE file in the root directory of this source tree.
 
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -23,7 +24,7 @@ std::tuple<Tensor<T>, Tensor<int32_t>> ReferenceImpl(Tensor<T> input,
                                                      const StencilParams& kh,
                                                      const StencilParams& kw) {
   Tensor<T> value({input.extent(0), kh.output_extent(input.extent(1)),
-                          kw.output_extent(input.extent(2)), input.extent(3)});
+                   kw.output_extent(input.extent(2)), input.extent(3)});
   Tensor<int32_t> index(value.extents());
   value.fill(NumericLimits<T>::min());
   index.fill(NumericLimits<int32_t>::min());
@@ -58,12 +59,12 @@ std::tuple<Tensor<T>, Tensor<int32_t>> ReferenceImpl(Tensor<T> input,
 }
 
 template <typename T>
-void FuseSplit() {
+void TestImpl() {
   ReplicableRandomDevice rng;
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
 
-  for (int rep = 0; rep < 100; ++rep) {
+  for (auto _ : FuzzTest(std::chrono::milliseconds(1000))) {
     StencilParams kw = random_stencil_params(rng);
     StencilParams kh = random_stencil_params(rng);
     kw.dilation = 1;
@@ -154,6 +155,6 @@ void FuseSplit() {
   }
 }
 
-TEST(ArgMaxPooling2DF32, test) { FuseSplit<float>(); }
+TEST(ArgMaxPooling2DF32, test) { TestImpl<float>(); }
 
 }  // namespace xnnpack

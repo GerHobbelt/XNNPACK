@@ -149,7 +149,7 @@ static void bench_impl(uint64_t arch_flags, benchmark::State& state,
              i.data() + buffer_index * i_elements + step_height * y,
              w.data() + buffer_index * w_size,
              c.data() + buffer_index * c_elements + y * output_width * channels,
-             kernel_height * step_width * sizeof(void*), 0, 0, z.data(),
+             kernel_height * step_width * sizeof(void*), 0, 0, 0, z.data(),
              &params);
     }
   }
@@ -173,10 +173,10 @@ static void bench_impl(uint64_t arch_flags, benchmark::State& state,
 }
 
 #define XNN_UKERNEL(arch_flags, ukernel, c_block, is_pipelined, cr, kr, \
-                           datatype, weights_type, params_type, init_params)   \
-  static void BM_##ukernel(benchmark::State& state, const char* net) {         \
-    bench_impl(arch_flags, state, ukernel, init_params, cr, kr);               \
-  }                                                                            \
+                    datatype, weights_type, params_type, init_params)   \
+  static void BM_##ukernel(benchmark::State& state, const char* net) {  \
+    bench_impl(arch_flags, state, ukernel, init_params, cr, kr);        \
+  }                                                                     \
   BENCHMARK_DWCONV(BM_##ukernel);
 
 #include "src/qs8-dwconv/qs8-dwconv-minmax-fp32.h"

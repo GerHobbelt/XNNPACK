@@ -67,6 +67,7 @@ xnnpack_cxx_library(
         "//:XNNPACK",
         "//:buffer",
         "//:datatype",
+        "//:math",
         "//:subgraph_h",
         "//:xnnpack_h",
         "//test:replicable_random_device",
@@ -96,22 +97,19 @@ xnnpack_unit_test(
 
 [xnnpack_unit_test(
     name = "%s_test" % operator,
-    timeout = timeout,
     srcs = [
         "%s.cc" % operator.replace("_", "-"),
     ],
-    shard_count = shard_count,
     deps = SUBGRAPH_TEST_DEPS,
-) for operator, shard_count, timeout in [
-    ("copy", 1, "short"),
-    ("softmax", 1, "moderate"),
-    ("space_to_depth_2d", 1, "short"),
-    ("depth_to_space_2d", 1, "short"),
-    ("static_constant_pad", 1, "moderate"),
-    ("static_expand_dims", 1, "short"),
-    ("static_reshape", 1, "short"),
-    ("static_slice", 5, "short"),
-    ("static_transpose", 5, "short"),
+) for operator in [
+    "copy",
+    "softmax",
+    "space_to_depth_2d",
+    "depth_to_space_2d",
+    "static_constant_pad",
+    "static_expand_dims",
+    "static_reshape",
+    "static_slice",
 ]]
 
 xnnpack_unit_test(
@@ -155,32 +153,20 @@ xnnpack_unit_test(
 
 xnnpack_unit_test(
     name = "convolution_2d_test",
-    srcs = [
-        "convolution-2d.cc",
-    ],
-    deps = SUBGRAPH_TEST_DEPS + [
-        "//test/operators:convolution_test_helpers",
-    ],
+    srcs = ["convolution-2d.cc"],
+    deps = SUBGRAPH_TEST_DEPS + [":stencil"],
 )
 
 xnnpack_unit_test(
     name = "deconvolution_2d_test",
-    timeout = "moderate",
     srcs = ["deconvolution-2d.cc"],
-    shard_count = 5,
-    deps = SUBGRAPH_TEST_DEPS + [
-        "//test/operators:convolution_test_helpers",
-    ],
+    deps = SUBGRAPH_TEST_DEPS + [":stencil"],
 )
 
 xnnpack_unit_test(
     name = "depthwise_convolution_2d_test",
-    srcs = [
-        "depthwise-convolution-2d.cc",
-    ],
-    deps = SUBGRAPH_TEST_DEPS + [
-        "//test/operators:convolution_test_helpers",
-    ],
+    srcs = ["depthwise-convolution-2d.cc"],
+    deps = SUBGRAPH_TEST_DEPS + [":stencil"],
 )
 
 xnnpack_unit_test(
@@ -221,6 +207,14 @@ xnnpack_unit_test(
 xnnpack_unit_test(
     name = "static_reduce_test",
     srcs = ["static-reduce.cc"],
+    deps = SUBGRAPH_TEST_DEPS,
+)
+
+xnnpack_unit_test(
+    name = "static_transpose_test",
+    timeout = "moderate",
+    srcs = ["static-transpose.cc"],
+    shard_count = 5,
     deps = SUBGRAPH_TEST_DEPS,
 )
 

@@ -206,8 +206,15 @@ static void FP32Elementwise(benchmark::State& state) {
 
 static void FP32LayerNorm(benchmark::State& state) {
   BenchmarkInvoke(state, [&state]() {
-    return models::FP32LayerNorm(state.range(0), state.range(1),
-                                 state.range(2), state.range(3));
+    return models::FP32LayerNorm(state.range(0), state.range(1), state.range(2),
+                                 state.range(3));
+  });
+}
+
+static void FP32Softmax(benchmark::State& state) {
+  BenchmarkInvoke(state, [&state]() {
+    return models::FP32Softmax(state.range(0), state.range(1), state.range(2),
+                               state.range(3), state.range(4));
   });
 }
 
@@ -240,6 +247,15 @@ static void LayerNormArguments(benchmark::internal::Benchmark* b) {
   }
 }
 
+static void SoftmaxArguments(benchmark::internal::Benchmark* b) {
+  b->ArgNames({"M", "N", "K", "NormMask", "UseSoftmax"});
+  for (int norm_mask : {1, 3, 7, 2, 5, 4}) {
+    b->Args({128, 256, 512, norm_mask, false});
+  }
+  // xnn_define_softmax only supports computing the softmax of the last dimension.
+  b->Args({128, 256, 512, 2, true});
+}
+
 static void DepthwiseSeparableArguments(benchmark::internal::Benchmark* b) {
   b->ArgNames({"W", "H", "KW", "CI", "CO"});
 
@@ -254,7 +270,6 @@ static void DepthwiseSeparableArguments(benchmark::internal::Benchmark* b) {
 
   // Bigger
   b->Args({512, 512, 3, 128, 128});
-
 }
 
 BENCHMARK(FP32Attention)
@@ -287,12 +302,20 @@ BENCHMARK(QS8MobileNetV2)->Unit(benchmark::kMicrosecond)->UseRealTime();
 BENCHMARK(FP32Elementwise)
     ->Unit(benchmark::kMicrosecond)
     ->UseRealTime()
-    ->Arg(6)->Arg(10)->Arg(18)->Arg(34);
+    ->Arg(6)
+    ->Arg(10)
+    ->Arg(18)
+    ->Arg(34);
 
 BENCHMARK(FP32LayerNorm)
     ->Unit(benchmark::kMicrosecond)
     ->UseRealTime()
     ->Apply(LayerNormArguments);
+
+BENCHMARK(FP32Softmax)
+    ->Unit(benchmark::kMicrosecond)
+    ->UseRealTime()
+    ->Apply(SoftmaxArguments);
 
 BENCHMARK(FP32DepthwiseSeparable)
     ->Unit(benchmark::kMicrosecond)

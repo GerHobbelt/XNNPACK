@@ -21,6 +21,7 @@ SET(PROD_SCALAR_MICROKERNEL_SRCS
   src/f16-rminmax/gen/f16-rminmax-scalar-u2-acc2.c
   src/f16-vapproxgelu/gen/f16-vapproxgelu-scalar-rational-6-4-div.c
   src/f16-vcos/gen/f16-vcos-scalar-rational-3-2-div.c
+  src/f16-vexp/gen/f16-vexp-scalar-poly-3.c
   src/f16-vgelu/gen/f16-vgelu-scalar-rational-6-4-div.c
   src/f16-vsin/gen/f16-vsin-scalar-rational-3-2-div.c
   src/f32-argmaxpool/f32-argmaxpool-9p8x-scalar-c1.c
@@ -120,7 +121,7 @@ SET(PROD_SCALAR_MICROKERNEL_SRCS
   src/f32-vcos/gen/f32-vcos-scalar-rational-5-4-div.c
   src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-u2.c
   src/f32-velu/gen/f32-velu-scalar-rr2-lut16-p3-u4.c
-  src/f32-vexp/gen/f32-vexp-scalar-exp.c
+  src/f32-vexp/gen/f32-vexp-scalar-rational-3-2-div.c
   src/f32-vgelu/gen/f32-vgelu-scalar-rational-12-10-div.c
   src/f32-vhswish/gen/f32-vhswish-scalar-u4.c
   src/f32-vlog/gen/f32-vlog-scalar-rational-3-3-div.c
@@ -165,6 +166,8 @@ SET(PROD_SCALAR_MICROKERNEL_SRCS
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-scalar-u1.c
   src/qs8-f32-vcvt/gen/qs8-f32-vcvt-scalar-u4.c
   src/qs8-packw/gen/qs8-packw-x16c8-gemm-goi-scalar.c
+  src/qs8-packw/gen/qs8-packw-x32c4-gemm-gio-scalar.c
+  src/qs8-packw/gen/qs8-packw-x32c4-gemm-goi-scalar.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p1c-minmax-fp32-scalar-fmagic.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p2c-minmax-fp32-scalar-imagic.c
   src/qs8-qc8w-dwconv/gen/qs8-qc8w-dwconv-3p2c-minmax-fp32-scalar-lrintf.c
@@ -248,10 +251,14 @@ SET(PROD_SCALAR_MICROKERNEL_SRCS
   src/x8-packw/gen/x8-packw-x32-gemm-goi-scalar-u2.c
   src/x8-transposec/gen/x8-transposec-2x4-scalar-int.c
   src/x16-transposec/gen/x16-transposec-2x4-scalar-int.c
+  src/x16-x32-packw/gen/x16-x32-packw-x32c2-gemm-gio-scalar.c
+  src/x16-x32-packw/gen/x16-x32-packw-x32c2-gemm-goi-scalar.c
   src/x24-transposec/gen/x24-transposec-1x2-scalar.c
+  src/x32-packw/gen/x32-packw-x2-gemm-gio-scalar.c
   src/x32-packw/gen/x32-packw-x2-gemm-goi-scalar-float-u4.c
+  src/x32-packw/gen/x32-packw-x4-gemm-gio-scalar.c
   src/x32-packw/gen/x32-packw-x4-gemm-goi-scalar-float-u4.c
-  src/x32-packw/gen/x32-packw-x64-gemm-gio-scalar.c
+  src/x32-packw/gen/x32-packw-x32-gemm-goi-scalar-int-u2.c
   src/x32-packw/gen/x32-packw-x64-gemm-goi-scalar-int-u2.c
   src/x32-transposec/gen/x32-transposec-2x4-scalar-int.c
   src/x32-unpool/x32-unpool-scalar.c
@@ -499,6 +506,7 @@ SET(NON_PROD_SCALAR_MICROKERNEL_SRCS
   src/f32-velu/gen/f32-velu-scalar-rr2-p6-u4.c
   src/f32-velu/gen/f32-velu-scalar-rr2-p6-u5.c
   src/f32-velu/gen/f32-velu-scalar-rr2-p6-u6.c
+  src/f32-vexp/gen/f32-vexp-scalar-exp.c
   src/f32-vgelu/gen/f32-vgelu-scalar.c
   src/f32-vhswish/gen/f32-vhswish-scalar-u1.c
   src/f32-vhswish/gen/f32-vhswish-scalar-u2.c
@@ -573,8 +581,6 @@ SET(NON_PROD_SCALAR_MICROKERNEL_SRCS
   src/qs8-packw/gen/qs8-packw-x16c4-gemm-gio-scalar.c
   src/qs8-packw/gen/qs8-packw-x16c4-gemm-goi-scalar.c
   src/qs8-packw/gen/qs8-packw-x16c8-gemm-gio-scalar.c
-  src/qs8-packw/gen/qs8-packw-x32c4-gemm-gio-scalar.c
-  src/qs8-packw/gen/qs8-packw-x32c4-gemm-goi-scalar.c
   src/qs8-packw/gen/qs8-packw-x64c4-gemm-gio-scalar.c
   src/qs8-packw/gen/qs8-packw-x64c4-gemm-goi-scalar.c
   src/qs8-qc4w-packw/gen/qs8-qc4w-packw-x8c8-gemm-goi-scalar.c
@@ -810,7 +816,6 @@ SET(NON_PROD_SCALAR_MICROKERNEL_SRCS
   src/x32-packw/gen/x32-packw-x2-gemm-goi-scalar-int-u4.c
   src/x32-packw/gen/x32-packw-x3-gemm-goi-scalar-float-u4.c
   src/x32-packw/gen/x32-packw-x3-gemm-goi-scalar-int-u4.c
-  src/x32-packw/gen/x32-packw-x4-gemm-gio-scalar.c
   src/x32-packw/gen/x32-packw-x4-gemm-goi-scalar-int-u4.c
   src/x32-packw/gen/x32-packw-x8-gemm-gio-scalar.c
   src/x32-packw/gen/x32-packw-x8-gemm-goi-scalar-float-u4.c
@@ -820,7 +825,7 @@ SET(NON_PROD_SCALAR_MICROKERNEL_SRCS
   src/x32-packw/gen/x32-packw-x16-gemm-goi-scalar-int-u4.c
   src/x32-packw/gen/x32-packw-x32-gemm-gio-scalar.c
   src/x32-packw/gen/x32-packw-x32-gemm-goi-scalar-float-u2.c
-  src/x32-packw/gen/x32-packw-x32-gemm-goi-scalar-int-u2.c
+  src/x32-packw/gen/x32-packw-x64-gemm-gio-scalar.c
   src/x32-packw/gen/x32-packw-x64-gemm-goi-scalar-float-u2.c
   src/x32-packx/x32-packx-2x-scalar.c
   src/x32-packx/x32-packx-3x-scalar.c

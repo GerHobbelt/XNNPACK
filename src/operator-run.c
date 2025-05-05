@@ -1157,7 +1157,7 @@ void xnn_compute_dwconv_unipass(
     output_c_tile, context->output_width,
     indirect_input, weights, output,
     context->indirect_input_width_stride, output_increment,
-    input_offset, context->zero,
+    input_offset, /*input_pixel_stride=*/0, context->zero,
     &context->params);
 }
 
@@ -1192,7 +1192,7 @@ void xnn_compute_argmax_pooling(
 
   context->ukernel(
     context->output_width, context->pooling_size, context->channels,
-    indirect_input, input_offset, output, index,
+    indirect_input, input_offset, /*input_pixel_stride=*/0, output, index,
     context->input_increment, context->output_increment);
 }
 
@@ -1209,7 +1209,7 @@ void xnn_compute_max_pooling(
 
   context->ukernel(
     context->output_width, context->pooling_size, context->channels,
-    indirect_input, input_offset, output,
+    indirect_input, input_offset, /*input_pixel_stride=*/0, output,
     context->input_increment, context->output_increment,
     &context->params);
 }
@@ -1254,8 +1254,8 @@ void xnn_compute_average_pooling(
 
   context->ukernel(
     context->output_width, context->pooling_size, context->channels,
-    indirect_input, input_offset, context->zero, pixelwise_buffer, output,
-    context->input_increment, context->output_increment,
+    indirect_input, input_offset, /*input_pixel_stride=*/0, context->zero,
+    pixelwise_buffer, output, context->input_increment, context->output_increment,
     &context->params);
 }
 
@@ -1742,49 +1742,79 @@ void xnn_compute_elementwise_binary_1d_tile(
 }
 
 void xnn_compute_elementwise_binary_1d(
-    const struct elementwise_binary_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t i)
-{
-  const void* a = (const void*) ((uintptr_t) context->a + i * context->a_stride[4]);
-  const void* b = (const void*) ((uintptr_t) context->b + i * context->b_stride[4]);
-  void* y = (void*) ((uintptr_t) context->y + i * context->y_stride[4]);
-  context->ukernel(context->elements, a, b, y, &context->params);
+    const struct elementwise_binary_context
+        context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t offset, size_t count) {
+  for (size_t i = offset; i < offset + count; i++) {
+    const void* a =
+        (const void*)((uintptr_t)context->a + i * context->a_stride[4]);
+    const void* b =
+        (const void*)((uintptr_t)context->b + i * context->b_stride[4]);
+    void* y = (void*)((uintptr_t)context->y + i * context->y_stride[4]);
+    context->ukernel(context->elements, a, b, y, &context->params);
+  }
 }
 
 void xnn_compute_elementwise_binary_2d(
-    const struct elementwise_binary_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t i, size_t j)
-{
-  const void* a = (const void*) ((uintptr_t) context->a + i * context->a_stride[3] + j * context->a_stride[4]);
-  const void* b = (const void*) ((uintptr_t) context->b + i * context->b_stride[3] + j * context->b_stride[4]);
-  void* y = (void*) ((uintptr_t) context->y + i * context->y_stride[3] + j * context->y_stride[4]);
-  context->ukernel(context->elements, a, b, y, &context->params);
+    const struct elementwise_binary_context
+        context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t i, size_t offset, size_t count) {
+  uintptr_t a = (uintptr_t)context->a + i * context->a_stride[3];
+  uintptr_t b = (uintptr_t)context->b + i * context->b_stride[3];
+  uintptr_t y = (uintptr_t)context->y + i * context->y_stride[3];
+  for (size_t j = offset; j < offset + count; j++) {
+    context->ukernel(context->elements,
+                     (const void*)(a + j * context->a_stride[4]),
+                     (const void*)(b + j * context->b_stride[4]),
+                     (void*)(y + j * context->y_stride[4]), &context->params);
+  }
 }
 
 void xnn_compute_elementwise_binary_3d(
-    const struct elementwise_binary_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t i, size_t j, size_t k)
-{
-  const void* a = (const void*) ((uintptr_t) context->a +
-    i * context->a_stride[2] + j * context->a_stride[3] + k * context->a_stride[4]);
-  const void* b = (const void*) ((uintptr_t) context->b +
-    i * context->b_stride[2] + j * context->b_stride[3] + k * context->b_stride[4]);
-  void* y = (void*) ((uintptr_t) context->y +
-    i * context->y_stride[2] + j * context->y_stride[3] + k * context->y_stride[4]);
-  context->ukernel(context->elements, a, b, y, &context->params);
+    const struct elementwise_binary_context
+        context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t i, size_t offset_j, size_t offset_k, size_t count_j,
+    size_t count_k) {
+  uintptr_t a = (uintptr_t)context->a + i * context->a_stride[2];
+  uintptr_t b = (uintptr_t)context->b + i * context->b_stride[2];
+  uintptr_t y = (uintptr_t)context->y + i * context->y_stride[2];
+  for (size_t j = offset_j; j < offset_j + count_j; j++) {
+    for (size_t k = offset_k; k < offset_k + count_k; k++) {
+      context->ukernel(
+          context->elements,
+          (const void*)(a + j * context->a_stride[3] +
+                        k * context->a_stride[4]),
+          (const void*)(b + j * context->b_stride[3] +
+                        k * context->b_stride[4]),
+          (void*)(y + j * context->y_stride[3] + k * context->y_stride[4]),
+          &context->params);
+    }
+  }
 }
 
 void xnn_compute_elementwise_binary_4d(
-    const struct elementwise_binary_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t i, size_t j, size_t k, size_t l)
-{
-  const void* a = (const void*) ((uintptr_t) context->a +
-    i * context->a_stride[1] + j * context->a_stride[2] + k * context->a_stride[3] + l * context->a_stride[4]);
-  const void* b = (const void*) ((uintptr_t) context->b +
-    i * context->b_stride[1] + j * context->b_stride[2] + k * context->b_stride[3] + l * context->b_stride[4]);
-  void* y = (void*) ((uintptr_t) context->y +
-    i * context->y_stride[1] + j * context->y_stride[2] + k * context->y_stride[3] + l * context->y_stride[4]);
-  context->ukernel(context->elements, a, b, y, &context->params);
+    const struct elementwise_binary_context
+        context[restrict XNN_MIN_ELEMENTS(1)],
+    size_t i, size_t j, size_t offset_k, size_t offset_l, size_t count_k,
+    size_t count_l) {
+  uintptr_t a = (uintptr_t)context->a + +i * context->a_stride[1] +
+                j * context->a_stride[2];
+  uintptr_t b = (uintptr_t)context->b + i * context->b_stride[1] +
+                j * context->b_stride[2];
+  uintptr_t y = (uintptr_t)context->y + i * context->y_stride[1] +
+                j * context->y_stride[2];
+  for (size_t k = offset_k; k < offset_k + count_k; k++) {
+    for (size_t l = offset_l; l < offset_l + count_l; l++) {
+      context->ukernel(
+          context->elements,
+          (const void*)(a + k * context->a_stride[3] +
+                        l * context->a_stride[4]),
+          (const void*)(b + k * context->b_stride[3] +
+                        l * context->b_stride[4]),
+          (void*)(y + k * context->y_stride[3] + l * context->y_stride[4]),
+          &context->params);
+    }
+  }
 }
 
 void xnn_compute_elementwise_binary_5d(
@@ -1802,12 +1832,15 @@ void xnn_compute_elementwise_binary_5d(
 
 void xnn_compute_lut_strided(
     const struct lut_strided_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t batch_index)
-{
-  const void* x = (const void*) ((uintptr_t) context->x + context->x_stride * batch_index);
-  void* y = (void*) ((uintptr_t) context->y + context->y_stride * batch_index);
+    size_t batch_offset, size_t batch_range) {
+  for (size_t batch_index = batch_offset;
+       batch_index < batch_offset + batch_range; batch_index++) {
+    const void* x =
+        (const void*)((uintptr_t)context->x + context->x_stride * batch_index);
+    void* y = (void*)((uintptr_t)context->y + context->y_stride * batch_index);
 
-  context->ukernel(context->n, x, y, context->t);
+    context->ukernel(context->n, x, y, context->t);
+  }
 }
 
 void xnn_compute_lut_contiguous(
@@ -2030,16 +2063,22 @@ void xnn_compute_f16_qx8_convert(
 
 void xnn_compute_f16_qd8_convert(
     const struct f16_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t batch_index)
-{
-  xnn_compute_f16_qx8_convert(context, xnn_f16_qd8_asymmetric_quantization_params, batch_index);
+    size_t batch_offset, size_t batch_range) {
+  for (size_t batch_index = batch_offset;
+       batch_index < batch_offset + batch_range; batch_index++) {
+    xnn_compute_f16_qx8_convert(
+        context, xnn_f16_qd8_asymmetric_quantization_params, batch_index);
+  }
 }
 
 void xnn_compute_f16_qdu8_convert(
     const struct f16_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t batch_index)
-{
-  xnn_compute_f16_qx8_convert(context, xnn_f16_qdu8_asymmetric_quantization_params, batch_index);
+    size_t batch_offset, size_t batch_range) {
+  for (size_t batch_index = batch_offset;
+       batch_index < batch_offset + batch_range; batch_index++) {
+    xnn_compute_f16_qx8_convert(
+        context, xnn_f16_qdu8_asymmetric_quantization_params, batch_index);
+  }
 }
 
 void xnn_compute_f32_qx8_convert(
@@ -2066,16 +2105,22 @@ void xnn_compute_f32_qx8_convert(
 
 void xnn_compute_f32_qd8_convert(
     const struct f32_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t batch_index)
-{
-  xnn_compute_f32_qx8_convert(context, xnn_f32_qd8_asymmetric_quantization_params, batch_index);
+    size_t batch_offset, size_t batch_range) {
+  for (size_t batch_index = batch_offset;
+       batch_index < batch_offset + batch_range; batch_index++) {
+    xnn_compute_f32_qx8_convert(
+        context, xnn_f32_qd8_asymmetric_quantization_params, batch_index);
+  }
 }
 
 void xnn_compute_f32_qdu8_convert(
     const struct f32_qd8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
-    size_t batch_index)
-{
-  xnn_compute_f32_qx8_convert(context, xnn_f32_qdu8_asymmetric_quantization_params, batch_index);
+    size_t batch_offset, size_t batch_range) {
+  for (size_t batch_index = batch_offset;
+       batch_index < batch_offset + batch_range; batch_index++) {
+    xnn_compute_f32_qx8_convert(
+        context, xnn_f32_qdu8_asymmetric_quantization_params, batch_index);
+  }
 }
 
 void xnn_compute_pack_lh(
@@ -2097,18 +2142,23 @@ void xnn_compute_pack_lh(
 void xnn_compute_f32_qp8_convert(
     const struct f32_qp8_convert_context context[restrict XNN_MIN_ELEMENTS(1)],
     size_t group_idx, size_t m_idx_start, size_t m_tile) {
-  const float* lhs = (const float*)((const char*)context->lhs +
-                                    (group_idx * context->m + m_idx_start) *
-                                        context->lhs_stride);
-  int8_t* lhs_packed = (int8_t*)((uintptr_t)context->lhs_packed +
-                                 group_idx * context->group_stride +
-                                 xnn_x8_packq_f32qp8_packed_offset(
-                                     m_idx_start, context->k, context->mr,
-                                     context->kr, context->sr));
+  const size_t m_end = m_idx_start + m_tile;
+  while (m_idx_start < m_end) {
+    const size_t m_step = min(context->mr, m_end - m_idx_start);
+    const float* lhs = (const float*)((const char*)context->lhs +
+                                      (group_idx * context->m + m_idx_start) *
+                                          context->lhs_stride);
+    int8_t* lhs_packed = (int8_t*)((uintptr_t)context->lhs_packed +
+                                   group_idx * context->group_stride +
+                                   xnn_x8_packq_f32qp8_packed_offset(
+                                       m_idx_start, context->k, context->mr,
+                                       context->kr, context->sr));
 
-  context->packq_ukernel(/*m=*/m_tile, context->k, context->mr, context->kr,
-                         context->sr, m_idx_start, lhs, context->lhs_stride,
-                         lhs_packed);
+    context->packq_ukernel(/*m=*/m_step, context->k, context->mr, context->kr,
+                           context->sr, m_idx_start, lhs, context->lhs_stride,
+                           lhs_packed);
+    m_idx_start += m_step;
+  }
 }
 
 void xnn_compute_u8_softmax(

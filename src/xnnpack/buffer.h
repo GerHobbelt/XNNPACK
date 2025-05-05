@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <functional>
 #include <initializer_list>
 #include <limits>
 #include <memory>
@@ -77,15 +78,11 @@ class NumericLimits<xnn_bfloat16> {
   static xnn_bfloat16 max_identity() { return -infinity(); }
 };
 
-template <typename T>
-class NumericLimits<quantized<T>> {
+template <typename T, typename Kind>
+class NumericLimits<quantized<T, Kind>> {
  public:
-  static quantized<T> min() {
-    return {std::numeric_limits<T>::lowest()};
-  }
-  static quantized<T> max() {
-    return {std::numeric_limits<T>::max()};
-  }
+  static quantized<T> min() { return {std::numeric_limits<T>::lowest()}; }
+  static quantized<T> max() { return {std::numeric_limits<T>::max()}; }
   static quantized<T> smallest_normal() { return {0}; }
   static quantized<T> min_identity() { return max(); }
   static quantized<T> max_identity() { return min(); }
@@ -93,10 +90,14 @@ class NumericLimits<quantized<T>> {
 
 inline float epsilon(xnn_datatype datatype) {
   switch (datatype) {
-    case xnn_datatype_fp32: return NumericLimits<float>::epsilon();
-    case xnn_datatype_fp16: return NumericLimits<xnn_float16>::epsilon();
-    case xnn_datatype_bf16: return NumericLimits<xnn_bfloat16>::epsilon();
-    default: return 1.0f;
+    case xnn_datatype_fp32:
+      return NumericLimits<float>::epsilon();
+    case xnn_datatype_fp16:
+      return NumericLimits<xnn_float16>::epsilon();
+    case xnn_datatype_bf16:
+      return NumericLimits<xnn_bfloat16>::epsilon();
+    default:
+      return 1.0f;
   }
 }
 
@@ -359,7 +360,7 @@ class Tensor {
   }
   size_t size() const {
     assert(is_contiguous());
-    return data_->size();
+    return end_ - begin_;
   }
   T* begin() { return data(); }
   T* end() { return end_; }
@@ -374,12 +375,18 @@ class Tensor {
   // Tensor, they do not affect the memory addressed by the Tensor. To realize
   // the effect of these operations, make a copy with `deep_copy`.
 
-  // Reorder the dimensions to extents = {extent(i) for i in perm}, and similar
-  // for strides.
-  Tensor<T, Alignment> transpose(const std::vector<size_t>& perm) const {
+  // Reorder the dimensions in `dims`. Dimensions not in dims maintain their
+  // relative ordering.
+  Tensor<T, Alignment> transpose(std::vector<size_t> perm) const {
+    // Sort idx to get the new locations
+    std::vector<size_t> sorted = perm;
+    std::sort(sorted.begin(), sorted.end());
+
     Tensor<T, Alignment> result(*this);
-    result.extents_ = permute(perm, extents_);
-    result.strides_ = permute(perm, strides_);
+    for (size_t i = 0; i < sorted.size(); i++) {
+      result.extents_[sorted[i]] = extent(perm[i]);
+      result.strides_[sorted[i]] = stride(perm[i]);
+    }
     return result;
   }
 
@@ -429,14 +436,16 @@ class Tensor {
 
     Tensor<T, Alignment> result(*this);
     std::vector<size_t> offsets(rank());
+    std::vector<size_t> maxs(rank());
     for (size_t i = 0; i < rank(); ++i) {
       offsets[i] = begins[i] < 0 ? extents_[i] + begins[i] : begins[i];
       result.extents_[i] =
           (ends[i] <= 0 ? extents_[i] + ends[i] : ends[i]) - offsets[i];
+      maxs[i] = result.extents_[i] - 1;
     }
 
     result.begin_ = begin_ + flat_offset(offsets);
-    result.end_ = result.begin_ + result.flat_offset(result.extents_);
+    result.end_ = result.begin_ + result.flat_offset(maxs) + 1;
 
     return result;
   }
@@ -460,6 +469,71 @@ class Tensor {
     return slice(dim, at, at + 1);
   }
 
+  // Slice the leading dimensions at the indices of `at`.
+  Tensor<T, Alignment> slice_leading(std::vector<size_t> at) const {
+    std::vector<int64_t> begins(rank());
+    std::vector<int64_t> ends(rank());
+    std::copy(at.begin(), at.end(), begins.begin());
+    std::copy(at.begin(), at.end(), ends.begin());
+    for (size_t i = 0; i < at.size(); ++i) {
+      ends[i] += 1;
+    }
+    return slice(begins, ends);
+  }
+
+  // Split a dimension dim into dimensions of extent `split_extents`. The first
+  // split extent of 0 will be replaced with
+  // extent(dim) / product(non-zero split extents). The product of split_extents
+  // must be equal to extent(dim).
+  Tensor<T, Alignment> split(size_t dim,
+                             std::vector<size_t> split_extents) const {
+    assert(dim < rank());
+    size_t splits_size = 1;
+    for (size_t i : split_extents) {
+      if (i != 0) {
+        splits_size *= i;
+      }
+    }
+    for (size_t& i : split_extents) {
+      if (i == 0) {
+        assert(extent(dim) % splits_size == 0);
+        i = extent(dim) / splits_size;
+        splits_size *= i;
+      }
+    }
+    assert(splits_size == extent(dim) || stride(dim) == 0);
+    std::vector<size_t> new_dims(split_extents.size() - 1);
+    std::iota(new_dims.begin(), new_dims.end(), dim + 1);
+    Tensor<T, Alignment> result = expand_dims(new_dims);
+    for (size_t i = 0; i < split_extents.size(); ++i) {
+      result.extents_[dim + i] = split_extents[i];
+      splits_size /= split_extents[i];
+      result.strides_[dim + i] = stride(dim) * splits_size;
+    }
+    return result;
+  }
+
+  // Fuse two dimensions into one, where the new dimension's extent is the
+  // product of the extents of the two dimensions. The stride of the outer
+  // dimension must match the product of the stride and extent of the inner
+  // dimension.
+  Tensor<T, Alignment> fuse(std::vector<size_t> dims) const {
+    assert(!dims.empty());
+    size_t a = dims.front();
+    assert(a < rank());
+    dims.erase(dims.begin());
+    Tensor<T, Alignment> result(*this);
+    for (size_t b : dims) {
+      assert(b < rank());
+      assert(stride(b) * extent(b) == stride(a));
+      result.extents_[a] *= result.extent(b);
+      result.strides_[a] = result.stride(b);
+      result.extents_.erase(result.extents_.begin() + b);
+      result.strides_.erase(result.strides_.begin() + b);
+    }
+    return result;
+  }
+
   // Remove `pre` elements from the beginning of each dimension, and `post`
   // elements from the end of each dimension.
   Tensor<T, Alignment> crop_padding(const index_type& pre,
@@ -476,7 +550,8 @@ class Tensor {
     return result;
   }
 
-  // Add `pre` indices before, `post` indices after, of padding of `value` to the tensor.
+  // Add `pre` indices before, `post` indices after, of padding of `value` to
+  // the tensor.
   Tensor<T, Alignment> pad(T value, const index_type& pre,
                            const index_type& post) const {
     assert(rank() == pre.size());
@@ -630,7 +705,9 @@ class Tensor {
     return result;
   }
 
-  size_t flat_offset_variadic(size_t dim0, size_t idx0) {
+  size_t flat_offset_variadic(size_t /*dim0*/) const { return 0; }
+
+  size_t flat_offset_variadic(size_t dim0, size_t idx0) const {
     if (dim0 > 0) {
       // We need to skip the leading dimensions that are broadcasts.
       return 0;
@@ -641,7 +718,7 @@ class Tensor {
   }
 
   template <typename... Args>
-  size_t flat_offset_variadic(size_t dim0, size_t idx0, Args... idxs) {
+  size_t flat_offset_variadic(size_t dim0, size_t idx0, Args... idxs) const {
     if (dim0 > 0) {
       // We need to skip the leading dimensions that are broadcasts.
       return flat_offset_variadic(dim0 - 1, idxs...);
@@ -655,12 +732,12 @@ class Tensor {
     return 0;
   }
   XNN_INLINE size_t flat_offset_no_broadcast(const size_t* strides,
-                                             size_t idx0) {
+                                             size_t idx0) const {
     return *strides * idx0;
   }
   template <typename... Args>
   XNN_INLINE size_t flat_offset_no_broadcast(const size_t* strides, size_t idx0,
-                                             Args... idxs) {
+                                             Args... idxs) const {
     return *strides * idx0 + flat_offset_no_broadcast(strides + 1, idxs...);
   }
 
@@ -719,15 +796,18 @@ void broadcast_extent_1(Tensor<T>& tensor) {
 
 // Generate random quantization parameters for a given datatype.
 template <typename Rng>
-xnn_quantization_params random_quantization(xnn_datatype datatype, Rng& rng) {
-  std::uniform_int_distribution<> i8_dist{std::numeric_limits<int8_t>::min(),
-                                          std::numeric_limits<int8_t>::max()};
+xnn_quantization_params random_quantization(xnn_datatype datatype, Rng& rng,
+                                            float min_scale = 0.25f,
+                                            float max_scale = 8.0f) {
   std::uniform_int_distribution<> u8_dist{std::numeric_limits<uint8_t>::min(),
                                           std::numeric_limits<uint8_t>::max()};
-  std::uniform_real_distribution<float> scale_dist{0.25f, 8.0f};
+  std::uniform_real_distribution<float> scale_dist{min_scale, max_scale};
   switch (datatype) {
     case xnn_datatype_qint8:
-      return {i8_dist(rng), scale_dist(rng)};
+    case xnn_datatype_qcint8:
+    case xnn_datatype_qcint4:
+      // signed integer quantization assumes zero point is 0.
+      return {0, scale_dist(rng)};
     case xnn_datatype_quint8:
       return {u8_dist(rng), scale_dist(rng)};
     default:

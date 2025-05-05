@@ -777,8 +777,10 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^x86(_64)?$")
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "Hexagon")
   LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_HEXAGON_MICROKERNEL_SRCS})
+  LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_HEXAGON_MICROKERNEL_SRCS})
   IF(XNNPACK_ENABLE_HVX)
     LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_HVX_MICROKERNEL_SRCS})
+    LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_HVX_MICROKERNEL_SRCS})
   ENDIF()
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "^ppc64")
@@ -787,7 +789,6 @@ IF(XNNPACK_TARGET_PROCESSOR MATCHES "^ppc64")
   ENDIF()
 ENDIF()
 IF(XNNPACK_TARGET_PROCESSOR MATCHES "^riscv")
-  LIST(APPEND PROD_MICROKERNEL_SRCS)
   IF(XNNPACK_ENABLE_RISCV_VECTOR)
     LIST(APPEND NON_PROD_MICROKERNEL_SRCS ${NON_PROD_RVV_MICROKERNEL_SRCS})
     LIST(APPEND PROD_MICROKERNEL_SRCS ${PROD_RVV_MICROKERNEL_SRCS})
@@ -1409,6 +1410,7 @@ IF(XNNPACK_BUILD_TESTS)
         concatenate
         copy
         depth-to-space-2d
+        depthwise-convolution-2d
         even-split
         fully-connected
         max-pooling-2d
@@ -1442,8 +1444,7 @@ IF(XNNPACK_BUILD_TESTS)
 
     SET(LIBRARY_SUBGRAPH_CONVOLUTION_UNIT_TESTS
         convolution-2d
-        deconvolution-2d
-        depthwise-convolution-2d)
+        deconvolution-2d)
     FOREACH(TEST ${LIBRARY_SUBGRAPH_CONVOLUTION_UNIT_TESTS})
       ADD_EXECUTABLE(${TEST}-test test/subgraph/${TEST}.cc)
       TARGET_LINK_LIBRARIES(${TEST}-test PRIVATE
@@ -1598,6 +1599,7 @@ IF(XNNPACK_BUILD_TESTS)
       f32-qc8w-gemm-minmax
       f32-qc8w-gemm-relu
       pf32-gemm-minmax
+      pqs8-qc8w-gemm-minmax
       qd8-f16-qb4w-gemm-minmax
       qd8-f16-qc4w-gemm-minmax
       qd8-f16-qc8w-gemm-minmax
@@ -1895,6 +1897,7 @@ IF(XNNPACK_BUILD_BENCHMARKS)
       bench/models/fp32-mobilenet-v2.cc
       bench/models/fp32-mobilenet-v3-large.cc
       bench/models/fp32-mobilenet-v3-small.cc
+      bench/models/fp32-softmax.cc
       bench/models/qd8-attention.cc
       bench/models/qs8-mobilenet-v2.cc)
     SET_TARGET_PROPERTIES(models PROPERTIES CXX_EXTENSIONS YES)

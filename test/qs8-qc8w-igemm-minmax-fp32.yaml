@@ -1665,17 +1665,20 @@
   pack: xnn_pack_qs8_conv_goki_w
   k-block: 1
 
-# RVV
-- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x4v__rvv
+# Hexagom HVX
+- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x32c4__hvx
   init: xnn_init_qs8_qc8w_conv_minmax_fp32_scalar_params
   pack: xnn_pack_qs8_conv_goki_w
-  k-block: 1
-- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_4x4v__rvv
+  k-block: 8
+- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_4x32c4__hvx
   init: xnn_init_qs8_qc8w_conv_minmax_fp32_scalar_params
   pack: xnn_pack_qs8_conv_goki_w
-  k-block: 1
-- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_7x4v__rvv
+  k-block: 8
+- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_8x32c4__hvx
   init: xnn_init_qs8_qc8w_conv_minmax_fp32_scalar_params
   pack: xnn_pack_qs8_conv_goki_w
-  k-block: 1
-  
+  k-block: 8
+- name: xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_16x32c4__hvx
+  init: xnn_init_qs8_qc8w_conv_minmax_fp32_scalar_params
+  pack: xnn_pack_qs8_conv_goki_w
+  k-block: 8

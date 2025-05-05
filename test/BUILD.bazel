@@ -10,10 +10,6 @@ load(
     "xnnpack_test_deps_for_library",
     "xnnpack_unit_test",
 )
-#load(
-#    "//:build_params.bzl",
-#    "xnnpack_select_if"
-#)
 
 MICROKERNEL_TEST_DEPS = [
     "//:buffer",
@@ -151,6 +147,7 @@ xnnpack_cxx_library(
     "f16_vclamp",
     "f16_vcos",
     "f16_velu",
+    "f16_vexp",
     "f16_vgelu",
     "f16_vhswish",
     "f16_vlrelu",
@@ -867,6 +864,18 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
+    name = "pqs8_qc8w_gemm_minmax_test",
+    timeout = "moderate",
+    srcs = [
+        "pqs8-qc8w-gemm-minmax.cc",
+    ],
+    shard_count = 1,
+    deps = MICROKERNEL_TEST_DEPS + [
+        ":gemm_microkernel_tester",
+    ],
+)
+
+xnnpack_unit_test(
     name = "qd8_f16_qc8w_igemm_minmax_test",
     timeout = "moderate",
     srcs = [
@@ -1017,6 +1026,7 @@ xnnpack_unit_test(
     "qs8_packw",
     "qs8_qc4w_packw",
     "x16_packw",
+    "x16_x32_packw",
     "x32_packw",
 ]]
 

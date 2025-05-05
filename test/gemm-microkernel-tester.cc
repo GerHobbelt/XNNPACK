@@ -26,6 +26,10 @@
 #include "src/xnnpack/requantization.h"
 #include "test/replicable_random_device.h"
 
+// Dynamically quantized kernels do extra arithmetic, which accumulates more
+// error, which we factor into our tolerances with this constant.
+const float dynamic_quantization_ops = 2.0f;
+
 TEST_P(GemmTest, Test) {
   const GemmTestParams& params = GetParam();
   GemmMicrokernelTester tester = params.tester;
@@ -147,9 +151,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qc8w_igemm_ukernel_fn igemm,
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       ks() * packed_n() * packed_k() +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() +
-                                 ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                 1);
+  xnnpack::Buffer<xnn_float16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
   xnnpack::Buffer<int8_t> junk(k(), xnnpack::XnnExtraBytes);
   xnnpack::Buffer<const int8_t*> im2col(mr() * ks());
@@ -281,14 +283,13 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qc8w_igemm_ukernel_fn igemm,
 
   const float tolerance =
       compute_sum_tolerance(max_abs_product, ks() * k(),
-                        xnnpack::NumericLimits<xnn_float16>::epsilon());
+                            xnnpack::NumericLimits<xnn_float16>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << "), optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << "), optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -322,8 +323,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qc8w_igemm_ukernel_fn igemm,
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       ks() * packed_n() * packed_k() +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
   xnnpack::Buffer<int8_t> junk(k(), xnnpack::XnnExtraBytes);
   xnnpack::Buffer<const int8_t*> im2col(mr() * ks());
@@ -452,15 +452,15 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qc8w_igemm_ukernel_fn igemm,
         a_offset() * sizeof(uint8_t), zero_sentinel, zero_data, &params,
         quantization_params.data());
 
-  const float tolerance = compute_sum_tolerance(
-      max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
+  const float tolerance =
+      compute_sum_tolerance(max_abs_product, ks() * k(),
+                            xnnpack::NumericLimits<float>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << "), optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << "), optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -483,8 +483,7 @@ void GemmMicrokernelTester::Test(xnn_qu8_gemm_minmax_ukernel_fn gemm,
   xnnpack::Buffer<int32_t> bias(n());
   xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(uint8_t));
-  xnnpack::Buffer<uint8_t> c((mr() - 1) * cm_stride() +
-                             ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<uint8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<uint8_t> c_ref(m() * n());
 
@@ -548,19 +547,16 @@ void GemmMicrokernelTester::Test(xnn_qu8_gemm_minmax_ukernel_fn gemm,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<uint32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<uint32_t>(c[i * cm_stride() + j]),
                 static_cast<uint32_t>(qmax()));
-      ASSERT_GE(static_cast<uint32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<uint32_t>(c[i * cm_stride() + j]),
                 static_cast<uint32_t>(qmin()));
-      ASSERT_EQ(static_cast<uint32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_EQ(static_cast<uint32_t>(c[i * cm_stride() + j]),
                 static_cast<uint32_t>(c_ref[i * n() + j]))
           << "at " << i << ", " << j
           << ": reference = " << (uint32_t)c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << (uint32_t)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << (uint32_t)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << requantization_scale
@@ -586,8 +582,7 @@ void GemmMicrokernelTester::Test(xnn_qu8_igemm_minmax_ukernel_fn igemm,
       ks() * packed_n() * packed_k() +
       packed_n() * sizeof(int32_t) / sizeof(uint8_t));
   xnnpack::Buffer<int32_t> bias(n());
-  xnnpack::Buffer<uint8_t> c((mr() - 1) * cm_stride() +
-                             ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<uint8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<uint8_t> c_ref(m() * n());
   // The junk data needs to be initialized for some kernels because msan will
@@ -690,20 +685,16 @@ void GemmMicrokernelTester::Test(xnn_qu8_igemm_minmax_ukernel_fn igemm,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<uint32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<uint32_t>(c[i * cm_stride() + j]),
                 static_cast<uint32_t>(qmax()));
-      ASSERT_GE(static_cast<uint32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<uint32_t>(c[i * cm_stride() + j]),
                 static_cast<uint32_t>(qmin()));
-      ASSERT_EQ(static_cast<uint32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_EQ(static_cast<uint32_t>(c[i * cm_stride() + j]),
                 static_cast<uint32_t>(c_ref[i * n() + j]))
           << "at " << i << ", " << j
           << ": reference = " << static_cast<uint32_t>(c_ref[i * n() + j])
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << static_cast<uint32_t>(
-                 c[i * cm_stride() + (j / nr()) * nr() + j % nr()])
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << static_cast<uint32_t>(c[i * cm_stride() + j])
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << requantization_scale
@@ -737,8 +728,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k_bytes +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() +
-                            ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t> c_ref(m() * n());
@@ -825,20 +815,16 @@ void GemmMicrokernelTester::Test(
 #endif
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmax()) - 0x80);
-      ASSERT_GE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmin()) - 0x80);
-      ASSERT_NEAR(static_cast<int32_t>(
-                      c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_NEAR(static_cast<int32_t>(c[i * cm_stride() + j]),
                   static_cast<int32_t>(c_ref[i * n() + j]), tolerance)
           << "at " << i << ", " << j
           << ": reference = " << static_cast<int32_t>(c_ref[i * n() + j])
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << static_cast<int32_t>(
-                 c[i * cm_stride() + (j / nr()) * nr() + j % nr()])
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << static_cast<int32_t>(c[i * cm_stride() + j])
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << scale[j]
@@ -868,8 +854,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() +
       packed_n() * (sizeof(int32_t) + sizeof(float)) / sizeof(int8_t));
-  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() +
-                            ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t> c_ref(m() * n());
@@ -949,20 +934,16 @@ void GemmMicrokernelTester::Test(
 #endif
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmax()) - 0x80);
-      ASSERT_GE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmin()) - 0x80);
-      ASSERT_NEAR(static_cast<int32_t>(
-                      c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_NEAR(static_cast<int32_t>(c[i * cm_stride() + j]),
                   static_cast<int32_t>(c_ref[i * n() + j]), tolerance)
           << "at " << i << ", " << j
           << ": reference = " << static_cast<int32_t>(c_ref[i * n() + j])
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << static_cast<int32_t>(
-                 c[i * cm_stride() + (j / nr()) * nr() + j % nr()])
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << static_cast<int32_t>(c[i * cm_stride() + j])
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << scale[j]
@@ -992,8 +973,7 @@ void GemmMicrokernelTester::Test(
       ks() * packed_n() * packed_k() +
       packed_n() * (sizeof(int32_t) + sizeof(float)) / sizeof(int8_t));
   xnnpack::Buffer<int32_t> bias(n());
-  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() +
-                            ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t> c_ref(m() * n());
@@ -1111,19 +1091,16 @@ void GemmMicrokernelTester::Test(
 #endif
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmax()) - 0x80);
-      ASSERT_GE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmin()) - 0x80);
-      ASSERT_NEAR(static_cast<int32_t>(
-                      c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_NEAR(static_cast<int32_t>(c[i * cm_stride() + j]),
                   static_cast<int32_t>(c_ref[i * n() + j]), tolerance)
           << "at " << i << ", " << j
           << ": reference = " << static_cast<uint32_t>(c_ref[i * n() + j])
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << (uint32_t)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << (uint32_t)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << scale[j]
@@ -1158,9 +1135,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qc8w_gemm_ukernel_fn gemm,
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() +
-                                 ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                 1);
+  xnnpack::Buffer<xnn_float16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1264,14 +1239,13 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qc8w_gemm_ukernel_fn gemm,
 
   const float tolerance =
       compute_sum_tolerance(max_abs_product, ks() * k(),
-                        xnnpack::NumericLimits<xnn_float16>::epsilon());
+                            xnnpack::NumericLimits<xnn_float16>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << "), optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << "), optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -1304,8 +1278,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qc8w_gemm_ukernel_fn gemm,
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
@@ -1407,15 +1380,16 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qc8w_gemm_ukernel_fn gemm,
        cm_stride() * sizeof(float), nr() * sizeof(float), &params,
        quantization_params.data());
 
-  const float tolerance = compute_sum_tolerance(
-      max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
+  const float tolerance =
+      compute_sum_tolerance(max_abs_product, ks() * k(),
+                            xnnpack::NumericLimits<float>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -1453,9 +1427,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qc4w_gemm_ukernel_fn gemm,
   xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k_bytes +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() +
-                                 ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                 1);
+  xnnpack::Buffer<xnn_float16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0.0f);
 
@@ -1563,14 +1535,14 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qc4w_gemm_ukernel_fn gemm,
 
   const float tolerance =
       compute_sum_tolerance(max_abs_product, ks() * k(),
-                        xnnpack::NumericLimits<xnn_float16>::epsilon());
+                            xnnpack::NumericLimits<xnn_float16>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -1614,9 +1586,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qb4w_gemm_ukernel_fn gemm,
       /* scales */ packed_n() * num_blocks * sizeof(xnn_bfloat16) +
       /* bias */ packed_n() * sizeof(float));
 
-  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() +
-                                 ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                 1);
+  xnnpack::Buffer<xnn_float16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -1726,14 +1696,13 @@ void GemmMicrokernelTester::Test(xnn_qd8_f16_qb4w_gemm_ukernel_fn gemm,
 
   const float tolerance =
       compute_sum_tolerance(max_abs_product, ks() * k(),
-                        xnnpack::NumericLimits<xnn_float16>::epsilon());
+                            xnnpack::NumericLimits<xnn_float16>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k2;
     }
@@ -1770,8 +1739,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qc4w_gemm_ukernel_fn gemm,
   xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k_bytes +
       packed_n() * (sizeof(int32_t) + sizeof(float) * 2));
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
@@ -1877,15 +1845,16 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qc4w_gemm_ukernel_fn gemm,
        cm_stride() * sizeof(float), nr() * sizeof(float), &params,
        quantization_params.data());
 
-  const float tolerance = compute_sum_tolerance(
-      max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
+  const float tolerance =
+      compute_sum_tolerance(max_abs_product, ks() * k(),
+                            xnnpack::NumericLimits<float>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k2;
     }
@@ -1928,8 +1897,7 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qb4w_gemm_ukernel_fn gemm,
       /* scales */ packed_n() * num_blocks * sizeof(float) +
       /* bias */ packed_n() * sizeof(float));
 
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(input.begin(), input.end(), std::ref(f32rng));
@@ -2046,15 +2014,15 @@ void GemmMicrokernelTester::Test(xnn_qd8_f32_qb4w_gemm_ukernel_fn gemm,
        cm_stride() * sizeof(float), nr() * sizeof(float), &params,
        quantization_params.data());
 
-  const float tolerance = compute_sum_tolerance(
-      max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
+  const float tolerance =
+      compute_sum_tolerance(max_abs_product, ks() * k(),
+                            xnnpack::NumericLimits<float>::epsilon()) *
+      dynamic_quantization_ops;
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k2;
     }
@@ -2084,8 +2052,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
   xnnpack::Buffer<float> bias(n(), 0.0f);
   xnnpack::Buffer<float> kernel_scale(n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
@@ -2176,11 +2143,10 @@ void GemmMicrokernelTester::Test(
       max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k2
           << ", nr = " << nr() << ", cm_stride = " << cm_stride();
@@ -2210,8 +2176,7 @@ void GemmMicrokernelTester::Test_QP8F32QC8W(
   xnnpack::Buffer<int8_t> b(n() * k());
   xnnpack::Buffer<float> bias(n(), 0.0f);
   xnnpack::Buffer<float> kernel_scale(n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
@@ -2298,11 +2263,10 @@ void GemmMicrokernelTester::Test_QP8F32QC8W(
       max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", nr = " << nr() << ", cm_stride = " << cm_stride();
@@ -2325,8 +2289,7 @@ void GemmMicrokernelTester::Test_PF32(
   xnnpack::Buffer<float> input_f32(m() * k());
   xnnpack::Buffer<float> weights(n() * k());
   xnnpack::Buffer<float> bias(n(), 0.0f);
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
   // Create a fake `gemm_config` for the packing functions.
@@ -2412,11 +2375,9 @@ void GemmMicrokernelTester::Test_PF32(
       max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", nr = " << nr() << ", cm_stride = " << cm_stride();
@@ -2443,8 +2404,7 @@ void GemmMicrokernelTester::Test_PQS8(
                             xnnpack::XnnExtraBytes);
   xnnpack::Buffer<int8_t> b(n() * k());
   xnnpack::Buffer<int32_t> bias(n());
-  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() +
-                            ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t> c_ref(m() * n());
@@ -2547,7 +2507,7 @@ void GemmMicrokernelTester::Test_PQS8(
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      const size_t idx = i * cm_stride() + (j / nr()) * nr() + j % nr();
+      const size_t idx = i * cm_stride() + j;
       ASSERT_LE(static_cast<int32_t>(c[idx]),
                 static_cast<int32_t>(qmax()) - 0x80);
       ASSERT_GE(static_cast<int32_t>(c[idx]),
@@ -2594,8 +2554,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<uint8_t> b(n() * k2 / 2);
   xnnpack::Buffer<float> bias(n(), 0.0f);
   xnnpack::Buffer<uint16_t> kernel_scale2d(n() * packed_k2 / bl());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<float> c_ref(m() * n(), 0);
 
@@ -2710,11 +2669,10 @@ void GemmMicrokernelTester::Test(
       max_abs_product, ks() * k(), xnnpack::NumericLimits<float>::epsilon());
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k2
           << ", nr = " << nr() << ", cm_stride = " << cm_stride();
@@ -2742,8 +2700,7 @@ void GemmMicrokernelTester::Test(xnn_qs8_gemm_minmax_ukernel_fn gemm,
   xnnpack::Buffer<int32_t> bias(n());
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n() * sizeof(int32_t) / sizeof(int8_t));
-  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() +
-                            ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<int8_t> c_ref(m() * n());
 
@@ -2809,20 +2766,16 @@ void GemmMicrokernelTester::Test(xnn_qs8_gemm_minmax_ukernel_fn gemm,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmax()) - 0x80);
-      ASSERT_GE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmin()) - 0x80);
-      ASSERT_EQ(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_EQ(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(c_ref[i * n() + j]))
           << "at " << i << ", " << j
           << ": reference = " << static_cast<int32_t>(c_ref[i * n() + j])
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << static_cast<int32_t>(
-                 c[i * cm_stride() + (j / nr()) * nr() + j % nr()])
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << static_cast<int32_t>(c[i * cm_stride() + j])
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << requantization_scale
@@ -2852,8 +2805,7 @@ void GemmMicrokernelTester::Test(xnn_qs8_igemm_minmax_ukernel_fn igemm,
       ks() * packed_n() * packed_k() +
       packed_n() * sizeof(int32_t) / sizeof(int8_t));
   xnnpack::Buffer<int32_t> bias(n());
-  xnnpack::Buffer<int8_t> c((mr() - 1) * cm_stride() +
-                            ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<int8_t> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<int32_t> acc(m() * n());
   xnnpack::Buffer<int8_t> c_ref(m() * n());
   xnnpack::Buffer<int8_t> junk(k(), xnnpack::XnnExtraBytes);
@@ -2954,19 +2906,16 @@ void GemmMicrokernelTester::Test(xnn_qs8_igemm_minmax_ukernel_fn igemm,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_LE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmax()) - 0x80);
-      ASSERT_GE(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_GE(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(qmin()) - 0x80);
-      ASSERT_EQ(static_cast<int32_t>(
-                    c[i * cm_stride() + (j / nr()) * nr() + j % nr()]),
+      ASSERT_EQ(static_cast<int32_t>(c[i * cm_stride() + j]),
                 static_cast<int32_t>(c_ref[i * n() + j]))
           << "at " << i << ", " << j
           << ": reference = " << static_cast<uint32_t>(c_ref[i * n() + j])
-          << " (accumulator = " << acc[i * n() + j] << "), optimized = "
-          << (uint32_t)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << " (accumulator = " << acc[i * n() + j]
+          << "), optimized = " << (uint32_t)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k()
           << ", requantization scale = " << requantization_scale
@@ -2999,8 +2948,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<xnn_bfloat16, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n() * 2);
   xnnpack::Buffer<float> bias(n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&] { return f32rng(rng); });
@@ -3042,8 +2990,7 @@ void GemmMicrokernelTester::Test(
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 3.0e-2f))
           << "at " << i << ", " << j << ": Mr x Nr x Kr = " << mr() << " x "
           << nr() << " x " << kr() << ", M x N x K = " << m() << " x " << n()
@@ -3069,9 +3016,7 @@ void GemmMicrokernelTester::Test(xnn_bf16_gemm_minmax_ukernel_fn gemm_minmax,
   xnnpack::Buffer<xnn_bfloat16, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n());
   xnnpack::Buffer<xnn_bfloat16> bias(n());
-  xnnpack::Buffer<xnn_bfloat16> c((mr() - 1) * cm_stride() +
-                                  ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                  1);
+  xnnpack::Buffer<xnn_bfloat16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&] { return f32rng(rng); });
@@ -3115,8 +3060,7 @@ void GemmMicrokernelTester::Test(xnn_bf16_gemm_minmax_ukernel_fn gemm_minmax,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 3.0e-2f))
           << "at " << i << ", " << j << ": Mr x Nr x Kr = " << mr() << " x "
           << nr() << " x " << kr() << ", M x N x K = " << m() << " x " << n()
@@ -3142,9 +3086,7 @@ void GemmMicrokernelTester::Test(xnn_f16_gemm_minmax_ukernel_fn gemm_minmax,
   xnnpack::Buffer<xnn_float16, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n());
   xnnpack::Buffer<xnn_float16> bias(n());
-  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() +
-                                 ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                 1);
+  xnnpack::Buffer<xnn_float16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), f32rng);
@@ -3189,12 +3131,10 @@ void GemmMicrokernelTester::Test(xnn_f16_gemm_minmax_ukernel_fn gemm_minmax,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-4f, std::abs(c_ref[i * n() + j]) * 1.0e-2f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3217,9 +3157,7 @@ void GemmMicrokernelTester::Test(xnn_f16_igemm_minmax_ukernel_fn igemm_minmax,
   xnnpack::Buffer<xnn_float16, XNN_ALLOCATION_ALIGNMENT> packed_w(
       ks() * packed_k() * packed_n() + packed_n());
   xnnpack::Buffer<xnn_float16> bias(n());
-  xnnpack::Buffer<xnn_float16> c((mr() - 1) * cm_stride() +
-                                 ((n() - 1) / nr()) * nr() + (n() - 1) % nr() +
-                                 1);
+  xnnpack::Buffer<xnn_float16> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
   xnnpack::Buffer<xnn_float16> junk(k(), xnnpack::XnnExtraBytes);
   xnnpack::Buffer<const xnn_float16*> im2col(mr() * ks());
@@ -3301,25 +3239,21 @@ void GemmMicrokernelTester::Test(xnn_f16_igemm_minmax_ukernel_fn igemm_minmax,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << (float)c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << (float)c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
@@ -3341,8 +3275,7 @@ void GemmMicrokernelTester::Test(xnn_f32_ppmm_minmax_ukernel_fn ppmm_minmax,
   xnnpack::Buffer<float> bias(n());
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3385,12 +3318,10 @@ void GemmMicrokernelTester::Test(xnn_f32_ppmm_minmax_ukernel_fn ppmm_minmax,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3412,8 +3343,7 @@ void GemmMicrokernelTester::Test(xnn_f32_gemm_ukernel_fn gemm,
   xnnpack::Buffer<float> bias(n());
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3445,12 +3375,10 @@ void GemmMicrokernelTester::Test(xnn_f32_gemm_ukernel_fn gemm,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3472,8 +3400,7 @@ void GemmMicrokernelTester::Test(xnn_f32_gemm_relu_ukernel_fn gemm_relu,
   xnnpack::Buffer<float> bias(n());
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3506,18 +3433,15 @@ void GemmMicrokernelTester::Test(xnn_f32_gemm_relu_ukernel_fn gemm_relu,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], 0.0f)
+      ASSERT_GE(c[i * cm_stride() + j], 0.0f)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3546,8 +3470,7 @@ void GemmMicrokernelTester::Test(xnn_f32_gemm_minmax_ukernel_fn gemm_minmax,
   xnnpack::Buffer<float> bias(n());
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3590,24 +3513,20 @@ void GemmMicrokernelTester::Test(xnn_f32_gemm_minmax_ukernel_fn gemm_minmax,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3627,8 +3546,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<float> a((m() - 1) * a_stride() + k(),
                            xnnpack::XnnExtraBytes);
   xnnpack::Buffer<float> b(n() * k());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3663,24 +3581,20 @@ void GemmMicrokernelTester::Test(
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3709,8 +3623,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<uint8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k_bytes + packed_n() * sizeof(float) * 2);
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<double> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3780,24 +3693,20 @@ void GemmMicrokernelTester::Test(
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5, std::abs(c_ref[i * n() + j]) * 1.0e-6))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3822,8 +3731,7 @@ void GemmMicrokernelTester::Test(xnn_f32_qc8w_gemm_ukernel_fn gemm,
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3866,20 +3774,17 @@ void GemmMicrokernelTester::Test(xnn_f32_qc8w_gemm_ukernel_fn gemm,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], 0.1f);
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], 0.1f);
     }
   }
 
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3904,8 +3809,7 @@ void GemmMicrokernelTester::Test(xnn_f32_qc8w_gemm_relu_ukernel_fn gemm_relu,
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -3949,18 +3853,15 @@ void GemmMicrokernelTester::Test(xnn_f32_qc8w_gemm_relu_ukernel_fn gemm_relu,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], 0.0f)
+      ASSERT_GE(c[i * cm_stride() + j], 0.0f)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -3988,8 +3889,7 @@ void GemmMicrokernelTester::Test(
   xnnpack::Buffer<float> scale(n());
   xnnpack::Buffer<int8_t, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k() + packed_n() * sizeof(float) * 2);
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<double> c_ref(m() * n());
 
   std::generate(a.begin(), a.end(), [&]() { return f32dist(rng); });
@@ -4050,23 +3950,19 @@ void GemmMicrokernelTester::Test(
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], tolerance)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], tolerance)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -4089,8 +3985,7 @@ void GemmMicrokernelTester::Test(xnn_f32_gemminc_minmax_ukernel_fn gemminc,
   xnnpack::Buffer<float> bias(n());
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       packed_n() * packed_k());  // no packed_n()
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> acc(mr() * packed_n());
 
@@ -4140,23 +4035,19 @@ void GemmMicrokernelTester::Test(xnn_f32_gemminc_minmax_ukernel_fn gemminc,
   // Validate micro-kernel outputs.
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j], max_abs_err)
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j], max_abs_err)
           << "at " << i << ", " << j << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x K = " << m() << " x " << n() << " x " << k();
     }
@@ -4176,8 +4067,7 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_ukernel_fn igemm,
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       ks() * packed_k() * packed_n() + packed_n());
   xnnpack::Buffer<float> bias(n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
   xnnpack::Buffer<float> junk(k(), xnnpack::XnnExtraBytes);
   xnnpack::Buffer<const float*> im2col(mr() * ks());
@@ -4242,12 +4132,10 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_ukernel_fn igemm,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
@@ -4268,8 +4156,7 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_relu_ukernel_fn igemm_relu,
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       ks() * packed_k() * packed_n() + packed_n());
   xnnpack::Buffer<float> bias(n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
   xnnpack::Buffer<float> junk(k(), xnnpack::XnnExtraBytes);
   xnnpack::Buffer<const float*> im2col(mr() * ks());
@@ -4335,19 +4222,16 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_relu_ukernel_fn igemm_relu,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], 0.0f)
+      ASSERT_GE(c[i * cm_stride() + j], 0.0f)
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
@@ -4369,8 +4253,7 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_minmax_ukernel_fn igemm_minmax,
   xnnpack::Buffer<float, XNN_ALLOCATION_ALIGNMENT> packed_w(
       ks() * packed_k() * packed_n() + packed_n());
   xnnpack::Buffer<float> bias(n());
-  xnnpack::Buffer<float> c((mr() - 1) * cm_stride() +
-                           ((n() - 1) / nr()) * nr() + (n() - 1) % nr() + 1);
+  xnnpack::Buffer<float> c((m() - 1) * cm_stride() + n());
   xnnpack::Buffer<float> c_ref(m() * n());
   xnnpack::Buffer<float> junk(k(), xnnpack::XnnExtraBytes);
   xnnpack::Buffer<const float*> im2col(mr() * ks());
@@ -4448,26 +4331,22 @@ void GemmMicrokernelTester::Test(xnn_f32_igemm_minmax_ukernel_fn igemm_minmax,
 
   for (size_t i = 0; i < m(); i++) {
     for (size_t j = 0; j < n(); j++) {
-      ASSERT_LE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], max())
+      ASSERT_LE(c[i * cm_stride() + j], max())
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
-      ASSERT_GE(c[i * cm_stride() + (j / nr()) * nr() + j % nr()], min())
+      ASSERT_GE(c[i * cm_stride() + j], min())
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();
-      ASSERT_NEAR(c[i * cm_stride() + (j / nr()) * nr() + j % nr()],
-                  c_ref[i * n() + j],
+      ASSERT_NEAR(c[i * cm_stride() + j], c_ref[i * n() + j],
                   std::max(1.0e-5f, std::abs(c_ref[i * n() + j]) * 1.0e-6f))
           << "at " << i << ", " << i << ": reference = " << c_ref[i * n() + j]
-          << ", optimized = "
-          << c[i * cm_stride() + (j / nr()) * nr() + j % nr()]
+          << ", optimized = " << c[i * cm_stride() + j]
           << ", Mr x Nr x Kr = " << mr() << " x " << nr() << " x " << kr()
           << ", M x N x KC x KS = " << m() << " x " << n() << " x " << k()
           << " x " << ks();

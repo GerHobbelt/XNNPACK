@@ -178,6 +178,9 @@ MICROKERNEL_DEFS = [
     "src/qs8-vmul/qs8-vmul-minmax-rndnu.h",
     "src/qs8-vmulc/qs8-vmulc-minmax-fp32.h",
     "src/qs8-vmulc/qs8-vmulc-minmax-rndnu.h",
+    "src/qs8-vprelu/qs8-vprelu.h",
+    "src/qs8-vpreluc/qs8-vpreluc.h",
+    "src/qs8-vrpreluc/qs8-vrpreluc.h",
     "src/qu8-dwconv/qu8-dwconv-minmax-fp32.h",
     "src/qu8-dwconv/qu8-dwconv-minmax-rndnu.h",
     "src/qu8-f32-vcvt/qu8-f32-vcvt.h",
@@ -189,6 +192,9 @@ MICROKERNEL_DEFS = [
     "src/qu8-vmul/qu8-vmul-minmax-rndnu.h",
     "src/qu8-vmulc/qu8-vmulc-minmax-fp32.h",
     "src/qu8-vmulc/qu8-vmulc-minmax-rndnu.h",
+    "src/qu8-vprelu/qu8-vprelu.h",
+    "src/qu8-vpreluc/qu8-vpreluc.h",
+    "src/qu8-vrpreluc/qu8-vrpreluc.h",
     "src/s8-maxpool/s8-maxpool-minmax.h",
     "src/s8-vclamp/s8-vclamp.h",
     "src/u8-maxpool/u8-maxpool-minmax.h",
@@ -263,6 +269,7 @@ MICROKERNEL_DEPS = [
 
 SIMD_HEADERS = [
     "src/xnnpack/simd/f32-avx-base.h",
+    "src/xnnpack/simd/f32-wasmsimd-base.h",
 ] + [
     "src/xnnpack/simd/f32-" + arch + ".h"
     for arch in xnnpack_simd_f32_archs()
@@ -555,6 +562,7 @@ xnnpack_cc_library(
     ],
 )
 
+# TODO: This should be test_only = True.
 xnnpack_cxx_library(
     name = "buffer",
     hdrs = ["src/xnnpack/buffer.h"],
@@ -1764,7 +1772,7 @@ alias(
         ":xnn_enable_arm_sme2_explicit_true": ":xnn_enable_arm_sme2_explicit_true",
         ":xnn_enable_arm_sme2_explicit_false": ":xnn_enable_arm_sme2_explicit_true",
         # Only enable this by default once we're sure it doesn't break anything.
-        "//conditions:default": ":xnn_enable_arm_sme2_explicit_true",
+        "//conditions:default": ":arm_sme2_enabled_by_default",
     }),
 )
 

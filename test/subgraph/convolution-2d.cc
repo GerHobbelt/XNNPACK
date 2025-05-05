@@ -13,6 +13,7 @@
 #include <cstdlib>
 #include <limits>
 #include <random>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -216,6 +217,7 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid) {
   const bool channelwise_quantization =
       xnn_datatype_is_channelwise_quantized(xnn_datatype_of<Filter>());
   ReplicableRandomDevice rng;
+  std::bernoulli_distribution bool_dist(0.5);
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
 
@@ -226,12 +228,27 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid) {
     StencilParams kw = random_stencil_params(rng);
     StencilParams kh = random_stencil_params(rng);
 
+    const bool same_padding = bool_dist(rng);
+
+    uint32_t flags = 0;
+    if (same_padding) {
+      flags |= XNN_FLAG_TENSORFLOW_SAME_PADDING;
+      kw.padding_min = kw.padding_max = 0;
+      kh.padding_min = kh.padding_max = 0;
+    }
+
     ConvolutionParams params = StencilToConvolutionParams(kh, kw);
-    std::uniform_int_distribution<> channels_dist{1, 10};
     std::uniform_int_distribution<> groups_dist{1, 3};
     params.groups = groups_dist(rng);
-    params.group_input_channels = channels_dist(rng);
-    params.group_output_channels = channels_dist(rng);
+    // To get coverage of large dimensions without making the test too slow,
+    // make one big channel dimension and one small one.
+    std::uniform_int_distribution<> big_channels_dist{1, 100};
+    std::uniform_int_distribution<> small_channels_dist{1, 10};
+    params.group_input_channels = big_channels_dist(rng);
+    params.group_output_channels = small_channels_dist(rng);
+    if (bool_dist(rng)) {
+      std::swap(params.group_input_channels, params.group_output_channels);
+    }
 
     // Make a random filter.
     std::vector<size_t> filter_shape = {
@@ -248,7 +265,7 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid) {
 
     // (Maybe) make a random bias.
     Tensor<Bias> bias;
-    if (rng() & 1) {
+    if (bool_dist(rng)) {
       std::vector<size_t> bias_shape = {params.groups *
                                         params.group_output_channels};
       DatatypeGenerator<Bias> bias_gen = MakeDatatypeGenerator(Bias());
@@ -322,7 +339,8 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid) {
     subgraph
         .AddOutputTensor(4, xnn_datatype_of<Data>(), output_quantization,
                          output_id)
-        .AddConvolution2D(params, conv_input_id, filter_id, bias_id, output_id);
+        .AddConvolution2D(params, conv_input_id, filter_id, bias_id, output_id,
+                          flags);
     xnn_status status = subgraph.CreateRuntime();
     if (status == xnn_status_unsupported_hardware) {
       GTEST_SKIP();
@@ -334,11 +352,16 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid) {
       std::vector<size_t> output_shape = random_shape(rng, 4);
       std::vector<size_t> input_shape = {
           output_shape[0],
-          kh.input_extent(output_shape[1]),
-          kw.input_extent(output_shape[2]),
+          kh.input_extent(output_shape[1], same_padding),
+          kw.input_extent(output_shape[2], same_padding),
           params.groups * params.group_input_channels,
       };
       output_shape[3] = params.groups * params.group_output_channels;
+
+      if (same_padding) {
+        kh.compute_tf_same_padding(input_shape[1]);
+        kw.compute_tf_same_padding(input_shape[2]);
+      }
 
       Tensor<Data> input(input_shape, XnnExtraBytes);
       input.generate([&]() { return data_gen(rng); });

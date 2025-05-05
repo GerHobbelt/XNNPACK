@@ -40,16 +40,6 @@ enum xnn_status xnn_insert_clamp_node(xnn_subgraph_t subgraph, float output_min,
   size_t dims[XNN_MAX_TENSOR_DIMS];
   memcpy(dims, output_value->shape.dim, num_dims * sizeof(size_t));
   switch (output_value->datatype) {
-    case xnn_datatype_fp16:
-      status = xnn_define_tensor_value(
-          subgraph, xnn_datatype_fp16, num_dims, dims, NULL,
-          /*external_id=*/XNN_INVALID_VALUE_ID, /*flags=*/0, &new_id);
-      break;
-    case xnn_datatype_fp32:
-      status = xnn_define_tensor_value(
-          subgraph, xnn_datatype_fp32, num_dims, dims, NULL,
-          /*external_id=*/XNN_INVALID_VALUE_ID, /*flags=*/0, &new_id);
-      break;
     case xnn_datatype_quint8:
       status = xnn_define_quantized_tensor_value(
           subgraph, xnn_datatype_quint8, output_value->quantization.zero_point,
@@ -63,7 +53,10 @@ enum xnn_status xnn_insert_clamp_node(xnn_subgraph_t subgraph, float output_min,
           /*external_id=*/XNN_INVALID_VALUE_ID, /*flags=*/0, &new_id);
       break;
     default:
-      XNN_UNREACHABLE;
+      status = xnn_define_tensor_value(
+          subgraph, output_value->datatype, num_dims, dims, NULL,
+          /*external_id=*/XNN_INVALID_VALUE_ID, /*flags=*/0, &new_id);
+      break;
   }
   if (status != xnn_status_success) {
     return status;
@@ -892,10 +885,7 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
       case xnn_node_type_binary_elementwise:
       case xnn_node_type_unary_elementwise:
       case xnn_node_type_batch_matrix_multiply:
-      case xnn_node_type_concatenate2:
-      case xnn_node_type_concatenate3:
-      case xnn_node_type_concatenate4:
-      case xnn_node_type_concatenate5:
+      case xnn_node_type_concatenate:
       case xnn_node_type_convert:
       case xnn_node_type_average_pooling_2d:
       case xnn_node_type_copy:
@@ -903,9 +893,7 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph)
       case xnn_node_type_deconvolution_2d:
       case xnn_node_type_depthwise_convolution_2d:
       case xnn_node_type_depth_to_space_2d:
-      case xnn_node_type_even_split2:
-      case xnn_node_type_even_split3:
-      case xnn_node_type_even_split4:
+      case xnn_node_type_even_split:
       case xnn_node_type_fully_connected:
       case xnn_node_type_global_average_pooling_2d:
       case xnn_node_type_global_sum_pooling_2d:

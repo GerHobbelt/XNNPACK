@@ -3,6 +3,8 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
+// clang-format off
+
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
@@ -791,13 +793,10 @@ TEST(PACK_QU8_DWCONV_GHW_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -844,13 +843,10 @@ TEST(PACK_QU8_DWCONV_GHW_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -908,13 +904,10 @@ TEST(PACK_QU8_DWCONV_GHW_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -969,13 +962,10 @@ TEST(PACK_QU8_DWCONV_GHW_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1038,13 +1028,10 @@ TEST(PACK_QU8_DWCONV_HWG_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1089,13 +1076,10 @@ TEST(PACK_QU8_DWCONV_HWG_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1153,13 +1137,10 @@ TEST(PACK_QU8_DWCONV_HWG_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1208,13 +1189,10 @@ TEST(PACK_QU8_DWCONV_HWG_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1276,13 +1254,10 @@ TEST(PACK_QS8_DWCONV_GHW_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1326,13 +1301,10 @@ TEST(PACK_QS8_DWCONV_GHW_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1387,13 +1359,10 @@ TEST(PACK_QS8_DWCONV_GHW_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1445,13 +1414,10 @@ TEST(PACK_QS8_DWCONV_GHW_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1511,13 +1477,10 @@ TEST(PACK_QS8_DWCONV_HWG_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1559,13 +1522,10 @@ TEST(PACK_QS8_DWCONV_HWG_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1620,13 +1580,10 @@ TEST(PACK_QS8_DWCONV_HWG_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1672,13 +1629,10 @@ TEST(PACK_QS8_DWCONV_HWG_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       &params);
 
@@ -1735,13 +1689,10 @@ TEST(PACK_F16_DWCONV_GHW_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -1780,13 +1731,10 @@ TEST(PACK_F16_DWCONV_GHW_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -1831,13 +1779,10 @@ TEST(PACK_F16_DWCONV_GHW_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -1884,13 +1829,10 @@ TEST(PACK_F16_DWCONV_GHW_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -1939,13 +1881,10 @@ TEST(PACK_F16_DWCONV_HWG_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -1982,13 +1921,10 @@ TEST(PACK_F16_DWCONV_HWG_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2033,13 +1969,10 @@ TEST(PACK_F16_DWCONV_HWG_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2080,13 +2013,10 @@ TEST(PACK_F16_DWCONV_HWG_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2135,13 +2065,10 @@ TEST(PACK_F32_DWCONV_GHW_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2180,13 +2107,10 @@ TEST(PACK_F32_DWCONV_GHW_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2231,13 +2155,10 @@ TEST(PACK_F32_DWCONV_GHW_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2284,13 +2205,10 @@ TEST(PACK_F32_DWCONV_GHW_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2339,13 +2257,10 @@ TEST(PACK_F32_DWCONV_HWG_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2382,13 +2297,10 @@ TEST(PACK_F32_DWCONV_HWG_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2433,13 +2345,10 @@ TEST(PACK_F32_DWCONV_HWG_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2480,13 +2389,10 @@ TEST(PACK_F32_DWCONV_HWG_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      1,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2535,13 +2441,10 @@ TEST(PACK_F32_TO_F16_DWCONV_GHW_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2580,13 +2483,10 @@ TEST(PACK_F32_TO_F16_DWCONV_GHW_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2631,13 +2531,10 @@ TEST(PACK_F32_TO_F16_DWCONV_GHW_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2684,13 +2581,10 @@ TEST(PACK_F32_TO_F16_DWCONV_GHW_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2739,13 +2633,10 @@ TEST(PACK_F32_TO_F16_DWCONV_HWG_W, primary_tile_eq_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2782,13 +2673,10 @@ TEST(PACK_F32_TO_F16_DWCONV_HWG_W, primary_tile_eq_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2833,13 +2721,10 @@ TEST(PACK_F32_TO_F16_DWCONV_HWG_W, primary_tile_gt_kernel_size) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 
@@ -2880,13 +2765,10 @@ TEST(PACK_F32_TO_F16_DWCONV_HWG_W, primary_tile_gt_kernel_size_channels_gt_cr) {
       w,
       c,
       cr,
-      cr,
-      cr,
       k.data(),
       b.data(),
       /*scale=*/nullptr,
       packed_weights.data(),
-      0,
       0,
       nullptr);
 

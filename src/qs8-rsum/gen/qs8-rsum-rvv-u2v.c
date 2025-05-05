@@ -1,3 +1,4 @@
+// clang-format off
 // Auto-generated file. Do not edit!
 //   Template: src/qs8-rsum/rvv.c.in
 //   Generator: tools/xngen
@@ -33,7 +34,7 @@ void xnn_qs8_rsum_ukernel__rvv_u2v(
 
     vint8m2_t vinput = __riscv_vle8_v_i8m2(input, vl); input += vl;
     vint16m4_t vinput16 = __riscv_vsext_vf2_i16m4(vinput, vl);
-  
+
     vsum = __riscv_vwadd_wv_i32m8(vsum, vinput16, vl);
 
   } while (batch != 0);

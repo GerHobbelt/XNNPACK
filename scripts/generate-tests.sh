@@ -166,6 +166,7 @@ tools/generate-vunary-test.py --ukernel f32-vrndu  --output test/f32-vrndu.cc &
 tools/generate-vunary-test.py --ukernel f32-vrndz  --output test/f32-vrndz.cc &
 tools/generate-vunary-test.py --ukernel f32-vrsqrt --output test/f32-vrsqrt.cc &
 tools/generate-vunary-test.py --ukernel f32-vsigmoid --output test/f32-vsigmoid.cc &
+tools/generate-vunary-test.py --ukernel f32-vsin --output test/f32-vsin.cc &
 tools/generate-vunary-test.py --ukernel f32-vsqr --output test/f32-vsqr.cc &
 tools/generate-vunary-test.py --ukernel f32-vsqrt --output test/f32-vsqrt.cc &
 tools/generate-vunary-test.py --ukernel f32-vtanh --output test/f32-vtanh.cc &
@@ -205,6 +206,15 @@ tools/generate-reduce-discontiguous-test.py --tester RDSumMicrokernelTester --sp
 tools/generate-reduce-discontiguous-test.py --tester RDSumMicrokernelTester --spec test/f32-rdsum.yaml --output test/f32-rdsum.cc &
 tools/generate-reduce-discontiguous-test.py --tester RDSumMicrokernelTester --spec test/qs8-rdsum-minmax-fp32.yaml --output test/qs8-rdsum-minmax-fp32.cc &
 tools/generate-reduce-discontiguous-test.py --tester RDSumMicrokernelTester --spec test/qu8-rdsum.yaml --output test/qu8-rdsum.cc &
+
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/f32-rdmin.yaml --output test/f32-rdmin.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/f32-rdmax.yaml --output test/f32-rdmax.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/f16-rdmin.yaml --output test/f16-rdmin.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/f16-rdmax.yaml --output test/f16-rdmax.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/s8-rdmin.yaml --output test/s8-rdmin.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/s8-rdmax.yaml --output test/s8-rdmax.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/u8-rdmin.yaml --output test/u8-rdmin.cc &
+tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --spec test/u8-rdmax.yaml --output test/u8-rdmax.cc &
 
 ### Tests for LUT micro-kernels
 tools/generate-lut-test.py --spec test/x8-lut.yaml --output test/x8-lut.cc &

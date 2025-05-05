@@ -5,6 +5,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import argparse
+import math
 import os
 import sys
 
@@ -49,6 +50,7 @@ OP_TYPES = {
     "vrndz": "RoundTowardsZero",
     "vrsqrt": "ReciprocalSquareRoot",
     "vsigmoid": "Sigmoid",
+    "vsin": "Sin",
     "vsqr": "Square",
     "vsqrt": "SquareRoot",
     "vtanh": "TanH",
@@ -93,6 +95,12 @@ SPECIAL_VALUES_F32 = {
         3,  # Number of elements.
         "{0.0f, -1e3f, 1e3f}",  # Inputs.
         "{1.0f, 0.0f, INFINITY}",  # Expected outputs.
+        1,  # Error margin in ULP.
+    ),
+    "Sin": (
+        3,  # Number of elements
+        f"{{0.0f, {-math.pi/2:.8e},  {math.pi/2:.8e}}}",  # Inputs.
+        "{0.0f, -1.0f, 1.0f}",  # Expected outputs.
         1,  # Error margin in ULP.
     ),
 }
@@ -173,6 +181,7 @@ $if DATATYPE == "f32" and OP_TYPE in SPECIAL_VALUES_F32:
   }
 """
 
+
 def main(args):
   options = parser.parse_args(args)
 
@@ -185,6 +194,7 @@ def main(args):
   tester_header = "vunary-microkernel-tester.h"
   op_header = "vunary.h"
   tests = """\
+// clang-format off
 // Copyright 2019 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
@@ -226,17 +236,19 @@ using TestInfo = {op_type};
 """.format(op_type=op_type)
 
   tests += "#define XNN_QUANTIZED(T) xnnpack::quantized<T>\n"
-  tests += xnncommon.make_multiline_macro(xngen.preprocess(
-      TEST_TEMPLATE,
-      {
-          "TESTER": tester,
-          "TEST_ARGS": test_args,
-          "DATATYPE": datatype,
-          "OP_TYPE": op_type,
-          "OP_NAME": op,
-          "SPECIAL_VALUES_F32": SPECIAL_VALUES_F32,
-      },
-  ))
+  tests += xnncommon.make_multiline_macro(
+      xngen.preprocess(
+          TEST_TEMPLATE,
+          {
+              "TESTER": tester,
+              "TEST_ARGS": test_args,
+              "DATATYPE": datatype,
+              "OP_TYPE": op_type,
+              "OP_NAME": op,
+              "SPECIAL_VALUES_F32": SPECIAL_VALUES_F32,
+          },
+      )
+  )
 
   folder = options.ukernel
   if "rnd" in folder:

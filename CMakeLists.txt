@@ -1266,7 +1266,7 @@ IF(XNNPACK_BUILD_TESTS)
 
   # Helper libraries
   ADD_LIBRARY(next-prime STATIC test/next_prime.cc)
-  ADD_LIBRARY(runtime-flags STATIC test/runtime-flags.cc)
+  ADD_LIBRARY(runtime-flags STATIC test/subgraph/runtime-flags.cc)
   TARGET_LINK_LIBRARIES(runtime-flags PRIVATE GTest::gtest)
 
   ADD_LIBRARY(gemm-microkernel-tester STATIC test/gemm-microkernel-tester.cc)
@@ -1299,7 +1299,7 @@ IF(XNNPACK_BUILD_TESTS)
 
   IF(XNNPACK_BUILD_LIBRARY)
     # ---[ Build size tests
-    ADD_EXECUTABLE(subgraph-size-test test/subgraph-size.c)
+    ADD_EXECUTABLE(subgraph-size-test test/subgraph/subgraph-size.c)
     TARGET_LINK_LIBRARIES(subgraph-size-test PRIVATE XNNPACK)
 
     # ---[ Build operator-level unit tests
@@ -1348,7 +1348,6 @@ IF(XNNPACK_BUILD_TESTS)
         microparams-init
         next-prime
         pthreadpool
-        runtime-flags
         unary-ops
         XNNPACK)
       ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
@@ -1378,7 +1377,7 @@ IF(XNNPACK_BUILD_TESTS)
         subgraph-nchw
         workspace)
     FOREACH(TEST ${LIBRARY_SUBGRAPH_OPTIMIZATION_TESTS})
-      ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
+      ADD_EXECUTABLE(${TEST}-test test/subgraph/${TEST}.cc)
       TARGET_LINK_LIBRARIES(${TEST}-test PRIVATE
         GTest::gmock
         GTest::gtest
@@ -1395,16 +1394,10 @@ IF(XNNPACK_BUILD_TESTS)
         average-pooling-2d-reshape
         batch-matrix-multiply
         binary
-        buffer
-        concatenate2
-        concatenate3
-        concatenate4
-        concatenate5
+        concatenate
         copy
         depth-to-space-2d
-        even-split2
-        even-split3
-        even-split4
+        even-split
         fully-connected
         max-pooling-2d
         reshape-helpers
@@ -1420,7 +1413,7 @@ IF(XNNPACK_BUILD_TESTS)
         unary
         unpooling-2d)
     FOREACH(TEST ${LIBRARY_SUBGRAPH_UNIT_TESTS})
-      ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
+      ADD_EXECUTABLE(${TEST}-test test/subgraph/${TEST}.cc)
       TARGET_LINK_LIBRARIES(${TEST}-test PRIVATE
         GTest::gmock
         GTest::gtest
@@ -1444,7 +1437,7 @@ IF(XNNPACK_BUILD_TESTS)
         deconvolution-2d
         depthwise-convolution-2d)
     FOREACH(TEST ${LIBRARY_SUBGRAPH_CONVOLUTION_UNIT_TESTS})
-      ADD_EXECUTABLE(${TEST}-test test/${TEST}.cc)
+      ADD_EXECUTABLE(${TEST}-test test/subgraph/${TEST}.cc)
       TARGET_LINK_LIBRARIES(${TEST}-test PRIVATE
         convolution-test-helpers
         GTest::gmock
@@ -1519,7 +1512,6 @@ IF(XNNPACK_BUILD_TESTS)
       u8-lut32norm
       u8-rmax
       x16-packw
-      x32-packb
       x32-packw
       x32-packx
       x32-unpool
@@ -1582,6 +1574,8 @@ IF(XNNPACK_BUILD_TESTS)
     ADD_TEST(NAME ${TEST}-test COMMAND ${TEST}-test)
     SET_TARGET_PROPERTIES(${TEST}-test PROPERTIES CXX_EXTENSIONS YES)
   ENDFOREACH()
+  SHARD_TEST(f32-dwconv-minmax-test 5)
+  SHARD_TEST(f32-dwconv-test 5)
   SHARD_TEST(qs8-dwconv-minmax-fp32-test 10)
   SHARD_TEST(qs8-qc8w-dwconv-minmax-fp32-test 10)
 
@@ -1847,6 +1841,16 @@ IF(XNNPACK_BUILD_TESTS)
     TARGET_LINK_LIBRARIES(x8-packq-test PRIVATE kleidiai)
   ENDIF()
 
+  ADD_EXECUTABLE(buffer-test test/buffer.cc)
+  TARGET_LINK_LIBRARIES(buffer-test PRIVATE
+    GTest::gmock
+    GTest::gtest
+    GTest::gtest_main
+    datatype
+    XNNPACK)
+  ADD_TEST(NAME buffer-test COMMAND buffer-test)
+  SET_TARGET_PROPERTIES(buffer-test PROPERTIES CXX_EXTENSIONS YES)
+
   IF(XNNPACK_BUILD_LIBRARY)
     ADD_EXECUTABLE(weights-cache-test test/weights-cache.cc)
     TARGET_LINK_LIBRARIES(weights-cache-test PRIVATE XNNPACK pthreadpool GTest::gtest GTest::gtest_main)
@@ -1897,12 +1901,11 @@ IF(XNNPACK_BUILD_BENCHMARKS)
     TARGET_LINK_LIBRARIES(gemm-benchmark PUBLIC kleidiai)
   ENDIF()
 
-  ADD_LIBRARY(im2col STATIC src/im2col.c)
-
   IF(XNNPACK_BUILD_LIBRARY)
     # ---[ Build end-to-end microbenchmarks
     ADD_LIBRARY(models STATIC
       bench/models/fp32-attention.cc
+      bench/models/fp32-depthwise-separable.cc
       bench/models/fp32-elementwise.cc
       bench/models/fp32-layer-norm.cc
       bench/models/fp32-mobilenet-v1.cc
@@ -1974,7 +1977,6 @@ IF(XNNPACK_BUILD_BENCHMARKS)
       f32-gemm-goi-minmax
       f32-gemm-minmax
       f32-igemm
-      f32-im2col-gemm
       f32-qc4w-gemm
       f32-qc8w-gemm
       f32-raddexpminusmax
@@ -2032,7 +2034,6 @@ IF(XNNPACK_BUILD_BENCHMARKS)
       benchmark::benchmark
       gemm-benchmark
       hardware-config
-      im2col
       indirection
       logging
       microkernels-all

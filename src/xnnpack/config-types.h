@@ -63,7 +63,7 @@ struct xnn_unary_elementwise_config {
 
 struct xnn_reduce_config {
   xnn_reduce_ukernel_fn ukernel;
-  xnn_rdsum_ukernel_fn rd_ukernel;
+  xnn_reduce_discontiguous_ukernel_fn rd_ukernel;
   xnn_init_reduce_params_fn init;
   xnn_update_reduce_params_fn update;
 };
@@ -107,13 +107,8 @@ struct xnn_dwconv_config {
     xnn_init_f32_minmax_params_fn f32;
   } init;
   // Number of channels in a tile.
-  uint8_t channel_tile;
-  // Number of channels in a subtile. This must be less-than-equal channel_tile. After processing channel_tile, the
-  // remainder is processed in tiles of channel_subtile.
-  uint8_t channel_subtile;
-  // How much to round channels by to get more optimal tiling.
-  uint8_t channel_round;
-  // Number of elements in the tile. For multipass, this is the tile size for first pass.
+  uint32_t channel_tile;
+  // Number of elements in the tile.
   uint8_t primary_tile;
 };
 

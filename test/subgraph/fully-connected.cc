@@ -374,7 +374,7 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid,
       std::swap(filter_shape[0], filter_shape[1]);
     }
     auto filter_gen = MakeDatatypeGenerator(Filter());
-    Tensor<Filter> filter(filter_shape, PaddingBytes{XNN_EXTRA_BYTES});
+    Tensor<Filter> filter(filter_shape, XnnExtraBytes);
     filter.generate([&]() { return filter_gen(rng); });
 
     // (Maybe) make a random bias.
@@ -382,7 +382,7 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid,
     if (rng() & 1) {
       std::vector<size_t> bias_shape = {output_channels};
       DatatypeGenerator<Bias> bias_gen = MakeDatatypeGenerator(Bias());
-      Tensor<Bias> bias(bias_shape, PaddingBytes{XNN_EXTRA_BYTES});
+      Tensor<Bias> bias(bias_shape, XnnExtraBytes);
       bias.generate([&]() { return bias_gen(rng); });
     }
 
@@ -400,7 +400,7 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid,
                                 divide_round_up(input_channels, block_size)});
     if (filter_scale.size() > 1) {
       // Generate random per-channel scales, in the range of the original scale.
-      std::uniform_real_distribution<> filter_scale_dist(
+      std::uniform_real_distribution<float> filter_scale_dist(
           0.001f, filter_quantization.scale);
       filter_scale.generate([&]() { return filter_scale_dist(rng); });
     } else {
@@ -490,7 +490,7 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid,
         output_shape = Reshape2D(output_shape);
       }
 
-      Tensor<Input> input(input_shape, PaddingBytes{XNN_EXTRA_BYTES});
+      Tensor<Input> input(input_shape, XnnExtraBytes);
       input.generate([&]() { return input_gen(rng); });
       if (convert_to != xnn_datatype_invalid) {
         // If we are dynamically quantizing, preprocess the data to have zero
@@ -551,7 +551,8 @@ void TestImpl(xnn_datatype convert_to = xnn_datatype_invalid,
 
 TEST(FullyConnectedQC8, test) { TestImpl<qint8, qcint8, qint32>(); }
 TEST(FullyConnectedQU8, test) { TestImpl<quint8, quint8, qint32>(); }
-TEST(FullyConnectedQS8, test) { TestImpl<qint8, qint8, qint32>(); }
+TEST(FullyConnectedQS8QC8W, test) { TestImpl<qint8, qcint8, qint32>(); }
+TEST(FullyConnectedQS8QC4W, test) { TestImpl<qint8, qcint4, qint32>(); }
 TEST(FullyConnectedF16, test) { TestImpl<xnn_float16, float, float>(); }
 TEST(FullyConnectedF32, test) { TestImpl<float, float, float>(); }
 // TODO(b/407771627): Either add xnn_datatype_qcuint4, or remove F32QC4W.

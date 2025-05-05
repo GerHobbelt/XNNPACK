@@ -41,7 +41,7 @@
 #define XNN_FLAG_SLINKY_ENABLED 0x40000000
 
 /// If Slinky is enabled, disable any scheduling.
-#define XNN_FLAG_SLINKY_SCHEDULE_DISABLED 0x20000000
+#define XNN_FLAG_SLINKY_NO_SCHEDULE 0x20000000
 
 /// If Slinky is enabled, assume shapes are concrete (and rebuild pipeline in
 /// reshape). This makes reshaping more expensive, but may reduce overhead in
@@ -64,9 +64,10 @@ struct slinky_pipeline;
 typedef struct slinky_pipeline* slinky_pipeline_t;
 
 void slinky_init_pipeline(xnn_runtime_t runtime);
-void slinky_setup_inputs_and_outputs(xnn_runtime_t runtime);
+void slinky_setup_pipeline(xnn_runtime_t runtime);
 void slinky_destroy_pipeline(xnn_runtime_t runtime);
-bool slinky_evaluate(xnn_runtime_t runtime, enum xnn_status* status);
+enum xnn_status slinky_reshape_pipeline(xnn_runtime_t runtime);
+enum xnn_status slinky_invoke_pipeline(xnn_runtime_t runtime);
 #endif  // XNN_SLINKY_AVAILABLE
 
 struct xnn_shape {
@@ -343,10 +344,6 @@ struct xnn_node {
       size_t perm[XNN_MAX_TENSOR_DIMS];
       size_t num_dims;
     } transpose;
-    struct {
-      enum xnn_attention_logits_cap_type cap_type;
-      struct xnn_attention_logits_cap_tanh_params cap_tanh_params;
-    } scaled_dot_product_attention;
     union xnn_unary_params unary;
   } params;
   struct {

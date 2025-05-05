@@ -119,13 +119,13 @@ T get_reduce_identity(xnn_reduce_operator op) {
 }
 
 struct PaddingBytes {
-  size_t value;
+  int value;
 };
+
+static constexpr PaddingBytes XnnExtraBytes = {XNN_EXTRA_BYTES};
 
 // This is a container similar to std::vector, but it leaves the memory
 // uninitialized, supports alignment.
-// TODO: It would be good if this also managed padding in a way that allowed
-// the client code to see the unpadded data, and the padding was hidden.
 template <typename T, size_t Alignment = alignof(T)>
 class Buffer {
   static_assert(std::is_trivial<T>::value, "");
@@ -179,7 +179,8 @@ class Buffer {
       : data_(reinterpret_cast<T*>(
             allocate(size * sizeof(T) + extra_bytes.value))),
         size_(size) {}
-  Buffer(size_t size, T value) : Buffer(size) {
+  Buffer(size_t size, T value, PaddingBytes extra_bytes = {0})
+      : Buffer(size, extra_bytes) {
     std::fill(begin(), end(), value);
   }
   Buffer(std::initializer_list<T> init) : Buffer(init.size()) {
@@ -301,6 +302,9 @@ class Tensor {
       if (extents_[i - 1] == 1) {
         // We don't care about the stride of extent 1 dimensions.
         continue;
+      } else if (extents_[i - 1] == 0) {
+        // Tensor is empty, it's contiguous.
+        return true;
       }
       if (strides_[i - 1] != stride) {
         return false;
@@ -439,9 +443,11 @@ class Tensor {
     std::vector<size_t> maxs(rank());
     for (size_t i = 0; i < rank(); ++i) {
       offsets[i] = begins[i] < 0 ? extents_[i] + begins[i] : begins[i];
-      result.extents_[i] =
-          (ends[i] <= 0 ? extents_[i] + ends[i] : ends[i]) - offsets[i];
-      maxs[i] = result.extents_[i] - 1;
+      result.extents_[i] = std::max<int64_t>(
+          0, (ends[i] <= 0 ? static_cast<int64_t>(extents_[i]) + ends[i]
+                           : ends[i]) -
+                 static_cast<int64_t>(offsets[i]));
+      maxs[i] = doz(result.extents_[i], 1);
     }
 
     result.begin_ = begin_ + flat_offset(offsets);
@@ -697,17 +703,21 @@ class Tensor {
   // `indices` corresponds to the last dimension of this tensor. Missing
   // dimensions are treated as stride 0.
   size_t flat_offset(const index_type& indices) const {
+    const size_t rank = this->rank();
+    const size_t indices_rank = indices.size();
+    assert(indices_rank >= rank);
     size_t result = 0;
-    assert(indices.size() >= rank());
-    for (size_t i = 0; i < rank(); ++i) {
-      result += strides_[i] * indices[i + indices.size() - rank()];
+    const size_t* strides = strides_.data();
+    const size_t* indices_offset = indices.data() + indices_rank - rank;
+    for (size_t i = 0; i < rank; ++i) {
+      result += strides[i] * indices_offset[i];
     }
     return result;
   }
 
-  size_t flat_offset_variadic(size_t /*dim0*/) const { return 0; }
+  XNN_INLINE size_t flat_offset_variadic(size_t /*dim0*/) const { return 0; }
 
-  size_t flat_offset_variadic(size_t dim0, size_t idx0) const {
+  XNN_INLINE size_t flat_offset_variadic(size_t dim0, size_t idx0) const {
     if (dim0 > 0) {
       // We need to skip the leading dimensions that are broadcasts.
       return 0;
@@ -718,7 +728,8 @@ class Tensor {
   }
 
   template <typename... Args>
-  size_t flat_offset_variadic(size_t dim0, size_t idx0, Args... idxs) const {
+  XNN_INLINE size_t flat_offset_variadic(size_t dim0, size_t idx0,
+                                         Args... idxs) const {
     if (dim0 > 0) {
       // We need to skip the leading dimensions that are broadcasts.
       return flat_offset_variadic(dim0 - 1, idxs...);

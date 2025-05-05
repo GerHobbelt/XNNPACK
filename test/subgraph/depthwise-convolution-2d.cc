@@ -179,7 +179,7 @@ void TestImpl(bool channelwise_quantization = false) {
         params.input_channels * params.depth_multiplier,
     };
     DatatypeGenerator<Filter> filter_gen = MakeDatatypeGenerator(Filter());
-    Tensor<Filter> filter(filter_shape, PaddingBytes{XNN_EXTRA_BYTES});
+    Tensor<Filter> filter(filter_shape, XnnExtraBytes);
     filter.generate([&]() { return filter_gen(rng); });
 
     // (Maybe) make a random bias.
@@ -188,7 +188,7 @@ void TestImpl(bool channelwise_quantization = false) {
       std::vector<size_t> bias_shape = {params.input_channels *
                                         params.depth_multiplier};
       DatatypeGenerator<Bias> bias_gen = MakeDatatypeGenerator(Bias());
-      Tensor<Bias> bias(bias_shape, PaddingBytes{XNN_EXTRA_BYTES});
+      Tensor<Bias> bias(bias_shape, XnnExtraBytes);
       bias.generate([&]() { return bias_gen(rng); });
     }
 
@@ -203,7 +203,7 @@ void TestImpl(bool channelwise_quantization = false) {
         {channelwise_quantization ? filter.extent(2) : 1});
     if (filter_scale.size() > 1) {
       // Generate random per-channel scales, in the range of the original scale.
-      std::uniform_real_distribution<> filter_scale_dist(
+      std::uniform_real_distribution<float> filter_scale_dist(
           0.001f, filter_quantization.scale);
       filter_scale.generate([&]() { return filter_scale_dist(rng); });
     } else {
@@ -270,7 +270,7 @@ void TestImpl(bool channelwise_quantization = false) {
       };
       output_shape[3] = params.input_channels * params.depth_multiplier;
 
-      Tensor<Data> input(input_shape, PaddingBytes{XNN_EXTRA_BYTES});
+      Tensor<Data> input(input_shape, XnnExtraBytes);
       input.generate([&]() { return data_gen(rng); });
 
       subgraph.ReshapeExternalTensor(input_shape, input.base(), input_id)

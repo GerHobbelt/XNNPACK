@@ -483,7 +483,6 @@ void propagate_rank(
       case xnn_node_type_unary_elementwise:
       case xnn_node_type_convert:
       case xnn_node_type_pack_lh:
-      case xnn_node_type_scaled_dot_product_attention:
       case xnn_node_type_softmax:
       case xnn_node_type_static_transpose:
       case xnn_node_type_static_constant_pad:
@@ -652,7 +651,9 @@ enum xnn_status xnn_create_runtime_v4(
 #endif
   if (use_slinky) {
     #ifdef XNN_SLINKY_AVAILABLE
-    // slinky_init_pipeline(runtime);
+    if ((runtime->flags & XNN_FLAG_SLINKY_CONCRETE_BOUNDS) == 0) {
+      // slinky_init_pipeline(runtime);
+    }
     #else
     xnn_log_warning("Slinky requested but not available");
     #endif
@@ -768,7 +769,8 @@ enum xnn_status xnn_reshape_runtime(
     if ((runtime->flags & XNN_FLAG_SLINKY_CONCRETE_BOUNDS) != 0) {
       // slinky_init_pipeline(runtime);
     }
-    // TODO: Reshape should not necessary when using slinky with symbolic (not concrete) bounds.
+    // slinky_setup_pipeline(runtime);
+    return // slinky_reshape_pipeline(runtime);
     #endif
   }
 
@@ -831,6 +833,13 @@ enum xnn_status xnn_setup_runtime(
     value->data = external_value->data;
   }
 
+  #ifdef XNN_SLINKY_AVAILABLE
+  if (runtime->slinky_pipeline) {
+    // slinky_setup_pipeline(runtime);
+    return // slinky_reshape_pipeline(runtime);
+  }
+  #endif
+
   for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
     struct xnn_operator_data* opdata = &runtime->opdata[opdata_id];
     for (size_t j = 0; j < XNN_MAX_OPERATOR_OBJECTS; j++) {
@@ -848,7 +857,11 @@ enum xnn_status xnn_setup_runtime(
     }
   }
 
-  enum xnn_status status = status = xnn_plan_memory(runtime);
+  enum xnn_status status = xnn_plan_memory(runtime);
+  if (status != xnn_status_success) {
+    xnn_log_error("failed to setup runtime: error in planning memory");
+    return status;
+  }
   runtime->memory_planned = true;
 
   for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
@@ -867,10 +880,6 @@ enum xnn_status xnn_setup_runtime(
       }
     }
   }
-
-  #ifdef XNN_SLINKY_AVAILABLE
-  // slinky_setup_inputs_and_outputs(runtime);
-  #endif
 
   runtime->has_been_setup = true;
 
@@ -909,7 +918,10 @@ enum xnn_status xnn_setup_runtime_v2(
   }
 
   #ifdef XNN_SLINKY_AVAILABLE
-  // slinky_setup_inputs_and_outputs(runtime);
+  if (runtime->slinky_pipeline) {
+    // slinky_setup_pipeline(runtime);
+    return xnn_status_success;
+  }
   #endif
 
   for (uint32_t opdata_id = 0; opdata_id < runtime->num_ops; opdata_id++) {
@@ -1084,8 +1096,9 @@ enum xnn_status xnn_invoke_runtime(
   xnn_runtime_t runtime)
 {
   #ifdef XNN_SLINKY_AVAILABLE
-  enum xnn_status status;
-  // if (slinky_evaluate(runtime, &status)) return status;
+  if (runtime->slinky_pipeline) {
+    return // slinky_invoke_pipeline(runtime);
+  }
   #endif
 
   if (runtime->profiling) {

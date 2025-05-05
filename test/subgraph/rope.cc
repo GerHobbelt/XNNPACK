@@ -5,6 +5,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdlib>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -43,7 +44,7 @@ Tensor<T> ReferenceImpl(Tensor<T> x, Tensor<T> w) {
 }
 
 template <typename T>
-void TestImpl() {
+void FuseAndSplit() {
   ReplicableRandomDevice rng;
 
   ASSERT_EQ(xnn_status_success, xnn_initialize(nullptr /* allocator */));
@@ -98,12 +99,13 @@ void TestImpl() {
     // Verify results.
     const float tolerance = 2.0f * xnnpack::epsilon(xnn_datatype_of<T>());
     for (const auto& i : EnumerateIndices(output.extents())) {
-      ASSERT_NEAR(output(i), expected(i), tolerance * std::abs(expected(i)));
+      ASSERT_NEAR(output(i), expected(i),
+                  tolerance * std::abs(static_cast<float>(expected(i))));
     }
   }
 }
 
-TEST(RoPEF16, test) { TestImpl<xnn_float16>(); }
-TEST(RoPEF32, test) { TestImpl<float>(); }
+TEST(RoPEF16, test) { FuseAndSplit<xnn_float16>(); }
+TEST(RoPEF32, test) { FuseAndSplit<float>(); }
 
 }  // namespace xnnpack

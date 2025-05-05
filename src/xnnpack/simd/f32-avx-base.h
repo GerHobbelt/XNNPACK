@@ -41,14 +41,10 @@ typedef __m256 xnn_simd_f32_t;
 #define XNN_SIMD_CONST_F32_FROM_INT32(var, val) \
   const xnn_simd_f32_t var = _mm256_castsi256_ps(_mm256_set1_epi32(val));
 
-// Include the header for generic functions _after_ declaring the arch-specific
-// types and sizes.
-#include "src/xnnpack/simd/f32-generic-functions.h"
 
 // Mask table used for masked load/store operations.
 static const int32_t mask_table_avx_f32[14] = {-1, -1, -1, -1, -1, -1, -1,
                                                0,  0,  0,  0,  0,  0,  0};
-
 // Arithmetic operations.
 static XNN_INLINE xnn_simd_f32_t xnn_zero_f32() { return _mm256_setzero_ps(); }
 
@@ -124,10 +120,6 @@ static XNN_INLINE xnn_simd_f32_t xnn_rsqrt_f32(xnn_simd_f32_t a) {
   return _mm256_rsqrt_ps(a);
 }
 
-static XNN_INLINE xnn_simd_f32_t xnn_getexp_f32(xnn_simd_f32_t a) {
-  return xnn_generic_getexp_f32(a);
-}
-
 // Load/store operations.
 static XNN_INLINE xnn_simd_f32_t xnn_loadu_f32(const float* ptr) {
   return _mm256_loadu_ps(ptr);
@@ -147,10 +139,6 @@ static XNN_INLINE void xnn_store_f32(float* ptr, xnn_simd_f32_t v) {
 
 static XNN_INLINE xnn_simd_f32_t xnn_set1_f32(float v) {
   return _mm256_set1_ps(v);
-}
-
-static XNN_INLINE xnn_simd_f32_t xnn_set1_or_load_f32(const float* v) {
-  return _mm256_set1_ps(*v);
 }
 
 // Tail load/store operations.

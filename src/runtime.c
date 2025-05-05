@@ -464,6 +464,8 @@ void propagate_rank(
       case xnn_node_type_global_sum_pooling_1d:
       case xnn_node_type_global_sum_pooling_2d:
       case xnn_node_type_static_mean:
+      case xnn_node_type_static_reduce_max:
+      case xnn_node_type_static_reduce_min:
       case xnn_node_type_static_sum:
         if (flags & XNN_FLAG_KEEP_DIMS) {
           output_value->shape.num_dims = input_value->shape.num_dims;
@@ -501,6 +503,16 @@ void propagate_rank(
         break;
       case xnn_node_type_static_reshape:
         output_value->shape.num_dims = node->params.static_reshape.new_shape.num_dims;
+        break;
+      case xnn_node_type_fuse_dims:
+        output_value->shape.num_dims =
+            input_value->shape.num_dims -
+            node->params.static_reshape.new_shape.num_dims + 1;
+        break;
+      case xnn_node_type_split_dims:
+        output_value->shape.num_dims =
+            input_value->shape.num_dims +
+            node->params.static_reshape.new_shape.num_dims - 1;
         break;
       default:
         XNN_UNREACHABLE;

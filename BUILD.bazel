@@ -88,6 +88,7 @@ MICROKERNEL_DEFS = [
     "src/f16-vbinary/f16-vsub.h",
     "src/f16-vbinary/f16-vsubc.h",
     "src/f16-vclamp/f16-vclamp.h",
+    "src/f16-vcos/f16-vcos.h",
     "src/f16-velu/f16-velu.h",
     "src/f16-vgelu/f16-vgelu.h",
     "src/f16-vhswish/f16-vhswish.h",
@@ -100,10 +101,12 @@ MICROKERNEL_DEFS = [
     "src/f16-vrnd/f16-vrndz.h",
     "src/f16-vrsqrt/f16-vrsqrt.h",
     "src/f16-vsigmoid/f16-vsigmoid.h",
+    "src/f16-vsin/f16-vsin.h",
     "src/f16-vsqr/f16-vsqr.h",
     "src/f16-vsqrt/f16-vsqrt.h",
     "src/f16-vtanh/f16-vtanh.h",
     "src/f32-avgpool/f32-avgpool-minmax.h",
+    "src/f32-conv-hwc/f32-conv-hwc.h",
     "src/f32-dwconv/f32-dwconv-minmax.h",
     "src/f32-dwconv/f32-dwconv.h",
     "src/f32-f16-vcvt/f32-f16-vcvt.h",
@@ -137,6 +140,7 @@ MICROKERNEL_DEFS = [
     "src/f32-vbinary/f32-vsub.h",
     "src/f32-vbinary/f32-vsubc.h",
     "src/f32-vclamp/f32-vclamp.h",
+    "src/f32-vcos/f32-vcos.h",
     "src/f32-velu/f32-velu.h",
     "src/f32-vexp/f32-vexp.h",
     "src/f32-vgelu/f32-vgelu.h",
@@ -256,9 +260,7 @@ MICROKERNEL_DEPS = [
 ]
 
 SIMD_HEADERS = [
-    "src/xnnpack/simd/f16-generic-functions.h",
     "src/xnnpack/simd/f32-avx-base.h",
-    "src/xnnpack/simd/f32-generic-functions.h",
 ] + [
     "src/xnnpack/simd/f32-" + arch + ".h"
     for arch in xnnpack_simd_f32_archs()
@@ -585,6 +587,7 @@ xnnpack_cc_library(
     gcc_copts = [],
     deps = [
         ":common",
+        ":init_once",
         ":logging",
         ":math",
         ":xnnpack_h",
@@ -920,6 +923,7 @@ xnnpack_cc_library(
         ":common",
         ":logging",
         ":math",
+        ":node_type",
         ":operator_h",
         ":operator_type",
         ":params",
@@ -991,6 +995,7 @@ xnnpack_cc_library(
         ":microkernel_utils",
         ":microkernels_h",
         ":microparams_init",
+        ":node_type",
         ":normalization",
         ":operator_type",
         ":operator_utils",

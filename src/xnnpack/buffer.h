@@ -37,6 +37,12 @@ class NumericLimits {
   static constexpr T infinity() { return std::numeric_limits<T>::infinity(); }
   static constexpr T min() { return std::numeric_limits<T>::lowest(); }
   static constexpr T max() { return std::numeric_limits<T>::max(); }
+  static constexpr T smallest_normal() { return std::numeric_limits<T>::min(); }
+
+  // These are the identity values (values such that f(x, identity) = x) for a
+  // min or max operation.
+  static constexpr T min_identity() { return infinity(); }
+  static constexpr T max_identity() { return -infinity(); }
 };
 
 template <>
@@ -48,6 +54,11 @@ class NumericLimits<xnn_float16> {
   static xnn_float16 infinity() { return xnn_float16_from_bits(0x7c00); }
   static xnn_float16 min() { return xnn_float16_from_bits(0xfbff); }
   static xnn_float16 max() { return xnn_float16_from_bits(0x7bff); }
+  static xnn_float16 smallest_normal() {
+    return xnn_float16_from_bits(0x0400);  // 2^-14
+  }
+  static xnn_float16 min_identity() { return infinity(); }
+  static xnn_float16 max_identity() { return -infinity(); }
 };
 
 template <>
@@ -59,6 +70,11 @@ class NumericLimits<xnn_bfloat16> {
   static xnn_bfloat16 infinity() { return xnn_bfloat16_from_bits(0x7f80); }
   static xnn_bfloat16 min() { return xnn_bfloat16_from_bits(0xff7f); }
   static xnn_bfloat16 max() { return xnn_bfloat16_from_bits(0x7f7f); }
+  static xnn_bfloat16 smallest_normal() {
+    return xnn_bfloat16_from_bits(0x0080);  // 2^-126
+  }
+  static xnn_bfloat16 min_identity() { return infinity(); }
+  static xnn_bfloat16 max_identity() { return -infinity(); }
 };
 
 template <typename T>
@@ -70,6 +86,9 @@ class NumericLimits<quantized<T>> {
   static quantized<T> max() {
     return {std::numeric_limits<T>::max()};
   }
+  static quantized<T> smallest_normal() { return {0}; }
+  static quantized<T> min_identity() { return max(); }
+  static quantized<T> max_identity() { return min(); }
 };
 
 inline float epsilon(xnn_datatype datatype) {
@@ -79,6 +98,23 @@ inline float epsilon(xnn_datatype datatype) {
     case xnn_datatype_bf16: return NumericLimits<xnn_bfloat16>::epsilon();
     default: return 1.0f;
   }
+}
+
+template <typename T>
+T get_reduce_identity(xnn_reduce_operator op) {
+  switch (op) {
+    case xnn_reduce_sum:
+    case xnn_reduce_mean:
+      return 0;
+    case xnn_reduce_max:
+      return NumericLimits<T>::max_identity();
+    case xnn_reduce_min:
+      return NumericLimits<T>::min_identity();
+    case xnn_reduce_invalid:
+      break;
+  }
+  XNN_UNREACHABLE;
+  return 0;
 }
 
 struct PaddingBytes {
@@ -274,6 +310,7 @@ class Tensor {
   }
 
   const index_type& extents() const { return extents_; }
+  const index_type& shape() const { return extents_; }
   const index_type& strides() const { return strides_; }
   size_t extent(size_t dim) const { return extents_[dim]; }
   size_t stride(size_t dim) const { return strides_[dim]; }
@@ -284,12 +321,12 @@ class Tensor {
     strides_ = std::move(strides);
   }
 
-  size_t rank() const { return extents_.size(); }
-  bool empty() const { return begin_ >= end_; }
+  XNN_INLINE size_t rank() const { return extents_.size(); }
+  XNN_INLINE bool empty() const { return begin_ >= end_; }
 
   // Returns a pointer to the element {0,...}
-  T* base() { return begin_; }
-  const T* base() const { return begin_; }
+  XNN_INLINE T* base() { return begin_; }
+  XNN_INLINE const T* base() const { return begin_; }
 
   // Form a reference to an element at a particular index.
   T& operator()(const index_type& indices) {
@@ -301,11 +338,13 @@ class Tensor {
 
   template <typename... Args>
   T& operator()(Args... args) {
-    return operator()(index_type{static_cast<size_t>(args)...});
+    assert(sizeof...(args) >= rank());
+    return *(begin_ + flat_offset_variadic(sizeof...(args) - rank(), args...));
   }
   template <typename... Args>
   const T& operator()(Args... args) const {
-    return operator()(index_type{static_cast<size_t>(args)...});
+    assert(sizeof...(args) >= rank());
+    return *(begin_ + flat_offset_variadic(sizeof...(args) - rank(), args...));
   }
 
   // The following functions produce iterators or accessors to the "flat" array
@@ -437,9 +476,75 @@ class Tensor {
     return result;
   }
 
+  // Add `pre` indices before, `post` indices after, of padding of `value` to the tensor.
+  Tensor<T, Alignment> pad(T value, const index_type& pre,
+                           const index_type& post) const {
+    assert(rank() == pre.size());
+    assert(rank() == post.size());
+
+    std::vector<size_t> extents = extents_;
+    for (size_t i = 0; i < rank(); ++i) {
+      extents[i] += pre[i] + post[i];
+    }
+
+    Tensor<T, Alignment> result(extents);
+    result.fill(value);
+    result.crop_padding(pre, post).assign(*this);
+    return result;
+  }
+
+  // Similar to the above, but repeats the edge value of the tensor instead of
+  // padding with a constant value.
+  Tensor<T, Alignment> pad(const index_type& pre,
+                           const index_type& post) const {
+    assert(rank() == pre.size());
+    assert(rank() == post.size());
+
+    std::vector<size_t> extents = extents_;
+    for (size_t i = 0; i < rank(); ++i) {
+      extents[i] += pre[i] + post[i];
+    }
+
+    Tensor<T, Alignment> result(extents);
+    result.crop_padding(pre, post).assign(*this);
+    // Implementing "repeat edge" is tricky. For each dimension, we need to
+    // slice the padding in that dimension, and copy from the edge of the valid
+    // data. This starts by copying junk padding from the result, but each
+    // dimension fills in more of this junk data (the regions in the "corners"
+    // gets copied more than once).
+    for (size_t dim = 0; dim < rank(); ++dim) {
+      int64_t valid_begin = pre[dim];
+      int64_t valid_end = valid_begin + extents_[dim];
+      // Make a broadcasting set of strides in this dimension.
+      std::vector<size_t> strides = result.strides();
+      strides[dim] = 0;
+
+      if (pre[dim] != 0) {
+        // Copy the pre-padding.
+        Tensor<T, Alignment> valid_pre =
+            result.slice(dim, valid_begin, valid_begin + 1);
+        valid_pre.set_shape(valid_pre.extents(), strides);
+        Tensor<T, Alignment> padding = result.slice(dim, 0, valid_begin);
+        padding.assign(valid_pre);
+      }
+
+      if (post[dim] != 0) {
+        // Copy the post padding.
+        Tensor<T, Alignment> valid_post =
+            result.slice(dim, valid_end - 1, valid_end);
+        valid_post.set_shape(valid_post.extents(), strides);
+        result.slice(dim, valid_end, 0).assign(valid_post);
+      }
+    }
+    return result;
+  }
+
   // Copy the contents from other to this. The extents must match.
   void assign(const Tensor<T, Alignment>& other) {
-    assert(extents_ == other.extents_);
+    assert(rank() == other.rank());
+    for (size_t i = 0; i < rank(); ++i) {
+      assert(other.stride(i) == 0 || other.extent(i) == extent(i));
+    }
     copy_impl(rank(), extents_.data(), other.strides_.data(), other.base(),
               strides_.data(), base());
   }
@@ -523,6 +628,40 @@ class Tensor {
       result += strides_[i] * indices[i + indices.size() - rank()];
     }
     return result;
+  }
+
+  size_t flat_offset_variadic(size_t dim0, size_t idx0) {
+    if (dim0 > 0) {
+      // We need to skip the leading dimensions that are broadcasts.
+      return 0;
+    } else {
+      // We now have as many indices as there are dimensions.
+      return flat_offset_no_broadcast(strides_.data(), idx0);
+    }
+  }
+
+  template <typename... Args>
+  size_t flat_offset_variadic(size_t dim0, size_t idx0, Args... idxs) {
+    if (dim0 > 0) {
+      // We need to skip the leading dimensions that are broadcasts.
+      return flat_offset_variadic(dim0 - 1, idxs...);
+    } else {
+      // We now have as many indices as there are dimensions.
+      return flat_offset_no_broadcast(strides_.data(), idx0, idxs...);
+    }
+  }
+
+  XNN_INLINE size_t flat_offset_no_broadcast(const size_t* strides) const {
+    return 0;
+  }
+  XNN_INLINE size_t flat_offset_no_broadcast(const size_t* strides,
+                                             size_t idx0) {
+    return *strides * idx0;
+  }
+  template <typename... Args>
+  XNN_INLINE size_t flat_offset_no_broadcast(const size_t* strides, size_t idx0,
+                                             Args... idxs) {
+    return *strides * idx0 + flat_offset_no_broadcast(strides + 1, idxs...);
   }
 
   index_type extents_;
@@ -622,23 +761,43 @@ float dequantize(T x, xnn_quantization_params params) {
 template <typename T>
 class DatatypeGenerator {
   std::uniform_real_distribution<float> dist_;
+  bool reinterpret_ = false;
 
  public:
-  DatatypeGenerator(float min, float max, const xnn_quantization_params& = {})
-      : dist_(std::max<float>(min, NumericLimits<T>::min()),
-              std::min<float>(max, NumericLimits<T>::max())) {}
-  explicit DatatypeGenerator(const xnn_quantization_params& = {})
-      : dist_(NumericLimits<T>::min(), NumericLimits<T>::max()) {}
+  DatatypeGenerator(float min, float max, const xnn_quantization_params& = {}) {
+    if (min <= NumericLimits<T>::min() && max >= NumericLimits<T>::max()) {
+      // The caller wants a full range of random value. Rather than generate
+      // floats uniformly distributed across the range of floats, where a
+      // negligible fraction of the range contains the "interesting" region near
+      // 0, we generate random bits reinterpreted as a float instead. This
+      // distribution more accurately reflects the numbers we want to test in
+      // typical code.
+      reinterpret_ = true;
+    } else {
+      reinterpret_ = false;
+      dist_ = std::uniform_real_distribution<float>(min, max);
+    }
+  }
+  DatatypeGenerator(const xnn_quantization_params& = {})
+      : DatatypeGenerator(NumericLimits<T>::min(), NumericLimits<T>::max()) {}
 
   template <typename Rng>
   T operator()(Rng& rng) {
-    while (true) {
-      float result = dist_(rng);
-      if (!std::isnan(result)) {
-        return static_cast<T>(result);
+    if (reinterpret_) {
+      static_assert(Rng::min() == 0, "");
+      static_assert(Rng::max() >= (1ull << (sizeof(T) * 8)) - 1, "");
+      auto bits = rng();
+      T result;
+      memcpy(&result, &bits, sizeof(T));
+      if (std::abs(static_cast<float>(result)) >
+          NumericLimits<T>::smallest_normal()) {
+        return result;
       } else {
-        // Don't allow generating NaN
+        // Flush denormals (and NaN) to 0.
+        return static_cast<T>(0.0f);
       }
+    } else {
+      return dist_(rng);
     }
   }
 };

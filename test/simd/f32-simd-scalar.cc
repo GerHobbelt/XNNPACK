@@ -11,7 +11,6 @@
 
 
 #include <algorithm>
-#include <bit>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -209,8 +208,7 @@ TEST_F(F32SimdSCALARTest, Round) {
     const xnn_simd_f32_t a = xnn_loadu_f32(inputs_.data());
     const xnn_simd_f32_t res = xnn_round_f32(a);
     xnn_storeu_f32(output_.data(), res);
-    ASSERT_EQ(std::bit_cast<uint32_t>(output_[0]),
-              std::bit_cast<uint32_t>(std::round(val)));
+    ASSERT_THAT(output_[0], testing::NanSensitiveFloatEq(std::round(val)));
   }
 }
 
@@ -932,15 +930,6 @@ TEST_F(F32SimdSCALARTest, CmpEq) {
   for (size_t k = 0; k < xnn_simd_size_f32; k++) {
     ASSERT_EQ(*(uint32_t *)&output_[k],
               inputs_[k] == inputs_[k + xnn_simd_size_f32] ? 0xFFFFFFFF : 0);
-  }
-}
-
-TEST_F(F32SimdSCALARTest, GetExp) {
-  const xnn_simd_f32_t a = xnn_loadu_f32(inputs_.data());
-  const xnn_simd_f32_t res = xnn_getexp_f32(a);
-  xnn_storeu_f32(output_.data(), res);
-  for (size_t k = 0; k < xnn_simd_size_f32; k++) {
-    ASSERT_EQ(output_[k], std::logb(inputs_[k]));
   }
 }
 

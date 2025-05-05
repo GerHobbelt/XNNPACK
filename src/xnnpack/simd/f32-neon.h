@@ -50,10 +50,6 @@ typedef float32x4_t xnn_simd_f32_t;
 #define xnn_sra_f32(a, bits) \
   vreinterpretq_f32_s32(vshrq_n_s32(vreinterpretq_s32_f32(a), bits))
 
-// Include the header for generic functions _after_ declaring the arch-specific
-// types and sizes.
-#include "src/xnnpack/simd/f32-generic-functions.h"
-
 // Arithmetic operations.
 static XNN_INLINE xnn_simd_f32_t xnn_zero_f32() { return vdupq_n_f32(0.f); }
 
@@ -176,7 +172,7 @@ static XNN_INLINE xnn_simd_f32_t xnn_round_f32(xnn_simd_f32_t a) {
   const xnn_simd_f32_t vresult =
       vcvtq_f32_s32(vcvtq_s32_f32(xnn_add_f32(a, vsigned_half)));
 
-  // Apply the non-finite value filter to repace any non-finite input with `a`.
+  // Apply the non-finite value filter to replace any non-finite input with `a`.
   return xnn_or_f32(xnn_and_f32(xnn_not_f32(vfilter), vresult),
                     xnn_and_f32(vfilter, a));
 #else
@@ -195,10 +191,6 @@ static XNN_INLINE xnn_simd_f32_t xnn_rcp_f32(xnn_simd_f32_t a) {
 #define XNN_SIMD_NUM_RSQRT_ITER_F32 2
 static XNN_INLINE xnn_simd_f32_t xnn_rsqrt_f32(xnn_simd_f32_t a) {
   return vrsqrteq_f32(a);
-}
-
-static XNN_INLINE xnn_simd_f32_t xnn_getexp_f32(xnn_simd_f32_t a) {
-  return xnn_generic_getexp_f32(a);
 }
 
 // Load/store operations.
@@ -220,10 +212,6 @@ static XNN_INLINE void xnn_store_f32(float* ptr, xnn_simd_f32_t v) {
 
 static XNN_INLINE xnn_simd_f32_t xnn_set1_f32(float v) {
   return vld1q_dup_f32(&v);
-}
-
-static XNN_INLINE xnn_simd_f32_t xnn_set1_or_load_f32(const float* v) {
-  return vld1q_dup_f32(v);
 }
 
 // Tail load/store operations.

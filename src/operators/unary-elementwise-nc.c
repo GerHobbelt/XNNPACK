@@ -149,6 +149,8 @@ static const struct xnn_unary_elementwise_config* get_config(
         return xnn_init_f16_rndu_config();
       case xnn_unary_clamp:
         return xnn_init_f16_clamp_config();
+      case xnn_unary_cosine:
+        return xnn_init_f16_cosine_config();
       case xnn_unary_elu:
         return xnn_init_f16_elu_config();
       case xnn_unary_gelu:
@@ -165,6 +167,8 @@ static const struct xnn_unary_elementwise_config* get_config(
         return xnn_init_f16_rsqrt_config();
       case xnn_unary_sigmoid:
         return xnn_init_f16_sigmoid_config();
+      case xnn_unary_sine:
+        return xnn_init_f16_sine_config();
       case xnn_unary_square_root:
         return xnn_init_f16_sqrt_config();
       case xnn_unary_square:
@@ -186,6 +190,8 @@ static const struct xnn_unary_elementwise_config* get_config(
         return xnn_init_f32_rndu_config();
       case xnn_unary_clamp:
         return xnn_init_f32_clamp_config();
+      case xnn_unary_cosine:
+        return xnn_init_f32_cosine_config();
       case xnn_unary_elu:
         return xnn_init_f32_elu_config();
       case xnn_unary_exp:
@@ -206,6 +212,8 @@ static const struct xnn_unary_elementwise_config* get_config(
         return xnn_init_f32_rsqrt_config();
       case xnn_unary_sigmoid:
         return xnn_init_f32_sigmoid_config();
+      case xnn_unary_sine:
+        return xnn_init_f32_sine_config();
       case xnn_unary_square_root:
         return xnn_init_f32_sqrt_config();
       case xnn_unary_square:
@@ -745,7 +753,7 @@ enum xnn_status create_convert_nc_f16_qx8(
     &params, sizeof(params),
     expected_operator_type, convert_op_out);
   if (status == xnn_status_success) {
-    (*convert_op_out)->rminmax_config = f16_rminmax_config;
+    (*convert_op_out)->contiguous_reduce_config = f16_rminmax_config;
   }
   return status;
 }
@@ -771,7 +779,7 @@ enum xnn_status create_convert_nc_f32_qx8(
     &params, sizeof(params),
     expected_operator_type, convert_op_out);
   if (status == xnn_status_success) {
-    (*convert_op_out)->rminmax_config = f32_rminmax_config;
+    (*convert_op_out)->contiguous_reduce_config = f32_rminmax_config;
   }
   return status;
 }
@@ -819,7 +827,7 @@ enum xnn_status xnn_create_convert_nc_f32_qp8(
     &params, sizeof(params),
     xnn_operator_type_convert_nc_f32_qp8, convert_op_out);
   if (status == xnn_status_success) {
-    (*convert_op_out)->rminmax_config = f32_rminmax_config;
+    (*convert_op_out)->contiguous_reduce_config = f32_rminmax_config;
     (*convert_op_out)->gemm_config = gemm_config;
   }
   return status;
@@ -886,7 +894,7 @@ enum xnn_status reshape_convert_nc_f16_qx8(
     .x_stride = input_stride * sizeof(uint16_t),
     .y_stride = output_stride,
     .batch_size = batch_size,
-    .rminmax_ukernel = convert_op->rminmax_config->ukernel,
+    .rminmax_ukernel = convert_op->contiguous_reduce_config->ukernel,
     .convert_ukernel = convert_op->unary_elementwise_config->ukernel,
     .init_params = convert_op->unary_elementwise_config->init,
   };
@@ -946,7 +954,7 @@ enum xnn_status reshape_convert_nc_f32_qx8(
     .x_stride = input_stride * sizeof(float),
     .y_stride = output_stride,
     .batch_size = batch_size,
-    .rminmax_ukernel = convert_op->rminmax_config->ukernel,
+    .rminmax_ukernel = convert_op->contiguous_reduce_config->ukernel,
     .convert_ukernel = convert_op->unary_elementwise_config->ukernel,
     .init_params = convert_op->unary_elementwise_config->init,
   };

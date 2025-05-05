@@ -16,7 +16,9 @@
 #include <gtest/gtest.h>
 #include "include/xnnpack.h"
 #include "src/xnnpack/buffer.h"
+#include "src/xnnpack/common.h"
 #include "src/xnnpack/datatype.h"
+#include "src/xnnpack/math.h"
 #include "src/xnnpack/operator-utils.h"
 #include "src/xnnpack/reference-utils.h"
 #include "test/replicable_random_device.h"
@@ -100,6 +102,9 @@ void TestImpl(size_t rank, xnn_unary_operator op) {
     Tensor<In> input(shape, {XNN_EXTRA_BYTES});
     Tensor<Out> output(shape);
 
+    // TODO(b/397863125): This is a workaround for intrinsics unhandled by msan.
+    std::fill_n(input.data(), input.size() + XNN_EXTRA_BYTES/sizeof(In), 0);
+
     DatatypeGenerator<In> gen(domain.min, domain.max, input_quantization);
     input.generate([&]() { return gen(rng); });
 
@@ -149,10 +154,20 @@ void TestImpl(size_t rank, xnn_unary_operator op) {
             input_i, params);
         // Force overflow to infinity if that is what should happen.
         expected = static_cast<float>(static_cast<Out>(expected));
-        ASSERT_NEAR(expected, output(i),
-                    op_info->Tolerance(expected, datatype_out))
-            << "i = " << index_to_string(i) << ", input(i) = " << input_i
-            << " (" << static_cast<float>(input(i)) << ")";
+        if (std::abs(expected) < NumericLimits<Out>::smallest_normal()) {
+          // Flush denormals to 0
+          expected = 0.0f;
+        }
+        if (op_info->IsInSupportedRange(expected)) {
+          if (std::isnan(static_cast<float>(expected))) {
+            ASSERT_TRUE(std::isnan(static_cast<float>(output(i))));
+          } else {
+            ASSERT_NEAR(expected, output(i),
+                        op_info->Tolerance(expected, datatype_out))
+                << "i = " << index_to_string(i) << ", input(i) = " << input_i
+                << " (" << static_cast<float>(input(i)) << ")";
+          }
+        }
       }
     }
   }

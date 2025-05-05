@@ -135,25 +135,28 @@ tools/generate-vbinary-test.py --tester VBinaryMicrokernelTester --broadcast_b -
 tools/generate-vbinary-test.py --tester VBinaryMicrokernelTester --broadcast_b --ukernel qu8-vmulc-minmax-rndnu --output test/qu8-vmulc-minmax-rndnu.cc &
 
 ### Tests for VUnary micro-kernels
+tools/generate-vunary-test.py --ukernel f16-vabs --output test/f16-vabs.cc &
 tools/generate-vunary-test.py --ukernel f16-vapproxgelu --output test/f16-vapproxgelu.cc &
 tools/generate-vunary-test.py --ukernel f16-vclamp --output test/f16-vclamp.cc &
+tools/generate-vunary-test.py --ukernel f16-vcos --output test/f16-vcos.cc &
 tools/generate-vunary-test.py --ukernel f16-velu --output test/f16-velu.cc &
 tools/generate-vunary-test.py --ukernel f16-vgelu --output test/f16-vgelu.cc &
-tools/generate-vunary-test.py --ukernel f16-vabs --output test/f16-vabs.cc &
 tools/generate-vunary-test.py --ukernel f16-vneg --output test/f16-vneg.cc &
-tools/generate-vunary-test.py --ukernel f16-vsqr --output test/f16-vsqr.cc &
-tools/generate-vunary-test.py --ukernel f16-vrndne --output test/f16-vrndne.cc &
-tools/generate-vunary-test.py --ukernel f16-vrndz  --output test/f16-vrndz.cc &
-tools/generate-vunary-test.py --ukernel f16-vrndu  --output test/f16-vrndu.cc &
 tools/generate-vunary-test.py --ukernel f16-vrndd  --output test/f16-vrndd.cc &
+tools/generate-vunary-test.py --ukernel f16-vrndne --output test/f16-vrndne.cc &
+tools/generate-vunary-test.py --ukernel f16-vrndu  --output test/f16-vrndu.cc &
+tools/generate-vunary-test.py --ukernel f16-vrndz  --output test/f16-vrndz.cc &
 tools/generate-vunary-test.py --ukernel f16-vrsqrt --output test/f16-vrsqrt.cc &
 tools/generate-vunary-test.py --ukernel f16-vsigmoid --output test/f16-vsigmoid.cc &
+tools/generate-vunary-test.py --ukernel f16-vsin --output test/f16-vsin.cc &
+tools/generate-vunary-test.py --ukernel f16-vsqr --output test/f16-vsqr.cc &
 tools/generate-vunary-test.py --ukernel f16-vsqrt --output test/f16-vsqrt.cc &
 tools/generate-vunary-test.py --ukernel f16-vtanh --output test/f16-vtanh.cc &
 
 tools/generate-vunary-test.py --ukernel f32-vabs --output test/f32-vabs.cc &
 tools/generate-vunary-test.py --ukernel f32-vapproxgelu --output test/f32-vapproxgelu.cc &
 tools/generate-vunary-test.py --ukernel f32-vclamp --output test/f32-vclamp.cc &
+tools/generate-vunary-test.py --ukernel f32-vcos --output test/f32-vcos.cc &
 tools/generate-vunary-test.py --ukernel f32-velu --output test/f32-velu.cc &
 tools/generate-vunary-test.py --ukernel f32-vgelu --output test/f32-vgelu.cc &
 tools/generate-vunary-test.py --ukernel f32-vexp --output test/f32-vexp.cc &
@@ -219,9 +222,6 @@ tools/generate-reduce-discontiguous-test.py --tester ReduceMicrokernelTester --s
 ### Tests for LUT micro-kernels
 tools/generate-lut-test.py --spec test/x8-lut.yaml --output test/x8-lut.cc &
 
-### Tests for Conv HWC layout micro-kernels
-tools/generate-conv-hwc-test.py --spec test/f32-conv-hwc.yaml --output test/f32-conv-hwc.cc &
-
 ### Tests for Conv HWC2CHW layout micro-kernels
 tools/generate-conv-hwc2chw-test.py --spec test/f16-conv-hwc2chw.yaml --output test/f16-conv-hwc2chw.cc &
 tools/generate-conv-hwc2chw-test.py --spec test/f32-conv-hwc2chw.yaml --output test/f32-conv-hwc2chw.cc &
@@ -277,6 +277,7 @@ tools/xngen test/simd/f32-simd.cc.in -D ARCH=hvx -D ARCH_MACRO=XNN_ARCH_HEXAGON 
 
 tools/xngen test/simd/f16-simd.cc.in -D ARCH=scalar -D ARCH_MACRO="" -D TEST_REQUIRES="" -o test/simd/f16-simd-scalar.cc &
 tools/xngen test/simd/f16-simd.cc.in -D ARCH=neonfp16arith -D ARCH_MACRO=XNN_ARCH_ARM64 -D TEST_REQUIRES=TEST_REQUIRES_ARM_FP16_ARITH -o test/simd/f16-simd-neonfp16arith.cc &
+tools/xngen test/simd/f16-simd.cc.in -D ARCH=avx512fp16 -D ARCH_MACRO="XNN_ARCH_X86 || XNN_ARCH_X86_64" -D TEST_REQUIRES=TEST_REQUIRES_X86_AVX512FP16 -o test/simd/f16-simd-avx512fp16.cc &
 
 tools/xngen test/simd/s16-simd.cc.in -D ARCH=scalar -D ARCH_MACRO="" -D TEST_REQUIRES="" -o test/simd/s16-simd-scalar.cc &
 tools/xngen test/simd/s16-simd.cc.in -D ARCH=neon -D ARCH_MACRO="XNN_ARCH_ARM || XNN_ARCH_ARM64" -D TEST_REQUIRES=TEST_REQUIRES_ARM_NEON -o test/simd/s16-simd-neon.cc &

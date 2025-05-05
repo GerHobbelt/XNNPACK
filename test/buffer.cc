@@ -1,6 +1,7 @@
 #include "src/xnnpack/buffer.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 
 #include <gmock/gmock.h>
@@ -107,6 +108,84 @@ TEST(EnumerateIndices, Rank4) {
     }
     ASSERT_THAT(EnumerateIndices(extents), testing::ElementsAreArray(expected));
   } while (std::next_permutation(extents.begin(), extents.end()));
+}
+
+TEST(DatatypeGenerator, Float) {
+  ReplicableRandomDevice rng;
+
+  int inf_count = 0;
+  constexpr int kSamples = 1000000;
+  DatatypeGenerator<float> gen;
+  for (int i = 0; i < kSamples; ++i) {
+    float x = gen(rng);
+    if (std::isinf(x)) ++inf_count;
+  }
+  // Don't allow more than 0.1% of samples to be infinity.
+  ASSERT_LT(inf_count, kSamples / 1000);
+}
+
+TEST(Pad, RepeatEdge1D) {
+  Tensor<int> x({2});
+  x(0) = 3;
+  x(1) = 5;
+  Tensor<int> padded = x.pad({2}, {3});
+  ASSERT_THAT(padded.extents(), testing::ElementsAre(7));
+  ASSERT_THAT(padded, testing::ElementsAre(3, 3, 3, 5, 5, 5, 5));
+}
+
+TEST(Pad, RepeatEdge2Dx) {
+  Tensor<int> x({2, 2});
+  x(0, 0) = 3;
+  x(0, 1) = 5;
+  x(1, 0) = 7;
+  x(1, 1) = 9;
+  Tensor<int> padded = x.pad({0, 2}, {0, 1});
+  ASSERT_THAT(padded.extents(), testing::ElementsAre(2, 5));
+  ASSERT_THAT(padded, testing::ElementsAre(3, 3, 3, 5, 5, 7, 7, 7, 9, 9));
+}
+
+TEST(Pad, RepeatEdge2D) {
+  Tensor<int> x({2, 2});
+  x(0, 0) = 3;
+  x(0, 1) = 5;
+  x(1, 0) = 7;
+  x(1, 1) = 9;
+  Tensor<int> padded = x.pad({1, 2}, {0, 1});
+  ASSERT_THAT(padded.extents(), testing::ElementsAre(3, 5));
+  ASSERT_THAT(padded, testing::ElementsAre(3, 3, 3, 5, 5, 3, 3, 3, 5, 5, 7, 7,
+                                           7, 9, 9));
+}
+
+TEST(Pad, Constant1D) {
+  Tensor<int> x({2});
+  x(0) = 3;
+  x(1) = 5;
+  Tensor<int> padded = x.pad(-1, {2}, {3});
+  ASSERT_THAT(padded.extents(), testing::ElementsAre(7));
+  ASSERT_THAT(padded, testing::ElementsAre(-1, -1, 3, 5, -1, -1, -1));
+}
+
+TEST(Pad, Constant2Dx) {
+  Tensor<int> x({2, 2});
+  x(0, 0) = 3;
+  x(0, 1) = 5;
+  x(1, 0) = 7;
+  x(1, 1) = 9;
+  Tensor<int> padded = x.pad(-1, {0, 2}, {0, 1});
+  ASSERT_THAT(padded.extents(), testing::ElementsAre(2, 5));
+  ASSERT_THAT(padded, testing::ElementsAre(-1, -1, 3, 5, -1, -1, -1, 7, 9, -1));
+}
+
+TEST(Pad, Constant2D) {
+  Tensor<int> x({2, 2});
+  x(0, 0) = 3;
+  x(0, 1) = 5;
+  x(1, 0) = 7;
+  x(1, 1) = 9;
+  Tensor<int> padded = x.pad(-1, {1, 2}, {0, 1});
+  ASSERT_THAT(padded.extents(), testing::ElementsAre(3, 5));
+  ASSERT_THAT(padded, testing::ElementsAre(-1, -1, -1, -1, -1, -1, -1, 3, 5, -1, -1, -1,
+                                           7, 9, -1));
 }
 
 }  // namespace xnnpack

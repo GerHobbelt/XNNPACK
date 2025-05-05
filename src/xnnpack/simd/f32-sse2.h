@@ -29,10 +29,6 @@ typedef __m128 xnn_simd_f32_t;
 // Whether or not this architecture has native fused multiply-add support.
 #define XNN_SIMD_HAS_NATIVE_FMA 0
 
-// Include the header for generic functions _after_ declaring the arch-specific
-// types and sizes.
-#include "src/xnnpack/simd/f32-generic-functions.h"
-
 // Arithmetic operations.
 
 static XNN_INLINE xnn_simd_f32_t xnn_zero_f32() { return _mm_setzero_ps(); }
@@ -138,7 +134,7 @@ static XNN_INLINE xnn_simd_f32_t xnn_round_f32(xnn_simd_f32_t a) {
   // Round by converting to `int` and back.
   const xnn_simd_f32_t vresult = _mm_cvtepi32_ps(_mm_cvtps_epi32(a));
 
-  // Apply the non-finite value filter to repace any non-finite input with `a`.
+  // Apply the non-finite value filter to replace any non-finite input with `a`.
   return _mm_or_ps(_mm_andnot_ps(vfilter, vresult), _mm_and_ps(vfilter, a));
 }
 
@@ -154,10 +150,6 @@ static XNN_INLINE xnn_simd_f32_t xnn_rcp_f32(xnn_simd_f32_t a) {
 #define XNN_SIMD_NUM_RSQRT_ITER_F32 1
 static XNN_INLINE xnn_simd_f32_t xnn_rsqrt_f32(xnn_simd_f32_t a) {
   return _mm_rsqrt_ps(a);
-}
-
-static XNN_INLINE xnn_simd_f32_t xnn_getexp_f32(xnn_simd_f32_t a) {
-  return xnn_generic_getexp_f32(a);
 }
 
 // Load/store operations.
@@ -180,14 +172,6 @@ static XNN_INLINE void xnn_store_f32(float* ptr, xnn_simd_f32_t v) {
 
 static XNN_INLINE xnn_simd_f32_t xnn_set1_f32(float v) {
   return _mm_set1_ps(v);
-}
-
-static XNN_INLINE xnn_simd_f32_t xnn_set1_or_load_f32(const float* v) {
-#if XNN_ARCH_X86
-  return _mm_load_ps(v);
-#else
-  return _mm_set1_ps(*v);
-#endif
 }
 
 // Tail load/store operations.

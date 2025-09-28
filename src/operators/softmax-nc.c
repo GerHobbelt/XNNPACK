@@ -87,6 +87,14 @@ enum xnn_status xnn_create_softmax_nc_qu8(
       sizeof(struct xnn_operator), xnn_operator_type_to_string(xnn_operator_type_softmax_nc_qu8));
     goto error;
   }
+  softmax_op->compute = xnn_allocate_zero_memory(sizeof(struct compute_parameters));
+  if (softmax_op->compute == NULL) {
+    xnn_log_error("failed to allocate %zu bytes for %s operator descriptor",
+                  sizeof(struct compute_parameters),
+                  xnn_operator_type_to_string(xnn_operator_type_softmax_nc_qu8));
+    goto error;
+  }
+  softmax_op->num_compute_invocations = 1;
 
   softmax_op->lookup_table = xnn_allocate_simd_memory(256 * sizeof(uint32_t));
   if (softmax_op->lookup_table == NULL) {
@@ -95,7 +103,7 @@ enum xnn_status xnn_create_softmax_nc_qu8(
       xnn_operator_type_to_string(xnn_operator_type_softmax_nc_qu8));
     goto error;
   }
-  softmax_op->input_scale = input_scale;
+  softmax_op->softmax.input_scale = input_scale;
 
   const struct xnn_lut32norm_config* lut32norm_config = xnn_init_u8_lut32norm_config();
   assert(lut32norm_config != NULL);
@@ -106,7 +114,7 @@ enum xnn_status xnn_create_softmax_nc_qu8(
   softmax_op->type = xnn_operator_type_softmax_nc_qu8;
   softmax_op->flags = flags;
   softmax_op->lut32norm_config = lut32norm_config;
-  softmax_op->contiguous_reduce_config = rmax_config;
+  softmax_op->reduce_config = rmax_config;
 
   softmax_op->state = xnn_run_state_invalid;
 
@@ -177,18 +185,16 @@ enum xnn_status xnn_reshape_softmax_nc_qu8(
   uint32_t* lookup_table = softmax_op->lookup_table;
   const double qscale = fmin(((double) UINT32_MAX) / (double) channels, 8388607.0);
   for (int32_t i = 0; i < 256; i++) {
-    const double scaled_exp_xi = qscale * exp((double) (i - 255) * (double) softmax_op->input_scale);
+    const double scaled_exp_xi = qscale * exp((double) (i - 255) * (double) softmax_op->softmax.input_scale);
     lookup_table[(uint32_t) i] = (uint32_t) lrint(scaled_exp_xi);
   }
-
-  softmax_op->batch_size = batch_size;
 
   softmax_op->context.u8_softmax = (struct u8_softmax_context) {
     .n = softmax_op->channels,
     .x_stride = softmax_op->input_pixel_stride * sizeof(uint8_t),
     .t = softmax_op->lookup_table,
     .y_stride = softmax_op->output_pixel_stride * sizeof(uint8_t),
-    .rmax_ukernel = (xnn_u8_rmax_ukernel_fn) softmax_op->contiguous_reduce_config->ukernel,
+    .rmax_ukernel = (xnn_u8_rmax_ukernel_fn) softmax_op->reduce_config->ukernel,
     .lut_norm_ukernel = softmax_op->lut32norm_config->lut32norm,
   };
   softmax_op->compute[0].type = xnn_parallelization_type_1d;
@@ -261,11 +267,19 @@ static enum xnn_status create_softmax_nc_floating_point(
       sizeof(struct xnn_operator), xnn_operator_type_to_string(operator_type));
     goto error;
   }
+  softmax_op->compute = xnn_allocate_zero_memory(sizeof(struct compute_parameters));
+  if (softmax_op->compute == NULL) {
+    xnn_log_error("failed to allocate %zu bytes for %s operator descriptor",
+                  sizeof(struct compute_parameters),
+                  xnn_operator_type_to_string(operator_type));
+    goto error;
+  }
+  softmax_op->num_compute_invocations = 1;
 
   softmax_op->type = operator_type;
   softmax_op->flags = flags;
   softmax_op->raddstoreexpminusmax_config = raddstoreexpminusmax_config;
-  softmax_op->contiguous_reduce_config = rmax_config;
+  softmax_op->reduce_config = rmax_config;
   softmax_op->vmul_config = vmul_config;
 
   softmax_op->state = xnn_run_state_invalid;
@@ -424,8 +438,6 @@ static enum xnn_status reshape_softmax_nc_floating_point(
     return xnn_status_success;
   }
 
-  softmax_op->batch_size = batch_size;
-
   softmax_op->context.floating_point_softmax = (struct floating_point_softmax_context) {
     .n = softmax_op->channels << log2_element_size,
     .x_stride = softmax_op->input_pixel_stride << log2_element_size,
@@ -540,7 +552,7 @@ enum xnn_status xnn_reshape_softmax_nc_f16(
     channels, input_stride, output_stride,
     batch_size,
     /*log2_element_size=*/XNN_LOG2_SIZEOF_HALF,
-    softmax_op->contiguous_reduce_config->ukernel,
+    softmax_op->reduce_config->ukernel,
     softmax_op->raddstoreexpminusmax_config, f16_vmul_config,
     (xnn_compute_reciprocal_fn) compute_reciprocal_f16,
     &rmax_init, sizeof(rmax_init),
@@ -568,7 +580,7 @@ enum xnn_status xnn_reshape_softmax_nc_f32(
     channels, input_stride, output_stride,
     batch_size,
     /*log2_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
-    softmax_op->contiguous_reduce_config->ukernel,
+    softmax_op->reduce_config->ukernel,
     softmax_op->raddstoreexpminusmax_config, f32_vmul_config,
     (xnn_compute_reciprocal_fn) compute_reciprocal_f32,
     &rmax_init, sizeof(rmax_init),

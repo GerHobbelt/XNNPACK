@@ -23,9 +23,6 @@
 #include "src/xnnpack/operator-type.h"
 #include <pthreadpool.h>
 
-// Maximum number of pthreadpool parallelization invocations per operator.
-#define XNN_MAX_COMPUTE_INVOCATIONS 3
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -135,8 +132,27 @@ enum xnn_run_state {
   xnn_run_state_needs_setup,
 };
 
-struct xnn_operator {
-  size_t batch_size;
+struct dwconv_op_context {
+  struct dwconv_context dwconv;
+  struct dwconv_indirection_init_context dwconv_indirection_init;
+};
+
+struct gemm_op_context {
+  struct gemm_context gemm;
+  union {
+    struct packw_gemm_goi_context packw_gemm_goi;
+    struct packw_gemm_gio_context packw_gemm_gio;
+  };
+  bool const_weights;
+};
+
+struct igemm_op_context {
+  struct igemm_context igemm;
+  struct conv2d_igemm_indirection_init_context
+      conv2d_igemm_indirection_init;
+};
+
+struct xnn_convolution_operator {
   uint32_t padding_top;
   uint32_t padding_right;
   uint32_t padding_bottom;
@@ -148,26 +164,38 @@ struct xnn_operator {
   uint32_t dilation_height;
   uint32_t dilation_width;
   uint32_t groups;
-  size_t group_channels;
   size_t group_input_channels;
   size_t group_output_channels;
-  size_t channels;
-
-  uint32_t pad_value;
-
   size_t input_height;
   size_t input_width;
-  size_t input_pixel_stride;
   const void* input;
+  void* output;
   const void** indirection_buffer;
-
   size_t output_height;
   size_t output_width;
-  size_t output_pixel_stride;
-  void* output;
-  const void* quantization_params;
+  size_t valid_batch_size;
+  size_t last_input_height;
+  size_t last_input_width;
+  size_t last_input_channels;
+  const void* last_input;
+  size_t last_output_height;
+  size_t last_output_width;
+  void* last_output;
+  uint32_t last_mr;
+  void** zero_buffers;
+  size_t zero_size;
+  void* pixelwise_buffer;
+  struct subconvolution_params* subconvolution_buffer;
+};
 
-  size_t k_block_size;
+struct xnn_operator {
+  size_t batch_size;
+  size_t channels;
+  struct xnn_convolution_operator *convolution_op;
+
+  size_t input_pixel_stride;
+  size_t output_pixel_stride;
+  const void* quantization_params;
 
   union {
     // Pointer to allocated packed weights. Use this if weights_cache is NULL.
@@ -178,39 +206,9 @@ struct xnn_operator {
   } packed_weights;
   // Stride between each set of packed weights.
   size_t weights_stride;
-  // Total number of non-zero kernel elements when weights use sparse
-  // representation.
-  size_t num_nonzero_values;
-  // Total number of non-zero kernel blocks when weights use sparse
-  // representation.
-  size_t num_nonzero_blocks;
-  // Total number of output channel blocks when weights use sparse
-  // representation.
-  size_t num_output_channel_blocks;
-  // Input channel corresponding to the first non-zero kernel element.
-  size_t first_input_channel;
-
-  float input_scale;
-  float output_scale;
-
-  size_t valid_batch_size;
-  size_t last_input_height;
-  size_t last_input_width;
-  size_t last_input_channels;
-  const void* last_input;
-  size_t last_output_height;
-  size_t last_output_width;
-  void* last_output;
-  uint32_t last_mr;
-
-  uint32_t block_size;
-
   void* zero_buffer;
-  void** zero_buffers;
-  size_t zero_size;
   void* lookup_table;
-  void* pixelwise_buffer;
-  struct subconvolution_params* subconvolution_buffer;
+
   uint32_t flags;
 
   union {
@@ -218,6 +216,9 @@ struct xnn_operator {
       uint32_t log2_element_size;
       enum xnn_binary_operator op_type;
     } binary_elementwise;
+    struct {
+      uint32_t block_size;
+    } depth_to_space;
     struct {
       uint8_t num_nonbatch_dims;
       uint8_t log2_input_size;
@@ -232,6 +233,20 @@ struct xnn_operator {
     struct {
       enum xnn_node_type subtype;
     } copy;
+    struct {
+      size_t num_nonzero_blocks;
+      // Total number of output channel blocks when weights use sparse
+      // representation.
+      size_t num_output_channel_blocks;
+      size_t first_input_channel;
+    } conv;
+    // Input channel corresponding to the first non-zero kernel element.
+    struct {
+      float input_scale;
+    } softmax;
+    struct {
+      uint32_t pad_value;
+    } padding;
   };
 
   union {
@@ -276,12 +291,7 @@ struct xnn_operator {
 
   union {
     const struct xnn_argmaxpool_config* argmaxpool_config;
-    struct {
-      const struct xnn_avgpool_config* avgpool_config;
-      const struct xnn_reduce_config* discontiguous_reduce_config;
-      const struct xnn_reduce_config* contiguous_reduce_config;
-      const struct xnn_unary_elementwise_config* cvt_config;
-    };
+    const struct xnn_avgpool_config* avgpool_config;
     const struct xnn_ibilinear_chw_config* ibilinear_chw_config;
     const struct xnn_ibilinear_config* ibilinear_config;
     struct {
@@ -295,7 +305,9 @@ struct xnn_operator {
           const struct xnn_binary_elementwise_config* vmul_config;
         };
       };
-    };  // For softmax operator.
+      const struct xnn_reduce_config* reduce_config;
+      const struct xnn_unary_elementwise_config* cvt_config;
+    };  // For softmax and reduce operators.
     const struct xnn_maxpool_config* maxpool_config;
     const struct xnn_unpool_config* unpool_config;
     const struct xnn_zip_config* zip_config;
@@ -315,35 +327,18 @@ struct xnn_operator {
     const struct xnn_pack_lh_config* pack_lh_config;
   };
 
-  struct compute_parameters compute[XNN_MAX_COMPUTE_INVOCATIONS];
+  struct compute_parameters *compute;
+  int num_compute_invocations;
   union {
     struct argmax_pooling_context argmax_pooling;
     struct average_pooling_context average_pooling;
     struct conv2d_context conv2d;
     struct dwconv2d_context dwconv2d;
-    struct {
-      struct dwconv_context dwconv;
-      struct dwconv_indirection_init_context dwconv_indirection_init;
-    } dwconv;
     struct elementwise_binary_context elementwise_binary;
-    struct {
-      struct gemm_context gemm;
-      union {
-        struct packw_gemm_goi_context packw_gemm_goi;
-        struct packw_gemm_gio_context packw_gemm_gio;
-      };
-      bool const_weights;
-    } gemm;
-    struct {
-      struct igemm_context igemm;
-      struct conv2d_igemm_indirection_init_context
-          conv2d_igemm_indirection_init;
-    } igemm;
     struct lut_contiguous_context lut_contiguous;
     struct lut_strided_context lut_strided;
     struct max_pooling_context max_pooling;
     struct pad_context pad;
-    struct reduce_context reduce;
     struct {
       struct resize_bilinear_context resize_bilinear;
       struct resize_bilinear_nhwc_indirection_init_context
@@ -367,6 +362,12 @@ struct xnn_operator {
     struct rope_context rope;
     struct pack_lh_context pack_lh;
   } context;
+  union {
+    struct dwconv_op_context *dwconv;
+    struct gemm_op_context *gemm;
+    struct igemm_op_context *igemm;
+    struct reduce_context *reduce;
+  } dynamic_context;
 
   xnn_weights_cache_t weights_cache;
   enum xnn_run_state state;

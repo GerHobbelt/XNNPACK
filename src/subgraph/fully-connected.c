@@ -61,8 +61,8 @@ enum fully_connected_op_type {
 };
 
 enum fully_connected_op_type get_fully_connected_op_type(
-    const struct xnn_value* input_value, const struct xnn_value* filter_value,
-    const struct xnn_value* bias_value, const struct xnn_value* output_value) {
+    const struct xnn_runtime_value* input_value, const struct xnn_runtime_value* filter_value,
+    const struct xnn_runtime_value* bias_value, const struct xnn_runtime_value* output_value) {
   bool has_non_static_weights =
       (filter_value->allocation_type != xnn_allocation_type_static);
   if (bias_value) {
@@ -240,27 +240,27 @@ enum fully_connected_op_type get_fully_connected_op_type(
 }
 
 static enum xnn_status create_fully_connected_operator(
-    const struct xnn_node* node, const struct xnn_value* values,
+    const struct xnn_node* node, const struct xnn_runtime_value* values,
     size_t num_values, struct xnn_operator_data* opdata,
-    struct xnn_code_cache* code_cache, xnn_weights_cache_t weights_cache) {
+    xnn_weights_cache_t weights_cache) {
   assert(node->num_inputs >= 2);
   assert(node->num_inputs <= 3);
 
   const uint32_t input_id = node->inputs[0];
   assert(input_id != XNN_INVALID_VALUE_ID);
   assert(input_id < num_values);
-  const struct xnn_value* input_value = &values[input_id];
+  const struct xnn_runtime_value* input_value = &values[input_id];
 
   const uint32_t filter_id = node->inputs[1];
   assert(filter_id != XNN_INVALID_VALUE_ID);
   assert(filter_id < num_values);
-  const struct xnn_value* filter_value = &values[filter_id];
+  const struct xnn_runtime_value* filter_value = &values[filter_id];
 
   assert(node->num_outputs == 1);
   const uint32_t output_id = node->outputs[0];
   assert(output_id != XNN_INVALID_VALUE_ID);
   assert(output_id < num_values);
-  const struct xnn_value* output_value = &values[output_id];
+  const struct xnn_runtime_value* output_value = &values[output_id];
 
   size_t output_channels, input_channels;
   if (node->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) {
@@ -279,7 +279,7 @@ static enum xnn_status create_fully_connected_operator(
   bool has_non_static_weights = (kernel_data == NULL);
 
   const void* bias_data = NULL;
-  const struct xnn_value* bias_value = NULL;
+  const struct xnn_runtime_value* bias_value = NULL;
   uint32_t bias_id = XNN_INVALID_VALUE_ID;
   if (node->num_inputs > 2) {
     bias_id = node->inputs[2];
@@ -292,7 +292,7 @@ static enum xnn_status create_fully_connected_operator(
     has_non_static_weights |= (bias_data == NULL);
   }
 
-  if (output_value->layout == xnn_layout_type_nchw) {
+  if (output_value->flags & XNN_VALUE_FLAG_LAYOUT_NCHW) {
     return create_nchw_convolution(
         /*input_padding_top=*/0,
         /*input_padding_right=*/0,
@@ -308,7 +308,7 @@ static enum xnn_status create_fully_connected_operator(
         /*group_input_channels=*/input_channels,
         /*group_output_channels=*/output_channels, node->activation.output_min,
         node->activation.output_max, node->flags, input_id, filter_id, bias_id,
-        output_id, values, kernel_data, bias_data, code_cache, weights_cache,
+        output_id, values, kernel_data, bias_data, weights_cache,
         opdata);
   }
   enum xnn_status status;
@@ -322,7 +322,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_f16_f16_f16_dynamic:
       status = xnn_create_dynamic_fully_connected_nc_f16(
@@ -335,7 +335,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_f16_f32_f16:
       status = xnn_create_fully_connected_nc_f16(
@@ -343,7 +343,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max,
-          node->flags | XNN_FLAG_FP32_STATIC_WEIGHTS, code_cache, weights_cache,
+          node->flags | XNN_FLAG_FP32_STATIC_WEIGHTS, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_qd8_f16_qc4w:
@@ -354,7 +354,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qdu8_f16_qc4w:
       status = xnn_create_fully_connected_nc_qdu8_f16_qc4w(
@@ -364,7 +364,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qd8_f16_qb4w:
       status = xnn_create_fully_connected_nc_qd8_f16_qb4w(
@@ -375,7 +375,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           (const uint16_t*)filter_value->quantization.blockwise_scale.bf16_scale,
           kernel_data, bias_data, node->activation.output_min,
-          node->activation.output_max, node->flags, code_cache, weights_cache,
+          node->activation.output_max, node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_qd8_f16_qc8w:
@@ -385,7 +385,7 @@ static enum xnn_status create_fully_connected_operator(
           /*output_stride=*/output_channels,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qdu8_f16_qc8w:
       status = xnn_create_fully_connected_nc_qdu8_f16_qc8w(
@@ -394,7 +394,7 @@ static enum xnn_status create_fully_connected_operator(
           /*output_stride=*/output_channels,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_f32_f32_f32_dynamic:
       status = xnn_create_dynamic_fully_connected_nc_f32(
@@ -407,7 +407,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_pf16_f16_f16:
@@ -416,7 +416,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_pf16_f16_f16_dynamic:
@@ -430,7 +430,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_pf32_f32_f32_dynamic:
@@ -449,7 +449,7 @@ static enum xnn_status create_fully_connected_operator(
               /*kernel_zero_point=*/filter_value->quantization.zero_point,
               (const uint16_t*)filter_value->quantization.blockwise_scale.bf16_scale,
               kernel_data, bias_data, node->activation.output_min,
-              node->activation.output_max, node->flags, code_cache, weights_cache,
+              node->activation.output_max, node->flags, weights_cache,
               fully_connected_op_ptr);
           break;
         case xnn_datatype_fp16:
@@ -461,7 +461,7 @@ static enum xnn_status create_fully_connected_operator(
               /*kernel_zero_point=*/filter_value->quantization.zero_point,
               filter_value->quantization.blockwise_scale.fp16_scale,
               kernel_data, bias_data, node->activation.output_min,
-              node->activation.output_max, node->flags, code_cache, weights_cache,
+              node->activation.output_max, node->flags, weights_cache,
               fully_connected_op_ptr);
           break;
         default:
@@ -479,7 +479,7 @@ static enum xnn_status create_fully_connected_operator(
               /*kernel_zero_point=*/filter_value->quantization.zero_point,
               (const uint16_t*)filter_value->quantization.blockwise_scale.bf16_scale,
               kernel_data, bias_data, node->activation.output_min,
-              node->activation.output_max, node->flags, code_cache, weights_cache,
+              node->activation.output_max, node->flags, weights_cache,
               fully_connected_op_ptr);
           break;
         case xnn_datatype_fp16:
@@ -491,7 +491,7 @@ static enum xnn_status create_fully_connected_operator(
               /*kernel_zero_point=*/filter_value->quantization.zero_point,
               filter_value->quantization.blockwise_scale.fp16_scale,
               kernel_data, bias_data, node->activation.output_min,
-              node->activation.output_max, node->flags, code_cache, weights_cache,
+              node->activation.output_max, node->flags, weights_cache,
               fully_connected_op_ptr);
           break;
         default:
@@ -508,7 +508,7 @@ static enum xnn_status create_fully_connected_operator(
           /*input_stride=*/input_channels,
           /*output_stride=*/output_channels, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     }
     case fc_type_qp8_f32_qb4w:
@@ -520,7 +520,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           (const uint16_t*)filter_value->quantization.blockwise_scale.bf16_scale,
           kernel_data, bias_data, node->activation.output_min,
-          node->activation.output_max, node->flags, code_cache, weights_cache,
+          node->activation.output_max, node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_f32_f32_qc4w:
@@ -531,7 +531,7 @@ static enum xnn_status create_fully_connected_operator(
           filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_qd8_f32_qc4w:
@@ -542,7 +542,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qdu8_f32_qc4w:
       status = xnn_create_fully_connected_nc_qdu8_f32_qc4w(
@@ -552,7 +552,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qp8_f32_qc4w:
       status = xnn_create_fully_connected_nc_qp8_f32_qc4w(
@@ -562,7 +562,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qp8_f32_qc8w:
       status = xnn_create_fully_connected_nc_qp8_f32_qc8w(
@@ -571,7 +571,7 @@ static enum xnn_status create_fully_connected_operator(
           /*output_stride=*/output_channels,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_f32_f32_qc8w:
       status = xnn_create_fully_connected_nc_f32_qc8w(
@@ -580,7 +580,7 @@ static enum xnn_status create_fully_connected_operator(
           /*output_stride=*/output_channels,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     case fc_type_qd8_f32_qc8w:
@@ -590,7 +590,7 @@ static enum xnn_status create_fully_connected_operator(
           /*output_stride=*/output_channels,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qdu8_f32_qc8w:
       status = xnn_create_fully_connected_nc_qdu8_f32_qc8w(
@@ -599,7 +599,7 @@ static enum xnn_status create_fully_connected_operator(
           /*output_stride=*/output_channels,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           node->activation.output_min, node->activation.output_max, node->flags,
-          code_cache, weights_cache, fully_connected_op_ptr);
+          weights_cache, fully_connected_op_ptr);
       break;
     case fc_type_qs8_qs8_qc4w: {
       assert(!has_non_static_weights);
@@ -620,7 +620,7 @@ static enum xnn_status create_fully_connected_operator(
           /*kernel_zero_point=*/filter_value->quantization.zero_point,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           (int8_t)output_zero_point, output_scale, output_min, output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     }
@@ -642,7 +642,7 @@ static enum xnn_status create_fully_connected_operator(
           input_value->quantization.scale,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           (int8_t)output_zero_point, output_scale, output_min, output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     }
@@ -664,7 +664,7 @@ static enum xnn_status create_fully_connected_operator(
           input_value->quantization.scale,
           filter_value->quantization.channelwise_scale, kernel_data, bias_data,
           (int8_t)output_zero_point, output_scale, output_min, output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     }
@@ -685,7 +685,7 @@ static enum xnn_status create_fully_connected_operator(
           input_value->quantization.scale, filter_value->quantization.scale,
           kernel_data, bias_data, (int8_t)output_zero_point, output_scale,
           output_min, output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
     } break;
     case fc_type_qu8_qu8_qu8: {
@@ -706,7 +706,7 @@ static enum xnn_status create_fully_connected_operator(
           (uint8_t)filter_value->quantization.zero_point,
           filter_value->quantization.scale, kernel_data, bias_data,
           (uint8_t)output_zero_point, output_scale, output_min, output_max,
-          /*flags=*/node->flags, code_cache, weights_cache,
+          /*flags=*/node->flags, weights_cache,
           fully_connected_op_ptr);
       break;
     }
@@ -717,16 +717,16 @@ static enum xnn_status create_fully_connected_operator(
 }
 
 enum xnn_status resize_fully_connected_output_tensor(
-    const struct xnn_operator_data* opdata, struct xnn_value* values,
+    const struct xnn_operator_data* opdata, struct xnn_runtime_value* values,
     size_t num_values, size_t old_workspace_size, pthreadpool_t threadpool) {
   const uint32_t filter_id = opdata->inputs[1];
-  const struct xnn_value* filter = &values[filter_id];
+  const struct xnn_runtime_value* filter = &values[filter_id];
 
   const uint32_t output_id = opdata->outputs[0];
-  struct xnn_value* output = (struct xnn_value*)&values[output_id];
+  struct xnn_runtime_value* output = (struct xnn_runtime_value*)&values[output_id];
 
   const uint32_t input_id = opdata->inputs[0];
-  const struct xnn_value* input = &values[input_id];
+  const struct xnn_runtime_value* input = &values[input_id];
 
   bool reshape_2d = opdata->flags & XNN_FLAG_TENSORFLOW_RESHAPE_2D;
   if (reshape_2d) {
@@ -755,7 +755,7 @@ enum xnn_status resize_fully_connected_output_tensor(
     }
   }
 
-  const size_t new_size = xnn_tensor_get_size(output);
+  const size_t new_size = xnn_runtime_tensor_get_size(output);
   if (new_size > output->size || old_workspace_size < opdata->workspace_size) {
     output->size = new_size;
     return xnn_status_reallocation_required;
@@ -765,21 +765,21 @@ enum xnn_status resize_fully_connected_output_tensor(
 }
 
 static enum xnn_status reshape_fully_connected_operator(
-    struct xnn_operator_data* opdata, struct xnn_value* values,
+    struct xnn_operator_data* opdata, struct xnn_runtime_value* values,
     size_t num_values, pthreadpool_t threadpool) {
   const uint32_t input_id = opdata->inputs[0];
   assert(input_id < num_values);
-  struct xnn_value* input_value = &values[input_id];
+  struct xnn_runtime_value* input_value = &values[input_id];
 
   const uint32_t output_id = opdata->outputs[0];
   assert(output_id < num_values);
-  struct xnn_value* output_value = &values[output_id];
+  struct xnn_runtime_value* output_value = &values[output_id];
 
   const uint32_t filter_id = opdata->inputs[1];
   assert(filter_id < num_values);
-  struct xnn_value* filter_value = &values[filter_id];
+  struct xnn_runtime_value* filter_value = &values[filter_id];
 
-  if (output_value->layout == xnn_layout_type_nchw) {
+  if (output_value->flags & XNN_VALUE_FLAG_LAYOUT_NCHW) {
     return reshape_convolution_operator(opdata, values, num_values, threadpool);
   }
   const size_t num_input_elements =
@@ -942,7 +942,7 @@ static enum xnn_status reshape_fully_connected_operator(
 }
 
 static enum xnn_status setup_fully_connected_operator(
-    const struct xnn_operator_data* opdata, const struct xnn_value* values,
+    const struct xnn_operator_data* opdata, const struct xnn_runtime_value* values,
     size_t num_values, pthreadpool_t threadpool) {
   const uint32_t input_id = opdata->inputs[0];
   assert(input_id != XNN_INVALID_VALUE_ID);
@@ -958,14 +958,14 @@ static enum xnn_status setup_fully_connected_operator(
   assert(output_id != XNN_INVALID_VALUE_ID);
   assert(output_id < num_values);
 
-  if (values[output_id].layout == xnn_layout_type_nchw) {
+  if (values[output_id].flags & XNN_VALUE_FLAG_LAYOUT_NCHW) {
     return setup_convolution_operator(opdata, values, num_values, threadpool);
   }
-  const struct xnn_value* input_value = values + input_id;
+  const struct xnn_runtime_value* input_value = values + input_id;
   const void* input_data = input_value->data;
   assert(input_data != NULL);
 
-  const struct xnn_value* kernel_value = values + filter_id;
+  const struct xnn_runtime_value* kernel_value = values + filter_id;
   bool has_dynamic_weights =
       kernel_value->allocation_type != xnn_allocation_type_static;
   const void* kernel_data =
@@ -977,7 +977,7 @@ static enum xnn_status setup_fully_connected_operator(
   if (opdata->num_inputs > 2) {
     assert(bias_id != XNN_INVALID_VALUE_ID);
     assert(bias_id < num_values);
-    const struct xnn_value* bias_value = values + bias_id;
+    const struct xnn_runtime_value* bias_value = values + bias_id;
     has_dynamic_weights |=
         bias_value->allocation_type != xnn_allocation_type_static;
     if (has_dynamic_weights) {
@@ -986,7 +986,7 @@ static enum xnn_status setup_fully_connected_operator(
     }
   }
 
-  const struct xnn_value* output_value = values + output_id;
+  const struct xnn_runtime_value* output_value = values + output_id;
   void* output_data = output_value->data;
   assert(output_data != NULL);
 

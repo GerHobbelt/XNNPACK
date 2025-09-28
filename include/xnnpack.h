@@ -2259,9 +2259,6 @@ XNN_DEPRECATED enum xnn_status xnn_define_tanh(
   uint32_t output_id,
   uint32_t flags);
 
-/// Code cache is a cache for JIT generated code.
-typedef struct xnn_code_cache* xnn_code_cache_t;
-
 /// Weights cache can be finalized in these ways:
 enum xnn_weights_cache_finalization_kind {
   /// Weights cache is finalized, no insert operations into the weights cache is allowed, even if the "inserted"
@@ -2582,6 +2579,7 @@ enum xnn_status xnn_create_unary_elementwise_nc(
   enum xnn_datatype input_datatype,
   enum xnn_datatype output_datatype,
   const union xnn_unary_params* params,
+  const void* lut,
   const struct xnn_quantization_params* input_quantization,
   const struct xnn_quantization_params* output_quantization,
   uint32_t flags,
@@ -2928,7 +2926,6 @@ enum xnn_status xnn_create_convolution2d_nchw_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -2967,7 +2964,6 @@ enum xnn_status xnn_create_convolution2d_nchw_f32(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3006,7 +3002,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3048,7 +3043,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3073,7 +3067,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3102,7 +3095,6 @@ enum xnn_status xnn_create_fused_convolution2d_nhwc_f32(
     size_t num_post_operations,
     struct xnn_post_operation* post_operations,
     uint32_t flags,
-    xnn_code_cache_t code_cache,
     xnn_weights_cache_t weights_cache,
     xnn_operator_t* convolution_op_out);
 
@@ -3132,7 +3124,7 @@ enum xnn_status xnn_create_convolution2d_nhwc_qd8_f16_qc8w(
     size_t group_output_channels, size_t input_channel_stride,
     size_t output_channel_stride, const float* kernel_scale,
     const int8_t* kernel, const float* bias, float output_min, float output_max,
-    uint32_t flags, xnn_code_cache_t code_cache,
+    uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* convolution_op_out);
 
 enum xnn_status xnn_create_convolution2d_nhwc_qd8_f32_qc8w(
@@ -3144,7 +3136,7 @@ enum xnn_status xnn_create_convolution2d_nhwc_qd8_f32_qc8w(
     size_t group_output_channels, size_t input_channel_stride,
     size_t output_channel_stride, const float* kernel_scale,
     const int8_t* kernel, const float* bias, float output_min, float output_max,
-    uint32_t flags, xnn_code_cache_t code_cache,
+    uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* convolution_op_out);
 
 enum xnn_status xnn_create_convolution2d_nhwc_qs8(
@@ -3173,7 +3165,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3242,7 +3233,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8_qc8w(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3290,7 +3280,6 @@ enum xnn_status xnn_create_convolution2d_nhwc_qu8(
   uint8_t output_min,
   uint8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* convolution_op_out);
 
@@ -3393,7 +3382,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3434,7 +3422,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_f32(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3459,7 +3446,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_f32_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3501,7 +3487,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_qd8_f32_qc8w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3548,7 +3533,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_qs8(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3594,7 +3578,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_qs8_qc8w(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3641,7 +3624,6 @@ enum xnn_status xnn_create_deconvolution2d_nhwc_qu8(
   uint8_t output_min,
   uint8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* deconvolution_op_out);
 
@@ -3826,7 +3808,6 @@ enum xnn_status xnn_create_fully_connected_nc_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -3850,7 +3831,6 @@ enum xnn_status xnn_create_fully_connected_nc_f32_f16(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -3864,7 +3844,6 @@ enum xnn_status xnn_create_fully_connected_nc_bf16_f32(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -3878,7 +3857,6 @@ enum xnn_status xnn_create_fully_connected_nc_f32(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -3924,7 +3902,6 @@ enum xnn_status xnn_create_fully_connected_nc_f32_qc4w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -3949,7 +3926,6 @@ enum xnn_status xnn_create_fully_connected_nc_f32_qc8w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -3975,7 +3951,6 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qc4w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4003,7 +3978,6 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qb4w(
     float output_min,
     float output_max,
     uint32_t flags,
-    xnn_code_cache_t code_cache,
     xnn_weights_cache_t weights_cache,
     xnn_operator_t* fully_connected_op_out);
 
@@ -4030,7 +4004,6 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc4w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4058,7 +4031,6 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qb4w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4084,7 +4056,6 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qc8w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4110,7 +4081,6 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc8w(
   float output_min,
   float output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4140,7 +4110,6 @@ enum xnn_status xnn_create_fully_connected_nc_qs8(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4170,7 +4139,6 @@ enum xnn_status xnn_create_fully_connected_nc_qs8_qc4w(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4199,7 +4167,6 @@ enum xnn_status xnn_create_fully_connected_nc_qs8_qc8w(
   int8_t output_min,
   int8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 
@@ -4229,7 +4196,6 @@ enum xnn_status xnn_create_fully_connected_nc_qu8(
   uint8_t output_min,
   uint8_t output_max,
   uint32_t flags,
-  xnn_code_cache_t code_cache,
   xnn_weights_cache_t weights_cache,
   xnn_operator_t* fully_connected_op_out);
 

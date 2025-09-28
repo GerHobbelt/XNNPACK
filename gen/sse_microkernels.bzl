@@ -23,7 +23,6 @@ PROD_SSE_MICROKERNEL_SRCS = [
     "src/f32-igemm/gen/f32-igemm-1x8-minmax-sse-load1.c",
     "src/f32-igemm/gen/f32-igemm-4x2c4-minmax-sse.c",
     "src/f32-igemm/gen/f32-igemm-4x8-minmax-sse-load1.c",
-    "src/f32-rdsum/gen/f32-rdsum-7p7x-minmax-sse-c16.c",
     "src/f32-rminmax/gen/f32-rmax-sse-u16-acc4.c",
     "src/f32-rminmax/gen/f32-rmin-sse-u16-acc4.c",
     "src/f32-rminmax/gen/f32-rminmax-sse-u16-acc4.c",
@@ -147,8 +146,6 @@ NON_PROD_SSE_MICROKERNEL_SRCS = [
     "src/f32-igemm/gen/f32-igemm-6x8-minmax-sse-load1.c",
     "src/f32-igemm/gen/f32-igemm-6x8s4-minmax-sse.c",
     "src/f32-ppmm/gen/f32-ppmm-4x8-minmax-sse.c",
-    "src/f32-rdsum/gen/f32-rdsum-7p7x-minmax-sse-c32.c",
-    "src/f32-rdsum/gen/f32-rdsum-7p7x-minmax-sse-c64.c",
     "src/f32-rminmax/gen/f32-rmax-sse-u4.c",
     "src/f32-rminmax/gen/f32-rmax-sse-u8-acc2.c",
     "src/f32-rminmax/gen/f32-rmax-sse-u12-acc3.c",
@@ -190,9 +187,6 @@ NON_PROD_SSE_MICROKERNEL_SRCS = [
     "src/f32-vcmul/gen/f32-vcmul-sse-u16.c",
     "src/f32-vlrelu/gen/f32-vlrelu-sse-u4.c",
     "src/f32-vmulcaddc/gen/f32-vmulcaddc-c8-minmax-sse-2x.c",
-    "src/f32-vsqrt/gen/f32-vsqrt-sse-sqrt-u4.c",
-    "src/f32-vsqrt/gen/f32-vsqrt-sse-sqrt-u8.c",
-    "src/f32-vsqrt/gen/f32-vsqrt-sse-sqrt-u16.c",
     "src/x32-packx/x32-packx-4x-sse.c",
 ]
 

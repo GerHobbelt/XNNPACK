@@ -100,7 +100,15 @@ extern "C" {
 /// Retain reduced dimensions with length 1.
 #define XNN_FLAG_KEEP_DIMS 0x00000040
 
-// Next unused flag value: 0x00000200.
+/// Indicates that length 1 dimensions should not be implicitly broadcasted if needed.
+/// Operations that expect to broadcast length 1 dimensions to match a dimension with length != 1
+/// may fail with an error.
+#define XNN_FLAG_NO_BROADCAST 0x00001000
+
+/// This flag indicates that XNNPACK should attempt to produce numerically consistent results from a specific
+/// build of XNNPACK. This causes XNNPACK to avoid using faster codepaths that are numerically inconsistent
+/// with any other codepath that could be used in the same compiled XNNPACK library.
+#define XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC 0x00002000
 
 /// The number of entries in an array of xnn_quantization_params that XNNPACK may read beyond array bounds.
 /// The caller must allocate at least this many extra xnn_quantization_params before passing the array to XNNPACK.
@@ -248,7 +256,6 @@ enum xnn_status xnn_delete_subgraph(
 
 #define XNN_VALUE_FLAG_EXTERNAL_INPUT  0x00000001
 #define XNN_VALUE_FLAG_EXTERNAL_OUTPUT 0x00000002
-#define XNN_VALUE_FLAG_PERSISTENT      0x00000004
 
 #define XNN_INVALID_VALUE_ID UINT32_MAX
 
@@ -1145,7 +1152,8 @@ struct xnn_binary_params {
 /// @param output_id - Value ID for the output tensor. The output tensor must be a max(N,M)-dimensional tensor defined
 ///                    in the @a subgraph with each dimension equal to the maximum between the corresponding dimension
 ///                    of the two inputs.
-/// @param flags - binary features of the Node. No supported flags are currently defined.
+/// @param flags - binary features of the Node. The only flag supported is XNN_FLAG_NO_BROADCAST, indicating that the
+///                binary operator can assume that no broadcasting is required.
 enum xnn_status xnn_define_binary(
   xnn_subgraph_t subgraph,
   enum xnn_binary_operator type,
@@ -1834,6 +1842,24 @@ enum xnn_status xnn_define_static_reshape(
   uint32_t output_id,
   uint32_t flags);
 
+/// Define a Broadcast Node with static shape specification and add it to a Subgraph.
+///
+/// @param subgraph - a Subgraph object that will own the created Node.
+/// @param num_dims - number of shape dimensions in the output tensor.
+/// @param new_shape - shape dimensions of the output tensor, or 0 to keep the dimension of the input.
+/// @param input_id - Value ID for the input tensor. The input tensor must be defined in the @a subgraph.
+/// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph, and its
+///                    shape must match the shape of the input tensor where @a new_shape is 0, or match @a new_shape
+///                    where it is non-zero.
+/// @param flags - binary features of the Reshape Node. No supported flags are currently defined.
+enum xnn_status xnn_define_static_broadcast(
+  xnn_subgraph_t subgraph,
+  size_t num_dims,
+  const size_t* new_shape,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags);
+
 /// Define a 2D Resize Bilinear Node with static output height & width specification and add it to a Subgraph.
 ///
 /// @param subgraph - a Subgraph object that will own the created Node.
@@ -1933,8 +1959,8 @@ XNN_DEPRECATED enum xnn_status xnn_define_bankers_rounding(
 /// @param output_id - Value ID for the output tensor. The output tensor must be an N-dimensional tensor defined in the
 ///                    @a subgraph. It must be at least 3D. The first N-2 dimensions must match the first and second
 ///                    input tensors . The last 2 dimensions must be [M, N].
-/// @param flags - binary features of the Batch Matrix Multiply Node. The only currently supported value is
-///                XNN_FLAG_TRANSPOSE_B.
+/// @param flags - binary features of the Batch Matrix Multiply Node. The only currently supported values are
+///                XNN_FLAG_TRANSPOSE_B and XNN_FLAG_NO_BROADCAST.
 enum xnn_status xnn_define_batch_matrix_multiply(
   xnn_subgraph_t subgraph,
   uint32_t input1_id,
@@ -2721,7 +2747,7 @@ enum xnn_status xnn_create_batch_matrix_multiply_nc_f16_const_weights(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f16(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_batch_matrix_multiply_nc_f16(
@@ -2731,7 +2757,7 @@ enum xnn_status xnn_setup_batch_matrix_multiply_nc_f16(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_bf16_f32(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_batch_matrix_multiply_nc_bf16_f32(
@@ -2748,7 +2774,7 @@ enum xnn_status xnn_create_batch_matrix_multiply_nc_f32_const_weights(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f32(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_batch_matrix_multiply_nc_f32(
@@ -3011,7 +3037,6 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_f16(
   size_t input_height,
   size_t input_width,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -3104,7 +3129,6 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_f32(
   size_t input_height,
   size_t input_width,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -3170,13 +3194,13 @@ enum xnn_status xnn_create_convolution2d_nhwc_qs8(
 
 enum xnn_status xnn_reshape_convolution2d_nhwc_qd8_f16_qc8w(
     xnn_operator_t convolution_op, size_t batch_size, size_t input_height,
-    size_t input_width, size_t* workspace_size, size_t* workspace_alignment,
+    size_t input_width, size_t* workspace_size,
     size_t* output_height_out, size_t* output_width_out,
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_reshape_convolution2d_nhwc_qd8_f32_qc8w(
     xnn_operator_t convolution_op, size_t batch_size, size_t input_height,
-    size_t input_width, size_t* workspace_size, size_t* workspace_alignment,
+    size_t input_width, size_t* workspace_size,
     size_t* output_height_out, size_t* output_width_out,
     pthreadpool_t threadpool);
 
@@ -3186,7 +3210,6 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8(
   size_t input_height,
   size_t input_width,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -3242,7 +3265,6 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qs8_qc8w(
   size_t input_height,
   size_t input_width,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -3289,7 +3311,6 @@ enum xnn_status xnn_reshape_convolution2d_nhwc_qu8(
   size_t input_height,
   size_t input_width,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   size_t* output_height_out,
   size_t* output_width_out,
   pthreadpool_t threadpool);
@@ -3762,7 +3783,6 @@ enum xnn_status xnn_reshape_dynamic_fully_connected_nc_f16(
   size_t input_stride,
   size_t output_stride,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_dynamic_fully_connected_nc_f16(
@@ -3787,7 +3807,6 @@ enum xnn_status xnn_reshape_dynamic_fully_connected_nc_f32(
   size_t input_stride,
   size_t output_stride,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_dynamic_fully_connected_nc_f32(
@@ -3958,11 +3977,13 @@ enum xnn_status xnn_setup_fully_connected_nc_qd8_f16_qc4w(
   xnn_operator_t fully_connected_op,
   const int8_t* input,
   void* output,
+  void* workspace,
   const struct xnn_quantization_params* quantization_params);
 
 enum xnn_status xnn_reshape_fully_connected_nc_qd8_f16_qc4w(
   xnn_operator_t fully_connected_op,
   size_t batch_size,
+  size_t* workspace_size, 
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qb4w(
@@ -3984,12 +4005,14 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qb4w(
 enum xnn_status xnn_reshape_fully_connected_nc_qd8_f16_qb4w(
     xnn_operator_t fully_connected_op,
     size_t batch_size,
+    size_t* workspace_size, 
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_fully_connected_nc_qd8_f16_qb4w(
     xnn_operator_t fully_connected_op,
     const int8_t* input,
     void* output,
+    void* workspace,
     const struct xnn_quantization_params* quantization_params);
 
 enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc4w(
@@ -4011,11 +4034,13 @@ enum xnn_status xnn_setup_fully_connected_nc_qd8_f32_qc4w(
   xnn_operator_t fully_connected_op,
   const int8_t* input,
   float* output,
+  void* workspace,
   const struct xnn_quantization_params* quantization_params);
 
 enum xnn_status xnn_reshape_fully_connected_nc_qd8_f32_qc4w(
   xnn_operator_t fully_connected_op,
   size_t batch_size,
+  size_t* workspace_size, 
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qb4w(
@@ -4037,12 +4062,14 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qb4w(
 enum xnn_status xnn_reshape_fully_connected_nc_qd8_f32_qb4w(
   xnn_operator_t fully_connected_op,
   size_t batch_size,
+  size_t* workspace_size, 
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_fully_connected_nc_qd8_f32_qb4w(
   xnn_operator_t fully_connected_op,
   const int8_t* input,
   float* output,
+  void* workspace,
   const struct xnn_quantization_params* quantization_params);
 
 enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qc8w(
@@ -4063,11 +4090,13 @@ enum xnn_status xnn_setup_fully_connected_nc_qd8_f16_qc8w(
   xnn_operator_t fully_connected_op,
   const int8_t* input,
   void* output,
+  void* workspace,
   const struct xnn_quantization_params* quantization_params);
 
 enum xnn_status xnn_reshape_fully_connected_nc_qd8_f16_qc8w(
   xnn_operator_t fully_connected_op,
   size_t batch_size,
+  size_t* workspace_size, 
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qc8w(
@@ -4088,11 +4117,13 @@ enum xnn_status xnn_setup_fully_connected_nc_qd8_f32_qc8w(
   xnn_operator_t fully_connected_op,
   const int8_t* input,
   float* output,
+  void* workspace,
   const struct xnn_quantization_params* quantization_params);
 
 enum xnn_status xnn_reshape_fully_connected_nc_qd8_f32_qc8w(
   xnn_operator_t fully_connected_op,
   size_t batch_size,
+  size_t* workspace_size, 
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_create_fully_connected_nc_qs8(
@@ -4357,7 +4388,6 @@ enum xnn_status xnn_reshape_reduce_nd(  //
     size_t num_input_dims,              //
     const size_t* input_shape,          //
     size_t* workspace_size,             //
-    size_t* workspace_alignment,        //
     pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_reduce_nd(
@@ -4404,7 +4434,6 @@ enum xnn_status xnn_reshape_resize_bilinear2d_nhwc(
   size_t input_pixel_stride,
   size_t output_pixel_stride,
   size_t* workspace_size,
-  size_t* workspace_alignment,
   pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_resize_bilinear2d_nhwc(

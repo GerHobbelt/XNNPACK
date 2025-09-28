@@ -24,6 +24,15 @@ XNN_INTERNAL const struct xnn_transpose_config* xnn_init_transpose_config();
 XNN_INTERNAL const struct xnn_cmul_config* xnn_init_f16_cmul_config();
 XNN_INTERNAL const struct xnn_cmul_config* xnn_init_f32_cmul_config();
 
+XNN_INTERNAL const struct xnn_pack_lh_config*
+xnn_init_f16_qdint8_pack_lh_config();
+XNN_INTERNAL const struct xnn_pack_lh_config*
+xnn_init_f16_qduint8_pack_lh_config();
+XNN_INTERNAL const struct xnn_pack_lh_config*
+xnn_init_f32_qdint8_pack_lh_config();
+XNN_INTERNAL const struct xnn_pack_lh_config*
+xnn_init_f32_qduint8_pack_lh_config();
+XNN_INTERNAL const struct xnn_pack_lh_config* xnn_init_qp8_pack_lh_config();
 XNN_INTERNAL const struct xnn_pack_lh_config* xnn_init_x8_pack_lh_config();
 XNN_INTERNAL const struct xnn_pack_lh_config* xnn_init_x16_pack_lh_config();
 XNN_INTERNAL const struct xnn_pack_lh_config* xnn_init_x32_pack_lh_config();
@@ -145,8 +154,6 @@ XNN_INTERNAL const struct xnn_unary_elementwise_config*
 xnn_init_f32_lrelu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config*
 xnn_init_f32_neg_config();
-XNN_INTERNAL const struct xnn_unary_elementwise_config*
-xnn_init_f32_relu_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config*
 xnn_init_f32_rndd_config();
 XNN_INTERNAL const struct xnn_unary_elementwise_config*

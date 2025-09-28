@@ -117,7 +117,8 @@ struct TensorShape {
 
 class SubgraphTester {
  public:
-  explicit SubgraphTester(uint32_t external_value_ids);
+  explicit SubgraphTester(uint32_t external_value_ids,
+                          uint32_t flags = xnn_test_runtime_flags());
 
   SubgraphTester& AddInternalDynamicTensorF32(const TensorShape& shape,
                                               uint32_t* id_out,
@@ -362,6 +363,8 @@ class SubgraphTester {
 
   SubgraphTester& AddReshape(const std::vector<size_t>& new_dims,
                              uint32_t input_id, uint32_t output_id);
+  SubgraphTester& AddBroadcast(const std::vector<size_t>& new_dims,
+                               uint32_t input_id, uint32_t output_id);
 
   SubgraphTester& AddResizeBilinear(size_t new_height, size_t new_width,
                                     uint32_t input_id, uint32_t output_id,
@@ -391,7 +394,8 @@ class SubgraphTester {
                             uint32_t output_id);
 
   SubgraphTester& AddUnary(xnn_unary_operator op, xnn_unary_params* params,
-                           uint32_t input_id, uint32_t output_id);
+                           uint32_t input_id, uint32_t output_id,
+                           uint32_t flags = 0);
 
   SubgraphTester& AddConvolution2D(ConvolutionParams params, uint32_t input_id,
                                    uint32_t filter_id, uint32_t bias_id,
@@ -517,7 +521,8 @@ class SubgraphTester {
     return CreateRuntime(nullptr, nullptr, threadpool, flags);
   }
 
-  SubgraphTester& InvokeRuntime();
+  xnn_status InvokeRuntime();
+  xnn_status Status() const { return status_; }
 
   xnn_layout_type GetLayout(uint32_t value_id) const {
     return subgraph_->values[value_id].layout;
@@ -568,6 +573,8 @@ class SubgraphTester {
       std::uniform_int_distribution<int32_t>(
           -std::numeric_limits<int8_t>::max(),
           std::numeric_limits<int8_t>::max());
+
+  xnn_status status_ = xnn_status_success;
 
  private:
   std::vector<xnnpack::Buffer<char>> static_data_;

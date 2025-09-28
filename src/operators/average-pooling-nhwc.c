@@ -302,7 +302,7 @@ static enum xnn_status reshape_average_pooling2d(
   uint32_t log2_weight_element_size,
   uint32_t log2_accumulator_element_size,
   xnn_indirection_init_pavgpool2d_fn indirection_init_pavgpool2d,
-  const struct xnn_avgpool_config avgpool[restrict XNN_MIN_ELEMENTS(1)],
+  const struct xnn_avgpool_config* avgpool,
   const void* params,
   size_t params_size,
   size_t* output_height_out,
@@ -482,7 +482,6 @@ static enum xnn_status reshape_average_pooling2d(
 
   if (is_pixelwise) {
     assert(indirection_init_pavgpool2d != NULL);
-    average_pooling_op->ukernel.subtype = xnn_microkernel_type_pixelwise_average_pooling;
 
     if (input_size_changed) {
       const size_t pixelwise_buffer_size = (output_height * output_width) << log2_weight_element_size;
@@ -507,9 +506,6 @@ static enum xnn_status reshape_average_pooling2d(
         average_pooling_op->convolution_op->padding_top, average_pooling_op->convolution_op->padding_left,
         pixelwise_buffer);
     }
-  } else {
-    // Not pixelwise.
-    average_pooling_op->ukernel.subtype = xnn_microkernel_type_average_pooling;
   }
 
   average_pooling_op->context.average_pooling = (struct average_pooling_context) {

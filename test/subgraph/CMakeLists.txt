@@ -21,12 +21,12 @@ IF(XNNPACK_BUILD_LIBRARY)
   # ---[ Build subgraph optimizations unit tests
   SET(LIBRARY_SUBGRAPH_OPTIMIZATION_TESTS
       fusion
+      input-output
       memory-planner
       subgraph-fp16
       subgraph
       runtime
       subgraph-nchw
-      persistent
       workspace)
   FOREACH(TEST ${LIBRARY_SUBGRAPH_OPTIMIZATION_TESTS})
     ADD_EXECUTABLE(${TEST}-test ${TEST}.cc)
@@ -43,6 +43,7 @@ IF(XNNPACK_BUILD_LIBRARY)
       average-pooling-2d
       batch-matrix-multiply
       binary
+      broadcast
       concatenate
       copy
       depth-to-space-2d

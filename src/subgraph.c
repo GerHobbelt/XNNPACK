@@ -26,6 +26,7 @@
 #include "src/xnnpack/log.h"
 #include "src/xnnpack/math.h"
 #include "src/xnnpack/node-type.h"
+#include "src/xnnpack/operator.h"
 #include "src/xnnpack/params.h"
 
 #ifndef XNN_ENABLE_SPARSE
@@ -140,6 +141,23 @@ enum xnn_status xnn_create_subgraph(uint32_t external_value_ids, uint32_t flags,
   }
   subgraph->num_values = external_value_ids;
   subgraph->num_reserved_values = external_value_ids;
+
+#ifdef XNN_SLINKY_ENABLED
+  // If compiling with XNN_SLINKY_ENABLED defined, assume we always
+  // want Slinky enabled, regardless of the runtime flag
+  const bool use_slinky = true;
+#else
+  const bool use_slinky = flags & XNN_FLAG_SLINKY_ENABLED;
+#endif
+  // If we're using Slinky, don't inline packing functions as Slinky does that
+  // automatically.
+  if (use_slinky) {
+    xnn_log_info(
+        "disabling inlined LHS packing because `XNN_FLAG_SLINKY_ENABLED` is "
+        "set.");
+    flags |= XNN_FLAG_NO_INLINED_LHS_PACKING;
+  }
+  subgraph->flags = flags;
 
   *subgraph_out = subgraph;
   return xnn_status_success;
@@ -326,12 +344,7 @@ void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph) {
       const uint32_t output_id = node->outputs[o];
       assert(output_id < subgraph->num_values);
 
-      // Persistent values can be produced by multiple nodes, e.g. copy nodes
-      // writing to the same persistent value.
-      assert(xnn_value_is_persistent(
-                 subgraph->values[output_id].flags,
-                 subgraph->values[output_id].allocation_type) ||
-             subgraph->values[output_id].producer == XNN_INVALID_NODE_ID);
+      assert(subgraph->values[output_id].producer == XNN_INVALID_NODE_ID);
       subgraph->values[output_id].producer = n;
     }
   }
@@ -1059,33 +1072,32 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
             subgraph->values[node->inputs[0]].datatype ==
                 xnn_datatype_qduint8 ||
             subgraph->values[node->inputs[0]].datatype == xnn_datatype_qpint8) {
-          // TODO(b/340399245) - Coerce any `qpint8` or `qduint8` values back to
-          // `qdint8` for conversion to fp16.
-          subgraph->values[node->inputs[0]].datatype = xnn_datatype_qdint8;
+          subgraph->values[node->outputs[0]].fp16_compatible = true;
+        } else if (subgraph->values[node->inputs[0]].datatype ==
+                       xnn_datatype_fp32 &&
+                   (node->params.fully_connected.assumed_input_datatype ==
+                        xnn_datatype_qdint8 ||
+                    node->params.fully_connected.assumed_input_datatype ==
+                        xnn_datatype_qduint8 ||
+                    node->params.fully_connected.assumed_input_datatype ==
+                        xnn_datatype_qpint8)) {
+          subgraph->values[node->inputs[0]].fp16_compatible = true;
           subgraph->values[node->outputs[0]].fp16_compatible = true;
         } else if ((subgraph->values[node->inputs[0]].datatype ==
                         xnn_datatype_fp32 ||
                     subgraph->values[node->inputs[0]].datatype ==
                         xnn_datatype_pfp32) &&
-                   subgraph->values[node->inputs[1]].datatype ==
-                       xnn_datatype_fp16 &&
+                   (subgraph->values[node->inputs[1]].datatype ==
+                        xnn_datatype_fp16 ||
+                    subgraph->values[node->inputs[1]].datatype ==
+                        xnn_datatype_fp32) &&
                    subgraph->values[node->outputs[0]].datatype ==
                        xnn_datatype_fp32) {
           subgraph->values[node->inputs[0]].fp16_compatible = true;
           subgraph->values[node->outputs[0]].fp16_compatible = true;
-          if (node->num_inputs > 2 &&
-              subgraph->values[node->inputs[2]].datatype == xnn_datatype_fp32) {
-            subgraph->values[node->inputs[2]].fp16_compatible = true;
+          if (subgraph->values[node->inputs[1]].datatype == xnn_datatype_fp32) {
+            subgraph->values[node->inputs[1]].fp16_compatible = true;
           }
-        } else if (subgraph->values[node->inputs[0]].datatype ==
-                       xnn_datatype_pfp32 &&
-                   subgraph->values[node->inputs[1]].datatype ==
-                       xnn_datatype_fp32 &&
-                   subgraph->values[node->outputs[0]].datatype ==
-                       xnn_datatype_fp32) {
-          subgraph->values[node->inputs[0]].fp16_compatible = true;
-          subgraph->values[node->inputs[1]].fp16_compatible = true;
-          subgraph->values[node->outputs[0]].fp16_compatible = true;
           if (node->num_inputs > 2 &&
               subgraph->values[node->inputs[2]].datatype == xnn_datatype_fp32) {
             subgraph->values[node->inputs[2]].fp16_compatible = true;
@@ -1313,7 +1325,30 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
     if (node->type == xnn_node_type_static_constant_pad) {
       node->params.static_pad.padding_value = fp16_ieee_from_fp32_value(
           uint32_as_float(node->params.static_pad.padding_value));
+    } else if (node->type == xnn_node_type_fully_connected) {
+      // Patch up any LHS packing of fully-connected nodes, if needed.
+      if (node->flags & XNN_FLAG_INLINE_LHS_PACKING) {
+        switch (node->params.fully_connected.assumed_input_datatype) {
+          case xnn_datatype_pfp32:
+            // Switch from packed `fp32` to packed `fp16`.
+            node->params.fully_connected.assumed_input_datatype =
+                xnn_datatype_pfp16;
+            break;
+          case xnn_datatype_qpint8:
+            // Convert from `qpint8` back to `qdint8` since we don't have a
+            // `qpint8` packing function for `f16` inputs.
+            node->params.fully_connected.assumed_input_datatype =
+                xnn_datatype_qdint8;
+            break;
+          default:
+            break;
+        }
+      } else if (subgraph->values[node->inputs[0]].datatype ==
+                 xnn_datatype_qpint8) {
+        subgraph->values[node->inputs[0]].datatype = xnn_datatype_qdint8;
+      }
     }
+
     for (uint32_t i = 0; i < node->num_inputs; i++) {
       const uint32_t fp16_id = subgraph->values[node->inputs[i]].fp16_id;
       if (fp16_id != XNN_INVALID_VALUE_ID) {
@@ -1330,7 +1365,7 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
     }
   }
 
-  struct xnn_node* output_node = subgraph->nodes + subgraph->num_nodes - 1;
+  struct xnn_node* output_node = &subgraph->nodes[subgraph->num_nodes - 1];
   for (uint32_t n = num_original_nodes; n != 0; n--) {
     const struct xnn_node* node = &subgraph->nodes[n - 1];
     // Insert Convert nodes for outputs
@@ -1685,25 +1720,46 @@ static bool is_broadcasted_static(const struct xnn_value* value) {
          xnn_shape_multiply_all_dims(&value->shape) == 1;
 }
 
+static bool set_contains(const uint32_t* set, uint32_t set_size, uint32_t x) {
+  for (uint32_t i = 0; i < set_size; i++) {
+    if (set[i] == x) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Returns the Value ID of a unary input. Binary operators with one constant
 // operand are considered unary operators by this function, and return the non-
-// constant input.
+// constant input. `unary_values` is a set of values that have already been
+// determined to be part of a unary elementwise function.
 static uint32_t is_pure_unary_elementwise(xnn_subgraph_t subgraph,
-                                          const struct xnn_node* node) {
+                                          const struct xnn_node* node,
+                                          const uint32_t* unary_values,
+                                          uint32_t num_unary_values) {
   switch (node->type) {
     case xnn_node_type_unary_elementwise:
       assert(node->num_inputs >= 1);
       return node->inputs[0];
     case xnn_node_type_binary_elementwise: {
-      const struct xnn_value* input_0 = &subgraph->values[node->inputs[0]];
-      const struct xnn_value* input_1 = &subgraph->values[node->inputs[1]];
+      const uint32_t input_0_id = node->inputs[0];
+      const uint32_t input_1_id = node->inputs[1];
+      const struct xnn_value* input_0 = &subgraph->values[input_0_id];
+      const struct xnn_value* input_1 = &subgraph->values[input_1_id];
       assert(node->num_inputs == 2);
       if (is_broadcasted_static(input_0) &&
           !xnn_value_is_static(input_1->allocation_type)) {
-        return node->inputs[1];
+        return input_1_id;
       } else if (is_broadcasted_static(input_1) &&
                  !xnn_value_is_static(input_0->allocation_type)) {
-        return node->inputs[0];
+        return input_0_id;
+      } else if (set_contains(unary_values, num_unary_values, input_0_id) &&
+                 set_contains(unary_values, num_unary_values, input_1_id)) {
+        // This is a unary elementwise operator if we've determined that both
+        // inputs are part of the same unary elementwise function. It doesn't
+        // matter which operand we return as long as it is in the `unary_values`
+        // set (which both are).
+        return input_0_id;
       } else {
         return XNN_INVALID_VALUE_ID;
       }
@@ -1893,17 +1949,11 @@ void reshape_for_lut(struct xnn_value* value) {
 void xnn_subgraph_fuse_unary_quantized_into_lut(xnn_subgraph_t subgraph) {
   // Find sequences of operators that are unary, quantized, elementwise, and
   // pure functions. These can be fused into a single LUT op. Examples:
-  // - softsign(x) = 1/(1 + abs(x))
+  // - softsign(x) = x/(1 + abs(x))
   // - softplus(x) = log(1 + exp(x))
   // We allow intermediate values to be datatypes other than quantized (and
   // allow convert ops), but the input and output values of the sequence must be
   // quantized.
-
-  // There are examples that we could fuse that we currently do not:
-  // - f(x) = x / (1 + x^2)
-  // This doesn't fuse because while f(x) is unary, some of the constituent ops
-  // (the divide) are not. This is probably doable with a more sophisticated
-  // algorithm.
 
   for (uint32_t n = 0; n < subgraph->num_nodes; n++) {
     struct xnn_node* node = &subgraph->nodes[n];
@@ -1912,7 +1962,8 @@ void xnn_subgraph_fuse_unary_quantized_into_lut(xnn_subgraph_t subgraph) {
       continue;
     }
 
-    const uint32_t input_id = is_pure_unary_elementwise(subgraph, node);
+    const uint32_t input_id =
+        is_pure_unary_elementwise(subgraph, node, NULL, 0);
     if (input_id == XNN_INVALID_VALUE_ID) {
       continue;
     }
@@ -1969,7 +2020,8 @@ void xnn_subgraph_fuse_unary_quantized_into_lut(xnn_subgraph_t subgraph) {
 
       // Include the consumer in the unary subgraph.
       node = &subgraph->nodes[output->first_consumer];
-    } while (is_pure_unary_elementwise(subgraph, node) !=
+    } while (is_pure_unary_elementwise(subgraph, node, value_map,
+                                       XNN_MAX_UNARY_FUSION_VALUES) !=
                  XNN_INVALID_VALUE_ID &&
              unary_subgraph.num_nodes < XNN_MAX_UNARY_FUSION_NODES);
 
@@ -2034,185 +2086,6 @@ void xnn_subgraph_fuse_unary_quantized_into_lut(xnn_subgraph_t subgraph) {
   }
 }
 
-void xnn_subgraph_optimize_dynamic_quantization_ops(xnn_subgraph_t subgraph) {
-  enum xnn_weights_type {
-    xnn_weights_type_invalid = 0,
-    xnn_weights_type_qb4w = 1,
-    xnn_weights_type_qc4w = 2,
-    xnn_weights_type_qc8w = 4,
-  };
-  enum xnn_consumer_type {
-    xnn_consumer_type_invalid = 0,
-    xnn_consumer_type_batch_mat_mul = 1,
-    xnn_consumer_type_convolution_2d = 2,
-    xnn_consumer_type_deconvolution = 4,
-    xnn_consumer_type_fully_connected = 8,
-  };
-  for (uint32_t n = 0; n < subgraph->num_nodes; n++) {
-    enum xnn_consumer_type consumer_type = xnn_consumer_type_invalid;
-    enum xnn_weights_type weights_type = xnn_weights_type_invalid;
-    struct xnn_node* node = &subgraph->nodes[n];
-    const uint32_t input_id = node->inputs[0];
-    const uint32_t output_id = node->outputs[0];
-    struct xnn_value* input = &subgraph->values[input_id];
-    struct xnn_value* output = &subgraph->values[output_id];
-    // Only replace nodes for which all consumer are of the same type.
-    if (!output->all_consumers_types_same) continue;
-    if (output->datatype == xnn_datatype_qdint8) {
-      struct xnn_node* first_consumer_node =
-          &subgraph->nodes[output->first_consumer];
-      switch (first_consumer_node->type) {
-        case xnn_node_type_fully_connected:
-          consumer_type = xnn_consumer_type_fully_connected;
-          break;
-        case xnn_node_type_convolution_2d:
-          consumer_type = xnn_consumer_type_convolution_2d;
-          break;
-        case xnn_node_type_deconvolution_2d:
-          consumer_type = xnn_consumer_type_deconvolution;
-          break;
-        case xnn_node_type_batch_matrix_multiply:
-          consumer_type = xnn_consumer_type_batch_mat_mul;
-          break;
-        default:
-          XNN_UNREACHABLE;
-      }
-      const struct xnn_value* filter =
-          &subgraph->values[first_consumer_node->inputs[1]];
-      switch (filter->datatype) {
-        case xnn_datatype_qbint4:
-          weights_type = xnn_weights_type_qb4w;
-          break;
-        case xnn_datatype_qcint4:
-          weights_type = xnn_weights_type_qc4w;
-          break;
-        case xnn_datatype_qcint8:
-          weights_type = xnn_weights_type_qc8w;
-          break;
-        default:
-          XNN_UNREACHABLE;
-      }
-      bool pack_activations = false;
-      if (input->datatype == xnn_datatype_fp32) {
-        // Coerce the input from `xnn_datatype_qdint8` to `xnn_datatype_qpint8`
-        // if we know that we're converting for a GEMM and `qp8_f32_*` kernels
-        // are available.
-        // TODO(b/340399245) - Remove xnn_init_qp8_f32_qc4w_gemm_config check
-        // once we have full qp8 support.
-
-        if (consumer_type == xnn_consumer_type_fully_connected ||
-            consumer_type == xnn_consumer_type_batch_mat_mul) {
-          if ((weights_type == xnn_weights_type_qc4w) &&
-              xnn_init_qp8_f32_qc4w_gemm_config() != NULL) {
-            pack_activations = true;
-          } else if ((weights_type == xnn_weights_type_qc8w) &&
-                     xnn_init_qp8_f32_qc8w_gemm_config() != NULL) {
-            pack_activations = true;
-          } else if ((weights_type == xnn_weights_type_qb4w) &&
-                     xnn_init_qp8_f32_qb4w_gemm_config() != NULL &&
-                     // The `qp8_f32_qb4w` GEMMs currently only accept unsigned
-                     // weights.
-                     filter->quantization.zero_point == 8) {
-            pack_activations = true;
-          }
-        }
-        if (pack_activations) {
-          xnn_log_debug("Coercing type of output ID #%" PRIu32
-                        " of %s operator from `%s` to `%s`.",
-                        output_id,
-                        xnn_node_type_to_string(xnn_node_type_convert),
-                        xnn_datatype_to_string(output->datatype),
-                        xnn_datatype_to_string(xnn_datatype_qpint8));
-          subgraph->values[output_id].datatype = xnn_datatype_qpint8;
-          switch (weights_type) {
-            case xnn_weights_type_qb4w:
-              output->gemm_config = xnn_init_qp8_f32_qb4w_gemm_config();
-              break;
-            case xnn_weights_type_qc4w:
-              output->gemm_config = xnn_init_qp8_f32_qc4w_gemm_config();
-              break;
-            case xnn_weights_type_qc8w:
-              output->gemm_config = xnn_init_qp8_f32_qc8w_gemm_config();
-              break;
-            default:
-              XNN_UNREACHABLE;
-          }
-          // To prevent issues with packing, coerce the shape of the inputs from
-          // `[B, M, K]` to `[B * M, K]` for the fully-connected op.
-          if (consumer_type == xnn_consumer_type_fully_connected) {
-            output->flags |= XNN_FLAG_SQUASH_GROUPS;
-          }
-        }
-      }
-
-      if (!pack_activations) {
-        const struct xnn_gemm_config* original_config = NULL;
-        const struct xnn_gemm_config* unsigned_config = NULL;
-        if (input->datatype == xnn_datatype_fp32) {
-          if (weights_type == xnn_weights_type_qc4w) {
-            original_config = xnn_init_qd8_f32_qc4w_gemm_config();
-            unsigned_config = xnn_init_qdu8_f32_qc4w_gemm_config();
-          } else if (weights_type == xnn_weights_type_qc8w) {
-            original_config = xnn_init_qd8_f32_qc8w_gemm_config();
-            switch (consumer_type) {
-              case xnn_consumer_type_batch_mat_mul:
-              case xnn_consumer_type_fully_connected:
-                unsigned_config = xnn_init_qdu8_f32_qc8w_gemm_config();
-                break;
-              case xnn_consumer_type_convolution_2d:
-              case xnn_consumer_type_deconvolution:
-                unsigned_config = xnn_init_qdu8_f32_qc8w_igemm_config();
-                break;
-              default:
-                XNN_UNREACHABLE;
-            }
-          } else if (weights_type == xnn_weights_type_qb4w) {
-            original_config = xnn_init_qd8_f32_qb4w_gemm_config();
-            unsigned_config = xnn_init_qdu8_f32_qb4w_gemm_config();
-          }
-        } else if (input->datatype == xnn_datatype_fp16) {
-          if (weights_type == xnn_weights_type_qc4w) {
-            original_config = xnn_init_qd8_f16_qc4w_gemm_config();
-            unsigned_config = xnn_init_qdu8_f16_qc4w_gemm_config();
-          } else if (weights_type == xnn_weights_type_qc8w) {
-            switch (consumer_type) {
-              case xnn_consumer_type_batch_mat_mul:
-              case xnn_consumer_type_fully_connected:
-                original_config = xnn_init_qd8_f16_qc8w_gemm_config();
-                unsigned_config = xnn_init_qdu8_f16_qc8w_gemm_config();
-                break;
-              case xnn_consumer_type_convolution_2d:
-              case xnn_consumer_type_deconvolution:
-                original_config = xnn_init_qd8_f16_qc8w_igemm_config();
-                unsigned_config = xnn_init_qdu8_f16_qc8w_gemm_config();
-                break;
-              default:
-                XNN_UNREACHABLE;
-            }
-          }
-        }
-        bool convert_to_qu8 = false;
-        if (original_config && unsigned_config) {
-          enum xnn_arch_flags qdu8_arch = unsigned_config->arch;
-          enum xnn_arch_flags qd8_arch = original_config->arch;
-          if (qdu8_arch > qd8_arch) {
-            convert_to_qu8 = true;
-          }
-        }
-        if (convert_to_qu8) {
-          xnn_log_debug("Coercing type of output ID #%" PRIu32
-                        " of %s operator from `%s` to `%s`.",
-                        output_id,
-                        xnn_node_type_to_string(xnn_node_type_convert),
-                        xnn_datatype_to_string(output->datatype),
-                        xnn_datatype_to_string(xnn_datatype_qduint8));
-          subgraph->values[output_id].datatype = xnn_datatype_qduint8;
-        }
-      }
-    }
-  }
-}
-
 void xnn_subgraph_clean_up(xnn_subgraph_t subgraph) {
   // Count the number of consumers for each value.
   xnn_subgraph_analyze_consumers_and_producers(subgraph);
@@ -2225,8 +2098,7 @@ void xnn_subgraph_clean_up(xnn_subgraph_t subgraph) {
     }
 
     if (!xnn_value_is_external_input(value->flags) &&
-        value->num_consumers == 0 &&
-        !xnn_value_is_persistent(value->flags, value->allocation_type)) {
+        value->num_consumers == 0) {
       if (value->producer != XNN_INVALID_NODE_ID) {
         struct xnn_node* producer = &subgraph->nodes[value->producer];
         if (producer->num_outputs == 1) {
@@ -2246,10 +2118,8 @@ void xnn_subgraph_clean_up(xnn_subgraph_t subgraph) {
   bool* values_ready = (bool*)&nodes_map[subgraph->num_nodes];
   for (uint32_t i = 0; i < subgraph->num_values; i++) {
     struct xnn_value* value = &subgraph->values[i];
-    values_ready[i] =
-        value->producer == XNN_INVALID_NODE_ID ||
-        xnn_value_is_external_input(value->flags) ||
-        xnn_value_is_persistent(value->flags, value->allocation_type);
+    values_ready[i] = value->producer == XNN_INVALID_NODE_ID ||
+                      xnn_value_is_external_input(value->flags);
   }
   uint32_t left = 0;
   uint32_t num_invalid_nodes = 0;
@@ -2311,6 +2181,376 @@ void xnn_subgraph_clean_up(xnn_subgraph_t subgraph) {
   xnn_release_memory(nodes_map);
 }
 
+static bool convert_gemm_to_qduint8(
+    const enum xnn_datatype input_datatype,
+    const enum xnn_node_type consumer_type,
+    const enum xnn_datatype consumer_weights_type) {
+  // Identify the `qdint8` and `qduint8` configs for the consumers of this op.
+  const struct xnn_gemm_config* original_config = NULL;
+  const struct xnn_gemm_config* unsigned_config = NULL;
+  if (input_datatype == xnn_datatype_fp32) {
+    if (consumer_weights_type == xnn_datatype_qcint4) {
+      original_config = xnn_init_qd8_f32_qc4w_gemm_config();
+      unsigned_config = xnn_init_qdu8_f32_qc4w_gemm_config();
+    } else if (consumer_weights_type == xnn_datatype_qcint8) {
+      original_config = xnn_init_qd8_f32_qc8w_gemm_config();
+      switch (consumer_type) {
+        case xnn_node_type_batch_matrix_multiply:
+        case xnn_node_type_fully_connected:
+          unsigned_config = xnn_init_qdu8_f32_qc8w_gemm_config();
+          break;
+        case xnn_node_type_convolution_2d:
+        case xnn_node_type_deconvolution_2d:
+          unsigned_config = xnn_init_qdu8_f32_qc8w_igemm_config();
+          break;
+        default:
+          XNN_UNREACHABLE;
+      }
+    } else if (consumer_weights_type == xnn_datatype_qbint4) {
+      original_config = xnn_init_qd8_f32_qb4w_gemm_config();
+      unsigned_config = xnn_init_qdu8_f32_qb4w_gemm_config();
+    }
+  } else if (input_datatype == xnn_datatype_fp16) {
+    if (consumer_weights_type == xnn_datatype_qcint4) {
+      original_config = xnn_init_qd8_f16_qc4w_gemm_config();
+      unsigned_config = xnn_init_qdu8_f16_qc4w_gemm_config();
+    } else if (consumer_weights_type == xnn_datatype_qcint8) {
+      switch (consumer_type) {
+        case xnn_node_type_batch_matrix_multiply:
+        case xnn_node_type_fully_connected:
+          original_config = xnn_init_qd8_f16_qc8w_gemm_config();
+          unsigned_config = xnn_init_qdu8_f16_qc8w_gemm_config();
+          break;
+        case xnn_node_type_convolution_2d:
+        case xnn_node_type_deconvolution_2d:
+          original_config = xnn_init_qd8_f16_qc8w_igemm_config();
+          unsigned_config = xnn_init_qdu8_f16_qc8w_gemm_config();
+          break;
+        default:
+          XNN_UNREACHABLE;
+      }
+    }
+  }
+
+  // If the `qduint8` config is better than the `qdint8` config, use it
+  // instead.
+  bool convert_to_qu8 = false;
+  if (original_config && unsigned_config) {
+    enum xnn_arch_flags qdu8_arch = unsigned_config->arch;
+    enum xnn_arch_flags qd8_arch = original_config->arch;
+    if (qdu8_arch > qd8_arch) {
+      convert_to_qu8 = true;
+    }
+  }
+  return convert_to_qu8;
+}
+
+enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph) {
+  // Count the number of changes made.
+  size_t changes = 0;
+
+  // Loop over the nodes in the subgraph.
+  for (uint32_t node_id = 0; node_id < subgraph->num_nodes; node_id++) {
+    struct xnn_node* node = &subgraph->nodes[node_id];
+
+    // Skip anything that is not a `fully-connected` node.
+    if (node->type != xnn_node_type_fully_connected) {
+      continue;
+    }
+
+    // Get a handle on the inputs/outputs.
+    const uint32_t input_id = node->inputs[0];
+    struct xnn_value* input_value = &subgraph->values[input_id];
+    struct xnn_value* kernel_value = &subgraph->values[node->inputs[1]];
+    struct xnn_value* output_value = &subgraph->values[node->outputs[0]];
+    const enum xnn_datatype input_datatype = input_value->datatype;
+    const enum xnn_datatype kernel_datatype = kernel_value->datatype;
+    const enum xnn_datatype output_datatype = output_value->datatype;
+
+    // Check if we have a packed GEMM config for the combination of
+    // input/kernel/output.
+    const struct xnn_gemm_config* gemm_config = NULL;
+    enum xnn_datatype assumed_datatype = xnn_datatype_invalid;
+    switch (input_datatype) {
+      case xnn_datatype_fp16:
+        if (input_datatype == output_datatype &&
+            kernel_datatype == xnn_datatype_fp16) {
+          if ((gemm_config = xnn_init_pf16_gemm_config())) {
+            assumed_datatype = xnn_datatype_pfp16;
+          }
+        }
+        break;
+      case xnn_datatype_fp32:
+        if (input_datatype == output_datatype &&
+            kernel_datatype == xnn_datatype_fp32) {
+          if ((gemm_config = xnn_init_pf32_gemm_config())) {
+            assumed_datatype = xnn_datatype_pfp32;
+          }
+        }
+        break;
+      case xnn_datatype_qint8:
+        if (input_datatype == output_datatype &&
+            kernel_datatype == xnn_datatype_qcint8) {
+          if ((gemm_config = xnn_init_pqs8_qc8w_gemm_config())) {
+            assumed_datatype = xnn_datatype_pqint8;
+          }
+        }
+        break;
+      case xnn_datatype_qdint8:
+        // We may inline the `qdint8` packing regardless of whether we have a
+        // specialized `qpint8` kernel or not.
+        assumed_datatype = xnn_datatype_qdint8;
+        if (output_datatype == xnn_datatype_fp32) {
+          switch (kernel_datatype) {
+            case xnn_datatype_qbint4:
+              if ((gemm_config = xnn_init_qp8_f32_qb4w_gemm_config())) {
+                assumed_datatype = xnn_datatype_qpint8;
+              }
+              break;
+            case xnn_datatype_qcint4:
+              if ((gemm_config = xnn_init_qp8_f32_qc4w_gemm_config())) {
+                assumed_datatype = xnn_datatype_qpint8;
+              }
+              break;
+            case xnn_datatype_qcint8:
+              if ((gemm_config = xnn_init_qp8_f32_qc8w_gemm_config())) {
+                assumed_datatype = xnn_datatype_qpint8;
+              }
+              break;
+            default:
+              break;
+          }
+        }
+        break;
+      default:
+        // If none of the above happened, do nothing for this node.
+        continue;
+    }
+
+    if (assumed_datatype != xnn_datatype_invalid) {
+      if (subgraph->flags & XNN_FLAG_NO_INLINED_LHS_PACKING) {
+        if (assumed_datatype == xnn_datatype_qdint8) {
+          // If the input is already `qdint8`, don't do anything different.
+          continue;
+        } else if (assumed_datatype == xnn_datatype_qpint8) {
+          xnn_log_debug(
+              // `qpint8` inputs are generated by modifying the `convert` op
+              // that generated the `qdint8` input, so we only have to add a
+              // `pack-lh` op for the other input types.
+              "Coercing type of input ID #%" PRIu32
+              " of %s node from `%s` to `%s`.",
+              input_id, xnn_node_type_to_string(xnn_node_type_convert),
+              xnn_datatype_to_string(input_datatype),
+              xnn_datatype_to_string(xnn_datatype_qpint8));
+          subgraph->values[input_id].datatype = assumed_datatype;
+          subgraph->values[input_id].gemm_config = gemm_config;
+        } else {
+          // Insert a node to pack the LHS.
+          xnn_log_debug("Adding %s node for input ID #%" PRIu32
+                        " of type `%s` for %s node.",
+                        xnn_node_type_to_string(xnn_node_type_pack_lh),
+                        input_id,
+                        xnn_node_type_to_string(xnn_node_type_fully_connected),
+                        xnn_datatype_to_string(xnn_datatype_qpint8));
+          uint32_t new_id = XNN_INVALID_VALUE_ID;
+          enum xnn_status status =
+              xnn_insert_pack_lh_node(subgraph, input_id, &new_id);
+          if (status != xnn_status_success) {
+            return status;
+          }
+          subgraph->nodes[node_id].inputs[0] = new_id;
+          changes++;
+        }
+        // If this is a fully-connected op, we need to coerce the shape of the
+        // inputs from `[B, M, K]` to `[B * M, K]` to avoid batch-wise packing.
+        subgraph->values[subgraph->nodes[node_id].inputs[0]].flags |=
+            XNN_FLAG_SQUASH_GROUPS;
+      } else {
+        if (input_datatype == xnn_datatype_qdint8) {
+          // Short-circuit the inputs of the producer of the `qdint8` values.
+          struct xnn_node* producer = &subgraph->nodes[input_value->producer];
+          if (producer->type != xnn_node_type_convert) {
+            xnn_log_error(
+                "Expected producer node #%u of %s tensor #%u to be of type %s, "
+                "but found type %s instead.",
+                input_value->producer, xnn_datatype_to_string(input_datatype),
+                input_id, xnn_node_type_to_string(xnn_node_type_convert),
+                xnn_node_type_to_string(producer->type));
+            return xnn_status_invalid_state;
+          }
+          // Maybe use `qduint8` instead of `qdint8`?
+          xnn_log_debug(
+              "Skipping %s node #%u for input #%" PRIu32 " of node #%u (%s).",
+              xnn_node_type_to_string(producer->type), producer->id, input_id,
+              node_id, xnn_node_type_to_string(xnn_node_type_fully_connected));
+          struct xnn_value* new_input = &subgraph->values[producer->inputs[0]];
+          node->inputs[0] = producer->inputs[0];
+          if (new_input->first_consumer == input_value->producer) {
+            new_input->first_consumer = node_id;
+          }
+          if (--input_value->num_consumers == 0) {
+            xnn_node_clear(producer);
+          }
+          if (convert_gemm_to_qduint8(new_input->datatype, node->type,
+                                      kernel_datatype)) {
+            assumed_datatype = xnn_datatype_qduint8;
+          }
+          changes++;
+        }
+        xnn_log_debug("Setting assumed_datatype=%s for node #%u (%s).",
+                      xnn_datatype_to_string(assumed_datatype), node_id,
+                      xnn_node_type_to_string(node->type));
+        node->params.fully_connected.assumed_input_datatype = assumed_datatype;
+        node->flags |= XNN_FLAG_INLINE_LHS_PACKING;
+      }
+    }
+  }
+
+  // Second loop over the nodes to convert any `qdint8` to `qduint8` where
+  // appropriate.
+  for (uint32_t node_id = 0; node_id < subgraph->num_nodes; node_id++) {
+    struct xnn_node* node = &subgraph->nodes[node_id];
+
+    // Skip anything that is not a `convert` node.
+    if (node->type != xnn_node_type_convert) {
+      continue;
+    }
+
+    // Get a handle on the inputs/outputs.
+    const uint32_t output_id = node->outputs[0];
+    struct xnn_value* input_value = &subgraph->values[node->inputs[0]];
+    struct xnn_value* output_value = &subgraph->values[output_id];
+    const enum xnn_datatype input_datatype = input_value->datatype;
+    const enum xnn_datatype output_datatype = output_value->datatype;
+
+    // Only replace `qdint8` nodes for which all consumer are of the same type.
+    if (!output_value->all_consumers_types_same ||
+        output_datatype != xnn_datatype_qdint8) {
+      continue;
+    }
+
+    // Get a handle on the consumer and its inputs/outputs.
+    const struct xnn_node* consumer =
+        &subgraph->nodes[output_value->first_consumer];
+    const enum xnn_datatype consumer_weights_type =
+        subgraph->values[consumer->inputs[1]].datatype;
+
+    // If the `qduint8` config is better than the `qdint8` config, use it
+    // instead.
+    if (convert_gemm_to_qduint8(input_datatype, consumer->type,
+                                consumer_weights_type)) {
+      xnn_log_debug("Coercing type of output ID #%" PRIu32
+                    " of %s operator from `%s` to `%s`.",
+                    output_id, xnn_node_type_to_string(xnn_node_type_convert),
+                    xnn_datatype_to_string(output_datatype),
+                    xnn_datatype_to_string(xnn_datatype_qduint8));
+      output_value->datatype = xnn_datatype_qduint8;
+    }
+  }
+
+  // Clean up after ourselves.
+  if (changes) {
+    xnn_subgraph_clean_up(subgraph);
+  }
+
+  return xnn_status_success;
+}
+
+static void replace_in_set(uint32_t* set, uint32_t size, uint32_t old_value,
+                           uint32_t new_value) {
+  for (uint32_t i = 0; i < size; i++) {
+    if (set[i] == old_value) {
+      set[i] = new_value;
+    }
+  }
+}
+
+// Persistent values are values that can be read or written repeatedly. This
+// isn't compatible with our graph model. To work around this, we implement
+// persistent values with an [SSA] approach:
+//  - Persistent values are passed in as inputs
+//  - Writes to the persistent value creates a new value
+//  - Reads read the last value written to (or the input if none).
+//  - The last written value (if any) is passed out as an output.
+//
+// [SSA]. https://en.wikipedia.org/wiki/Static_single-assignment_form
+void xnn_subgraph_rewrite_ssa(xnn_subgraph_t subgraph) {
+  bool* values_written =
+      (bool*)xnn_allocate_memory(sizeof(bool) * subgraph->num_values);
+  for (uint32_t i = 0; i < subgraph->num_values; i++) {
+    values_written[i] = false;
+  }
+  for (uint32_t i = 0; i < subgraph->num_nodes; i++) {
+    struct xnn_node* node = &subgraph->nodes[i];
+    for (uint32_t j = 0; j < node->num_outputs; j++) {
+      const uint32_t output_id = node->outputs[j];
+      const struct xnn_value* value = &subgraph->values[output_id];
+      if (!xnn_value_is_external_output(value->flags)) {
+        // We only care to rewrite external outputs. Internal values should
+        // already be SSA.
+        continue;
+      }
+      if (!values_written[output_id]) {
+        // This is the first time we've seen this output.
+      } else {
+        // We already wrote this value. Make a new value to replace the previous
+        // value with (so the external output remains the last write).
+        struct xnn_value* new_value = xnn_subgraph_new_internal_value(subgraph);
+        // xnn_subgraph_new_internal_value may have invalidated `value` pointer.
+        value = &subgraph->values[output_id];
+        xnn_value_copy(new_value, value);
+        xnn_log_debug("Adding new value #%" PRIu32
+                      " for already produced output #%" PRIu32,
+                      new_value->id, output_id);
+
+        // For outputs, we want only the last value to be the original output.
+        // The new value is not an output, and its an internal allocation.
+        new_value->flags &=
+            ~(XNN_VALUE_FLAG_EXTERNAL_OUTPUT | XNN_VALUE_FLAG_EXTERNAL_INPUT);
+        new_value->allocation_type = xnn_allocation_type_workspace;
+
+        // Since we want to rewrite the previous write's value, we need to go
+        // back and update previously visited nodes. We only want to do the
+        // mapping after we find the first time this value is written.
+        bool found = false;
+        for (uint32_t k = 0; k < i; ++k) {
+          struct xnn_node* node_k = &subgraph->nodes[k];
+          if (found) {
+            // We've written the new value, update all subsequent reads to point
+            // to the new value.
+            replace_in_set(node_k->inputs, node_k->num_inputs, output_id,
+                           new_value->id);
+            replace_in_set(node_k->outputs, node_k->num_outputs, output_id,
+                           new_value->id);
+          } else if (set_contains(node_k->outputs, node_k->num_outputs,
+                                  output_id)) {
+            // We found where this value is written. Replace only the output
+            // use.
+            replace_in_set(node_k->outputs, node_k->num_outputs, output_id,
+                           new_value->id);
+            found = true;
+          } else {
+            // We're still using the old value.
+          }
+        }
+        // Replace all subsequent reads with the new value, until we find
+        // another write (because subsequent reads from there need the
+        // replacement for that value).
+        for (uint32_t k = i; k < subgraph->num_nodes; ++k) {
+          struct xnn_node* node_k = &subgraph->nodes[k];
+          replace_in_set(node_k->inputs, node_k->num_inputs, output_id,
+                         new_value->id);
+          if (set_contains(node_k->outputs, node_k->num_outputs, output_id)) {
+            break;
+          }
+        }
+      }
+      values_written[output_id] = true;
+    }
+  }
+  xnn_release_memory(values_written);
+}
+
 enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph,
                                       uint32_t optimization_flags) {
   // Start with a clean and ordered subgraph.
@@ -2361,7 +2601,10 @@ enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph,
   }
 #endif
 
-  xnn_subgraph_optimize_dynamic_quantization_ops(subgraph);
+  enum xnn_status status = xnn_subgraph_optimize_packed_lhs(subgraph);
+  if (status != xnn_status_success) {
+    return status;
+  }
 
   return xnn_status_success;
 }

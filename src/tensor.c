@@ -28,8 +28,6 @@ static void set_allocation_type(struct xnn_value* value)
     value->allocation_type = xnn_allocation_type_static;
   } else if ((value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) != 0) {
     value->allocation_type = xnn_allocation_type_external;
-  } else if ((value->flags & XNN_VALUE_FLAG_PERSISTENT) != 0) {
-    value->allocation_type = xnn_allocation_type_persistent;
   } else {
     value->allocation_type = xnn_allocation_type_workspace;
   }
@@ -606,7 +604,7 @@ enum xnn_status xnn_define_blockwise_quantized_tensor_value(
 }
 
 size_t xnn_shape_multiply_all_dims(
-  const struct xnn_shape shape[restrict XNN_MIN_ELEMENTS(1)])
+  const struct xnn_shape* shape)
 {
   size_t batch_size = 1;
   for (size_t i = 0; i < shape->num_dims; i++) {
@@ -616,7 +614,7 @@ size_t xnn_shape_multiply_all_dims(
 }
 
 size_t xnn_shape_multiply_batch_dims(
-  const struct xnn_shape shape[restrict XNN_MIN_ELEMENTS(1)],
+  const struct xnn_shape* shape,
   size_t num_nonbatch_dims)
 {
   size_t batch_size = 1;
@@ -627,7 +625,7 @@ size_t xnn_shape_multiply_batch_dims(
 }
 
 size_t xnn_shape_multiply_non_channel_dims(
-  const struct xnn_shape shape[restrict XNN_MIN_ELEMENTS(1)])
+  const struct xnn_shape* shape)
 {
   size_t batch_size = 1;
   for (size_t i = 0; i + 1 < shape->num_dims; i++) {
@@ -637,7 +635,7 @@ size_t xnn_shape_multiply_non_channel_dims(
 }
 
 size_t xnn_shape_multiply_leading_dims(
-  const struct xnn_shape shape[restrict XNN_MIN_ELEMENTS(1)],
+  const struct xnn_shape* shape,
   size_t num_leading_dims)
 {
   size_t batch_size = 1;
@@ -648,7 +646,7 @@ size_t xnn_shape_multiply_leading_dims(
 }
 
 size_t xnn_shape_multiply_trailing_dims(
-  const struct xnn_shape shape[1],
+  const struct xnn_shape* shape,
   size_t start_dim)
 {
   size_t product = 1;

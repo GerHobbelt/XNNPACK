@@ -27,6 +27,9 @@
 extern "C" {
 #endif
 
+/// Pack the LHS data on the fly in a temporary buffer in the consuming op.
+#define XNN_FLAG_INLINE_LHS_PACKING 0x00000200
+
 struct xnn_ukernel_conv2d {
   union {
     xnn_conv_hwc2chw_ukernel_fn hwc2chw_fn;
@@ -101,8 +104,6 @@ struct gemm_types {
 
 struct xnn_ukernel {
   enum xnn_microkernel_type type;
-  // Used by subconv2d whether it is a GEMM or IGEMM.
-  enum xnn_microkernel_type subtype;
   union {
     struct xnn_ukernel_conv2d conv2d;
     struct xnn_ukernel_dwconv dwconv;
@@ -112,8 +113,10 @@ struct xnn_ukernel {
     struct xnn_ukernel_vbinary vbinary;
     struct xnn_ukernel_vunary vunary;
   };
-  struct gemm_types *gemm_ukernels;
-  struct xnn_ukernel_igemm *igemm;
+  union {
+    struct gemm_types *gemm_ukernels;
+    struct xnn_ukernel_igemm *igemm;
+  };
 };
 
 // Valid state transitions:
@@ -143,6 +146,7 @@ struct gemm_op_context {
     struct packw_gemm_goi_context packw_gemm_goi;
     struct packw_gemm_gio_context packw_gemm_gio;
   };
+  struct pack_lh_context pack_lh;
   bool const_weights;
 };
 
@@ -186,6 +190,16 @@ struct xnn_convolution_operator {
   size_t zero_size;
   void* pixelwise_buffer;
   struct subconvolution_params* subconvolution_buffer;
+};
+
+union xnn_params2 {
+  union xnn_binary_uparams binary;
+  union xnn_unary_uparams unary;
+  struct xnn_f16_default_params f16_default;
+  struct xnn_f32_minmax_params f32_minmax;
+  struct xnn_f32_default_params f32_default;
+  struct xnn_s8_minmax_params s8_minmax;
+  struct xnn_u8_minmax_params u8_minmax;
 };
 
 struct xnn_operator {
@@ -277,15 +291,7 @@ struct xnn_operator {
   // also use this to store parameters to binary operators. For most such
   // operators, this is a copy of params, but params need to be swapped for
   // commutative ops with per-operand params.
-  union {
-    union xnn_binary_uparams binary;
-    union xnn_unary_uparams unary;
-    struct xnn_f16_default_params f16_default;
-    struct xnn_f32_minmax_params f32_minmax;
-    struct xnn_f32_default_params f32_default;
-    struct xnn_s8_minmax_params s8_minmax;
-    struct xnn_u8_minmax_params u8_minmax;
-  } params2;
+  union xnn_params2 *params2;
   enum xnn_operator_type type;
   struct xnn_ukernel ukernel;
 
@@ -338,7 +344,6 @@ struct xnn_operator {
     struct lut_contiguous_context lut_contiguous;
     struct lut_strided_context lut_strided;
     struct max_pooling_context max_pooling;
-    struct pad_context pad;
     struct {
       struct resize_bilinear_context resize_bilinear;
       struct resize_bilinear_nhwc_indirection_init_context
@@ -367,6 +372,7 @@ struct xnn_operator {
     struct gemm_op_context *gemm;
     struct igemm_op_context *igemm;
     struct reduce_context *reduce;
+    struct pad_context *pad;
   } dynamic_context;
 
   xnn_weights_cache_t weights_cache;

@@ -103,6 +103,7 @@ xnnpack_unit_test(
     deps = SUBGRAPH_TEST_DEPS,
 ) for operator in [
     "copy",
+    "broadcast",
     "softmax",
     "space_to_depth_2d",
     "depth_to_space_2d",
@@ -119,9 +120,9 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "persistent_test",
-    srcs = ["persistent.cc"],
-    deps = SUBGRAPH_TEST_DEPS + ["//:allocation_type"],
+    name = "input_output_test",
+    srcs = ["input-output.cc"],
+    deps = SUBGRAPH_TEST_DEPS,
 )
 
 xnnpack_unit_test(
@@ -205,6 +206,7 @@ xnnpack_unit_test(
 xnnpack_unit_test(
     name = "static_reduce_test",
     srcs = ["static-reduce.cc"],
+    shard_count = 5,
     deps = SUBGRAPH_TEST_DEPS,
 )
 
@@ -244,7 +246,6 @@ xnnpack_unit_test(
         ":subgraph_tester",
         "//:buffer",
         "//:node_type",
-        "//:subgraph",
         "//:subgraph_h",
         "//:xnnpack_h",
     ],
@@ -315,7 +316,9 @@ xnnpack_unit_test(
         "//:buffer",
         "//:math",
         "//:node_type",
+        "//:operator_h",
         "//:params",
+        "//:subgraph",
         "//:subgraph_h",
         "//:xnnpack_h",
         "//test:replicable_random_device",

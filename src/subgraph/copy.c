@@ -85,6 +85,10 @@ static enum xnn_status resize_copy_output_tensor(
     size_t hint_cur_dim = opdata->reshape_dims[dim_idx];
     if (hint_cur_dim == 0) {
       if (output_axis_dynamic < XNN_MAX_TENSOR_DIMS) {
+        xnn_log_error(
+            "Cannot infer output shape given more than one dynamic dimension "
+            "(found %zu and %zu)",
+            output_axis_dynamic, dim_idx);
         return xnn_status_invalid_parameter;
       }
       output_axis_dynamic = dim_idx;
@@ -345,6 +349,8 @@ static enum xnn_status reshape_copy_operator(
                                              old_workspace_size);
     case xnn_node_type_copy:
       return resize_unary_elementwise_output_tensor(opdata, values, num_values, old_workspace_size, threadpool);
+    case xnn_node_type_static_broadcast:
+      return xnn_status_unsupported_parameter;
     default:
       XNN_UNREACHABLE;
   }
@@ -488,6 +494,25 @@ enum xnn_status xnn_define_static_reshape(
   }
   return define_copy_node(subgraph, num_dims, new_shape, /*axis=*/0,
                           xnn_node_type_static_reshape, input_id, output_id,
+                          flags);
+}
+
+enum xnn_status xnn_define_static_broadcast(
+  xnn_subgraph_t subgraph,
+  size_t num_dims,
+  const size_t* new_shape,
+  uint32_t input_id,
+  uint32_t output_id,
+  uint32_t flags)
+{
+  if (num_dims > XNN_MAX_TENSOR_DIMS) {
+    xnn_log_error(
+      "failed to define %s operator with %zu-dimensional output shape: at most %zu dimensions are supported",
+      xnn_node_type_to_string(xnn_node_type_static_broadcast), num_dims, (size_t) XNN_MAX_TENSOR_DIMS);
+    return xnn_status_unsupported_parameter;
+  }
+  return define_copy_node(subgraph, num_dims, new_shape, /*axis=*/0,
+                          xnn_node_type_static_broadcast, input_id, output_id,
                           flags);
 }
 

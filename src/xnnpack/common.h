@@ -106,13 +106,6 @@
 #define XNN_PLATFORM_MAC 0
 #endif
 
-// Mobile build x86 versions for debugging
-#if XNN_PLATFORM_ANDROID || XNN_PLATFORM_IOS
-#define XNN_PLATFORM_MOBILE 1
-#else
-#define XNN_PLATFORM_MOBILE 0
-#endif
-
 #if defined(__EMSCRIPTEN__) || defined(__wasm__)
 #define XNN_PLATFORM_WEB 1
 #else
@@ -247,16 +240,6 @@
 
 #define XNN_COUNT_OF(array) (sizeof(array) / sizeof(0 [array]))
 
-#if defined(__cplusplus) || XNN_COMPILER_MSVC || XNN_COMPILER_CLANG
-// static as array indices in function parameter declaration is a C99 feature,
-// not supported in C++. MSVC does not support this feature, even in C mode.
-// Clang generates suboptimal code, see
-// https://github.com/llvm/llvm-project/issues/59120
-#define XNN_MIN_ELEMENTS(count) count
-#else
-#define XNN_MIN_ELEMENTS(count) static count
-#endif
-
 #if defined(__cplusplus) || XNN_COMPILER_MSVC
 #define XNN_RESTRICT
 #else
@@ -368,11 +351,7 @@
 #if XNN_ARCH_WASM
 #define XNN_ALLOCATION_ALIGNMENT 4
 #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
-#if XNN_PLATFORM_MOBILE
-#define XNN_ALLOCATION_ALIGNMENT 32
-#else
 #define XNN_ALLOCATION_ALIGNMENT 64
-#endif
 #elif XNN_ARCH_HEXAGON
 #define XNN_ALLOCATION_ALIGNMENT 128
 #else

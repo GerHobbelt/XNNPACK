@@ -624,7 +624,7 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
     xnn_operator_t batch_matrix_multiply_op,
     enum xnn_operator_type expected_operator_type, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     uint32_t log2_input_a_element_size, uint32_t log2_input_b_element_size,
     uint32_t bias_element_size, uint32_t w_stride_extra_bytes,
     uint32_t log2_output_element_size, const void* params, size_t params_size,
@@ -671,12 +671,10 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
 
   // Compute the batch sizes of the A and B tensors.
   size_t batch_dims_c[XNN_MAX_TENSOR_DIMS];
-  size_t batch_size_a = 1;
   size_t batch_size_b = 1;
   size_t batch_size_c = 1;
   for (int k = 0; k < num_batch_dims; k++) {
     batch_dims_c[k] = max(batch_dims_a[k], batch_dims_b[k]);
-    batch_size_a *= batch_dims_a[k];
     batch_size_b *= batch_dims_b[k];
     batch_size_c *= batch_dims_c[k];
   }
@@ -769,10 +767,6 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
       if (workspace_size != NULL) {
         *workspace_size = batch_size_b * input_b_batch_stride;
       }
-      if (workspace_alignment != NULL) {
-        *workspace_alignment = XNN_ALLOCATION_ALIGNMENT;
-      }
-
       if (batch_matrix_multiply_op->flags & XNN_FLAG_TRANSPOSE_B) {
         assert(batch_matrix_multiply_op->ukernel.gemm_ukernels->gemm.packw_gemm_goi != NULL ||
                gemm_config->pack_weights_and_biases);
@@ -838,23 +832,31 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
       XNN_UNREACHABLE;
   }
 
-  const bool packed_lhs =
-      (batch_matrix_multiply_op->type ==
-       xnn_operator_type_batch_matrix_multiply_nc_qp8_f32_qc8w) ||
-      (batch_matrix_multiply_op->type ==
-       xnn_operator_type_batch_matrix_multiply_nc_pf16) ||
-      (batch_matrix_multiply_op->type ==
-       xnn_operator_type_batch_matrix_multiply_nc_pf32);
-
+  const struct xnn_pack_lh_config* packed_lh_config = NULL;
+  switch (batch_matrix_multiply_op->type) {
+    case xnn_operator_type_batch_matrix_multiply_nc_qp8_f32_qc8w:
+      packed_lh_config = xnn_init_qp8_pack_lh_config();
+      break;
+    case xnn_operator_type_batch_matrix_multiply_nc_pf16:
+      packed_lh_config = xnn_init_x16_pack_lh_config();
+      break;
+    case xnn_operator_type_batch_matrix_multiply_nc_pf32:
+      packed_lh_config = xnn_init_x32_pack_lh_config();
+      break;
+    default:
+      break;
+  }
   const size_t k_scaled = k << log2_input_a_element_size;
   const size_t a_stride =
-      packed_lhs ? xnn_x8_packq_f32qp8_packed_offset(mr, k, mr, kr, sr)
-                 : k_scaled;
+      packed_lh_config ? xnn_x8_packq_f32qp8_packed_offset(mr, k, mr, kr, sr)
+                       : k_scaled;
 
   batch_matrix_multiply_op->dynamic_context.gemm->gemm = (struct gemm_context){
       .k_scaled = k_scaled,
       .a_stride = a_stride,
-      .ga_stride = m * k_scaled,
+      .ga_stride = packed_lh_config
+                       ? packed_lh_config->size_fn(m, k, mr_packed, kr, sr)
+                       : m * k_scaled,
       .w_stride = batch_matrix_multiply_op->weights_stride,
       .gw_stride = batch_matrix_multiply_op->weights_stride * round_up(n, nr),
       .cm_stride = n << log2_output_element_size,
@@ -869,33 +871,11 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
       .ukernel = gemm_ukernel,
       .kc = k,
       .mr_packed =
-          m == 1 ? 1 : batch_matrix_multiply_op->ukernel.gemm_ukernels->gemm.mr_packed,
+          m == 1
+              ? 1
+              : batch_matrix_multiply_op->ukernel.gemm_ukernels->gemm.mr_packed,
+      .packed_lh_config = packed_lh_config,
   };
-
-  if (packed_lhs) {
-    switch (batch_matrix_multiply_op->type) {
-      case xnn_operator_type_batch_matrix_multiply_nc_qp8_f32_qc8w:
-        batch_matrix_multiply_op->dynamic_context.gemm->gemm.packed_lh_offset_fn =
-            xnn_x8_packq_f32qp8_packed_offset;
-        batch_matrix_multiply_op->dynamic_context.gemm->gemm.ga_stride =
-            xnn_x8_packq_f32qp8_packed_size(m, k, mr_packed, kr, sr);
-        break;
-      case xnn_operator_type_batch_matrix_multiply_nc_pf16:
-        batch_matrix_multiply_op->dynamic_context.gemm->gemm.packed_lh_offset_fn =
-            xnn_init_x16_pack_lh_config()->offset_fn;
-        batch_matrix_multiply_op->dynamic_context.gemm->gemm.ga_stride =
-            xnn_init_x16_pack_lh_config()->size_fn(m, k, mr_packed, kr, sr);
-        break;
-      case xnn_operator_type_batch_matrix_multiply_nc_pf32:
-        batch_matrix_multiply_op->dynamic_context.gemm->gemm.packed_lh_offset_fn =
-            xnn_init_x32_pack_lh_config()->offset_fn;
-        batch_matrix_multiply_op->dynamic_context.gemm->gemm.ga_stride =
-            xnn_init_x32_pack_lh_config()->size_fn(m, k, mr_packed, kr, sr);
-        break;
-      default:
-        XNN_UNREACHABLE;
-    }
-  }
 
   // Copy the batch dimensions into the `gemm_context` struct since we don't
   // know if these pointers will be valid by the time the GEMM is actually
@@ -916,13 +896,12 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
       /*num_groups=*/batch_size_c, m, n,
       /*m_stride=*/batch_matrix_multiply_op->dynamic_context.gemm->gemm.a_stride,
       /*n_stride=*/batch_matrix_multiply_op->dynamic_context.gemm->gemm.w_stride,
-      /*cm_stride=*/batch_matrix_multiply_op->dynamic_context.gemm->gemm.cm_stride,
       /*cn_stride=*/1 << log2_output_element_size, mr, nr, num_threads);
 
 #if XNN_MAX_UARCH_TYPES > 1
   if (xnn_is_hmp_gemm_ukernel(gemm_ukernel)) {
     gemm_compute->type = xnn_parallelization_type_3d_tile_2d_dynamic_with_uarch;
-    if (packed_lhs) {
+    if (packed_lh_config) {
       gemm_compute->task_3d_tile_2d_dynamic_with_id =
           (pthreadpool_task_3d_tile_2d_dynamic_with_id_t)
               xnn_compute_hmp_grouped_qp8gemm;
@@ -933,7 +912,7 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
     }
   } else {
     gemm_compute->type = xnn_parallelization_type_3d_tile_2d_dynamic;
-    if (packed_lhs) {
+    if (packed_lh_config) {
       gemm_compute->task_3d_tile_2d_dynamic =
           (pthreadpool_task_3d_tile_2d_dynamic_t)xnn_compute_grouped_qp8gemm;
     } else {
@@ -943,7 +922,7 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
   }
 #else
   gemm_compute->type = xnn_parallelization_type_3d_tile_2d_dynamic;
-  if (packed_lhs) {
+  if (packed_lh_config) {
     gemm_compute->task_3d_tile_2d_dynamic =
         (pthreadpool_task_3d_tile_2d_dynamic_t)xnn_compute_grouped_qp8gemm;
   } else {
@@ -964,12 +943,11 @@ static enum xnn_status reshape_batch_matrix_multiply_nc(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f16(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool) {
   return reshape_batch_matrix_multiply_nc(
       batch_matrix_multiply_op, xnn_operator_type_batch_matrix_multiply_nc_f16,
       num_batch_dims, batch_dims_a, batch_dims_b, m, k, n, workspace_size,
-      workspace_alignment,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_HALF,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_HALF,
       /*bias_element_size=*/sizeof(uint16_t),
@@ -983,12 +961,11 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f16(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_pf16(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool) {
   return reshape_batch_matrix_multiply_nc(
       batch_matrix_multiply_op, xnn_operator_type_batch_matrix_multiply_nc_pf16,
       num_batch_dims, batch_dims_a, batch_dims_b, m, k, n, workspace_size,
-      workspace_alignment,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_HALF,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_HALF,
       /*bias_element_size=*/sizeof(uint16_t),
@@ -1002,12 +979,11 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_pf16(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_bf16_f32(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool) {
   return reshape_batch_matrix_multiply_nc(
       batch_matrix_multiply_op, xnn_operator_type_batch_matrix_multiply_nc_bf16_f32,
       num_batch_dims, batch_dims_a, batch_dims_b, m, k, n, workspace_size,
-      workspace_alignment,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_HALF,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_HALF,
       /*bias_element_size=*/sizeof(float),
@@ -1021,12 +997,11 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_bf16_f32(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f32(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool) {
   return reshape_batch_matrix_multiply_nc(
       batch_matrix_multiply_op, xnn_operator_type_batch_matrix_multiply_nc_f32,
       num_batch_dims, batch_dims_a, batch_dims_b, m, k, n, workspace_size,
-      workspace_alignment,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
       /*bias_element_size=*/sizeof(float),
@@ -1040,12 +1015,11 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_f32(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_pf32(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, size_t* workspace_size, size_t* workspace_alignment,
+    size_t n, size_t* workspace_size,
     pthreadpool_t threadpool) {
   return reshape_batch_matrix_multiply_nc(
       batch_matrix_multiply_op, xnn_operator_type_batch_matrix_multiply_nc_pf32,
       num_batch_dims, batch_dims_a, batch_dims_b, m, k, n, workspace_size,
-      workspace_alignment,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_FLOAT,
       /*bias_element_size=*/sizeof(float),
@@ -1064,7 +1038,6 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_qd8_f32_qc8w(
       batch_matrix_multiply_op,
       xnn_operator_type_batch_matrix_multiply_nc_qd8_f32_qc8w, num_batch_dims,
       batch_dims_a, batch_dims_b, m, k, n, /*workspace_size=*/NULL,
-      /*workspace_alignment=*/NULL,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
       /*bias_element_size=*/sizeof(int32_t),
@@ -1083,7 +1056,6 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_qp8_f32_qc8w(
       batch_matrix_multiply_op,
       xnn_operator_type_batch_matrix_multiply_nc_qp8_f32_qc8w, num_batch_dims,
       batch_dims_a, batch_dims_b, m, k, n, /*workspace_size=*/NULL,
-      /*workspace_alignment=*/NULL,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
       /*bias_element_size=*/sizeof(int32_t),
@@ -1102,7 +1074,6 @@ enum xnn_status xnn_reshape_batch_matrix_multiply_nc_qdu8_f32_qc8w(
       batch_matrix_multiply_op,
       xnn_operator_type_batch_matrix_multiply_nc_qdu8_f32_qc8w, num_batch_dims,
       batch_dims_a, batch_dims_b, m, k, n, /*workspace_size=*/NULL,
-      /*workspace_alignment=*/NULL,
       /*log2_input_a_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
       /*log2_input_b_element_size=*/XNN_LOG2_SIZEOF_INT8_T,
       /*bias_element_size=*/sizeof(int32_t),

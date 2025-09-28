@@ -57,6 +57,12 @@
 #define XNN_VALUE_FLAG_FP16_COMPATIBLE 0x00000400
 #define XNN_VALUE_FLAG_LAYOUT_NCHW 0x00000800
 
+/// Create explicit `pack-lh` nodes, instead of pack the data on the fly
+/// in a temporary buffer in the consuming op. Inline packing reduces memory
+/// consumption and improves memory locality but may lead to slower GEMMs
+/// because of tiling.
+#define XNN_FLAG_NO_INLINED_LHS_PACKING 0x00004000
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -152,7 +158,6 @@ struct xnn_value {
   /// Binary features of the tensor. Supported values are any combination of:
   /// - XNN_VALUE_FLAG_EXTERNAL_INPUT
   /// - XNN_VALUE_FLAG_EXTERNAL_OUTPUT
-  /// - XNN_VALUE_FLAG_PERSISTENT
   uint32_t flags;
   /// Static initialization data. Must be null for non-static values.
   void* data;
@@ -255,18 +260,8 @@ XNN_INLINE static bool xnn_value_is_external_input(uint32_t flags) {
 }
 
 XNN_INLINE static bool xnn_value_is_internal(const struct xnn_value* value) {
-  return ((value->flags &
-           (XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT |
-            XNN_VALUE_FLAG_PERSISTENT)) == 0);
-}
-
-XNN_INLINE static bool xnn_value_is_persistent(uint32_t flags, enum xnn_allocation_type allocation_type) {
-  // Treat a value that is both input and output as persistent.
-  const uint32_t input_output =
-      XNN_VALUE_FLAG_EXTERNAL_INPUT | XNN_VALUE_FLAG_EXTERNAL_OUTPUT;
-  return
-      (flags & input_output) == input_output ||
-      allocation_type == xnn_allocation_type_persistent;
+  return (value->flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT |
+                          XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) == 0;
 }
 
 XNN_INLINE static bool xnn_value_is_valid(enum xnn_value_type value_type) {
@@ -357,6 +352,9 @@ struct xnn_node {
     struct {
       int32_t axis;
     } even_split;
+    struct {
+      enum xnn_datatype assumed_input_datatype;
+    } fully_connected;
     struct {
       uint32_t padding_top;
       uint32_t padding_right;
@@ -481,7 +479,6 @@ struct xnn_operator_data {
   xnn_timestamp *end_ts;
   void* workspace;
   size_t workspace_size;
-  size_t workspace_alignment;
   uint32_t flags;
 };
 
@@ -498,6 +495,8 @@ struct xnn_subgraph {
   uint32_t num_reserved_nodes;
   uint32_t num_nodes;
   struct xnn_node* nodes;
+
+  uint32_t flags;
 };
 
 /// Runtime is a combination of an execution plan for subgraph Nodes and a
@@ -570,22 +569,22 @@ XNN_INLINE static size_t xnn_tensor_get_rounded_size(
 }
 
 // Product of all shape dimensions
-size_t xnn_shape_multiply_all_dims(const struct xnn_shape shape[1]);
+size_t xnn_shape_multiply_all_dims(const struct xnn_shape* shape);
 
 // Product of all shape dimensions, except for the specified number of the last
 // dimensions
-size_t xnn_shape_multiply_batch_dims(const struct xnn_shape shape[1],
+size_t xnn_shape_multiply_batch_dims(const struct xnn_shape* shape,
                                      size_t num_nonbatch_dims);
 
 // Product of all shape dimensions, except for the last (channel) one
-size_t xnn_shape_multiply_non_channel_dims(const struct xnn_shape shape[1]);
+size_t xnn_shape_multiply_non_channel_dims(const struct xnn_shape* shape);
 
 // Product of n leading dimensions.
-size_t xnn_shape_multiply_leading_dims(const struct xnn_shape shape[1],
+size_t xnn_shape_multiply_leading_dims(const struct xnn_shape* shape,
                                        size_t num_leading_dims);
 
 // Product of trailing dimensions starting from start_dim.
-size_t xnn_shape_multiply_trailing_dims(const struct xnn_shape shape[1],
+size_t xnn_shape_multiply_trailing_dims(const struct xnn_shape* shape,
                                         size_t start_dim);
 
 // Get the size in bytes to hold dynamic quant params
@@ -603,6 +602,9 @@ XNN_INLINE static size_t xnn_tensor_get_rounded_dynamic_quant_param_size(
                               XNN_EXTRA_QUANTIZATION_PARAMS *
                                   sizeof(struct xnn_quantization_params));
 }
+
+// Rewrites the subgraph such that values have exactly one producer.
+void xnn_subgraph_rewrite_ssa(xnn_subgraph_t subgraph);
 
 enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph, uint32_t flags);
 
@@ -630,7 +632,6 @@ struct xnn_workspace {
   // Workspace will be destroyed in xnn_delete_runtime or xnn_delete_workspace
   // if num_users reaches 0.
   size_t ref_count;
-  size_t persistent_size;
 };
 
 void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph);

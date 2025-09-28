@@ -151,12 +151,14 @@ static void init_f16_abs_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vabs_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vabs_ukernel__neonfp16arith_u16);
     }
@@ -182,6 +184,7 @@ static void init_f16_clamp_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vclamp_ukernel__neonfp16arith_u16);
       f16_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_clamp_scalar_params;
@@ -189,6 +192,7 @@ static void init_f16_clamp_config(void) {
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vclamp_ukernel__neonfp16arith_u16);
       f16_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_clamp_scalar_params;
@@ -196,6 +200,7 @@ static void init_f16_clamp_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vclamp_ukernel__f16c_u16);
       f16_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_clamp_scalar_params;
@@ -220,6 +225,7 @@ static void init_f16_elu_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__neonfp16arith_rr1_p3_u16);
       f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
@@ -227,6 +233,7 @@ static void init_f16_elu_config(void) {
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__neonfp16arith_rr1_p3_u16);
       f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
@@ -234,10 +241,13 @@ static void init_f16_elu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__avx2_rr1_p3_u16);
-      f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
-    }
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        f16_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_velu_ukernel__avx2_rr1_p3_u16);
+        f16_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_elu_scalar_params;
+      }
+    #endif
   #endif
 }
 
@@ -271,18 +281,21 @@ static void init_f16_hswish_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_hswish_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vhswish_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_hswish_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vhswish_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_hswish_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vhswish_ukernel__f16c_u16);
     }
@@ -293,6 +306,7 @@ static void init_f16_lrelu_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vlrelu_ukernel__neonfp16arith_u16);
       f16_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_lrelu_scalar_params;
@@ -300,6 +314,7 @@ static void init_f16_lrelu_config(void) {
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vlrelu_ukernel__neonfp16arith_u16);
       f16_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_lrelu_scalar_params;
@@ -307,6 +322,7 @@ static void init_f16_lrelu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vlrelu_ukernel__f16c_u16);
       f16_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_lrelu_scalar_params;
@@ -318,12 +334,14 @@ static void init_f16_neg_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vneg_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vneg_ukernel__neonfp16arith_u16);
     }
@@ -336,18 +354,21 @@ static void init_f16_rndd_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndd_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndd_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndd_ukernel__f16c_u16);
     }
@@ -358,18 +379,21 @@ static void init_f16_rndne_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndne_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndne_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndne_ukernel__f16c_u16);
     }
@@ -380,18 +404,21 @@ static void init_f16_rndu_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndu_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndu_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndu_ukernel__f16c_u16);
     }
@@ -402,18 +429,21 @@ static void init_f16_rndz_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndz_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndz_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrndz_ukernel__f16c_u16);
     }
@@ -424,18 +454,21 @@ static void init_f16_rsqrt_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rsqrt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrsqrt_ukernel__neonfp16arith_rsqrt_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_rsqrt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrsqrt_ukernel__neonfp16arith_rsqrt_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_rsqrt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vrsqrt_ukernel__f16c_rsqrt_u32);
     }
@@ -446,21 +479,26 @@ static void init_f16_sigmoid_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsigmoid_ukernel__neonfp16arith_rr2_p2_nr1recps_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsigmoid_ukernel__neonfp16arith_rr2_p2_nr1fma_u32);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f16_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsigmoid_ukernel__avx2_rr1_p2_rcp_u32);
-    }
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        f16_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsigmoid_ukernel__avx2_rr1_p2_rcp_u32);
+      }
+    #endif
   #endif
 }
 
@@ -481,18 +519,21 @@ static void init_f16_sqr_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsqr_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsqr_ukernel__neonfp16arith_u16);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsqr_ukernel__f16c_u16);
     }
@@ -503,18 +544,21 @@ static void init_f16_sqrt_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_sqrt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsqrt_ukernel__neonfp16arith_nr1fma1adj_u8);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_sqrt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsqrt_ukernel__aarch64_neonfp16arith_sqrt_u8);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_sqrt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vsqrt_ukernel__f16c_rsqrt_u32);
     }
@@ -525,18 +569,21 @@ static void init_f16_tanh_config(void) {
   #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_tanh_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vtanh_ukernel__neonfp16arith_expm1minus_rr1_p3h2ts_nr1fma_u32);
     }
   #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_tanh_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vtanh_ukernel__aarch64_neonfp16arith_expm1minus_rr1_p3h2ts_div_u32);
     }
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       f16_tanh_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_vtanh_ukernel__fma3_polynomial_p19h9t2_u32);
     } else if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
@@ -549,6 +596,7 @@ static void init_f16_to_f32_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16)) {
         f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__neonfp16_u16);
@@ -563,6 +611,7 @@ static void init_f16_to_f32_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__avx512skx_u16);
@@ -570,9 +619,13 @@ static void init_f16_to_f32_cvt_config(void) {
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__f16c_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__avx_int16_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__avx_int16_u16);
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__sse41_int16_u16);
     } else {
       f16_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_f32_vcvt_ukernel__sse2_int16_u32);
@@ -597,6 +650,7 @@ static void init_f16_to_qs8_cvt_config(void) {
   #if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       f16_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f16_qs8_vcvt_ukernel__neonfp16arith_u32);
       f16_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f16_qs8_cvt_scalar_params;
@@ -611,6 +665,7 @@ static void init_f32_abs_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       f32_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vabs_ukernel__neon_u8);
     } else {
@@ -621,14 +676,18 @@ static void init_f32_abs_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vabs_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vabs_ukernel__avx_u16);
-    } else {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vabs_ukernel__avx_u16);
+      } else
+    #endif
+    {
       f32_abs_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vabs_ukernel__sse2_u8);
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -644,6 +703,7 @@ static void init_f32_approxgelu_config_impl(struct xnn_unary_elementwise_config*
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_fma)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__neon_rational_12_10_div_u8);
@@ -658,6 +718,7 @@ static void init_f32_approxgelu_config_impl(struct xnn_unary_elementwise_config*
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__avx512f_rational_12_10_div_u32);
@@ -665,9 +726,13 @@ static void init_f32_approxgelu_config_impl(struct xnn_unary_elementwise_config*
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__fma3_rational_12_10_div_u16);
-    } else if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__avx_rational_12_10_div_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__avx_rational_12_10_div_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__sse2_rational_12_10_div_u12);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vapproxgelu_ukernel__sse2fma_rational_12_10_div_u8);
@@ -690,6 +755,7 @@ static void init_f32_clamp_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       f32_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vclamp_ukernel__neon_u16);
       f32_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_clamp_scalar_params;
@@ -703,16 +769,20 @@ static void init_f32_clamp_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vclamp_ukernel__avx512f_u32);
         f32_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_clamp_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vclamp_ukernel__avx_u16);
-      f32_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_clamp_scalar_params;
-    } else {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vclamp_ukernel__avx_u16);
+        f32_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_clamp_scalar_params;
+      } else
+    #endif
+    {
       f32_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vclamp_ukernel__sse2_u8);
       f32_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_clamp_scalar_params;
     }
@@ -735,6 +805,7 @@ static void init_f32_cosine_config_impl(struct xnn_unary_elementwise_config* con
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__neon_rational_5_4_div_u16);
     } else {
@@ -745,6 +816,7 @@ static void init_f32_cosine_config_impl(struct xnn_unary_elementwise_config* con
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__avx512f_rational_5_4_div_u32);
@@ -752,9 +824,13 @@ static void init_f32_cosine_config_impl(struct xnn_unary_elementwise_config* con
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__fma3_rational_5_4_div_u16);
-    } else if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__avx_rational_5_4_div_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__avx_rational_5_4_div_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__sse2_rational_5_4_div_u8);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__sse2fma_rational_5_4_div_u8);
@@ -762,6 +838,7 @@ static void init_f32_cosine_config_impl(struct xnn_unary_elementwise_config* con
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if (hardware_config->is_x86) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vcos_ukernel__wasmsimd_rational_5_4_div_u8);
     } else {
@@ -783,6 +860,7 @@ static void init_f32_elu_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_fma)) {
         f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__neonfma_rr1_p6_u8);
@@ -801,19 +879,26 @@ static void init_f32_elu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx512f_rr1_p6_u64);
         f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx2_rr1_lut4_p4_perm_u32);
-      f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx_rr2_lut4_p4_perm_u32);
-      f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
-    } else {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx2_rr1_lut4_p4_perm_u32);
+        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__avx_rr2_lut4_p4_perm_u32);
+        f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
+      } else
+    #endif
+    {
       f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__sse2_rr2_lut16_p3_u12);
       f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
     }
@@ -824,6 +909,7 @@ static void init_f32_elu_config(void) {
     #else
       const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
       assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
       if (hardware_config->is_x86) {
         f32_elu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_velu_ukernel__wasmsimd_x86_rr2_p6_u16);
         f32_elu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_elu_scalar_params;
@@ -845,6 +931,7 @@ static void init_f32_gelu_config_impl(struct xnn_unary_elementwise_config* confi
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_fma)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__neon_rational_12_10_div_u8);
@@ -859,6 +946,7 @@ static void init_f32_gelu_config_impl(struct xnn_unary_elementwise_config* confi
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__avx512f_rational_12_10_div_u32);
@@ -866,9 +954,13 @@ static void init_f32_gelu_config_impl(struct xnn_unary_elementwise_config* confi
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__fma3_rational_12_10_div_u16);
-    } else if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__avx_rational_12_10_div_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__avx_rational_12_10_div_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__sse2_rational_12_10_div_u12);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vgelu_ukernel__sse2fma_rational_12_10_div_u8);
@@ -891,6 +983,7 @@ static void init_f32_hswish_config_impl(struct xnn_unary_elementwise_config* con
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__neon_u16);
     } else {
@@ -901,6 +994,7 @@ static void init_f32_hswish_config_impl(struct xnn_unary_elementwise_config* con
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__avx512f_u32);
@@ -908,9 +1002,13 @@ static void init_f32_hswish_config_impl(struct xnn_unary_elementwise_config* con
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__fma3_u16);
-    } else if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__avx_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__avx_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__sse2_u8);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vhswish_ukernel__sse2fma_u8);
@@ -949,6 +1047,7 @@ static void init_f32_exp_config_impl(struct xnn_unary_elementwise_config* config
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vexp_ukernel__avx512f_rational_3_2_div_u16);
@@ -956,9 +1055,13 @@ static void init_f32_exp_config_impl(struct xnn_unary_elementwise_config* config
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vexp_ukernel__fma3_rational_3_2_div_u32);
-    } else if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vexp_ukernel__avx_rational_3_2_div_u24);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vexp_ukernel__avx_rational_3_2_div_u24);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vexp_ukernel__sse2_rational_3_2_div_u16);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vexp_ukernel__sse2fma_rational_3_2_div_u8);
@@ -981,6 +1084,7 @@ static void init_f32_log_config_impl(struct xnn_unary_elementwise_config* config
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__neon_rational_3_3_div_u8);
     } else {
@@ -991,6 +1095,7 @@ static void init_f32_log_config_impl(struct xnn_unary_elementwise_config* config
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__avx512f_rational_3_3_div_u16);
@@ -998,9 +1103,13 @@ static void init_f32_log_config_impl(struct xnn_unary_elementwise_config* config
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__fma3_rational_3_3_div_u16);
-    } else if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__avx2_rational_3_3_div_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX2
+      if ((!consistent_arithmetic && hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__avx2_rational_3_3_div_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__sse2_rational_3_3_div_u8);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlog_ukernel__sse2fma_rational_3_3_div_u8);
@@ -1023,6 +1132,7 @@ static void init_f32_lrelu_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__neon_u8);
       f32_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_lrelu_scalar_params;
@@ -1036,25 +1146,31 @@ static void init_f32_lrelu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__avx512f_u16);
         f32_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_lrelu_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__avx_u16);
-      f32_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__avx_u16);
+        f32_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_lrelu_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__sse41_u8);
       f32_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_lrelu_scalar_params;
-    } else {
+    } else
+    {
       f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__sse_u8);
       f32_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_lrelu_scalar_params;
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ARCH_WASMRELAXEDSIMD
       if (hardware_config->is_x86) {
         f32_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vlrelu_ukernel__wasmrelaxedsimd_iminmax_u4);
@@ -1086,6 +1202,7 @@ static void init_f32_neg_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       f32_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vneg_ukernel__neon_u8);
     } else {
@@ -1096,14 +1213,18 @@ static void init_f32_neg_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vneg_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vneg_ukernel__avx_u16);
-    } else {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vneg_ukernel__avx_u16);
+      } else
+    #endif
+    {
       f32_neg_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vneg_ukernel__sse2_u8);
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -1119,6 +1240,7 @@ static void init_f32_rndd_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
         f32_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndd_ukernel__neonv8_u8);
@@ -1133,16 +1255,21 @@ static void init_f32_rndd_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndd_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndd_ukernel__avx_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndd_ukernel__avx_u16);
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndd_ukernel__sse41_u8);
-    } else {
+    } else
+    {
       f32_rndd_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndd_ukernel__sse2_u8);
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -1161,6 +1288,7 @@ static void init_f32_rndne_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
         f32_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndne_ukernel__neonv8_u8);
@@ -1175,16 +1303,21 @@ static void init_f32_rndne_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndne_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndne_ukernel__avx_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+            f32_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndne_ukernel__avx_u16);
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndne_ukernel__sse41_u8);
-    } else {
+    } else
+    {
       f32_rndne_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndne_ukernel__sse2_u8);
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -1203,6 +1336,7 @@ static void init_f32_rndu_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
         f32_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndu_ukernel__neonv8_u8);
@@ -1217,16 +1351,21 @@ static void init_f32_rndu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndu_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndu_ukernel__avx_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndu_ukernel__avx_u16);
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndu_ukernel__sse41_u8);
-    } else {
+    } else
+    {
       f32_rndu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndu_ukernel__sse2_u8);
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -1245,6 +1384,7 @@ static void init_f32_rndz_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
         f32_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndz_ukernel__neonv8_u8);
@@ -1259,14 +1399,18 @@ static void init_f32_rndz_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndz_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndz_ukernel__avx_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndz_ukernel__avx_u16);
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndz_ukernel__sse41_u8);
     } else {
       f32_rndz_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrndz_ukernel__sse2_u8);
@@ -1287,6 +1431,7 @@ static void init_f32_sigmoid_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__neon_rr2_lut64_p2_nr2recps_u8);
     } else {
@@ -1297,16 +1442,23 @@ static void init_f32_sigmoid_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__avx512f_rr2_lut32_p2_perm2_scalef_div_u64);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__avx2_rr1_p5_div_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__avx_rr2_p5_nr2_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__avx2_rr1_p5_div_u16);
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+            f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__avx_rr2_p5_nr2_u16);
+        } else
+      #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__sse41_rr2_lut64_p2_div_u8);
     } else {
       f32_sigmoid_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsigmoid_ukernel__sse2_rr2_lut64_p2_div_u8);
@@ -1326,6 +1478,7 @@ static void init_f32_sqr_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       f32_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqr_ukernel__neon_u8);
     } else {
@@ -1336,14 +1489,18 @@ static void init_f32_sqr_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         f32_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqr_ukernel__avx512f_u16);
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqr_ukernel__avx_u16);
-    } else {
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqr_ukernel__avx_u16);
+      } else
+    #endif
+    {
       f32_sqr_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqr_ukernel__sse2_u8);
     }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
@@ -1361,21 +1518,28 @@ static void init_f32_sqrt_config_impl(struct xnn_unary_elementwise_config* confi
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if (!consistent_arithmetic) {
       #if XNN_ENABLE_AVX512F
         if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
           config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__avx512f_rsqrt_u16);
         } else
       #endif
-      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__avx_rsqrt_u16);
-      } else {
+      #if XNN_ENABLE_AVX
+        if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__avx_rsqrt_u16);
+        } else
+      #endif
+      {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__sse2_rsqrt_u8);
       }
     } else {
-      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__avx_sqrt_u8);
-      } else {
+      #if XNN_ENABLE_AVX
+        if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__avx_sqrt_u8);
+        } else
+      #endif
+      {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsqrt_ukernel__sse2_sqrt_u8);
       }
     }
@@ -1395,6 +1559,7 @@ static void init_f32_rsqrt_config_impl(struct xnn_unary_elementwise_config* conf
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__neon_rsqrt_u16);
     } else {
@@ -1403,28 +1568,34 @@ static void init_f32_rsqrt_config_impl(struct xnn_unary_elementwise_config* conf
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if (!consistent_arithmetic) {
       #if XNN_ENABLE_AVX512F
         if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
           config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__avx512f_rsqrt_u32);
         } else
       #endif
-      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__avx_rsqrt_u16);
-      } else {
-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__sse2_rsqrt_u8);
-      }
-    } else {
-      #if XNN_ENABLE_AVX512F
-        if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
-          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__avx512f_sqrt_u48);
+      #if XNN_ENABLE_AVX
+        if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+          config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__avx_rsqrt_u16);
         } else
       #endif
+      {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__sse2_rsqrt_u8);
+      }
+    } else
+    #if XNN_ENABLE_AVX512F
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__avx512f_sqrt_u48);
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__avx_sqrt_u16);
-      } else {
-        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__sse2_sqrt_u8);
-      }
+      } else
+    #endif
+    {
+      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vrsqrt_ukernel__sse2_sqrt_u8);
     }
   #elif XNN_ARCH_RISCV && XNN_ENABLE_RISCV_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
@@ -1443,6 +1614,7 @@ static void init_f32_sine_config_impl(struct xnn_unary_elementwise_config* confi
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__neon_rational_5_4_div_u16);
     } else {
@@ -1453,6 +1625,7 @@ static void init_f32_sine_config_impl(struct xnn_unary_elementwise_config* confi
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__avx512f_rational_5_4_div_u32);
@@ -1460,9 +1633,13 @@ static void init_f32_sine_config_impl(struct xnn_unary_elementwise_config* confi
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__fma3_rational_5_4_div_u16);
-    } else if ((!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_avx))) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__avx_rational_5_4_div_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_avx))) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__avx_rational_5_4_div_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__sse2_rational_5_4_div_u8);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__sse2fma_rational_5_4_div_u8);
@@ -1470,6 +1647,7 @@ static void init_f32_sine_config_impl(struct xnn_unary_elementwise_config* confi
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if (hardware_config->is_x86) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vsin_ukernel__wasmsimd_rational_5_4_div_u8);
     } else {
@@ -1491,6 +1669,7 @@ static void init_f32_tanh_config_impl(struct xnn_unary_elementwise_config* confi
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__neon_rational_9_8_div_u16);
     } else {
@@ -1501,6 +1680,7 @@ static void init_f32_tanh_config_impl(struct xnn_unary_elementwise_config* confi
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512F
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512f)) {
         config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__avx512f_rational_9_8_div_u32);
@@ -1508,9 +1688,13 @@ static void init_f32_tanh_config_impl(struct xnn_unary_elementwise_config* confi
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__fma3_rational_9_8_div_u16);
-    } else if ((!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_avx))) {
-      config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__avx_rational_9_8_div_u16);
-    } else if (!consistent_arithmetic) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((!consistent_arithmetic && (hardware_config->arch_flags & xnn_arch_x86_avx))) {
+        config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__avx_rational_9_8_div_u16);
+      } else
+    #endif
+    if (!consistent_arithmetic) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__sse2_rational_9_8_div_u8);
     } else {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__sse2fma_rational_9_8_div_u8);
@@ -1518,6 +1702,7 @@ static void init_f32_tanh_config_impl(struct xnn_unary_elementwise_config* confi
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if (hardware_config->is_x86) {
       config->ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_vtanh_ukernel__wasmsimd_rational_9_8_div_u8);
     } else {
@@ -1539,6 +1724,7 @@ static void init_f32_to_f16_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16)) {
         f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__neonfp16_u16);
@@ -1553,6 +1739,7 @@ static void init_f32_to_f16_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__avx512skx_u16);
@@ -1560,9 +1747,13 @@ static void init_f32_to_f16_cvt_config(void) {
     #endif
     if ((hardware_config->arch_flags & xnn_arch_x86_f16c)) {
       f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__f16c_u16);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__avx_u24);
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    } else
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__avx_u24);
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__sse41_u8);
     } else {
       f32_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_f16_vcvt_ukernel__sse2_u16);
@@ -1590,6 +1781,7 @@ static void init_f32_to_qs8_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
         f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__neonv8_u32);
@@ -1608,25 +1800,33 @@ static void init_f32_to_qs8_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__avx512skx_u128);
         f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__avx2_u64);
-      f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__avx_u32);
-      f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__avx2_u64);
+        f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__avx_u32);
+        f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__sse41_u32);
       f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
-    } else {
+    } else
+    {
       f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__sse2_u32);
       f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
-      }
+    }
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     f32_to_qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qs8_vcvt_ukernel__wasmsimd_magic_u32);
     f32_to_qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qs8_cvt_scalar_params;
@@ -1647,6 +1847,7 @@ static void init_f32_to_qu8_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
         f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__neonv8_u32);
@@ -1665,19 +1866,26 @@ static void init_f32_to_qu8_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__avx512skx_u128);
         f32_to_qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qu8_cvt_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__avx2_u64);
-      f32_to_qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qu8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__avx_u32);
-      f32_to_qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qu8_cvt_scalar_params;
-    } else {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__avx2_u64);
+        f32_to_qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qu8_cvt_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__avx_u32);
+        f32_to_qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qu8_cvt_scalar_params;
+      } else
+    #endif
+    {
       f32_to_qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_f32_qu8_vcvt_ukernel__sse2_u32);
       f32_to_qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_f32_qu8_cvt_scalar_params;
     }
@@ -1698,6 +1906,7 @@ static void init_qs8_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_v8)) {
       qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vcvt_ukernel__neon_u32);
       qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_cvt_scalar_params;
@@ -1711,13 +1920,20 @@ static void init_qs8_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vcvt_ukernel__avx2_u32);
-      qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vcvt_ukernel__avx_u32);
-      qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vcvt_ukernel__avx2_u32);
+        qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_cvt_scalar_params;
+    } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vcvt_ukernel__avx_u32);
+        qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_cvt_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qs8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vcvt_ukernel__sse41_u32);
       qs8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_cvt_scalar_params;
     } else if ((hardware_config->arch_flags & xnn_arch_x86_ssse3)) {
@@ -1748,6 +1964,7 @@ static void init_qs8_lrelu_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__neon_u32);
       qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
@@ -1761,16 +1978,24 @@ static void init_qs8_lrelu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__avx2_u32);
-      qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__avx_u32);
-      qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__avx2_u32);
+        qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__avx_u32);
+        qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__sse41_u32);
       qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    } else
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__ssse3_u32);
       qs8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_lrelu_scalar_params;
     } else {
@@ -1780,6 +2005,7 @@ static void init_qs8_lrelu_config(void) {
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ARCH_WASMRELAXEDSIMD
       if (hardware_config->is_x86) {
         qs8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_vlrelu_ukernel__wasmrelaxedsimd_x86_u32);
@@ -1811,6 +2037,7 @@ static void init_qs8_to_f16_cvt_config(void) {
   #if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && XNN_ENABLE_ARM_FP16_VECTOR
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon_fp16_arith)) {
       qs8_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f16_vcvt_ukernel__neonfp16arith_u32);
       qs8_to_f16_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f16_cvt_scalar_params;
@@ -1818,10 +2045,13 @@ static void init_qs8_to_f16_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qs8_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f16_vcvt_ukernel__avx2_u16);
-      qs8_to_f16_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f16_cvt_scalar_params;
-    }
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qs8_to_f16_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f16_vcvt_ukernel__avx2_u16);
+        qs8_to_f16_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f16_cvt_scalar_params;
+      }
+    #endif
   #endif
 }
 
@@ -1829,6 +2059,7 @@ static void init_qs8_to_f32_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__neon_u32);
       qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
@@ -1842,22 +2073,30 @@ static void init_qs8_to_f32_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__avx512skx_u32);
         qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__avx2_u16);
-      qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__avx_u32);
-      qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__avx2_u16);
+        qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__avx_u32);
+        qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__sse41_u16);
       qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
-    } else {
+    } else
+    {
       qs8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qs8_f32_vcvt_ukernel__sse2_u32);
       qs8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_f32_cvt_scalar_params;
     }
@@ -1878,6 +2117,7 @@ static void init_qu8_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__neon_u32);
       qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
@@ -1891,16 +2131,24 @@ static void init_qu8_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__avx2_u32);
-      qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__avx_u32);
-      qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__avx2_u32);
+        qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__avx_u32);
+        qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__sse41_u32);
       qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_ssse3)) {
+    } else
+    if ((hardware_config->arch_flags & xnn_arch_x86_ssse3)) {
       qu8_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vcvt_ukernel__ssse3_u32);
       qu8_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_cvt_scalar_params;
     } else {
@@ -1928,6 +2176,7 @@ static void init_qu8_lrelu_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__neon_u32);
       qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
@@ -1941,16 +2190,24 @@ static void init_qu8_lrelu_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__avx2_u32);
-      qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__avx_u32);
-      qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    (void) hardware_config;  // May be unused.
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__avx2_u32);
+        qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__avx_u32);
+        qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__sse41_u32);
       qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    } else
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__ssse3_u32);
       qu8_lrelu_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_lrelu_scalar_params;
     } else {
@@ -1960,6 +2217,7 @@ static void init_qu8_lrelu_config(void) {
   #elif XNN_ARCH_WASMSIMD || XNN_ARCH_WASMRELAXEDSIMD
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ARCH_WASMRELAXEDSIMD
       if (hardware_config->is_x86) {
         qu8_lrelu_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_vlrelu_ukernel__wasmrelaxedsimd_x86_u32);
@@ -1991,6 +2249,7 @@ static void init_qu8_to_f32_cvt_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__neon_u32);
       qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
@@ -2004,22 +2263,30 @@ static void init_qu8_to_f32_cvt_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__avx512skx_u32);
         qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__avx2_u16);
-      qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
-      qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__avx_u32);
-      qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__avx2_u16);
+        qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
+      } else
+    #endif
+    #if XNN_ENABLE_AVX
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx)) {
+        qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__avx_u32);
+        qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__sse41_u16);
       qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
-    } else {
+    } else
+    {
       qu8_to_f32_cvt_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_qu8_f32_vcvt_ukernel__sse2_u32);
       qu8_to_f32_cvt_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_f32_cvt_scalar_params;
     }
@@ -2040,6 +2307,7 @@ static void init_s8_clamp_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       s8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_s8_vclamp_ukernel__neon_u64);
       s8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_clamp_scalar_params;
@@ -2057,16 +2325,20 @@ static void init_s8_clamp_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         s8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_s8_vclamp_ukernel__avx512skx_u256);
         s8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_clamp_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      s8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_s8_vclamp_ukernel__avx2_u128);
-      s8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_clamp_scalar_params;
-    } else if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        s8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_s8_vclamp_ukernel__avx2_u128);
+        s8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_clamp_scalar_params;
+      } else
+    #endif
+    if ((hardware_config->arch_flags & xnn_arch_x86_sse4_1)) {
       s8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_s8_vclamp_ukernel__sse41_u64);
       s8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qs8_clamp_scalar_params;
     } else {
@@ -2086,6 +2358,7 @@ static void init_u8_clamp_config(void) {
   #if XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     if ((hardware_config->arch_flags & xnn_arch_arm_neon)) {
       u8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_u8_vclamp_ukernel__neon_u64);
       u8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_clamp_scalar_params;
@@ -2102,16 +2375,20 @@ static void init_u8_clamp_config(void) {
   #elif XNN_ARCH_X86 || XNN_ARCH_X86_64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
+    (void) hardware_config;  // May be unused.
     #if XNN_ENABLE_AVX512SKX
       if ((hardware_config->arch_flags & xnn_arch_x86_avx512skx)) {
         u8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_u8_vclamp_ukernel__avx512skx_u256);
         u8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_clamp_scalar_params;
       } else
     #endif
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      u8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_u8_vclamp_ukernel__avx2_u128);
-      u8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_clamp_scalar_params;
-    } else {
+    #if XNN_ENABLE_AVX2
+      if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
+        u8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_u8_vclamp_ukernel__avx2_u128);
+        u8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_clamp_scalar_params;
+      } else
+    #endif
+    {
       u8_clamp_config.ukernel = XNN_INIT_UNARY_UKERNEL(xnn_u8_vclamp_ukernel__sse2_u64);
       u8_clamp_config.init = (xnn_init_unary_uparams_fn) xnn_init_qu8_clamp_scalar_params;
     }

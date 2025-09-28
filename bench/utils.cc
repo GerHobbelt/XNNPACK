@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <condition_variable>  // NOLINT(build/c++11)
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
@@ -37,6 +38,11 @@
 #include <qurt.h>
 #include <HAP_power.h>
 #endif
+#if XNN_PLATFORM_WINDOWS
+#include <windows.h>
+#include <shlwapi.h>
+#endif
+
 
 // Common flags for all benchmarks.
 int FLAGS_num_threads = 1;
@@ -51,7 +57,7 @@ namespace {
 static void* wipe_buffer = nullptr;
 static size_t wipe_buffer_size = 0;
 
-static std::once_flag wipe_buffer_guard;
+static std::once_flag wipe_buffer_guard;  // NOLINT(build/c++11)
 
 static void InitWipeBuffer() {
 #if XNN_ENABLE_CPUINFO
@@ -98,11 +104,17 @@ void PthreadpoolClearL2Cache(std::atomic<size_t>* counter, size_t id) {
 #else
   WipeCache();
 #endif  // XNN_ENABLE_CPUINFO
-  // Spin until all threads are done. This ensures that each thread calls this
+  // Wait until all threads are done. This ensures that each thread calls this
   // function exactly once.
-  counter->fetch_sub(1, std::memory_order_acquire);
-  while (counter->load(std::memory_order_acquire) > 0) {
-    std::atomic_thread_fence(std::memory_order_acquire);
+  static std::mutex mutex;  // NOLINT(build/c++11)
+  static std::condition_variable cond_var;
+  std::unique_lock<std::mutex> lock(mutex);  // NOLINT(build/c++11)
+  if (counter->fetch_sub(1) == 1) {
+    cond_var.notify_all();
+  } else {
+    while (counter->load() > 0) {
+      cond_var.wait(lock);
+    }
   }
 }
 
@@ -242,6 +254,15 @@ uint64_t GetCurrentCpuFrequency() {
       return static_cast<uint64_t>(freq) * 1000;
     }
     fclose(f);
+  }
+#elif XNN_PLATFORM_WINDOWS
+  // Read MHz from the registry
+  DWORD data, data_size = sizeof(data);
+  LSTATUS r = SHGetValueA(HKEY_LOCAL_MACHINE,
+                      "HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0",
+                      "~MHz", nullptr, &data, &data_size);
+  if (r == ERROR_SUCCESS) {
+    return static_cast<uint64_t>(data) * static_cast<uint64_t>(1000 * 1000);
   }
 #elif XNN_PLATFORM_QURT
   HAP_power_response_t response = {.type = HAP_power_get_clk_Freq};

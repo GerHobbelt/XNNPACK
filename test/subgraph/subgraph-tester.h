@@ -120,9 +120,21 @@ class SubgraphTester {
   explicit SubgraphTester(uint32_t external_value_ids,
                           uint32_t flags = xnn_test_runtime_flags());
 
+  SubgraphTester& AddInternalDynamicTensor(const TensorShape& shape,
+                                           enum xnn_datatype datatype,
+                                           uint32_t* id_out,
+                                           uint32_t flags = 0);
+
   SubgraphTester& AddInternalDynamicTensorF32(const TensorShape& shape,
                                               uint32_t* id_out,
-                                              uint32_t flags = 0);
+                                              uint32_t flags = 0) {
+    return AddInternalDynamicTensor(shape, xnn_datatype_fp32, id_out, flags);
+  }
+
+  SubgraphTester& AddInternalStaticTensor(const TensorShape& shape,
+                                          enum xnn_datatype datatype,
+                                          uint32_t* id_out, const void* data,
+                                          uint32_t flags = 0);
 
   SubgraphTester& AddInternalDynamicallyQuantizedTensor(
       const TensorShape& shape, xnn_datatype datatype, size_t num_nonbatch_dims,
@@ -541,9 +553,13 @@ class SubgraphTester {
     return &subgraph_->nodes[node_id];
   }
 
-  size_t NumNodes() const { return subgraph_->num_nodes; }
+  size_t NumNodes() const {
+    return xnn_subgraph_get_num_nodes(subgraph_.get());
+  }
 
-  size_t NumValues() const { return subgraph_->num_values; }
+  size_t NumValues() const {
+    return xnn_subgraph_get_num_values(subgraph_.get());
+  }
 
   xnn_subgraph* Subgraph() const { return subgraph_.get(); }
 

@@ -3,8 +3,8 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#ifndef THIRD_PARTY_XNNPACK_TEST_SUBGRAPH_SUBGRAPH_TESTER_H_
-#define THIRD_PARTY_XNNPACK_TEST_SUBGRAPH_SUBGRAPH_TESTER_H_
+#ifndef XNNPACK_TEST_SUBGRAPH_SUBGRAPH_TESTER_H_
+#define XNNPACK_TEST_SUBGRAPH_SUBGRAPH_TESTER_H_
 
 #include <cassert>
 #include <cstddef>
@@ -500,7 +500,12 @@ class SubgraphTester {
   SubgraphTester& AddSoftmax(uint32_t input_id, uint32_t output_id,
                              uint32_t flags = 0);
 
-  SubgraphTester& Optimize();
+  // This (xnn_subgraph_optimize) is normally called by xnn_create_runtime,
+  // which passes the runtime flags to xnn_subgraph_optimize. When we call it
+  // "standalone", we need to pass the same flags. Unfortunately, while we can
+  // make the defaults with `CreateRuntime` below consistent, we rely on the
+  // caller to maintain this consistency.
+  SubgraphTester& Optimize(uint32_t flags = xnn_test_runtime_flags());
 
   SubgraphTester& RewriteForNchw();
 
@@ -582,4 +587,4 @@ class SubgraphTester {
 
 }  // namespace xnnpack
 
-#endif  // THIRD_PARTY_XNNPACK_TEST_SUBGRAPH_SUBGRAPH_TESTER_H_
+#endif  // XNNPACK_TEST_SUBGRAPH_SUBGRAPH_TESTER_H_

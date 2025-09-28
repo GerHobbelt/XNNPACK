@@ -401,11 +401,8 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "f16_spmm_minmax_test",
-    srcs = [
-        "f16-spmm-minmax.cc",
-        "spmm-microkernel-tester.h",
-    ],
+    name = "spmm_minmax_test",
+    srcs = ["spmm-minmax.cc"],
     deps = MICROKERNEL_TEST_DEPS,
 )
 
@@ -548,16 +545,6 @@ xnnpack_unit_test(
 )
 
 xnnpack_unit_test(
-    name = "f32_gemm_goi_minmax_test",
-    srcs = [
-        "f32-gemm-goi-minmax.cc",
-    ],
-    deps = MICROKERNEL_TEST_DEPS + [
-        ":gemm_microkernel_tester",
-    ],
-)
-
-xnnpack_unit_test(
     name = "pf32_gemm_minmax_test",
     srcs = [
         "pf32-gemm-minmax.cc",
@@ -651,18 +638,6 @@ xnnpack_unit_test(
     srcs = [
         "f32-raddstoreexpminusmax.cc",
         "raddstoreexpminusmax-microkernel-tester.h",
-    ],
-    deps = MICROKERNEL_TEST_DEPS,
-)
-
-xnnpack_unit_test(
-    name = "f32_spmm_minmax_test",
-    srcs = [
-        "f32-spmm-minmax.cc",
-        "f32-spmm-minmax-2.cc",
-        "f32-spmm-minmax-3.cc",
-        "f32-spmm-minmax-4.cc",
-        "spmm-microkernel-tester.h",
     ],
     deps = MICROKERNEL_TEST_DEPS,
 )
@@ -995,6 +970,7 @@ xnnpack_unit_test(
     ],
     deps = MICROKERNEL_TEST_DEPS,
 ) for kernel in [
+    "qb4-packw",
     "qs8_packw",
     "qs8_qc4w_packw",
     "x16_packw",

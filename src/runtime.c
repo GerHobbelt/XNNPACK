@@ -484,11 +484,7 @@ void propagate_rank(
         break;
       case xnn_node_type_fully_connected:
       case xnn_node_type_fully_connected_sparse:
-        if (flags & XNN_FLAG_TENSORFLOW_RESHAPE_2D) {
-          output_value->shape.num_dims = 2;
-        } else {
-          output_value->shape.num_dims = input_value->shape.num_dims;
-        }
+        output_value->shape.num_dims = input_value->shape.num_dims;
         break;
       case xnn_node_type_static_reshape:
       case xnn_node_type_static_broadcast:
@@ -532,7 +528,7 @@ enum xnn_status xnn_create_runtime_v4(
   const uint32_t optimization_flags =
       XNN_FLAG_HINT_SPARSE_INFERENCE | XNN_FLAG_HINT_FP16_INFERENCE |
       XNN_FLAG_FORCE_FP16_INFERENCE | XNN_FLAG_NO_OPERATOR_FUSION |
-      XNN_FLAG_NO_INLINED_LHS_PACKING;
+      XNN_FLAG_NO_INLINED_LHS_PACKING | XNN_FLAG_SLINKY_ENABLED;
   status = xnn_subgraph_optimize(subgraph, flags & optimization_flags);
   if (status != xnn_status_success) {
     xnn_log_error("failed to optimize subgraph");
@@ -574,6 +570,16 @@ enum xnn_status xnn_create_runtime_v4(
     }
   }
 
+  if (flags & XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC) {
+    xnn_log_warning(
+        "XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC is enabled: performance will be "
+        "degraded! %d", flags);
+    for (size_t i = 0; i < subgraph->num_nodes; i++) {
+      struct xnn_node* node = subgraph->nodes + i;
+      node->flags |= XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC;
+    }
+  }
+
   if (flags & XNN_FLAG_TRANSIENT_INDIRECTION_BUFFER) {
     for (size_t i = 0; i < subgraph->num_nodes; i++) {
       struct xnn_node* node = subgraph->nodes + i;
@@ -590,7 +596,7 @@ enum xnn_status xnn_create_runtime_v4(
   }
   if (runtime->profiling) {
     for (size_t i = 0; i < subgraph->num_nodes; i++) {
-      runtime->opdata[i].end_ts = xnn_allocate_zero_memory(sizeof(size_t) * XNN_MAX_OPERATOR_OBJECTS);
+      runtime->opdata[i].end_ts = xnn_allocate_zero_memory(sizeof(xnn_timestamp) * XNN_MAX_OPERATOR_OBJECTS);
     }
   }
 

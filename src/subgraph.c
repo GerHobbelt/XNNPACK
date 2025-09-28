@@ -6,7 +6,7 @@
 #include "src/xnnpack/subgraph.h"
 
 #include <assert.h>
-#include <inttypes.h>  // fixdeps: keep
+#include <inttypes.h>  // IWYU pragma: keep
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -141,23 +141,6 @@ enum xnn_status xnn_create_subgraph(uint32_t external_value_ids, uint32_t flags,
   }
   subgraph->num_values = external_value_ids;
   subgraph->num_reserved_values = external_value_ids;
-
-#ifdef XNN_SLINKY_ENABLED
-  // If compiling with XNN_SLINKY_ENABLED defined, assume we always
-  // want Slinky enabled, regardless of the runtime flag
-  const bool use_slinky = true;
-#else
-  const bool use_slinky = flags & XNN_FLAG_SLINKY_ENABLED;
-#endif
-  // If we're using Slinky, don't inline packing functions as Slinky does that
-  // automatically.
-  if (use_slinky) {
-    xnn_log_info(
-        "disabling inlined LHS packing because `XNN_FLAG_SLINKY_ENABLED` is "
-        "set.");
-    flags |= XNN_FLAG_NO_INLINED_LHS_PACKING;
-  }
-  subgraph->flags = flags;
 
   *subgraph_out = subgraph;
   return xnn_status_success;
@@ -343,7 +326,6 @@ void xnn_subgraph_analyze_consumers_and_producers(xnn_subgraph_t subgraph) {
     for (uint32_t o = 0; o < node->num_outputs; o++) {
       const uint32_t output_id = node->outputs[o];
       assert(output_id < subgraph->num_values);
-
       assert(subgraph->values[output_id].producer == XNN_INVALID_NODE_ID);
       subgraph->values[output_id].producer = n;
     }
@@ -983,6 +965,9 @@ static bool all_values_fp32_or_pfp32(xnn_subgraph_t subgraph,
 bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
   xnn_log_info("Analyzing subgraph for FP16 compatibility");
 
+  // Count the number of consumers for each value.
+  xnn_subgraph_analyze_consumers_and_producers(subgraph);
+
   // Convert tensors and operators in the subgraph to FP16
   // 1. Check that all operators in the subgraph are supported in FP16.
   // 2. Indicate values that must be converted to FP16.
@@ -1030,6 +1015,8 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
       case xnn_node_type_static_mean:
       case xnn_node_type_static_slice:
       case xnn_node_type_static_sum:
+      case xnn_node_type_static_reduce_min:
+      case xnn_node_type_static_reduce_max:
       case xnn_node_type_static_reshape:
       case xnn_node_type_static_resize_bilinear_2d:
       case xnn_node_type_static_transpose:
@@ -1056,7 +1043,9 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
     switch (node->type) {
       case xnn_node_type_deconvolution_2d:
       case xnn_node_type_depthwise_convolution_2d:
-        subgraph->values[node->inputs[0]].fp16_compatible = true;
+        if (subgraph->values[node->inputs[0]].datatype == xnn_datatype_fp32) {
+          subgraph->values[node->inputs[0]].fp16_compatible = true;
+        }
         subgraph->values[node->outputs[0]].fp16_compatible = true;
         break;
       case xnn_node_type_convolution_2d:
@@ -1075,11 +1064,11 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
           subgraph->values[node->outputs[0]].fp16_compatible = true;
         } else if (subgraph->values[node->inputs[0]].datatype ==
                        xnn_datatype_fp32 &&
-                   (node->params.fully_connected.assumed_input_datatype ==
+                   (node->params.inlined_lhs_packing.packed_input_datatype ==
                         xnn_datatype_qdint8 ||
-                    node->params.fully_connected.assumed_input_datatype ==
+                    node->params.inlined_lhs_packing.packed_input_datatype ==
                         xnn_datatype_qduint8 ||
-                    node->params.fully_connected.assumed_input_datatype ==
+                    node->params.inlined_lhs_packing.packed_input_datatype ==
                         xnn_datatype_qpint8)) {
           subgraph->values[node->inputs[0]].fp16_compatible = true;
           subgraph->values[node->outputs[0]].fp16_compatible = true;
@@ -1201,6 +1190,9 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
           }
           // Clear external input/output flags
           fp16_value->flags = 0;
+          fp16_value->producer = XNN_INVALID_NODE_ID;
+          fp16_value->first_consumer = XNN_INVALID_NODE_ID;
+          fp16_value->num_consumers = 0;
           fp16_value->fp16_id = XNN_INVALID_VALUE_ID;
           fp16_value->fp32_id = value->id;
           fp16_value->allocation_type = xnn_allocation_type_workspace;
@@ -1292,9 +1284,8 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
         assert(value->fp16_id != XNN_INVALID_VALUE_ID);
         value->producer = XNN_INVALID_NODE_ID;
         value->num_consumers = 0;
-        value->first_consumer = XNN_INVALID_NODE_ID;
         xnn_log_debug("FP16 rewrite: created FP16 tensor #%" PRIu32
-                      " for FP32 tensor #%" PRIu32,
+                      " for external FP32 tensor #%" PRIu32,
                       subgraph->values[value->fp16_id].id, n);
       } else {
         switch (value->datatype) {
@@ -1315,6 +1306,9 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
       }
     }
   }
+
+  // Switch the nodes consuming/generated converted `fp32` inputs/outputs to
+  // their `fp16` values.
   for (uint32_t n = 0; n < subgraph->num_nodes; n++) {
     struct xnn_node* node = &subgraph->nodes[n];
     if (node->type == xnn_node_type_invalid) {
@@ -1322,45 +1316,71 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
       continue;
     }
 
-    if (node->type == xnn_node_type_static_constant_pad) {
-      node->params.static_pad.padding_value = fp16_ieee_from_fp32_value(
-          uint32_as_float(node->params.static_pad.padding_value));
-    } else if (node->type == xnn_node_type_fully_connected) {
-      // Patch up any LHS packing of fully-connected nodes, if needed.
-      if (node->flags & XNN_FLAG_INLINE_LHS_PACKING) {
-        switch (node->params.fully_connected.assumed_input_datatype) {
-          case xnn_datatype_pfp32:
-            // Switch from packed `fp32` to packed `fp16`.
-            node->params.fully_connected.assumed_input_datatype =
-                xnn_datatype_pfp16;
-            break;
-          case xnn_datatype_qpint8:
-            // Convert from `qpint8` back to `qdint8` since we don't have a
-            // `qpint8` packing function for `f16` inputs.
-            node->params.fully_connected.assumed_input_datatype =
-                xnn_datatype_qdint8;
-            break;
-          default:
-            break;
+    // Fix up anything node-type specific.
+    switch (node->type) {
+      case xnn_node_type_static_constant_pad:
+        node->params.static_pad.padding_value = fp16_ieee_from_fp32_value(
+            uint32_as_float(node->params.static_pad.padding_value));
+        break;
+      case xnn_node_type_batch_matrix_multiply:
+      case xnn_node_type_fully_connected: {
+        // Patch up any LHS packing of fully-connected nodes, if needed.
+        if (node->flags & XNN_FLAG_INLINE_LHS_PACKING) {
+          switch (node->params.inlined_lhs_packing.packed_input_datatype) {
+            case xnn_datatype_pfp32:
+              // Switch from packed `fp32` to packed `fp16`.
+              node->params.inlined_lhs_packing.packed_input_datatype =
+                  xnn_datatype_pfp16;
+              break;
+            case xnn_datatype_qpint8:
+              // Convert from `qpint8` back to `qdint8` since we don't have a
+              // `qpint8` packing function for `f16` inputs.
+              node->params.inlined_lhs_packing.packed_input_datatype =
+                  xnn_datatype_qdint8;
+              break;
+            default:
+              break;
+          }
+        } else if (subgraph->values[node->inputs[0]].datatype ==
+                   xnn_datatype_qpint8) {
+          subgraph->values[node->inputs[0]].datatype = xnn_datatype_qdint8;
         }
-      } else if (subgraph->values[node->inputs[0]].datatype ==
-                 xnn_datatype_qpint8) {
-        subgraph->values[node->inputs[0]].datatype = xnn_datatype_qdint8;
-      }
+      } break;
+      default:
+        break;
     }
 
     for (uint32_t i = 0; i < node->num_inputs; i++) {
       const uint32_t fp16_id = subgraph->values[node->inputs[i]].fp16_id;
       if (fp16_id != XNN_INVALID_VALUE_ID) {
-        assert(subgraph->values[fp16_id].fp32_id == node->inputs[i]);
+        struct xnn_value* fp16_value = &subgraph->values[fp16_id];
+        assert(fp16_value->fp32_id == node->inputs[i]);
+        if (fp16_value->first_consumer == XNN_INVALID_NODE_ID) {
+          fp16_value->first_consumer = n;
+        }
+        fp16_value->num_consumers++;
         node->inputs[i] = fp16_id;
       }
     }
     for (uint32_t o = 0; o < node->num_outputs; o++) {
-      const uint32_t fp16_id = subgraph->values[node->outputs[o]].fp16_id;
+      const uint32_t fp32_id = node->outputs[o];
+      const uint32_t fp16_id = subgraph->values[fp32_id].fp16_id;
       if (fp16_id != XNN_INVALID_VALUE_ID) {
-        assert(subgraph->values[fp16_id].fp32_id == node->outputs[o]);
-        node->outputs[o] = fp16_id;
+        struct xnn_value* fp16_value = &subgraph->values[fp16_id];
+        if (fp16_value->first_consumer == XNN_INVALID_NODE_ID &&
+            fp16_value->producer == XNN_INVALID_NODE_ID) {
+          assert(fp16_value->fp32_id == fp32_id);
+        } else {
+          // Prevent double assignments by creating a new copy of the output
+          // value if it has already been written to.
+          fp16_value = xnn_subgraph_new_internal_value(subgraph);
+          xnn_value_copy(fp16_value, &subgraph->values[fp16_id]);
+          fp16_value->first_consumer = XNN_INVALID_NODE_ID;
+          fp16_value->num_consumers = 0;
+          subgraph->values[fp32_id].fp16_id = fp16_value->id;
+        }
+        node->outputs[o] = fp16_value->id;
+        fp16_value->producer = n;
       }
     }
   }
@@ -1371,16 +1391,17 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
     // Insert Convert nodes for outputs
     for (uint32_t o = 0; o < node->num_outputs; o++) {
       const struct xnn_value* value = &subgraph->values[node->outputs[o]];
-      if (value->fp32_id != XNN_INVALID_VALUE_ID) {
+      const uint32_t fp32_id = value->fp32_id;
+      if (fp32_id != XNN_INVALID_VALUE_ID &&
+          subgraph->values[fp32_id].fp16_id == value->id) {
         xnn_log_debug("Inserted FP16->FP32 Convert Node from tensor #%" PRIu32
-                      " to tensor #%" PRIu32,
-                      value->id, value->fp32_id);
+                      " to output tensor #%" PRIu32,
+                      value->id, fp32_id);
         const uint32_t output_node_id = output_node->id;
         assert(output_node >= subgraph->nodes);
         xnn_node_clear(output_node);
         output_node->id = output_node_id;
-        xnn_init_convert_node(output_node, value->id, value->fp32_id,
-                              0 /* flags */);
+        xnn_init_convert_node(output_node, value->id, fp32_id, 0 /* flags */);
         output_node -= 1;
       }
     }
@@ -1395,22 +1416,21 @@ bool xnn_subgraph_rewrite_for_fp16(xnn_subgraph_t subgraph) {
     // Insert Convert nodes for inputs
     for (uint32_t i = 0; i < node->num_inputs; i++) {
       const struct xnn_value* value = &subgraph->values[node->inputs[i]];
-      if (value->fp32_id != XNN_INVALID_VALUE_ID &&
-          value->first_consumer == n - 1) {
+      const uint32_t fp32_id = value->fp32_id;
+      if (fp32_id != XNN_INVALID_VALUE_ID &&
+          subgraph->values[fp32_id].first_consumer == n - 1) {
         // Only insert convert nodes if the value actually is an external input.
         // This value could be an external output, if that's the case, we have
         // already inserted a convert node in loop above for outputs.
-        if (xnn_value_is_external_input(
-                subgraph->values[value->fp32_id].flags)) {
+        if (xnn_value_is_external_input(subgraph->values[fp32_id].flags)) {
           xnn_log_debug("Inserted FP32->FP16 Convert Node from tensor #%" PRIu32
                         " to tensor #%" PRIu32,
-                        value->fp32_id, value->id);
+                        fp32_id, value->id);
           const uint32_t output_node_id = output_node->id;
           assert(output_node >= subgraph->nodes);
           xnn_node_clear(output_node);
           output_node->id = output_node_id;
-          xnn_init_convert_node(output_node, value->fp32_id, value->id,
-                                0 /* flags */);
+          xnn_init_convert_node(output_node, fp32_id, value->id, 0 /* flags */);
           output_node -= 1;
         }
       }
@@ -2245,7 +2265,8 @@ static bool convert_gemm_to_qduint8(
   return convert_to_qu8;
 }
 
-enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph) {
+enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph,
+                                                 uint32_t optimization_flags) {
   // Count the number of changes made.
   size_t changes = 0;
 
@@ -2253,8 +2274,9 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph) {
   for (uint32_t node_id = 0; node_id < subgraph->num_nodes; node_id++) {
     struct xnn_node* node = &subgraph->nodes[node_id];
 
-    // Skip anything that is not a `fully-connected` node.
-    if (node->type != xnn_node_type_fully_connected) {
+    // Skip anything that is not a fully-connected node.
+    if (!(node->type == xnn_node_type_fully_connected ||
+          node->type == xnn_node_type_batch_matrix_multiply)) {
       continue;
     }
 
@@ -2328,7 +2350,7 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph) {
     }
 
     if (assumed_datatype != xnn_datatype_invalid) {
-      if (subgraph->flags & XNN_FLAG_NO_INLINED_LHS_PACKING) {
+      if (optimization_flags & XNN_FLAG_NO_INLINED_LHS_PACKING) {
         if (assumed_datatype == xnn_datatype_qdint8) {
           // If the input is already `qdint8`, don't do anything different.
           continue;
@@ -2363,8 +2385,10 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph) {
         }
         // If this is a fully-connected op, we need to coerce the shape of the
         // inputs from `[B, M, K]` to `[B * M, K]` to avoid batch-wise packing.
-        subgraph->values[subgraph->nodes[node_id].inputs[0]].flags |=
-            XNN_FLAG_SQUASH_GROUPS;
+        if (node->type == xnn_node_type_fully_connected) {
+          subgraph->values[subgraph->nodes[node_id].inputs[0]].flags |=
+              XNN_FLAG_SQUASH_GROUPS;
+        }
       } else {
         if (input_datatype == xnn_datatype_qdint8) {
           // Short-circuit the inputs of the producer of the `qdint8` values.
@@ -2400,7 +2424,8 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph) {
         xnn_log_debug("Setting assumed_datatype=%s for node #%u (%s).",
                       xnn_datatype_to_string(assumed_datatype), node_id,
                       xnn_node_type_to_string(node->type));
-        node->params.fully_connected.assumed_input_datatype = assumed_datatype;
+        node->params.inlined_lhs_packing.packed_input_datatype =
+            assumed_datatype;
         node->flags |= XNN_FLAG_INLINE_LHS_PACKING;
       }
     }
@@ -2553,6 +2578,13 @@ void xnn_subgraph_rewrite_ssa(xnn_subgraph_t subgraph) {
 
 enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph,
                                       uint32_t optimization_flags) {
+  // If the subgraph has no nodes, then there is nothing for us to do here, but
+  // do print a notice to the user as this seems a bit unusual.
+  if (!subgraph->num_nodes) {
+    xnn_log_info("Trying to optimize subgraph with zero nodes, skipping.");
+    return xnn_status_success;
+  }
+
   // Start with a clean and ordered subgraph.
   xnn_subgraph_clean_up(subgraph);
 
@@ -2601,7 +2633,24 @@ enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph,
   }
 #endif
 
-  enum xnn_status status = xnn_subgraph_optimize_packed_lhs(subgraph);
+#ifdef XNN_SLINKY_ENABLED
+  // If compiling with XNN_SLINKY_ENABLED defined, assume we always
+  // want Slinky enabled, regardless of the runtime flag
+  const bool use_slinky = true;
+#else
+  const bool use_slinky = optimization_flags & XNN_FLAG_SLINKY_ENABLED;
+#endif
+  // If we're using Slinky, don't inline packing functions as Slinky does that
+  // automatically.
+  if (use_slinky) {
+    xnn_log_info(
+        "disabling inlined LHS packing because `XNN_FLAG_SLINKY_ENABLED` is "
+        "set.");
+    optimization_flags |= XNN_FLAG_NO_INLINED_LHS_PACKING;
+  }
+
+  enum xnn_status status =
+      xnn_subgraph_optimize_packed_lhs(subgraph, optimization_flags);
   if (status != xnn_status_success) {
     return status;
   }

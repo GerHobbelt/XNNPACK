@@ -3,7 +3,8 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#pragma once
+#ifndef XNNPACK_SRC_XNNPACK_MICROFNPTR_H_
+#define XNNPACK_SRC_XNNPACK_MICROFNPTR_H_
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -91,11 +92,6 @@ typedef void (*xnn_f16_gemm_minmax_ukernel_fn)(
     const struct xnn_f16_minmax_params* params);
 
 typedef void (*xnn_f32_gemm_minmax_ukernel_fn)(
-    size_t mr, size_t nr, size_t k, const float* a, size_t a_stride,
-    const float* w, float* c, size_t cm_stride, size_t cn_stride,
-    const struct xnn_f32_minmax_params* params);
-
-typedef void (*xnn_f32_gemm_goi_minmax_ukernel_fn)(
     size_t mr, size_t nr, size_t k, const float* a, size_t a_stride,
     const float* w, float* c, size_t cm_stride, size_t cn_stride,
     const struct xnn_f32_minmax_params* params);
@@ -239,6 +235,10 @@ typedef void (*xnn_igemm_ukernel_fn)(size_t mr, size_t nr, size_t kc, size_t ks,
                                      size_t cm_stride, size_t cn_stride,
                                      size_t a_offset, const void* zero,
                                      const void* params);
+
+typedef void (*xnn_packed_lhs_igemm_ukernel_fn)(
+    size_t mr, size_t nc, size_t kc, size_t ks, const void* packed_lhs,
+    const void* w, int8_t* c, size_t cm_stride, const void* params);
 
 typedef void (*xnn_f32_igemm_ukernel_fn)(
     size_t mr, size_t nr, size_t kc, size_t ks, const float** a, const float* w,
@@ -624,6 +624,12 @@ typedef void (*xnn_qs8_qc4w_packw_gemm_goi_ukernel_fn)(
     void* packed_weights, size_t extra_bytes,
     const struct xnn_qs8_qc4w_packing_params* params);
 
+typedef void (*xnn_qb4_packw_gemm_goi_ukernel_fn)(
+    size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr, size_t bl,
+    const uint8_t* k, const int32_t* b, const void* scale,
+    int8_t* packed_weights, size_t extra_bytes_bl, size_t extra_bytes,
+    const void* params);
+
 typedef void (*xnn_x16_packw_gemm_goi_ukernel_fn)(
     size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
     const uint16_t* k, const uint16_t* b, const void* scale,
@@ -704,13 +710,26 @@ typedef void (*xnn_pack_lh_ukernel_fn)(size_t m, size_t k, size_t mr, size_t kr,
                                        const void* lhs, size_t lhs_stride,
                                        void* lhs_packed);
 
+typedef void (*xnn_pack_lh_igemm_ukernel_fn)(size_t m, size_t kc, size_t ks,
+                                             size_t mr_packed, size_t kr,
+                                             size_t sr, const void** a,
+                                             size_t a_offset, const void* zero,
+                                             void* lhs_packed);
+
 // PACKLH Size: Size of packed buffer required.
 typedef size_t (*xnn_pack_lh_size_fn)(size_t m, size_t k, size_t mr, size_t kr,
                                       size_t sr);
 
+typedef size_t (*xnn_pack_lh_igemm_size_fn)(size_t m, size_t kc, size_t ks,
+                                            size_t mr_packed, size_t kr,
+                                            size_t sr);
+
 // PACKLH Offset: Offset into the packed buffer.
 typedef size_t (*xnn_pack_lh_offset_fn)(size_t m, size_t k, size_t mr,
                                         size_t kr, size_t sr);
+
+typedef size_t (*xnn_pack_lh_igemm_offset_fn)(size_t m, size_t kc, size_t ks,
+                                              size_t mr, size_t kr, size_t sr);
 
 // FILL: FILL array with value
 
@@ -1304,3 +1323,5 @@ struct gemm_fused_ukernels {
     struct xnn_hmp_dqigemm_ukernel dqigemm[XNN_MAX_MR];
   };
 };
+
+#endif  // XNNPACK_SRC_XNNPACK_MICROFNPTR_H_

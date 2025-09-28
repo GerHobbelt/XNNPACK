@@ -34,8 +34,8 @@
 void GEMMBenchmark(benchmark::State& state, xnn_qs8_gemm_minmax_ukernel_fn gemm,
                    xnn_init_qs8_conv_minmax_params_fn init_params,
                    xnn_pack_qs8_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -121,8 +121,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_qs8_qc8w_gemm_minmax_ukernel_fn gemm,
                    xnn_init_qs8_qc8w_conv_minmax_params_fn init_params,
                    xnn_pack_qs8_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -207,8 +207,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_qd8_f16_qc8w_gemm_ukernel_fn gemm,
                    xnn_init_f16_minmax_params_fn init_params,
                    xnn_pack_qs8_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -285,8 +285,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_qd8_f32_qc8w_gemm_ukernel_fn gemm,
                    xnn_init_f32_minmax_params_fn init_params,
                    xnn_pack_qs8_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -363,8 +363,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_init_f16_qb4w_minmax_params_fn init_params,
                    xnn_pack_qs8_qb4w_gemm_fn pack, size_t mr, size_t nr,
                    size_t kr, size_t sr,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -459,8 +459,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_init_f16_qc4w_minmax_params_fn init_params,
                    xnn_pack_qs8_qc4w_gemm_fn pack, size_t mr, size_t nr,
                    size_t kr, size_t sr,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -538,8 +538,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_init_f32_qb4w_minmax_params_fn init_params,
                    xnn_pack_qs8_qb4w_gemm_fn pack, size_t mr, size_t nr,
                    size_t kr, size_t sr,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -633,8 +633,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_init_f32_qc4w_minmax_params_fn init_params,
                    xnn_pack_qs8_qc4w_gemm_fn pack, size_t mr, size_t nr,
                    size_t kr, size_t sr,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -713,8 +713,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_pack_weights_and_biases_fn pack_weights,
                    xnn_packed_stride_weights_and_biases_fn packed_stride,
                    size_t mr, size_t nr, size_t kr, size_t sr, size_t mr_packed,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -820,15 +820,15 @@ void GEMMBenchmark(benchmark::State& state,
       benchmark::Counter::kIsRate);
 }
 
-#if XNN_ENABLE_KLEIDIAI
+#if XNN_ENABLE_KLEIDIAI && XNN_ENABLE_ARM_SME2
 void GEMMBenchmark(benchmark::State& state,
                    xnn_pf32_gemm_minmax_ukernel_fn gemm,
                    xnn_init_f32_minmax_params_fn init_minmax_params,
                    xnn_pack_weights_and_biases_fn pack_weights,
                    xnn_packed_stride_weights_and_biases_fn packed_stride,
                    size_t mr, size_t nr, size_t kr, size_t sr, size_t mr_packed,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -947,8 +947,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_pack_weights_and_biases_fn pack_weights,
                    xnn_packed_stride_weights_and_biases_fn packed_stride,
                    size_t mr, size_t nr, size_t kr, size_t sr, size_t mr_packed,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -1058,7 +1058,7 @@ void GEMMBenchmark(benchmark::State& state,
       static_cast<uint64_t>(state.iterations()) * 2 * mc * nc * kc,
       benchmark::Counter::kIsRate);
 }
-#endif  // XNN_ENABLE_KLEIDIAI
+#endif  // XNN_ENABLE_KLEIDIAI && XNN_ENABLE_ARM_SME2
 
 void GEMMBenchmark(benchmark::State& state,
                    xnn_qp8_f32_qb4w_gemm_minmax_ukernel_fn gemm,
@@ -1066,8 +1066,8 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_pack_weights_and_biases_fn pack_weights,
                    xnn_packed_stride_weights_and_biases_fn packed_stride,
                    size_t mr, size_t nr, size_t kr, size_t sr, size_t mr_packed,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -1183,8 +1183,8 @@ void GEMMBenchmark(benchmark::State& state,
 void GEMMBenchmark(benchmark::State& state, xnn_qu8_gemm_minmax_ukernel_fn gemm,
                    xnn_init_qu8_conv_minmax_params_fn init_params,
                    xnn_pack_qu8_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -1266,8 +1266,8 @@ void GEMMBenchmark(benchmark::State& state, xnn_qu8_gemm_minmax_ukernel_fn gemm,
 void GEMMBenchmark(benchmark::State& state, xnn_f32_gemm_minmax_ukernel_fn gemm,
                    xnn_init_f32_minmax_params_fn init_params,
                    xnn_pack_f32_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -1339,8 +1339,8 @@ void GEMMBenchmark(benchmark::State& state, xnn_f32_gemm_minmax_ukernel_fn gemm,
 void GEMMBenchmark(benchmark::State& state, xnn_f32_gemm_minmax_ukernel_fn gemm,
                    xnn_init_f32_minmax_params_fn init_params, size_t mr,
                    size_t nr, size_t kr, size_t sr,
-                   benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 
@@ -1404,8 +1404,8 @@ void GEMMBenchmark(benchmark::State& state, xnn_f32_gemm_minmax_ukernel_fn gemm,
 void GEMMBenchmark(benchmark::State& state, xnn_f16_gemm_minmax_ukernel_fn gemm,
                    xnn_init_f16_minmax_params_fn init_params,
                    xnn_pack_f16_gemm_fn pack, size_t mr, size_t nr, size_t kr,
-                   size_t sr, benchmark::utils::IsaCheckFunction isa_check) {
-  if (isa_check != nullptr && !isa_check(state)) {
+                   size_t sr, uint64_t arch_flags) {
+  if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
   }
 

@@ -8,7 +8,8 @@
 
 // clang-format off
 
-#pragma once
+#ifndef XNNPACK_INCLUDE_XNNPACK_H_
+#define XNNPACK_INCLUDE_XNNPACK_H_
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -75,9 +76,6 @@ extern "C" {
 
 /// Assume transposed input in a batch matrix multiply operator.
 #define XNN_FLAG_TRANSPOSE_A 0x00000002
-
-/// Implicitly flatten and reshape input of a Fully Connected operator into a 2D tensor.
-#define XNN_FLAG_TENSORFLOW_RESHAPE_2D 0x00000004
 
 /// Match behaviour of TensorFlow 1.x.
 #define XNN_FLAG_TENSORFLOW_LEGACY_MODE 0x00000004
@@ -921,14 +919,10 @@ enum xnn_status xnn_define_average_pooling_2d(
 /// @param output_min - lower bound for clipping output values.
 /// @param output_max - upper bound for clipping output values.
 /// @param input_id - Value ID for the input tensor. The input tensor must be an N-dimensional tensor defined in the
-///                   @a subgraph. If XNN_FLAG_TENSORFLOW_RESHAPE_2D is not specified, the input tensor must be at least
-///                   1D and its last dimension must match the last dimension of the filter tensor. In particular, if
-///                   input is a 2D tensor, it must have [batch_size, input_channels] dimensions.
-///                   If XNN_FLAG_TENSORFLOW_RESHAPE_2D is specified, the number of elements in the input tensor must be
-///                   divisible by the input_channels. The tensor will be first flattened into a 1D tensor of
-///                   [num_input_elements] dimensions, then reshaped into a 2D tensor of
-///                   [num_input_elements / input_channels, input_channels] dimensions where num_input_elements is the
-///                   total number of elements in the input tensor.
+///                   @a subgraph. The input tensor must be at least 1D and its last dimension must match the last
+///                   dimension of the filter tensor. In particular, if input is a 2D tensor, it must have [batch_size,
+///                   input_channels] dimensions.
+///
 /// @param filter_id - Value ID for the filter tensor. The filter tensor must a 2D tensor defined in the @a subgraph.
 ///                    If the XNN_FLAG_TRANSPOSE_WEIGHTS flag is not specified, the filter tensor must have
 ///                    [output_channels, input_channels] dimensions. If the XNN_FLAG_TRANSPOSE_WEIGHTS flag is
@@ -937,16 +931,12 @@ enum xnn_status xnn_define_average_pooling_2d(
 ///                  If present, the bias tensor must be a 1D tensor defined in the @a subgraph with [output_channels]
 ///                  dimensions.
 /// @param output_id - Value ID for the output tensor. The output tensor must be defined in the @a subgraph.
-///                    If XNN_FLAG_TENSORFLOW_RESHAPE_2D is not specified, the output tensor must have the same
-///                    dimensionality as the input tensor, all its dimensions but the last one must match the
-///                    corresponding dimensions of the input tensor, and the last dimensions of the output tensor must
-///                    match the first dimension of the filter tensor. In particular, if input is a 2D tensor, output
-///                    must be a 2D tensor of [batch_size, output_channels] dimensions.
-///                    If XNN_FLAG_TENSORFLOW_RESHAPE_2D is specified, output must be a 2D tensor of
-///                    [num_input_elements / input_channels, output_channels] dimensions where num_input_elements is the
-///                    total number of elements in the input tensor.
-/// @param flags - binary features of the Fully Connected Node. The only currently supported values are
-///                XNN_FLAG_TENSORFLOW_RESHAPE_2D and XNN_FLAG_TRANSPOSE_WEIGHTS.
+///                    The output tensor must have the same dimensionality as the input tensor, all its dimensions but
+//                     the last one must match the corresponding dimensions of the input tensor, and the last dimensions
+///                    of the output tensor must match the first dimension of the filter tensor. In particular, if input
+///                    is a 2D tensor, output must be a 2D tensor of [batch_size, output_channels] dimensions.
+/// @param flags - binary features of the Fully Connected Node. The only currently supported value is
+///                XNN_FLAG_TRANSPOSE_WEIGHTS.
 enum xnn_status xnn_define_fully_connected(
   xnn_subgraph_t subgraph,
   float output_min,
@@ -2781,6 +2771,20 @@ enum xnn_status xnn_setup_batch_matrix_multiply_nc_f32(
     xnn_operator_t batch_matrix_multiply_op, void* workspace,
     const float* input_a, const float* input_b, float* output);
 
+enum xnn_status xnn_create_batch_matrix_multiply_nc_qs8(
+    int8_t output_zero_point, int8_t output_min, int8_t output_max,
+    uint32_t flags, xnn_operator_t* batch_matrix_multiply_op_out);
+
+enum xnn_status xnn_reshape_batch_matrix_multiply_nc_qs8(
+    xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
+    const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
+    size_t n, const float* scale, const void* packing_params,
+    size_t* workspace_size, pthreadpool_t threadpool);
+
+enum xnn_status xnn_setup_batch_matrix_multiply_nc_qs8(
+    xnn_operator_t batch_matrix_multiply_op, void* workspace,
+    const int8_t* input_a, const int8_t* input_b, int8_t* output);
+
 enum xnn_status xnn_create_batch_matrix_multiply_nc_qd8_f32_qc8w(
     size_t batch_size_b, size_t k, size_t n, const int8_t* data_b,
     const float* scale_b, uint32_t flags,
@@ -2789,12 +2793,13 @@ enum xnn_status xnn_create_batch_matrix_multiply_nc_qd8_f32_qc8w(
 enum xnn_status xnn_reshape_batch_matrix_multiply_nc_qd8_f32_qc8w(
     xnn_operator_t batch_matrix_multiply_op, size_t num_batch_dims,
     const size_t* batch_dims_a, const size_t* batch_dims_b, size_t m, size_t k,
-    size_t n, pthreadpool_t threadpool);
+    size_t n, size_t* workspace_size,
+    pthreadpool_t threadpool);
 
 enum xnn_status xnn_setup_batch_matrix_multiply_nc_qd8_f32_qc8w(
-    xnn_operator_t batch_matrix_multiply_op, const int8_t* input_a,
-    const struct xnn_quantization_params* quantization_params,
-    float* output);
+    xnn_operator_t batch_matrix_multiply_op, void* workspace,
+    const int8_t* input_a, const int8_t* input_b,
+    const struct xnn_quantization_params* quantization_params, float* output);
 
 enum xnn_status xnn_create_constant_pad_nd_x8(
   const void* padding_value,
@@ -4787,3 +4792,5 @@ enum xnn_status xnn_setup_space_to_depth_nhwc_x8(
 #ifdef __cplusplus
 }  // extern "C"
 #endif
+
+#endif  // XNNPACK_INCLUDE_XNNPACK_H_

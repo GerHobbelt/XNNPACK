@@ -1,10 +1,11 @@
-// Copyright 2019 Google LLC
+// Copyright 2019-2025 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include <benchmark/benchmark.h>
+#include "bench/subgraph/benchmark.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -12,12 +13,16 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <random>
 #include <vector>
 
-#include "bench/subgraph/benchmark.h"
 #include "bench/utils.h"
 #include "include/xnnpack.h"
+#include "src/xnnpack/datatype.h"
+#include "src/xnnpack/math.h"
 #include "src/xnnpack/subgraph.h"
+#include "test/replicable_random_device.h"
+#include <benchmark/benchmark.h>
 #include <pthreadpool.h>
 
 namespace xnnpack {
@@ -52,18 +57,6 @@ struct ModelRuntime {
     if (!model) {
       return false;
     }
-    for (uint32_t i = 0; i < xnn_subgraph_get_num_external_values(model.get());
-         ++i) {
-      uint32_t flags = xnn_subgraph_get_value_flags(model.get(), i);
-      if ((flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT |
-                    XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) == 0) {
-        continue;
-      }
-      // Make a buffer for this external value.
-      size_t size =
-          xnn_subgraph_get_value_size(model.get(), i) + XNN_EXTRA_BYTES;
-      external_values.push_back(xnn_external_value{i, malloc(size)});
-    }
     return model != nullptr;
   }
 
@@ -78,6 +71,41 @@ struct ModelRuntime {
   }
 
   bool SetupRuntime() {
+    ReplicableRandomDevice rng;
+    for (uint32_t i = 0; i < xnn_subgraph_get_num_external_values(model.get());
+         ++i) {
+      uint32_t flags = xnn_subgraph_get_value_flags(model.get(), i);
+      if ((flags & (XNN_VALUE_FLAG_EXTERNAL_INPUT |
+                    XNN_VALUE_FLAG_EXTERNAL_OUTPUT)) == 0) {
+        continue;
+      }
+      // Make a buffer for this external value.
+      size_t num_dims = 0;
+      size_t dims[XNN_MAX_TENSOR_DIMS];
+      xnn_get_external_value_shape(runtime, i, &num_dims, &dims[0]);
+      xnn_datatype type = xnn_subgraph_get_value_datatype(model.get(), i);
+      size_t size = xnn_datatype_size_bytes(type);
+      for (size_t i = 0; i < num_dims; ++i) {
+        size *= dims[i];
+      }
+      void* data = malloc(size + XNN_EXTRA_BYTES);
+      switch (type) {
+        case xnn_datatype_fp32: {
+          std::generate((float*)data, (float*)((uintptr_t)data + size),
+                        [&] { return rng.NextFloat(); });
+        } break;
+        case xnn_datatype_fp16: {
+          std::generate((xnn_float16*)data,
+                        (xnn_float16*)((uintptr_t)data + size),
+                        [&] { return rng.NextFloat(); });
+        } break;
+        default: {
+          std::generate((uint8_t*)data, (uint8_t*)((uintptr_t)data + size),
+                        [&] { return rng.NextUInt32() & 0xFF; });
+        } break;
+      }
+      external_values.push_back(xnn_external_value{i, data});
+    }
     return xnn_status_success == xnn_setup_runtime_v2(runtime,
                                                       external_values.size(),
                                                       external_values.data());

@@ -28,7 +28,7 @@ XNN_INIT_ONCE_GUARD(f32_vmulcaddc);
   xnn_log_info("Using vmulcaddc microkernel '%s'.", #ukernel);
 
 static void init_f16_vmulcaddc_config(void) {
-  #if XNN_ARCH_ARM && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ENABLE_ARM_FP16_SCALAR
+  #if XNN_ENABLE_ARM_FP16_SCALAR && XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
     (void) hardware_config;  // May be unused.
@@ -38,7 +38,7 @@ static void init_f16_vmulcaddc_config(void) {
       f16_vmulcaddc_config.channel_tile = 8;
       f16_vmulcaddc_config.row_tile = 2;
     }
-  #elif XNN_ARCH_ARM64 && XNN_ENABLE_ARM_FP16_VECTOR
+  #elif XNN_ENABLE_ARM_FP16_VECTOR && XNN_ARCH_ARM64
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
     (void) hardware_config;  // May be unused.
@@ -52,12 +52,14 @@ static void init_f16_vmulcaddc_config(void) {
     const struct xnn_hardware_config* hardware_config = xnn_init_hardware_config();
     assert(hardware_config != NULL);
     (void) hardware_config;  // May be unused.
-    if ((hardware_config->arch_flags & xnn_arch_x86_avx2)) {
-      f16_vmulcaddc_config.ukernel = XNN_INIT_VMULCADDC_UKERNEL(xnn_f16_vmulcaddc_minmax_ukernel_c8__fma3_2x);
-      f16_vmulcaddc_config.init.f16 = xnn_init_f16_minmax_scalar_params;
-      f16_vmulcaddc_config.channel_tile = 8;
-      f16_vmulcaddc_config.row_tile = 2;
-    }
+    #if XNN_ENABLE_FMA3
+      if ((hardware_config->arch_flags & xnn_arch_x86_fma3)) {
+        f16_vmulcaddc_config.ukernel = XNN_INIT_VMULCADDC_UKERNEL(xnn_f16_vmulcaddc_minmax_ukernel_c8__fma3_2x);
+        f16_vmulcaddc_config.init.f16 = xnn_init_f16_minmax_scalar_params;
+        f16_vmulcaddc_config.channel_tile = 8;
+        f16_vmulcaddc_config.row_tile = 2;
+      }
+    #endif
   #endif
 }
 

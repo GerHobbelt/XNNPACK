@@ -30,6 +30,11 @@
 #if XNN_ENABLE_CPUINFO
   #include <cpuinfo.h>
 #endif  // XNN_ENABLE_CPUINFO
+#if XNN_ARCH_HEXAGON
+// TODO - use CPUINFO
+#include <qurt.h>
+#include "HAP_power.h"  // NOLINT - part of the hexagon SDK
+#endif
 
 #if XNN_ARCH_RISCV
 #include <inttypes.h>
@@ -211,7 +216,34 @@ static void init_hardware_config(void) {
 #endif  // !XNN_ARCH_X86 && !XNN_ARCH_X86_64
 
 #if XNN_ARCH_HEXAGON
-  set_arch_flag(xnn_arch_hvx, XNN_ENABLE_HVX);
+  qurt_arch_version_t vers = {0};
+  unsigned int arch_version = 0;
+  if (qurt_sysenv_get_arch_version(&vers) == QURT_EOK) {
+    // Lower 8 bits represents the version number in hex form
+    arch_version = vers.arch_version & 0xff;
+  }
+
+  // TODO: use xnn_log_info
+  printf("HEXAGON UARCH VERSION %x\n", arch_version);
+
+  // TODO(b/435522481): Support v69.
+  if (arch_version >= 0x73) {
+    set_arch_flag(xnn_arch_hvx, XNN_ENABLE_HVX);
+  }
+
+  unsigned int max_hthreads = 1;
+  qurt_sysenv_max_hthreads_t hardware_threads = {0};
+  if (qurt_sysenv_get_max_hw_threads(&hardware_threads) == QURT_EOK) {
+    max_hthreads = hardware_threads.max_hthreads;
+  }
+  printf("HEXAGON HTHREADS %d\n", max_hthreads);
+
+  unsigned int clkFreqHz = 0;
+  HAP_power_response_t response = {.type = HAP_power_get_clk_Freq};
+  if (HAP_power_get(NULL, &response) == AEE_SUCCESS) {
+    clkFreqHz = response.clkFreqHz;
+  }
+  printf("HEXAGON CLKFREQHZ %d\n", clkFreqHz);
 #endif  // XNN_ARCH_HEXAGON
 
   #if XNN_ARCH_RISCV

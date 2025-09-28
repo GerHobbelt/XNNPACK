@@ -135,7 +135,10 @@ xnnpack_cc_library(
 
 xnnpack_cc_library(
     name = "xnnpack_h",
-    hdrs = ["include/xnnpack.h"],
+    hdrs = [
+        "include/experimental.h",
+        "include/xnnpack.h",
+    ],
     deps = [
         "@pthreadpool",
     ],
@@ -560,6 +563,7 @@ xnnpack_cxx_library(
     name = "pack_lh",
     srcs = ["src/pack-lh.cc"],
     deps = [
+        ":common",
         ":logging",
         ":math",
         ":microfnptr_h",
@@ -567,6 +571,7 @@ xnnpack_cxx_library(
         ":microparams_h",
         ":quantization",
         "//src/configs:config_hdrs",
+        "//src/configs:hardware_config",
     ] + xnnpack_if_kleidiai_enabled([
         "@KleidiAI//kai/ukernels/matmul",
     ]),
@@ -800,6 +805,7 @@ xnnpack_cc_library(
         ":normalization",
         ":operator_type",
         ":operator_utils",
+        ":pack_lh",
         ":packing",
         ":params",
         ":quantization",
@@ -906,6 +912,7 @@ xnnpack_cc_library(
         "src/init.c",
     ],
     hdrs = [
+        "include/experimental.h",
         "include/xnnpack.h",
     ],
     copts = select({

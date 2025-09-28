@@ -32,6 +32,7 @@
 #include "src/xnnpack/operator-utils.h"
 #include "src/xnnpack/operator.h"
 #include "src/xnnpack/pack.h"
+#include "src/xnnpack/pack-lh.h"
 #include "src/xnnpack/params.h"
 #include <pthreadpool.h>
 
@@ -632,7 +633,7 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qb4w(
     }
   }
 
-  if (kernel_zero_point != 8) {
+  if (kernel_zero_point != 0 && kernel_zero_point != 8) {
     xnn_log_error("failed to create %s operator with %" PRIu8
                   " kernel zero point: kernel zero point must be equal to 8 "
                   "(unsigned weights) or 0 (signed weights)",
@@ -1018,7 +1019,7 @@ enum xnn_status xnn_create_fully_connected_nc_qp8_f32_qb4w(
   if (kernel_zero_point != 8) {
     xnn_log_error("failed to create %s operator with %" PRIu8
                   " kernel zero point: kernel zero point must be equal to 8 "
-                  "(unsigned weights) or 0 (signed weights)",
+                  "(unsigned weights)",
                   xnn_operator_type_to_string(
                       xnn_operator_type_fully_connected_nc_qp8_f32_qb4w),
                   kernel_zero_point);

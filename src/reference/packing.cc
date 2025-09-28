@@ -509,6 +509,8 @@ void xnn_pack_qs8_qc4w_gemm_goi_w(
   } while (--g != 0);
 }
 
+namespace {
+
 // Packs the weights so as to minimize register usage in kernels.
 // For example:
 // 0 1
@@ -530,7 +532,7 @@ void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
     size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
     size_t register_bytes, const uint8_t* k, const int32_t* b,
     const float* scale, void* packed_weights, size_t extra_bytes,
-    const struct xnn_qs8_qc4w_packing_params* params) {
+    uint32_t input_zero_point, uint32_t kernel_zero_point) {
   assert(g != 0);
   assert(nc != 0);
   assert(kc != 0);
@@ -539,12 +541,9 @@ void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
   assert(sr >= 1 && sr <= 16);
   assert(k != nullptr);
   assert(packed_weights != nullptr);
-  assert(params != nullptr);
-  assert(params->kernel_zero_point == 8 || params->kernel_zero_point == 0);
+  assert(kernel_zero_point == 8 || kernel_zero_point == 0);
 
   const size_t skr = sr * kr;
-  const uint32_t izp = (uint32_t)params->input_zero_point;
-  const uint32_t kernel_zero_point = (uint32_t)params->kernel_zero_point;
   int row_offset = register_bytes / kr;
   do {
     size_t nr_block_start = 0;
@@ -628,10 +627,11 @@ void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
               }
             }
             packed_b[actual_nr_block_offset] =
-                packed_b[actual_nr_block_offset] - ksum_lo * izp * 16;
+                packed_b[actual_nr_block_offset] -
+                ksum_lo * input_zero_point * 16;
             packed_b[actual_nr_block_offset + row_offset] =
                 packed_b[actual_nr_block_offset + row_offset] -
-                ksum_hi * izp * 16;
+                ksum_hi * input_zero_point * 16;
             pw = (uint8_t*)pw + kr;  // kr * 2 nibbles
           }
         }
@@ -649,14 +649,18 @@ void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
   } while (--g != 0);
 }
 
+}  // namespace
+
 void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar_scalar(
     size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
     const uint8_t* k, const int32_t* b, const float* scale,
     void* packed_weights, size_t extra_bytes,
     const struct xnn_qs8_qc4w_packing_params* params) {
-  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(g, nc, kc, nr, kr, sr,
-                                          /*register_bytes=*/1, k, b, scale,
-                                          packed_weights, extra_bytes, params);
+  assert(params != nullptr);
+  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
+      g, nc, kc, nr, kr, sr,
+      /*register_bytes=*/1, k, b, scale, packed_weights, extra_bytes,
+      params->input_zero_point, params->kernel_zero_point);
 }
 
 void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar_aarch64(
@@ -664,9 +668,11 @@ void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar_aarch64(
     const uint8_t* k, const int32_t* b, const float* scale,
     void* packed_weights, size_t extra_bytes,
     const struct xnn_qs8_qc4w_packing_params* params) {
-  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(g, nc, kc, nr, kr, sr,
-                                          /*register_bytes=*/16, k, b, scale,
-                                          packed_weights, extra_bytes, params);
+  assert(params != nullptr);
+  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
+      g, nc, kc, nr, kr, sr,
+      /*register_bytes=*/16, k, b, scale, packed_weights, extra_bytes,
+      params->input_zero_point, params->kernel_zero_point);
 }
 
 void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar_avx512(
@@ -674,11 +680,25 @@ void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar_avx512(
     const uint8_t* k, const int32_t* b, const float* scale,
     void* packed_weights, size_t extra_bytes,
     const struct xnn_qs8_qc4w_packing_params* params) {
-  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(g, nc, kc, nr, kr, sr,
-                                          /*register_bytes=*/64, k, b, scale,
-                                          packed_weights, extra_bytes, params);
+  assert(params != nullptr);
+  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
+      g, nc, kc, nr, kr, sr,
+      /*register_bytes=*/64, k, b, scale, packed_weights, extra_bytes,
+      params->input_zero_point, params->kernel_zero_point);
 }
 
+void xnn_pack_qs8_to_qu8_qc4w_gemm_goi_w_non_planar_avx512(
+    size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
+    const uint8_t* k, const int32_t* b, const float* scale,
+    void* packed_weights, size_t extra_bytes,
+    const struct xnn_qs8_qc4w_packing_params* params) {
+  assert(params != nullptr);
+  uint32_t input_zero_point = (int32_t)params->input_zero_point + 0x80;
+  xnn_pack_qs8_qc4w_gemm_goi_w_non_planar(
+      g, nc, kc, nr, kr, sr,
+      /*register_bytes=*/64, k, b, scale, packed_weights, extra_bytes,
+      input_zero_point, params->kernel_zero_point);
+}
 // Same as qc4w but unsigned 4 bit output
 // Applies kv ^ 0x88 to convert int4 to uint4
 // Does not multiply bias by 16
@@ -3924,82 +3944,6 @@ void xnn_pack_qs8_dwconv_hwg_w(size_t primary_tile, size_t h, size_t w,
     // We need to pack extra bytes for scale values here.
     packed_weights = (void*)((uintptr_t)packed_weights + per_tile_extra_bytes);
   }
-}
-
-void xnn_pack_f32_gemminc_goi_w(size_t g, size_t nc, size_t kc, size_t nr,
-                                size_t kr, size_t sr, const float* k,
-                                float* packed_weights, const void* params) {
-  assert(g != 0);
-  assert(nr >= sr);
-  assert(k != nullptr);
-  assert(packed_weights != nullptr);
-
-  const size_t skr = sr * kr;
-  do {
-    for (size_t nr_block_start = 0; nr_block_start < nc; nr_block_start += nr) {
-      const size_t nr_block_size = min(nc - nr_block_start, nr);
-
-      for (size_t kr_block_start = 0; kr_block_start < round_up_po2(kc, skr);
-           kr_block_start += kr) {
-        for (size_t nr_block_offset = 0; nr_block_offset < nr_block_size;
-             nr_block_offset++) {
-          for (size_t kr_block_offset = 0; kr_block_offset < kr;
-               kr_block_offset++) {
-            const size_t kc_begin =
-                round_down_po2(kr_block_start, skr) +
-                ((kr_block_start + nr_block_offset * kr) & (skr - 1));
-            const size_t kc_end = std::min(kc, kc_begin + kr);
-            if (kc_begin < kc_end) {
-              std::copy_n(
-                  &k[(nr_block_start + nr_block_offset) * kc + kc_begin],
-                  kc_end - kc_begin, packed_weights);
-            }
-          }
-          packed_weights += kr;
-        }
-        packed_weights += (nr - nr_block_size) * kr;
-      }
-    }
-    k += nc * kc;
-  } while (--g != 0);
-}
-
-void xnn_pack_f16_gemminc_goi_w(size_t g, size_t nc, size_t kc, size_t nr,
-                                size_t kr, size_t sr, const uint16_t* k,
-                                uint16_t* packed_weights, const void* params) {
-  assert(g != 0);
-  assert(nr >= sr);
-  assert(k != nullptr);
-  assert(packed_weights != nullptr);
-
-  const size_t skr = sr * kr;
-  do {
-    for (size_t nr_block_start = 0; nr_block_start < nc; nr_block_start += nr) {
-      const size_t nr_block_size = min(nc - nr_block_start, nr);
-
-      for (size_t kr_block_start = 0; kr_block_start < round_up_po2(kc, skr);
-           kr_block_start += kr) {
-        for (size_t nr_block_offset = 0; nr_block_offset < nr_block_size;
-             nr_block_offset++) {
-          for (size_t kr_block_offset = 0; kr_block_offset < kr;
-               kr_block_offset++) {
-            const size_t kc_begin =
-                round_down_po2(kr_block_start, skr) +
-                ((kr_block_start + nr_block_offset * kr) & (skr - 1));
-            const size_t kc_end = std::min(kc, kc_begin + kr);
-            if (kc_begin < kc_end) {
-              std::copy_n(
-                  &k[(nr_block_start + nr_block_offset) * kc + kc_begin],
-                  kc_end - kc_begin, packed_weights);
-            }
-          }
-          packed_weights += kr;
-        }
-        packed_weights += (nr - nr_block_size) * kr;
-      }
-    }
-    k += nc * kc;
-  } while (--g != 0);
 }
 
 void xnn_pack_f32_dconv_oki_w(size_t nc, size_t kc, size_t nr, size_t kh,

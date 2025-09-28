@@ -20,6 +20,7 @@
 #include <time.h>
 #endif
 
+#include "include/experimental.h"
 #include "include/xnnpack.h"
 #include "src/xnnpack/allocation-type.h"
 #include "src/xnnpack/allocator.h"
@@ -502,11 +503,12 @@ void propagate_rank(
   }
 }
 
-enum xnn_status xnn_create_runtime_v4(
+static enum xnn_status create_runtime_impl(
   xnn_subgraph_t subgraph,
   xnn_weights_cache_t weights_cache,
   xnn_workspace_t workspace,
   pthreadpool_t threadpool,
+  xnn_scheduler_t scheduler,
   uint32_t flags,
   xnn_runtime_t* runtime_out)
 {
@@ -646,6 +648,9 @@ enum xnn_status xnn_create_runtime_v4(
   }
 
   runtime->threadpool = threadpool;
+#ifdef XNN_SLINKY_AVAILABLE
+  runtime->scheduler = scheduler;
+#endif  // XNN_SLINKY_AVAILABLE
 
   for (uint32_t i = 0; i < runtime->num_values; i++) {
     struct xnn_runtime_value* value = &runtime->values[i];
@@ -683,6 +688,26 @@ enum xnn_status xnn_create_runtime_v4(
 error:
   xnn_delete_runtime(runtime);
   return status;
+}
+
+enum xnn_status xnn_create_runtime_v4(
+  xnn_subgraph_t subgraph,
+  xnn_weights_cache_t weights_cache,
+  xnn_workspace_t workspace,
+  pthreadpool_t threadpool,
+  uint32_t flags,
+  xnn_runtime_t* runtime_out)
+{
+  return create_runtime_impl(subgraph, weights_cache, workspace, threadpool, /*scheduler=*/NULL, flags, runtime_out);
+}
+
+enum xnn_status xnn_create_runtime_with_scheduler(
+  xnn_subgraph_t subgraph,
+  xnn_weights_cache_t weights_cache,
+  xnn_scheduler_t scheduler,
+  uint32_t flags,
+  xnn_runtime_t* runtime_out) {
+  return create_runtime_impl(subgraph, weights_cache, /*workspace=*/NULL, /*threadpool=*/NULL, scheduler, flags, runtime_out);
 }
 
 enum xnn_status xnn_plan_memory(
@@ -744,7 +769,7 @@ enum xnn_status xnn_reshape_runtime(
 #endif
   if (use_slinky) {
 #ifdef XNN_SLINKY_AVAILABLE
-    if (!runtime->slinky_pipeline || (runtime->flags & XNN_FLAG_SLINKY_CONCRETE_BOUNDS) != 0) {
+    if (!runtime->slinky_pipeline || (runtime->flags & XNN_FLAG_SLINKY_STATIC_BOUNDS) != 0) {
       enum xnn_status status = slinky_init_pipeline(runtime);
       if (status != xnn_status_success) {
         return status;

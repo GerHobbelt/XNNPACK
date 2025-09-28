@@ -133,6 +133,12 @@ XNN_INTERNAL void xnn_pack_qs8_qc4w_gemm_goi_w_non_planar_avx512(
     void* packed_weights, size_t extra_bytes,
     const struct xnn_qs8_qc4w_packing_params* params);
 
+XNN_INTERNAL void xnn_pack_qs8_to_qu8_qc4w_gemm_goi_w_non_planar_avx512(
+    size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
+    const uint8_t* kernel, const int32_t* bias, const float* scale,
+    void* packed_weights, size_t extra_bytes,
+    const struct xnn_qs8_qc4w_packing_params* params);
+
 // 4 bit unsigned weights
 XNN_INTERNAL void xnn_pack_qs8_qc4uw_gemm_goi_w(
     size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
@@ -743,30 +749,6 @@ XNN_INTERNAL void xnn_pack_qu8_dwconv_hwg_w(
     const uint8_t* kernel, const int32_t* bias, const void* scale,
     void* packed_weights, size_t per_tile_extra_bytes,
     const struct xnn_qu8_packing_params* params);
-
-typedef void (*xnn_pack_f32_gemminc_fn)(size_t g, size_t nc, size_t kc,
-                                        size_t nr, size_t kr, size_t sr,
-                                        const float* kernel,
-                                        float* packed_weights,
-                                        const void* params);
-
-typedef void (*xnn_pack_f16_gemminc_fn)(size_t g, size_t nc, size_t kc,
-                                        size_t nr, size_t kr, size_t sr,
-                                        const uint16_t* kernel,
-                                        uint16_t* packed_weights,
-                                        const void* params);
-
-XNN_INTERNAL void xnn_pack_f32_gemminc_goi_w(size_t g, size_t nc, size_t kc,
-                                             size_t nr, size_t kr, size_t sr,
-                                             const float* kernel,
-                                             float* packed_weights,
-                                             const void* params);
-
-XNN_INTERNAL void xnn_pack_f16_gemminc_goi_w(size_t g, size_t nc, size_t kc,
-                                             size_t nr, size_t kr, size_t sr,
-                                             const uint16_t* kernel,
-                                             uint16_t* packed_weights,
-                                             const void* params);
 
 typedef void (*xnn_pack_dconv_oki_w_fn)(size_t nc, size_t kc, size_t nr,
                                         size_t kh, size_t kw,

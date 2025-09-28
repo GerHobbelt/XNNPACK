@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "include/experimental.h"
 #include "include/xnnpack.h"
 #include "src/xnnpack/allocation-type.h"
 #include "src/xnnpack/common.h"
@@ -36,20 +37,6 @@
 /// Disable fusion of nodes in subgraph. Fusion is enabled by default, set this
 /// flag to turn it off.
 #define XNN_FLAG_NO_OPERATOR_FUSION 0x80000000
-
-/// Enable Slinky (if available).
-#define XNN_FLAG_SLINKY_ENABLED 0x40000000
-
-/// If Slinky is enabled, disable any scheduling.
-#define XNN_FLAG_SLINKY_NO_SCHEDULE 0x20000000
-
-/// If Slinky is enabled, assume shapes are concrete (and rebuild pipeline in
-/// reshape). This makes reshaping more expensive, but may reduce overhead in
-/// some cases.
-#define XNN_FLAG_SLINKY_CONCRETE_BOUNDS 0x10000000
-
-/// If Slinky is enabled, disable asserts in Slinky pipelines.
-#define XNN_FLAG_SLINKY_NO_CHECKS 0x08000000
 
 /// Assume tensors of rank > 2 will be squashed to 2 dimensions.
 #define XNN_FLAG_SQUASH_GROUPS 0x00000100
@@ -530,6 +517,7 @@ struct xnn_runtime {
 #ifdef XNN_SLINKY_AVAILABLE
   // Fields used by Slinky -- unused unless XNN_FLAG_SLINKY_ENABLED is set
   slinky_pipeline_t slinky_pipeline;
+  xnn_scheduler_t scheduler;
 #endif  // XNN_SLINKY_AVAILABLE
 };
 

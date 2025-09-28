@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <limits>
 #include <random>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -21,8 +22,7 @@
 #include "src/xnnpack/math.h"
 #include "src/xnnpack/subgraph.h"
 #include "test/replicable_random_device.h"
-#include "test/subgraph/calculate_quantization_params.h"
-#include "test/subgraph/fake-dynamic-quantize.h"
+#include "test/subgraph/quantization-helpers.h"
 #include "test/subgraph/runtime-flags.h"
 #include "test/subgraph/subgraph-tester.h"
 
@@ -132,27 +132,6 @@ Tensor<float> ReferenceImpl(Tensor<Input> input, Tensor<Filter> filter,
   return output;
 }
 
-// For float types, generate data in [-1, 1]
-template <typename T>
-DatatypeGenerator<T> MakeDatatypeGenerator(T) {
-  return DatatypeGenerator<T>(-1.0f, 1.0f);
-}
-template <typename T>
-T MaxOfDatatype(T) {
-  return 1.0f;
-}
-
-// For quantized types, generate the full range of the type.
-template <typename T, typename Kind>
-DatatypeGenerator<quantized<T, Kind>> MakeDatatypeGenerator(
-    quantized<T, Kind>) {
-  return DatatypeGenerator<quantized<T, Kind>>();
-}
-template <typename T, typename Kind>
-int32_t MaxOfDatatype(quantized<T, Kind>) {
-  return NumericLimits<quantized<T, Kind>>::max();
-}
-
 // Generate 2 values at once with uint8.
 DatatypeGenerator<quint8> MakeDatatypeGenerator(qcint4) {
   return DatatypeGenerator<quint8>();
@@ -169,11 +148,18 @@ DatatypeGenerator<T> MakeDatatypeGenerator(T, float min, float max) {
 
 const size_t no_blockwise = std::numeric_limits<size_t>::max();
 
+std::string runtime_flags_to_string(uint32_t runtime_flags) {
+  std::string result;
+  if (runtime_flags & XNN_FLAG_NO_INLINED_LHS_PACKING) {
+    result += "XNN_FLAG_NO_INLINED_LHS_PACKING";
+  }
+  return result;
+}
+
 template <typename Input, typename Filter, typename Bias,
           typename Output = Input, typename Scale = float>
 void TestStaticB(xnn_datatype convert_to = xnn_datatype_invalid,
-                 size_t block_size = no_blockwise,
-                 uint32_t runtime_flags = xnn_test_runtime_flags()) {
+                 size_t block_size = no_blockwise) {
   const bool channelwise_quantization =
       xnn_datatype_is_channelwise_quantized(datatype_of<Filter>());
   // If the filter datatype is sub-byte, we have more than one filter element
@@ -214,6 +200,11 @@ void TestStaticB(xnn_datatype convert_to = xnn_datatype_invalid,
     }
     if (flag_dist(rng)) {
       flags |= XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC;
+    }
+
+    uint32_t runtime_flags = xnn_test_runtime_flags();
+    if (flag_dist(rng)) {
+      runtime_flags |= XNN_FLAG_NO_INLINED_LHS_PACKING;
     }
 
     // Make a random filter.
@@ -361,7 +352,8 @@ void TestStaticB(xnn_datatype convert_to = xnn_datatype_invalid,
       subgraph.ReshapeExternalTensor(input_shape, input.base(), input_id)
           .ReshapeRuntime();
       ASSERT_EQ(subgraph.GetExternalTensorShape(output_id), output_shape)
-          << ", input_shape=" << index_to_string(input_shape);
+          << ", input_shape=" << index_to_string(input_shape)
+          << ", runtime_flags=" << runtime_flags_to_string(runtime_flags);
 
       // Run subgraph
       Tensor<Output> output(output_shape);
@@ -398,11 +390,12 @@ void TestStaticB(xnn_datatype convert_to = xnn_datatype_invalid,
               << "i=" << index_to_string(i)
               << ", input_shape=" << index_to_string(input_shape)
               << ", output_shape=" << index_to_string(output_shape)
-              << ", filter_shape=" << index_to_string(filter_shape);
+              << ", filter_shape=" << index_to_string(filter_shape)
+              << ", runtime_flags=" << runtime_flags_to_string(runtime_flags);
         }
       } else {
-        const float max_a = MaxOfDatatype(Input());
-        const float max_b = MaxOfDatatype(Filter()) * filter_quantization.scale;
+        const float max_a = MaxDatatype(Input());
+        const float max_b = MaxDatatype(Filter()) * filter_quantization.scale;
         const float max_bias =
             bias.empty() ? 0.0f
                          : max_abs_bias<Bias>() * bias_quantization.scale;
@@ -414,7 +407,8 @@ void TestStaticB(xnn_datatype convert_to = xnn_datatype_invalid,
               << "i=" << index_to_string(i)
               << ", input_shape=" << index_to_string(input_shape)
               << ", output_shape=" << index_to_string(output_shape)
-              << ", filter_shape=" << index_to_string(filter_shape);
+              << ", filter_shape=" << index_to_string(filter_shape)
+              << ", runtime_flags=" << runtime_flags_to_string(runtime_flags);
         }
       }
     }
@@ -435,6 +429,12 @@ TEST(FullyConnectedF16, static_b) {
   TestStaticB<xnn_float16, xnn_float16, xnn_float16>();
 }
 TEST(FullyConnectedF32, static_b) { TestStaticB<float, float, float>(); }
+TEST(FullyConnectedF32F16F16, static_b) {
+  TestStaticB<float, xnn_float16, xnn_float16>();
+}
+TEST(FullyConnectedF32F16F32, static_b) {
+  TestStaticB<float, xnn_float16, float>();
+}
 
 // TODO(b/407771627): Either add xnn_datatype_qcuint4, or remove F32QC4W.
 TEST(FullyConnectedF32QC4W, static_b) {
@@ -487,54 +487,10 @@ TEST(FullyConnectedQD8F32QB4W, static_b) {
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
 }
 
-TEST(FullyConnectedQC8, dont_inline_pack_static_b) {
-  TestStaticB<qint8, qcint8, qcint32>(
-      /*convert_to=*/xnn_datatype_invalid, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedF16, dont_inline_pack_static_b) {
-  TestStaticB<xnn_float16, float, float>(
-      /*convert_to=*/xnn_datatype_invalid, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedF32, dont_inline_pack_static_b) {
-  TestStaticB<float, float, float>(
-      /*convert_to=*/xnn_datatype_invalid, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedQD8F16QC4W, dont_inline_pack_static_b) {
-  TestStaticB<xnn_float16, qcint4, float>(
-      /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedQD8F16QC8W, dont_inline_pack_static_b) {
-  TestStaticB<xnn_float16, qcint8, float>(
-      /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedQD8F32QC4W, dont_inline_pack_static_b) {
-  TestStaticB<float, qcint4, float>(
-      /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedQD8F32QC8W, dont_inline_pack_static_b) {
-  TestStaticB<float, qcint8, float>(
-      /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-
 template <typename Input, typename Filter, typename Bias,
           typename Output = Input>
 void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
-                  size_t block_size = no_blockwise,
-                  uint32_t runtime_flags = xnn_test_runtime_flags()) {
+                  size_t block_size = no_blockwise) {
   ReplicableRandomDevice rng;
   std::bernoulli_distribution flag_dist(0.5);
 
@@ -565,6 +521,11 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
       flags |= XNN_FLAG_SLOW_CONSISTENT_ARITHMETIC;
     }
 
+    uint32_t runtime_flags = xnn_test_runtime_flags();
+    if (flag_dist(rng)) {
+      runtime_flags |= XNN_FLAG_NO_INLINED_LHS_PACKING;
+    }
+
     float output_min = output_gen(rng);
     float output_max = output_gen(rng);
     if (output_min >= output_max) {
@@ -573,7 +534,7 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
       output_max = std::numeric_limits<float>::infinity();
     }
 
-    SubgraphTester subgraph(4, runtime_flags);
+    SubgraphTester subgraph(4);
     const uint32_t input_id = 0;
     const uint32_t filter_id = 1;
     const uint32_t bias_id = rng() & 1 ? XNN_INVALID_VALUE_ID : 2;
@@ -587,7 +548,8 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
     subgraph.AddOutputTensor(rank, datatype_of<Output>(), output_id)
         .AddFullyConnected(output_min, output_max, input_id, filter_id, bias_id,
                            output_id, flags);
-    xnn_status status = subgraph.CreateRuntime();
+    xnn_status status =
+        subgraph.CreateRuntime(/*threadpool=*/nullptr, runtime_flags);
     if (status == xnn_status_unsupported_hardware) {
       GTEST_SKIP();
       return;
@@ -628,7 +590,8 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
       }
       subgraph.ReshapeRuntime();
       ASSERT_EQ(subgraph.GetExternalTensorShape(output_id), output_shape)
-          << ", input_shape=" << index_to_string(input_shape);
+          << ", input_shape=" << index_to_string(input_shape)
+          << ", runtime_flags=" << runtime_flags_to_string(runtime_flags);
 
       // Run subgraph
       Tensor<Output> output(output_shape);
@@ -655,11 +618,12 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
                       quantize<Output>(expected(i), output_quantization), 1)
               << "input_shape=" << index_to_string(input_shape)
               << ", output_shape=" << index_to_string(output_shape)
-              << ", filter_shape=" << index_to_string(filter_shape);
+              << ", filter_shape=" << index_to_string(filter_shape)
+              << ", runtime_flags=" << runtime_flags_to_string(runtime_flags);
         }
       } else {
-        const float max_a = MaxOfDatatype(Input());
-        const float max_b = MaxOfDatatype(Filter()) * filter_quantization.scale;
+        const float max_a = MaxDatatype(Input());
+        const float max_b = MaxDatatype(Filter()) * filter_quantization.scale;
         const float max_bias =
             bias.empty() ? 0.0f
                          : max_abs_bias<Bias>() * bias_quantization.scale;
@@ -670,7 +634,8 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
           ASSERT_NEAR(static_cast<float>(output(i)), expected(i), tolerance)
               << "input_shape=" << index_to_string(input_shape)
               << ", output_shape=" << index_to_string(output_shape)
-              << ", filter_shape=" << index_to_string(filter_shape);
+              << ", filter_shape=" << index_to_string(filter_shape)
+              << ", runtime_flags=" << runtime_flags_to_string(runtime_flags);
         }
       }
     }
@@ -682,19 +647,6 @@ TEST(FullyConnectedF16, dynamic_b) {
 }
 TEST(FullyConnectedF32, dynamic_b) {
   TestDynamicB<float, float, float, float>();
-}
-
-TEST(FullyConnectedF16, dont_inline_pack_dynamic_b) {
-  TestDynamicB<xnn_float16, xnn_float16, xnn_float16, xnn_float16>(
-      /*convert_to=*/xnn_datatype_invalid, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
-}
-TEST(FullyConnectedF32, dont_inline_pack_dynamic_b) {
-  TestDynamicB<float, float, float, float>(
-      /*convert_to=*/xnn_datatype_invalid, /*block_size=*/no_blockwise,
-      /*runtime_flags=*/xnn_test_runtime_flags() |
-          XNN_FLAG_NO_INLINED_LHS_PACKING);
 }
 
 }  // namespace xnnpack

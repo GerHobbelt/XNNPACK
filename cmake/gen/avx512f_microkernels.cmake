@@ -24,8 +24,8 @@ SET(PROD_AVX512F_MICROKERNEL_SRCS
   src/f32-igemm/gen/f32-igemm-7x16-minmax-avx512f-broadcast.c
   src/f32-igemm/gen/f32-igemm-7x32-minmax-avx512f-broadcast.c
   src/f32-raddstoreexpminusmax/gen/f32-raddstoreexpminusmax-avx512f-rr2-p5-u64-acc2.c
-  src/f32-rdminmax/gen/f32-rdmax-2p2x-avx512f-c32.c
-  src/f32-rdminmax/gen/f32-rdmin-2p2x-avx512f-c32.c
+  src/f32-rdminmax/gen/f32-rdmax-2p2x-avx512f-u32.c
+  src/f32-rdminmax/gen/f32-rdmin-2p2x-avx512f-u32.c
   src/f32-rdsum/gen/f32-rdsum-7p7x-minmax-avx512f-u64.c
   src/f32-rminmax/gen/f32-rmax-avx512f-u64-acc4.c
   src/f32-rminmax/gen/f32-rmin-avx512f-u64-acc4.c
@@ -79,7 +79,8 @@ SET(PROD_AVX512F_MICROKERNEL_SRCS
   src/x32-packw/gen/x32-packw-x16-gemm-gio-avx512f-u8.c
   src/x32-packw/gen/x32-packw-x16-gemm-goi-avx512f-u4-prfm.c
   src/x32-packw/gen/x32-packw-x32-gemm-gio-avx512f-u8.c
-  src/x32-packw/gen/x32-packw-x32-gemm-goi-avx512f-u4-prfm.c)
+  src/x32-packw/gen/x32-packw-x32-gemm-goi-avx512f-u4-prfm.c
+  src/x32-packw/gen/x32-packw-x32c2-gemm-goi-avx512f-u4-prfm.c)
 
 SET(NON_PROD_AVX512F_MICROKERNEL_SRCS
   src/f32-dwconv/gen/f32-dwconv-3p16c-minmax-avx512f-acc2.c
@@ -275,6 +276,7 @@ SET(NON_PROD_AVX512F_MICROKERNEL_SRCS
   src/x32-packw/gen/x32-packw-x32-gemm-gio-avx512f-u1-prfm.c
   src/x32-packw/gen/x32-packw-x32-gemm-gio-avx512f-u1.c
   src/x32-packw/gen/x32-packw-x32-gemm-gio-avx512f-u8-prfm.c
-  src/x32-packw/gen/x32-packw-x32-gemm-goi-avx512f-u4.c)
+  src/x32-packw/gen/x32-packw-x32-gemm-goi-avx512f-u4.c
+  src/x32-packw/gen/x32-packw-x32c2-gemm-goi-avx512f-u4.c)
 
 SET(ALL_AVX512F_MICROKERNEL_SRCS ${PROD_AVX512F_MICROKERNEL_SRCS} + ${NON_PROD_AVX512F_MICROKERNEL_SRCS})

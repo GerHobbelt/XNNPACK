@@ -116,6 +116,27 @@ static enum xnn_uarch cpuinfo_to_xnn_uarch(enum cpuinfo_uarch uarch) {
 }
 #endif  // XNN_ENABLE_CPUINFO
 
+#if XNN_ENABLE_CPUINFO && XNN_ARCH_ARM
+static bool cpuinfo_uarch_to_dot(enum cpuinfo_uarch uarch) {
+  switch (uarch) {
+    case cpuinfo_uarch_cortex_a76:  return true;
+    case cpuinfo_uarch_cortex_a77:  return true;
+    case cpuinfo_uarch_cortex_a78:  return true;
+    case cpuinfo_uarch_cortex_a510: return true;
+    case cpuinfo_uarch_cortex_a710: return true;
+    case cpuinfo_uarch_cortex_a715: return true;
+    case cpuinfo_uarch_cortex_x1:   return true;
+    case cpuinfo_uarch_cortex_x2:   return true;
+    case cpuinfo_uarch_cortex_x3:   return true;
+    case cpuinfo_uarch_cortex_x4:   return true;
+    case cpuinfo_uarch_neoverse_n2: return true;
+    case cpuinfo_uarch_neoverse_v2: return true;
+    case cpuinfo_uarch_oryon:       return true;
+    default: return false;
+  }
+}
+#endif  // XNN_ENABLE_CPUINFO
+
 static struct xnn_hardware_config hardware_config = {0};
 
 XNN_INIT_ONCE_GUARD(hardware);
@@ -153,7 +174,6 @@ static void init_hardware_config(void) {
   set_arch_flag(xnn_arch_arm_fp16_arith, cpuinfo_has_arm_fp16_arith());
   set_arch_flag(xnn_arch_arm_neon_fp16_arith, cpuinfo_has_arm_neon_fp16_arith());
   set_arch_flag(xnn_arch_arm_neon_bf16, cpuinfo_has_arm_neon_bf16());
-  set_arch_flag(xnn_arch_arm_neon_dot, cpuinfo_has_arm_neon_dot());
 #endif
   set_arch_flag(xnn_arch_arm_vfpv3, cpuinfo_has_arm_vfpv3());
   set_arch_flag(xnn_arch_arm_neon, cpuinfo_has_arm_neon());
@@ -165,9 +185,15 @@ static void init_hardware_config(void) {
 #if XNN_ARCH_ARM
   set_arch_flag(xnn_arch_arm_v6, cpuinfo_has_arm_v6());
   set_arch_flag(xnn_arch_arm_vfpv2, cpuinfo_has_arm_vfpv2());
+
+  // TODO(b/435053808)  Fix dot product detect on arm
+  const struct cpuinfo_uarch_info* uarch = cpuinfo_get_uarch(0);
+  bool uarch_dot = uarch ? cpuinfo_uarch_to_dot(uarch->uarch) : false;
+  set_arch_flag(xnn_arch_arm_neon_dot, uarch_dot);
 #endif
 
 #if XNN_ARCH_ARM64
+  set_arch_flag(xnn_arch_arm_neon_dot, cpuinfo_has_arm_neon_dot());
   set_arch_flag(xnn_arch_arm_neon_i8mm, cpuinfo_has_arm_i8mm());
   set_arch_flag(xnn_arch_arm_sve, cpuinfo_has_arm_sve());
   set_arch_flag(xnn_arch_arm_sve2, cpuinfo_has_arm_sve2());
@@ -183,7 +209,8 @@ static void init_hardware_config(void) {
   const bool use_x86_avx512vnnigfni = XNN_ENABLE_AVX512VNNIGFNI && use_x86_avx512vnni && cpuinfo_has_x86_gfni();
   const bool use_x86_avx512amx = XNN_ENABLE_AVX512AMX && XNN_ARCH_X86_64 && use_x86_avx512vnnigfni && cpuinfo_has_x86_amx_int8();
   const bool use_x86_avx2 = cpuinfo_has_x86_avx2();
-  const bool use_x86_avx256vnni = XNN_ENABLE_AVX256VNNI && use_x86_avx512skx && cpuinfo_has_x86_avx512vnni();
+  const bool use_x86_avx256skx = XNN_ENABLE_AVX256SKX && cpuinfo_has_x86_avx512f() && cpuinfo_has_x86_avx512bw() && cpuinfo_has_x86_avx512dq() && cpuinfo_has_x86_avx512vl();
+  const bool use_x86_avx256vnni = XNN_ENABLE_AVX256VNNI && use_x86_avx256skx && cpuinfo_has_x86_avx512vnni();
 
   set_arch_flag(xnn_arch_x86_ssse3, cpuinfo_has_x86_ssse3());
   set_arch_flag(xnn_arch_x86_sse4_1, cpuinfo_has_x86_sse4_1());
@@ -199,6 +226,11 @@ static void init_hardware_config(void) {
   set_arch_flag(xnn_arch_x86_avx512fp16, XNN_ENABLE_AVX512FP16 && cpuinfo_has_x86_avx512fp16());
   set_arch_flag(xnn_arch_x86_avx512bf16, XNN_ENABLE_AVX512BF16 && cpuinfo_has_x86_avx512bf16());
   set_arch_flag(xnn_arch_x86_avx512amx, use_x86_avx512amx);
+  set_arch_flag(xnn_arch_x86_avxvnni, XNN_ENABLE_AVXVNNI && use_x86_avx2 && cpuinfo_has_x86_avxvnni());
+  set_arch_flag(xnn_arch_x86_avxvnniint8, XNN_ENABLE_AVXVNNIINT8 && use_x86_avx2 && cpuinfo_has_x86_avx_vnni_int8());
+  set_arch_flag(xnn_arch_x86_avx256skx, use_x86_avx256skx);
+  set_arch_flag(xnn_arch_x86_avx256vnni, use_x86_avx256vnni);
+  set_arch_flag(xnn_arch_x86_avx256vnnigfni, XNN_ENABLE_AVX256VNNIGFNI && use_x86_avx256vnni && cpuinfo_has_x86_gfni());
 #if XNN_ARCH_X86_64 && defined(__linux__) && !defined(CHROMIUM)
   if (use_x86_avx512amx) {
     size_t status = xnn_syscall(SYS_arch_prctl, ARCH_REQ_XCOMP_PERM, XFEATURE_XTILEDATA, 0);
@@ -208,11 +240,6 @@ static void init_hardware_config(void) {
     }
   }
 #endif
-  set_arch_flag(xnn_arch_x86_avxvnni, XNN_ENABLE_AVXVNNI && use_x86_avx2 && cpuinfo_has_x86_avxvnni());
-  set_arch_flag(xnn_arch_x86_avxvnniint8, XNN_ENABLE_AVXVNNIINT8 && use_x86_avx2 && cpuinfo_has_x86_avx_vnni_int8());
-  set_arch_flag(xnn_arch_x86_avx256skx, XNN_ENABLE_AVX256SKX && use_x86_avx512skx);
-  set_arch_flag(xnn_arch_x86_avx256vnni, use_x86_avx256vnni);
-  set_arch_flag(xnn_arch_x86_avx256vnnigfni, XNN_ENABLE_AVX256VNNIGFNI && use_x86_avx256vnni && cpuinfo_has_x86_gfni());
 #endif  // !XNN_ARCH_X86 && !XNN_ARCH_X86_64
 
 #if XNN_ARCH_HEXAGON

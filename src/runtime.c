@@ -508,7 +508,6 @@ static enum xnn_status create_runtime_impl(
   xnn_weights_cache_t weights_cache,
   xnn_workspace_t workspace,
   pthreadpool_t threadpool,
-  xnn_scheduler_t scheduler,
   xnn_threadpool_t xnn_threadpool,
   uint32_t flags,
   xnn_runtime_t* runtime_out)
@@ -650,14 +649,6 @@ static enum xnn_status create_runtime_impl(
 
   runtime->threadpool = threadpool;
 #ifdef XNN_SLINKY_AVAILABLE
-  if (scheduler != NULL) {
-    status = xnn_create_threadpool(scheduler, &runtime->owned_xnn_threadpool);
-    if (status != xnn_status_success) {
-      xnn_log_error("failed to create threadpool");
-      goto error;
-    }
-    xnn_threadpool = runtime->owned_xnn_threadpool;
-  }
   runtime->xnn_threadpool = xnn_threadpool;
 #endif  // XNN_SLINKY_AVAILABLE
 
@@ -707,22 +698,14 @@ enum xnn_status xnn_create_runtime_v4(
   uint32_t flags,
   xnn_runtime_t* runtime_out)
 {
-  return create_runtime_impl(subgraph, weights_cache, workspace, threadpool, /*scheduler=*/NULL, /*xnn_threadpool=*/NULL, flags, runtime_out);
-}
-
-enum xnn_status xnn_create_runtime_with_scheduler(
-  xnn_subgraph_t subgraph,
-  xnn_weights_cache_t weights_cache,
-  xnn_scheduler_t scheduler,
-  uint32_t flags,
-  xnn_runtime_t* runtime_out)
-{
-  return create_runtime_impl(subgraph, weights_cache, /*workspace=*/NULL, /*threadpool=*/NULL, scheduler, /*xnn_threadpool=*/NULL, flags, runtime_out);
+  return create_runtime_impl(subgraph, weights_cache, workspace, threadpool, /*xnn_threadpool=*/NULL, flags, runtime_out);
 }
 
 #ifndef XNN_SLINKY_AVAILABLE
-enum xnn_status xnn_create_threadpool(
-  xnn_scheduler_t scheduler,
+enum xnn_status xnn_create_threadpool_v2(
+  struct xnn_scheduler_v2 scheduler,
+  void* scheduler_context,
+  uint32_t flags,
   xnn_threadpool_t* threadpool_out)
 {
   // Return non-null value, will never be used.
@@ -742,8 +725,17 @@ enum xnn_status xnn_create_runtime_with_threadpool(
   xnn_threadpool_t threadpool,
   uint32_t flags,
   xnn_runtime_t* runtime_out) {
-  return create_runtime_impl(subgraph, weights_cache, /*workspace=*/NULL, /*threadpool*/NULL, /*scheduler=*/NULL, threadpool, flags, runtime_out);
+  return create_runtime_impl(subgraph, weights_cache, /*workspace=*/NULL, /*threadpool*/NULL, threadpool, flags, runtime_out);
 }
+
+#ifndef XNN_SLINKY_AVAILABLE
+enum xnn_status xnn_update_runtime_with_threadpool(
+  xnn_runtime_t runtime,
+  xnn_threadpool_t threadpool) {
+  // This operation is not supported.
+  return xnn_status_deprecated;
+}
+#endif
 
 enum xnn_status xnn_plan_memory(
     xnn_runtime_t runtime) {

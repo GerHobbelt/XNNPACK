@@ -115,6 +115,13 @@ static enum xnn_status create_fully_connected_nc(
       sizeof(struct xnn_operator), xnn_operator_type_to_string(operator_type));
     goto error;
   }
+  fully_connected_op->ukernel.gemm_ukernels = xnn_allocate_zero_simd_memory(sizeof(struct gemm_types));
+  if (fully_connected_op->ukernel.gemm_ukernels == NULL) {
+    xnn_log_error("failed to allocate %zu bytes for %s operator descriptor",
+                  sizeof(struct gemm_types),
+                  xnn_operator_type_to_string(operator_type));
+    goto error;
+  }
 
   fully_connected_op->weights_cache = weights_cache;
 
@@ -194,7 +201,9 @@ static enum xnn_status create_fully_connected_nc(
           flags, gemm_config, input_channels, output_channels,
           /*groups=*/1,
           /*block_wise=*/block_size,
-          /*kstride=*/k_stride,
+          /*k_stride=*/
+          (flags & XNN_FLAG_TRANSPOSE_WEIGHTS) ? output_channels
+                                               : input_channels,
           /*accumulator_init=*/bias,
           /*weights=*/kernel,
           /*int_extra_data0_fn=*/(xnn_init_scale_params_fn)init_scale_params,
@@ -202,7 +211,9 @@ static enum xnn_status create_fully_connected_nc(
           /*extra_data0_size=*/init_scale_params != NULL ? sizeof(float) : 0,
           /*init_extra_data1_fn=*/
           (xnn_init_scale_params_fn)init_kernel_scale_params,
-          /*extra_data1=*/block_wise ? (const void *) blockwise_kernel_scale_params : (const void *) kernel_scale_params,
+          /*extra_data1=*/
+          block_wise ? (const void*)blockwise_kernel_scale_params
+                     : (const void*)kernel_scale_params,
           /*extra_data1_size=*/init_kernel_scale_params != NULL ? sizeof(float)
                                                                 : 0,
           /*packed_weights_ptr=*/weights_ptr, packing_params);
@@ -268,17 +279,19 @@ static enum xnn_status create_fully_connected_nc(
   fully_connected_op->flags = flags;
 
   const size_t mr = gemm_config->mr;
+  const size_t mr_packed = gemm_config->mr_packed ? gemm_config->mr_packed : mr;
   fully_connected_op->ukernel.type = xnn_microkernel_type_gemm;
-  fully_connected_op->ukernel.gemm = (struct xnn_ukernel_gemm){
+  fully_connected_op->ukernel.gemm_ukernels->gemm = (struct xnn_ukernel_gemm){
       .mr = mr,
       .nr = nr,
       .kr = kr,
       .sr = sr,
       .kp = planes,
+      .mr_packed = mr_packed,
   };
   assert(XNN_MAX_MR >= mr);
   for (size_t i = 0; i < mr; i++) {
-    fully_connected_op->ukernel.gemm.gemm_cases[i] = gemm_ukernels->gemm[i];
+    fully_connected_op->ukernel.gemm_ukernels->gemm.gemm_cases[i] = gemm_ukernels->gemm[i];
   }
 
   fully_connected_op->state = xnn_run_state_invalid;
@@ -2396,18 +2409,18 @@ static enum xnn_status reshape_fully_connected_nc(
   size_t input_channels = fully_connected_op->group_input_channels;
   const size_t output_channels = fully_connected_op->group_output_channels;
 
-  uint32_t mr = fully_connected_op->ukernel.gemm.mr;
-  const uint32_t nr = fully_connected_op->ukernel.gemm.nr;
-  struct xnn_hmp_gemm_ukernel *gemm_cases = fully_connected_op->ukernel.gemm.gemm_cases;
+  uint32_t mr = fully_connected_op->ukernel.gemm_ukernels->gemm.mr;
+  const uint32_t nr = fully_connected_op->ukernel.gemm_ukernels->gemm.nr;
+  struct xnn_hmp_gemm_ukernel *gemm_cases = fully_connected_op->ukernel.gemm_ukernels->gemm.gemm_cases;
 
-  if (batch_size == 1 && fully_connected_op->ukernel.gemm.gemm_cases[0].function[XNN_UARCH_DEFAULT] != NULL) {
+  if (batch_size == 1 && fully_connected_op->ukernel.gemm_ukernels->gemm.gemm_cases[0].function[XNN_UARCH_DEFAULT] != NULL) {
     mr = 1;
   }
 
   assert(mr != 0 && mr <= XNN_MAX_MR);
   struct xnn_hmp_gemm_ukernel gemm_ukernel = gemm_cases[mr - 1];
   if (filter_is_nibble) {
-    const uint32_t planes = fully_connected_op->ukernel.gemm.kp;
+    const uint32_t planes = fully_connected_op->ukernel.gemm_ukernels->gemm.kp;
     input_channels = round_up_po2(input_channels, planes);
   }
 
@@ -2425,7 +2438,7 @@ static enum xnn_status reshape_fully_connected_nc(
       (fully_connected_op->type ==
        xnn_operator_type_fully_connected_nc_pqs8_qc8w);
 
-  fully_connected_op->context.gemm.gemm.gemm = (struct gemm_context){
+  fully_connected_op->context.gemm.gemm = (struct gemm_context){
       .k_scaled = input_channels << log2_input_element_size,
       .w_stride = fully_connected_op->weights_stride,
       .a_stride = fully_connected_op->input_pixel_stride
@@ -2437,9 +2450,11 @@ static enum xnn_status reshape_fully_connected_nc(
       .log2_csize = log2_output_element_size,
       .ukernel = gemm_ukernel,
       .mr = mr,
-      .kr = fully_connected_op->ukernel.gemm.kr,
-      .sr = fully_connected_op->ukernel.gemm.sr,
+      .kr = fully_connected_op->ukernel.gemm_ukernels->gemm.kr,
+      .sr = fully_connected_op->ukernel.gemm_ukernels->gemm.sr,
       .kc = input_channels,
+      .mr_packed =
+          batch_size == 1 ? 1 : fully_connected_op->ukernel.gemm_ukernels->gemm.mr_packed,
   };
 
   if (packed_lhs) {
@@ -2447,30 +2462,30 @@ static enum xnn_status reshape_fully_connected_nc(
       case xnn_operator_type_fully_connected_nc_qp8_f32_qb4w:
       case xnn_operator_type_fully_connected_nc_qp8_f32_qc4w:
       case xnn_operator_type_fully_connected_nc_qp8_f32_qc8w:
-        fully_connected_op->context.gemm.gemm.gemm.packed_lh_offset_fn = xnn_x8_packq_f32qp8_packed_offset;
+        fully_connected_op->context.gemm.gemm.packed_lh_offset_fn = xnn_x8_packq_f32qp8_packed_offset;
         break;
       case xnn_operator_type_fully_connected_nc_pf16:
-        fully_connected_op->context.gemm.gemm.gemm.packed_lh_offset_fn = xnn_init_x16_pack_lh_config()->offset_fn;
+        fully_connected_op->context.gemm.gemm.packed_lh_offset_fn = xnn_init_x16_pack_lh_config()->offset_fn;
         break;
       case xnn_operator_type_fully_connected_nc_pf32:
-        fully_connected_op->context.gemm.gemm.gemm.packed_lh_offset_fn = xnn_init_x32_pack_lh_config()->offset_fn;
+        fully_connected_op->context.gemm.gemm.packed_lh_offset_fn = xnn_init_x32_pack_lh_config()->offset_fn;
         break;
       case xnn_operator_type_fully_connected_nc_pqs8_qc8w:
-        fully_connected_op->context.gemm.gemm.gemm.packed_lh_offset_fn = xnn_init_x8_pack_lh_config()->offset_fn;
+        fully_connected_op->context.gemm.gemm.packed_lh_offset_fn = xnn_init_x8_pack_lh_config()->offset_fn;
         break;
       default:
         XNN_UNREACHABLE;
     }
   }
-  memcpy(&fully_connected_op->context.gemm.gemm.gemm.params, params, params_size);
-  fully_connected_op->context.gemm.gemm.gemm.fused_params = &fully_connected_op->context.gemm.gemm.gemm.params;
+  memcpy(&fully_connected_op->context.gemm.gemm.params, params, params_size);
+  fully_connected_op->context.gemm.gemm.fused_params = &fully_connected_op->context.gemm.gemm.params;
 
   // Compute the optimal tile size for this GEMM.
   const size_t nc = xnn_gemm_best_tile_size(
       /*num_groups=*/1, /*m=*/batch_size, /*n=*/output_channels,
-      /*m_stride=*/fully_connected_op->context.gemm.gemm.gemm.a_stride,
-      /*n_stride=*/fully_connected_op->context.gemm.gemm.gemm.w_stride,
-      /*cm_stride=*/fully_connected_op->context.gemm.gemm.gemm.cm_stride,
+      /*m_stride=*/fully_connected_op->context.gemm.gemm.a_stride,
+      /*n_stride=*/fully_connected_op->context.gemm.gemm.w_stride,
+      /*cm_stride=*/fully_connected_op->context.gemm.gemm.cm_stride,
       /*cn_stride=*/1 << log2_output_element_size, mr, nr,
       /*num_threads=*/pthreadpool_get_threads_count(threadpool));
 
@@ -3042,9 +3057,9 @@ static enum xnn_status setup_fully_connected_nc(
       break;
   }
 
-  fully_connected_op->context.gemm.gemm.gemm.a = input;
-  fully_connected_op->context.gemm.gemm.gemm.c = output;
-  fully_connected_op->context.gemm.gemm.gemm.quantization_params = quantization_params;
+  fully_connected_op->context.gemm.gemm.a = input;
+  fully_connected_op->context.gemm.gemm.c = output;
+  fully_connected_op->context.gemm.gemm.quantization_params = quantization_params;
 
   fully_connected_op->state = xnn_run_state_ready;
 

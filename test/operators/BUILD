@@ -117,7 +117,10 @@ xnnpack_unit_test(
         "batch-matrix-multiply-operator-tester.h",
     ],
     shard_count = 5,
-    deps = OPERATOR_TEST_DEPS + ["//:packing"],
+    deps = OPERATOR_TEST_DEPS + [
+        "//:microfnptr_h",
+        "//:packing",
+    ],
 )
 
 xnnpack_unit_test(
@@ -158,6 +161,7 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = OPERATOR_TEST_DEPS + [
         ":convolution_test_helpers",
+        "//:operator_h",
     ],
 )
 
@@ -171,6 +175,7 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = OPERATOR_TEST_DEPS + [
         ":convolution_test_helpers",
+        "//:operator_h",
     ],
 )
 
@@ -203,6 +208,7 @@ xnnpack_unit_test(
     shard_count = 10,
     deps = OPERATOR_TEST_DEPS + [
         ":convolution_test_helpers",
+        "//:operator_h",
     ],
 )
 

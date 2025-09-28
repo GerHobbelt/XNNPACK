@@ -3,7 +3,7 @@
 //   Template: src/qb4-packw/kr-scalar.c.in
 //   Generator: tools/xngen
 //
-// Copyright 2023 Google LLC
+// Copyright 2025 Google LLC
 //
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
@@ -11,60 +11,74 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "src/xnnpack/common.h"
+#include "src/xnnpack/math.h"
+#include "src/xnnpack/microparams.h"
 #include "src/xnnpack/packw.h"
 
+// KR is 4 or 8
 static XNN_INTRINSIC void xnn_packed2planar(
   int32_t* ksum,
   const uint8_t* weights,
   int8_t* out,
   int32_t vkernel_zero_point)
 {
-  const uint32_t s_v0 = (((const uint32_t*)weights)[0] ^ vkernel_zero_point);
-  const int8_t v0 = (((const int8_t*)&s_v0))[0] << 4;
-  const int8_t v1 = (((const int8_t*)&s_v0))[0] & 0xF0;
-  const int8_t v2 = (((const int8_t*)&s_v0))[1] << 4;
-  const int8_t v3 = (((const int8_t*)&s_v0))[1] & 0xF0;
-  const int8_t v4 = (((const int8_t*)&s_v0))[2] << 4;
-  const int8_t v5 = (((const int8_t*)&s_v0))[2] & 0xF0;
-  const int8_t v6 = (((const int8_t*)&s_v0))[3] << 4;
-  const int8_t v7 = (((const int8_t*)&s_v0))[3] & 0xF0;
-  const uint32_t s_v1 = (((const uint32_t*)weights)[1] ^ vkernel_zero_point);
-  const int8_t v8 = (((const int8_t*)&s_v1))[0] << 4;
-  const int8_t v9 = (((const int8_t*)&s_v1))[0] & 0xF0;
-  const int8_t v10 = (((const int8_t*)&s_v1))[1] << 4;
-  const int8_t v11 = (((const int8_t*)&s_v1))[1] & 0xF0;
-  const int8_t v12 = (((const int8_t*)&s_v1))[2] << 4;
-  const int8_t v13 = (((const int8_t*)&s_v1))[2] & 0xF0;
-  const int8_t v14 = (((const int8_t*)&s_v1))[3] << 4;
-  const int8_t v15 = (((const int8_t*)&s_v1))[3] & 0xF0;
+  uint32_t w0;
+  memcpy(&w0, weights + 0, sizeof(uint32_t));
+  w0 ^= vkernel_zero_point;
 
-  (*ksum) += (int32_t) (v0);
-  (*ksum) += (int32_t) (v1);
-  (*ksum) += (int32_t) (v2);
-  (*ksum) += (int32_t) (v3);
-  (*ksum) += (int32_t) (v4);
-  (*ksum) += (int32_t) (v5);
-  (*ksum) += (int32_t) (v6);
-  (*ksum) += (int32_t) (v7);
-  (*ksum) += (int32_t) (v8);
-  (*ksum) += (int32_t) (v9);
-  (*ksum) += (int32_t) (v10);
-  (*ksum) += (int32_t) (v11);
-  (*ksum) += (int32_t) (v12);
-  (*ksum) += (int32_t) (v13);
-  (*ksum) += (int32_t) (v14);
-  (*ksum) += (int32_t) (v15);
+  uint8_t s_v0[4];
+  memcpy(&s_v0[0], &w0, sizeof(uint32_t));
+  const int8_t v0 = s_v0[0] << 4;
+  const int8_t v1 = s_v0[0] & 0xF0;
+  const int8_t v2 = s_v0[1] << 4;
+  const int8_t v3 = s_v0[1] & 0xF0;
+  const int8_t v4 = s_v0[2] << 4;
+  const int8_t v5 = s_v0[2] & 0xF0;
+  const int8_t v6 = s_v0[3] << 4;
+  const int8_t v7 = s_v0[3] & 0xF0;
+  uint32_t w1;
+  memcpy(&w1, weights + 4, sizeof(uint32_t));
+  w1 ^= vkernel_zero_point;
 
-  out[0] = (((uint8_t) v0) >> 4 | (v8));
-  out[1] = (((uint8_t) v1) >> 4 | (v9));
-  out[2] = (((uint8_t) v2) >> 4 | (v10));
-  out[3] = (((uint8_t) v3) >> 4 | (v11));
-  out[4] = (((uint8_t) v4) >> 4 | (v12));
-  out[5] = (((uint8_t) v5) >> 4 | (v13));
-  out[6] = (((uint8_t) v6) >> 4 | (v14));
-  out[7] = (((uint8_t) v7) >> 4 | (v15));
+  uint8_t s_v1[4];
+  memcpy(&s_v1[0], &w1, sizeof(uint32_t));
+  const int8_t v8 = s_v1[0] << 4;
+  const int8_t v9 = s_v1[0] & 0xF0;
+  const int8_t v10 = s_v1[1] << 4;
+  const int8_t v11 = s_v1[1] & 0xF0;
+  const int8_t v12 = s_v1[2] << 4;
+  const int8_t v13 = s_v1[2] & 0xF0;
+  const int8_t v14 = s_v1[3] << 4;
+  const int8_t v15 = s_v1[3] & 0xF0;
+
+  (*ksum) += (int32_t) v0;
+  (*ksum) += (int32_t) v1;
+  (*ksum) += (int32_t) v2;
+  (*ksum) += (int32_t) v3;
+  (*ksum) += (int32_t) v4;
+  (*ksum) += (int32_t) v5;
+  (*ksum) += (int32_t) v6;
+  (*ksum) += (int32_t) v7;
+  (*ksum) += (int32_t) v8;
+  (*ksum) += (int32_t) v9;
+  (*ksum) += (int32_t) v10;
+  (*ksum) += (int32_t) v11;
+  (*ksum) += (int32_t) v12;
+  (*ksum) += (int32_t) v13;
+  (*ksum) += (int32_t) v14;
+  (*ksum) += (int32_t) v15;
+
+  out[0] = (((uint8_t) v0) >> 4 | v8);
+  out[1] = (((uint8_t) v1) >> 4 | v9);
+  out[2] = (((uint8_t) v2) >> 4 | v10);
+  out[3] = (((uint8_t) v3) >> 4 | v11);
+  out[4] = (((uint8_t) v4) >> 4 | v12);
+  out[5] = (((uint8_t) v5) >> 4 | v13);
+  out[6] = (((uint8_t) v6) >> 4 | v14);
+  out[7] = (((uint8_t) v7) >> 4 | v15);
 }
 
 void xnn_qb4_packw_gemm_goi_ukernel_x16c8__scalar(

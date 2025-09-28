@@ -243,9 +243,9 @@ void xnn_compute_batched_packw_gemm_gio(
         /*flags=*/XNN_FLAG_TRANSPOSE_WEIGHTS, context->gemm_config, context->kc,
         n_block_size, /*groups=*/1, /*block_size=*/0,
         /*k_stride=*/context->k_stride_elements, /*accumulator_init=*/bias,
-        kernel, /*init_extra_data0_fn=*/context->init_scale_params,
-        /*extra_data0=*/context->scale_params,
-        /*extra_data0_element_size=*/context->scale_params_size,
+        kernel, /*init_extra_data0_fn=*/context->init_scale_b,
+        /*extra_data0=*/context->scale_b,
+        /*extra_data0_element_size=*/context->scale_b_size,
         /*init_extra_data1_fn=*/NULL, /*extra_data1=*/NULL,
         /*extra_data1_element_size=*/0, packed_weights,
         /*params=*/context->params);
@@ -253,16 +253,17 @@ void xnn_compute_batched_packw_gemm_gio(
     context->packw_gemm_gio(
         /*groups=*/1, n_block_size, context->kc, context->nr, context->kr,
         context->sr, context->k_stride_elements, kernel, bias, /*scale=*/NULL,
-        packed_weights, /*extra_bytes=*/0, /*params=*/context->params);
+        packed_weights, /*extra_bytes=*/context->nr * context->scale_b_size,
+        /*params=*/context->params);
 
-    if (context->scale_params != NULL) {
-      assert(context->init_scale_params != NULL);
+    if (context->scale_b != NULL) {
+      assert(context->init_scale_b != NULL);
       void* weights =
-          (void*)((uintptr_t)packed_weights +
-                  context->nr * (context->k_stride + context->b_stride));
-      context->init_scale_params(n_block_size, context->nr,
-                                 context->nr * context->w_stride,
-                                 context->scale_params, weights);
+          (void*)((uintptr_t)packed_weights + context->nr * (
+              context->w_stride - context->scale_b_size));
+      context->init_scale_b(n_block_size, context->nr,
+                            context->nr * context->w_stride,
+                            context->scale_b, weights);
     }
   }
 }
@@ -294,9 +295,9 @@ void xnn_compute_batched_packw_gemm_goi(
         /*flags=*/0, context->gemm_config, context->kc, n_block_size,
         /*groups=*/1, /*block_size=*/0, /*k_stride=*/context->kc,
         /*accumulator_init=*/bias, kernel,
-        /*init_extra_data0_fn=*/context->init_scale_params,
-        /*extra_data0=*/context->scale_params,
-        /*extra_data0_element_size=*/context->scale_params_size,
+        /*init_extra_data0_fn=*/context->init_scale_b,
+        /*extra_data0=*/context->scale_b,
+        /*extra_data0_element_size=*/context->scale_b_size,
         /*init_extra_data1_fn=*/NULL, /*extra_data1=*/NULL,
         /*extra_data1_element_size=*/0, packed_weights,
         /*params=*/context->params);
@@ -304,16 +305,17 @@ void xnn_compute_batched_packw_gemm_goi(
     context->packw_gemm_goi(
         /*groups=*/1, n_block_size, context->kc, context->nr, context->kr,
         context->sr, kernel, bias, /*scale=*/NULL, packed_weights,
-        /*extra_bytes=*/0, /*params=*/context->params);
+        /*extra_bytes=*/context->nr * context->scale_b_size,
+        /*params=*/context->params);
 
-    if (context->scale_params != NULL) {
-      assert(context->init_scale_params != NULL);
+    if (context->scale_b != NULL) {
+      assert(context->init_scale_b != NULL);
       void* weights =
-          (void*)((uintptr_t)packed_weights +
-                  context->nr * (context->k_stride + context->b_stride));
-      context->init_scale_params(n_block_size, context->nr,
-                                 context->nr * context->w_stride,
-                                 context->scale_params, weights);
+          (void*)((uintptr_t)packed_weights + context->nr *
+                  (context->w_stride - context->scale_b_size));
+      context->init_scale_b(n_block_size, context->nr,
+                            context->nr * context->w_stride, context->scale_b,
+                            weights);
     }
   }
 }
@@ -857,10 +859,85 @@ void xnn_compute_grouped_dqigemm(const struct igemm_context* restrict context,
   }
 }
 
-void xnn_compute_batch_igemm(const struct igemm_context* restrict context,
-                             size_t batch_index, size_t nr_block_start,
-                             size_t mr_block_start, size_t nr_block_size,
-                             size_t mr_block_size) {
+static void compute_batch_inline_packed_igemm(
+    const struct igemm_context* restrict context, uint32_t uarch_index,
+    uint32_t thread_id, size_t batch_index, size_t group_index,
+    size_t mr_block_start, size_t mr_block_size) {
+  const size_t mr = context->mr;
+  const size_t mr_packed = context->mr_packed;
+  const size_t kc = context->kc;
+  const size_t ks = context->ks;
+  const size_t cm_stride = context->cm_stride;
+  const size_t a_offset = context->a_offset + batch_index * context->ba_stride +
+                          group_index * context->ga_stride;
+  const void* packed_w = (const void*)((uintptr_t)context->packed_w +
+                                       group_index * context->gw_stride);
+  const uintptr_t c = (uintptr_t)context->c + batch_index * context->bc_stride +
+                      group_index * context->gc_stride;
+  void* workspace =
+      (void*)((uintptr_t)context->workspace + context->workspace_offset +
+              thread_id * context->per_thread_workspace_size);
+
+  while (mr_block_size > 0) {
+    const size_t mr_step = min(mr_block_size, mr);
+
+    // Pack the LHS data into the workspace.
+    context->packed_lh_config->pack_lh_for_igemm_fn(
+        mr_step, kc, ks, mr_packed, context->kr, context->sr,
+        /*a=*/
+        (const void**)((uintptr_t)context->indirect_a +
+                       mr_block_start * ks * sizeof(void*)),
+        a_offset, context->zero, workspace);
+
+    // Compute the iGEMM on the packed LHS data.
+    context->ukernel.packed_lhs_function[uarch_index](
+        mr_step, context->nc, kc, ks, /*packed_lhs=*/workspace, packed_w,
+        (void*)(c + mr_block_start * cm_stride), cm_stride, &context->params);
+
+    mr_block_size -= mr_step;
+    mr_block_start += mr_step;
+  }
+}
+
+void xnn_compute_batch_inline_packed_igemm(
+    const struct igemm_context* restrict context, uint32_t thread_id,
+    size_t batch_index, size_t mr_block_start, size_t mr_block_size) {
+  compute_batch_inline_packed_igemm(context, XNN_UARCH_DEFAULT, thread_id,
+                                    batch_index, /*group_index=*/0,
+                                    mr_block_start, mr_block_size);
+}
+
+void xnn_compute_batch_hmp_inline_packed_igemm(
+    const struct igemm_context* restrict context, uint32_t uarch_index,
+    size_t thread_id, size_t batch_index, size_t mr_block_start,
+    size_t mr_block_size) {
+  compute_batch_inline_packed_igemm(context, uarch_index, thread_id,
+                                    batch_index, /*group_index=*/0,
+                                    mr_block_start, mr_block_size);
+}
+
+void xnn_compute_grouped_batch_inline_packed_igemm(
+    const struct igemm_context* restrict context, uint32_t thread_id,
+    size_t batch_index, size_t group_index, size_t mr_block_start,
+    size_t mr_block_size) {
+  compute_batch_inline_packed_igemm(context, XNN_UARCH_DEFAULT, thread_id,
+                                    batch_index, group_index, mr_block_start,
+                                    mr_block_size);
+}
+
+void xnn_compute_grouped_batch_hmp_inline_packed_igemm(
+    const struct igemm_context* restrict context, uint32_t uarch_index,
+    size_t thread_id, size_t batch_index, size_t group_index,
+    size_t mr_block_start, size_t mr_block_size) {
+  compute_batch_inline_packed_igemm(context, uarch_index, thread_id,
+                                    batch_index, group_index, mr_block_start,
+                                    mr_block_size);
+}
+
+void xnn_compute_batch_igemm(
+    const struct igemm_context* restrict context,
+    size_t batch_index, size_t nr_block_start, size_t mr_block_start,
+    size_t nr_block_size, size_t mr_block_size) {
   const size_t ks = context->ks;
   const size_t cm_stride = context->cm_stride;
 

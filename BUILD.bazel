@@ -74,6 +74,7 @@ MICROKERNEL_DEPS = [
     ":tables",
     ":unaligned",
     "//src/configs:hardware_config",
+    ":logging",
 ]
 
 SIMD_HEADERS = [
@@ -312,6 +313,7 @@ xnnpack_cc_library(
     name = "internal",
     hdrs = ["src/xnnpack/internal.h"],
     deps = [
+        ":math",
         ":subgraph_h",
         ":xnnpack_h",
         "//src/configs:config_hdrs",
@@ -449,7 +451,10 @@ filegroup(
     [
         xnnpack_cc_library_for_arch(
             name = arch + "_prod_microkernels",
-            srcs = prod_asm_srcs_for_arch(arch) + prod_c_srcs_for_arch(arch),
+            srcs = prod_c_srcs_for_arch(arch) + xnnpack_select_if(
+                ":assembly_enabled",
+                prod_asm_srcs_for_arch(arch),
+            ),
             arch = arch,
             # Internal build flag.
             tags = ["nobuilder"],
@@ -457,7 +462,10 @@ filegroup(
         ),
         xnnpack_cc_library_for_arch(
             name = arch + "_all_microkernels",
-            srcs = non_prod_asm_srcs_for_arch(arch) + non_prod_c_srcs_for_arch(arch),
+            srcs = non_prod_c_srcs_for_arch(arch) + xnnpack_select_if(
+                ":assembly_enabled",
+                non_prod_asm_srcs_for_arch(arch),
+            ),
             arch = arch,
             tags = ["nobuilder"],
             deps = MICROKERNEL_DEPS + [":" + arch + "_prod_microkernels"],
@@ -817,7 +825,6 @@ xnnpack_cc_library(
     ],
     deps = [
         ":allocation_type",
-        ":cache",
         ":common",
         ":math",
         ":node_type",
@@ -1534,21 +1541,10 @@ alias(
     }),
 )
 
-selects.config_setting_group(
-    name = "arm_sme2_enabled_by_default",
-    match_any = [
-        "//build_config:aarch64",
-    ],
-)
-
 alias(
     name = "arm_sme2_enabled",
-    actual = select({
-        ":xnn_enable_arm_sme2_explicit_true": ":xnn_enable_arm_sme2_explicit_true",
-        ":xnn_enable_arm_sme2_explicit_false": ":xnn_enable_arm_sme2_explicit_true",
-        # Only enable this by default once we're able to test all SME2 kernels continuously.
-        "//conditions:default": ":xnn_enable_arm_sme2_explicit_true",
-    }),
+    # Only enable this by default once we're able to test all SME2 kernels continuously.
+    actual = ":xnn_enable_arm_sme2_explicit_true",
 )
 
 selects.config_setting_group(

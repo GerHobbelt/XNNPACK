@@ -36,8 +36,10 @@ const struct xnn_fingerprint* xnn_get_fingerprint(const uint32_t id) {
       break;
     }
   }
+  const struct xnn_fingerprint* result =
+      i < fingerprint_vector_size ? fingerprint_vector + i : NULL;
   xnn_mutex_unlock(&mutex);
-  return i < fingerprint_vector_size ? fingerprint_vector + i : NULL;
+  return result;
 }
 
 void xnn_set_fingerprint(const struct xnn_fingerprint fingerprint) {
@@ -50,12 +52,11 @@ void xnn_set_fingerprint(const struct xnn_fingerprint fingerprint) {
       break;
     }
   }
-  xnn_mutex_unlock(&mutex);
-  if (i < fingerprint_vector_size) {
-    return;
+  if (i >= fingerprint_vector_size) {
+    assert(fingerprint_vector_size < XNN_FINGERPRINT_MAX_COUNT);
+    fingerprint_vector[fingerprint_vector_size++] = fingerprint;
   }
-  assert(fingerprint_vector_size < XNN_FINGERPRINT_MAX_COUNT);
-  fingerprint_vector[fingerprint_vector_size++] = fingerprint;
+  xnn_mutex_unlock(&mutex);
 }
 
 void xnn_clear_fingerprints() {

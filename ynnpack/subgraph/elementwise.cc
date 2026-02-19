@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <numeric>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -35,60 +36,198 @@ namespace ynn {
 
 namespace {
 
+inline const slinky::dim& dim0_or_broadcast(const slinky::raw_buffer& buf) {
+  return buf.rank > 0 ? buf.dim(0) : slinky::dim::broadcast();
+}
+
+inline void slice0_if_not_scalar(slinky::raw_buffer& buf, slinky::index_t min) {
+  if (buf.rank > 0) buf.slice(0, min);
+}
+
+inline void slice0_if_not_scalar(slinky::raw_buffer& buf) {
+  if (buf.rank > 0) buf.slice(0);
+}
+
+inline bool same_bounds(const slinky::dim& a, const slinky::dim& b) {
+  // Return true if the dimensions have the same min and max or if they are
+  // both broadcasts.
+  return (a.min() == b.min() && a.max() == b.max()) ||
+         (a.stride() == 0 && b.stride() == 0);
+}
+
+template <typename... Dims>
+inline bool same_bounds(const slinky::dim& a, const slinky::dim& b,
+                        const Dims&... dims) {
+  return same_bounds(a, b) && same_bounds(b, dims...);
+}
+
+// A dimension is contiguous if it satisfies one of the following:
+//   1. Its extent is 1. In this case, we disregard stride.
+//   2. Its stride is equal to its element size.
+inline bool is_continguous(const slinky::dim& dim, const int element_size) {
+  return dim.extent() == 1 || dim.stride() == element_size;
+}
+
+// Helper to apply a function to pairs of elements in a parameter pack.
+template <typename F, typename A, typename B>
+void apply_to_pairs(F&& f, A&& a, B&& b) {
+  f(std::forward<A>(a), std::forward<B>(b));
+}
+
+template <typename F, typename A, typename B, typename... Pairs>
+void apply_to_pairs(F&& f, A&& a, B&& b, Pairs&&... pairs) {
+  f(std::forward<A>(a), std::forward<B>(b));
+  apply_to_pairs(std::forward<F>(f), std::forward<Pairs>(pairs)...);
+}
+
+// Helper to apply a predicate to pairs of elements in a parameter pack and
+// return true if the predicate is true for all pairs.
+template <typename F, typename A, typename B>
+bool all_of_pairs(F&& f, A&& a, B&& b) {
+  return f(std::forward<A>(a), std::forward<B>(b));
+}
+
+template <typename F, typename A, typename B, typename... Pairs>
+bool all_of_pairs(F&& f, A&& a, B&& b, Pairs&&... pairs) {
+  return f(std::forward<A>(a), std::forward<B>(b)) &&
+         all_of_pairs(std::forward<F>(f), std::forward<Pairs>(pairs)...);
+}
+
+// Peels off the innermost `NumInnerDims` dimensions of `x` and `inputs`,
+// and where possible, fuses dimensions of buffers from the innermost to the
+// outermost.
+//
+// `x` is the output buffer.
+// `x_dims` is an array of size `NumInnerDims` that is used to store the
+// dimensions of `x` after the peeling.
+//
+// `inputs` is a parameter pack of pairs of pointers to the dimensions of the
+// inputs after the peeling, and the buffers themselves e.g. { &a_dims[0], a,
+// &b_dims[0], b, ... }. The dimensions must be pointers to arrays of size
+// `NumInnerDims`.
+template <int NumInnerDims, typename... DimBufferPairs>
+void fuse_and_slice_leading_dims(slinky::dim* x_dims, slinky::raw_buffer& x,
+                                 DimBufferPairs&&... inputs) {
+  for (int i = 0; i < NumInnerDims; ++i) {
+    // If the output innermost (n) dimension has extent 1, we need to make the n
+    // dimension of all inputs a broadcast. This case is not expected to happen.
+    // For now, we add an assert to catch this case if it does.
+    assert(i != 0 || is_continguous(dim0_or_broadcast(x), x.elem_size));
+
+    x_dims[i] = dim0_or_broadcast(x);
+
+    // Initialize `in_dims[i]` for each input.
+    apply_to_pairs(
+        [i](slinky::dim* in_dims, const slinky::raw_buffer& in_buf) {
+          in_dims[i] = dim0_or_broadcast(in_buf);
+        },
+        inputs...);
+
+    // `x` is already a view to the correct tile in the larger output buffer.
+    // Inputs are not. We must explicitly set their offsets according to `x`
+    // before slicing.
+    apply_to_pairs(
+        [x_min_i = x_dims[i].min()](const slinky::dim* /*in_dims*/,
+                                    slinky::raw_buffer& in_buf) {
+          slice0_if_not_scalar(in_buf, x_min_i);
+        },
+        inputs...);
+    slice0_if_not_scalar(x);
+
+    while (x.rank > 0) {
+      // First check whether fusing dimensions is possible.
+      bool can_fuse_all =
+          slinky::can_fuse(x_dims[i], x.dim(0)) &&
+          all_of_pairs(
+              [x_dims, i](const slinky::dim* in_dims,
+                          const slinky::raw_buffer& in_buf) {
+                return same_bounds(x_dims[i], in_dims[i]) &&
+                       slinky::can_fuse(in_dims[i], dim0_or_broadcast(in_buf));
+              },
+              inputs...);
+      if (!can_fuse_all) {
+        break;
+      }
+
+      // Fuse the dimensions.
+      x_dims[i] = slinky::fuse(x_dims[i], x.dim(0));
+      apply_to_pairs(
+          [i](slinky::dim* in_dims, const slinky::raw_buffer& in_buf) {
+            in_dims[i] = slinky::fuse(in_dims[i], dim0_or_broadcast(in_buf));
+          },
+          inputs...);
+
+      apply_to_pairs(
+          [](slinky::dim* /*in_dims*/, slinky::raw_buffer& in_buf) {
+            slice0_if_not_scalar(in_buf);
+          },
+          inputs...);
+      x.slice(0);
+    }
+  }
+}
+
 // Call a unary kernel with a params buffer.
 auto make_unary_elementwise_params_impl(unary_kernel_fn kernel) {
-  return [kernel](
-             slinky::buffer<const void, YNN_MAX_TENSOR_RANK> a,
-             slinky::buffer<const unary_params, YNN_MAX_TENSOR_RANK> params,
-             slinky::buffer<void, YNN_MAX_TENSOR_RANK> x) -> slinky::index_t {
-    // Try to fuse dimensions where possible.
-    slinky::optimize_dims(x, a, params);
+  return [kernel](slinky::raw_buffer a, slinky::raw_buffer params,
+                  slinky::raw_buffer x) -> slinky::index_t {
+    slinky::dim a_dims[2], x_dims[2];
 
-    // We're going to handle the two innermost dimensions with the kernel, or
-    // treat them as broadcasts if there aren't two dimensions.
+    bool broadcast_params = true;
     const slinky::dim broadcast(0, 0, 0, 0);
+    for (int i = 0; i < 2; ++i) {
+      // Here, we can *only* support broadcasting of params in the kernel, so we
+      // can only slice broadcasts. If we don't slice a dimension, use the
+      // broadcast dimension instead.
+      auto params_dim = dim0_or_broadcast(params);
+      // TODO(dsharlet): Currently we only allow slicing m if we can slice n
+      // first, which is a weird limitation.
+      broadcast_params &= params_dim.stride() == 0;
+      if (broadcast_params) {
+        a_dims[i] = dim0_or_broadcast(a);
+        x_dims[i] = dim0_or_broadcast(x);
 
-    // Here, we can *only* support broadcasting of params in the kernel, so we
-    // can only slice broadcasts. If we don't slice a dimension, use the
-    // broadcast dimension instead.
-    const slinky::dim& b_n = params.rank > 0 ? params.dim(0) : broadcast;
-    const slinky::dim& b_m = params.rank > 1 ? params.dim(1) : broadcast;
+        // `x` is already a view to the correct tile in the larger output
+        // buffer. Inputs `a` and `params` are not. We must explicitly set their
+        // offsets according to `x` before slicing.
+        slice0_if_not_scalar(a, x_dims[i].min());
+        slice0_if_not_scalar(params, x_dims[i].min());
+        slice0_if_not_scalar(x);
+      } else {
+        a_dims[i] = broadcast;
+        x_dims[i] = broadcast;
+      }
 
-    // TODO(dsharlet): Currently we only allow slicing m if we can slice n
-    // first, which is a weird limitation.
-    const bool broadcast_n = b_n.stride() == 0;
-    const bool broadcast_m = broadcast_n && b_m.stride() == 0;
+      while (x.rank > 0 && same_bounds(x_dims[i], a_dims[i]) &&
+             same_bounds(x_dims[i], params_dim) &&
+             slinky::can_fuse(x_dims[i], x.dim(0)) &&
+             slinky::can_fuse(a_dims[i], dim0_or_broadcast(a)) &&
+             slinky::can_fuse(params_dim, dim0_or_broadcast(params))) {
+        params_dim = slinky::fuse(params_dim, dim0_or_broadcast(params));
+        broadcast_params &= params_dim.stride() == 0;
+        a_dims[i] = slinky::fuse(a_dims[i], dim0_or_broadcast(a));
+        x_dims[i] = slinky::fuse(x_dims[i], x.dim(0));
 
-    const slinky::dim& a_n = broadcast_n && a.rank > 0 ? a.dim(0) : broadcast;
-    const slinky::dim& x_n = broadcast_n && x.rank > 0 ? x.dim(0) : broadcast;
-    const slinky::dim& a_m = broadcast_m && a.rank > 1 ? a.dim(1) : broadcast;
-    const slinky::dim& x_m = broadcast_m && x.rank > 1 ? x.dim(1) : broadcast;
-
-    if (broadcast_n) {
-      if (a.rank > 0) a.slice(0, x.dim(0).min());
-      if (params.rank > 0) params.slice(0, x.dim(0).min());
-      if (x.rank > 0) x.slice(0);
-    } else {
-      assert(a_n == broadcast);
-      assert(x_n == broadcast);
+        slice0_if_not_scalar(a);
+        slice0_if_not_scalar(params);
+        x.slice(0);
+      }
+      // Expect params dimension to be a broadcast.
+      assert(!broadcast_params || params_dim.stride() == 0);
     }
-    if (broadcast_m) {
-      if (a.rank > 0) a.slice(0, x.dim(0).min());
-      if (params.rank > 0) params.slice(0, x.dim(0).min());
-      if (x.rank > 0) x.slice(0);
-    } else {
-      assert(a_m == broadcast);
-      assert(x_m == broadcast);
-    }
 
-    // We don't support broadcasting of a here (and it would waste computation).
-    assert(a_n.extent() == 1 || a_n.stride() == a.elem_size);
-    (void)a_n;
+    // We don't support broadcasting of `a` here in the innermost dimension (and
+    // it would waste computation).
+    assert(is_continguous(a_dims[0], a.elem_size));
+
+    const slinky::dim& x_n = x_dims[0];
+    const slinky::dim& a_m = a_dims[1];
+    const slinky::dim& x_m = x_dims[1];
 
     slinky::for_each_element(
-        [&](void* x, const void* a, const unary_params* params) {
+        [&](void* x, const void* a, const void* params) {
           kernel(x_m.extent(), x_n.extent(), a_m.stride(), a, x_m.stride(), x,
-                 params);
+                 static_cast<const unary_params*>(params));
         },
         x, a, params);
     return 0;
@@ -98,34 +237,18 @@ auto make_unary_elementwise_params_impl(unary_kernel_fn kernel) {
 // Call a unary kernel without params.
 auto make_unary_elementwise_impl(unary_kernel_fn kernel) {
   return
-      [kernel](slinky::buffer<const void, YNN_MAX_TENSOR_RANK> a,
-               slinky::buffer<void, YNN_MAX_TENSOR_RANK> x) -> slinky::index_t {
-        // Try to fuse dimensions where possible.
-        slinky::optimize_dims(x, a);
+      [kernel](slinky::raw_buffer a, slinky::raw_buffer x) -> slinky::index_t {
+        slinky::dim a_dims[2], x_dims[2];
 
-        // We're going to handle the two innermost dimensions with the kernel,
-        // or treat them as broadcasts if there aren't two dimensions.
-        const slinky::dim broadcast(0, 0, 0, 0);
+        fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a);
 
-        const slinky::dim& a_n = a.rank > 0 ? a.dim(0) : broadcast;
-        const slinky::dim& x_n = x.rank > 0 ? x.dim(0) : broadcast;
-        const slinky::dim& a_m = a.rank > 1 ? a.dim(1) : broadcast;
-        const slinky::dim& x_m = x.rank > 1 ? x.dim(1) : broadcast;
+        // We don't support broadcasting of `a` here in the innermost
+        // dimension (and it would waste computation).
+        assert(is_continguous(a_dims[0], a.elem_size));
 
-        assert(!a_n.is_folded(x_n));
-        assert(!x_n.is_folded());
-        assert(!a_m.is_folded(x_m));
-        assert(!x_m.is_folded());
-
-        // We don't support broadcasting of a here (and it would waste
-        // computation).
-        assert(a_n.extent() == 1 || a_n.stride() == a.elem_size);
-        (void)a_n;
-
-        if (a.rank > 0) a.slice(0, x.dim(0).min());
-        if (x.rank > 0) x.slice(0);
-        if (a.rank > 0) a.slice(0, x.dim(0).min());
-        if (x.rank > 0) x.slice(0);
+        const slinky::dim& x_n = x_dims[0];
+        const slinky::dim& a_m = a_dims[1];
+        const slinky::dim& x_m = x_dims[1];
 
         slinky::for_each_element(
             [&](void* x, const void* a) {
@@ -144,37 +267,18 @@ auto make_unary_elementwise_impl(unary_kernel_fn kernel) {
 // data, this would need to change.
 auto make_binary_elementwise_impl(binary_kernel_fn kernel,
                                   const binary_params& params) {
-  return [kernel, params](
-             slinky::buffer<const void, YNN_MAX_TENSOR_RANK> a,
-             slinky::buffer<const void, YNN_MAX_TENSOR_RANK> b,
-             slinky::buffer<void, YNN_MAX_TENSOR_RANK> x) -> slinky::index_t {
-    // Try to fuse dimensions where possible.
-    slinky::optimize_dims(x, a, b);
+  return [kernel, params](slinky::raw_buffer a, slinky::raw_buffer b,
+                          slinky::raw_buffer x) -> slinky::index_t {
+    slinky::dim a_dims[2], b_dims[2], x_dims[2];
 
-    // We're going to handle the two innermost dimensions with the kernel, or
-    // treat them as broadcasts if there aren't two dimensions.
-    const slinky::dim broadcast(0, 0, 0, 0);
+    fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a, &b_dims[0], b);
 
-    const slinky::dim& a_n = a.rank > 0 ? a.dim(0) : broadcast;
-    const slinky::dim& b_n = b.rank > 0 ? b.dim(0) : broadcast;
-    const slinky::dim& x_n = x.rank > 0 ? x.dim(0) : broadcast;
-    const slinky::dim& a_m = a.rank > 1 ? a.dim(1) : broadcast;
-    const slinky::dim& b_m = b.rank > 1 ? b.dim(1) : broadcast;
-    const slinky::dim& x_m = x.rank > 1 ? x.dim(1) : broadcast;
-
-    assert(!a_n.is_folded(x_n));
-    assert(!b_n.is_folded(x_n));
-    assert(!x_n.is_folded());
-    assert(!a_m.is_folded(x_m));
-    assert(!b_m.is_folded(x_m));
-    assert(!x_m.is_folded());
-
-    if (a.rank > 0) a.slice(0, x.dim(0).min());
-    if (b.rank > 0) b.slice(0, x.dim(0).min());
-    if (x.rank > 0) x.slice(0);
-    if (a.rank > 0) a.slice(0, x.dim(0).min());
-    if (b.rank > 0) b.slice(0, x.dim(0).min());
-    if (x.rank > 0) x.slice(0);
+    const slinky::dim& a_n = a_dims[0];
+    const slinky::dim& b_n = b_dims[0];
+    const slinky::dim& x_n = x_dims[0];
+    const slinky::dim& a_m = a_dims[1];
+    const slinky::dim& b_m = b_dims[1];
+    const slinky::dim& x_m = x_dims[1];
 
     slinky::for_each_element(
         [&](void* x, const void* a, const void* b) {
@@ -199,43 +303,21 @@ int compute_allow_in_place(const ynn_node& node, const ynn_subgraph& subgraph) {
 
 auto make_ternary_elementwise_impl(ternary_kernel_fn kernel) {
   return
-      [kernel](slinky::buffer<const void, YNN_MAX_TENSOR_RANK> a,
-               slinky::buffer<const void, YNN_MAX_TENSOR_RANK> b,
-               slinky::buffer<const void, YNN_MAX_TENSOR_RANK> c,
-               slinky::buffer<void, YNN_MAX_TENSOR_RANK> x) -> slinky::index_t {
-        // Try to fuse dimensions where possible.
-        slinky::optimize_dims(x, a, b, c);
+      [kernel](slinky::raw_buffer a, slinky::raw_buffer b, slinky::raw_buffer c,
+               slinky::raw_buffer x) -> slinky::index_t {
+        slinky::dim a_dims[2], b_dims[2], c_dims[2], x_dims[2];
 
-        // We're going to handle the two innermost dimensions with the kernel,
-        // or treat them as broadcasts if there aren't two dimensions.
-        const slinky::dim broadcast(0, 0, 0, 0);
+        fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a, &b_dims[0],
+                                       b, &c_dims[0], c);
 
-        const slinky::dim& a_n = a.rank > 0 ? a.dim(0) : broadcast;
-        const slinky::dim& b_n = b.rank > 0 ? b.dim(0) : broadcast;
-        const slinky::dim& c_n = c.rank > 0 ? c.dim(0) : broadcast;
-        const slinky::dim& x_n = x.rank > 0 ? x.dim(0) : broadcast;
-        const slinky::dim& a_m = a.rank > 1 ? a.dim(1) : broadcast;
-        const slinky::dim& b_m = b.rank > 1 ? b.dim(1) : broadcast;
-        const slinky::dim& c_m = c.rank > 1 ? c.dim(1) : broadcast;
-        const slinky::dim& x_m = x.rank > 1 ? x.dim(1) : broadcast;
-
-        assert(!a_n.is_folded(x_n));
-        assert(!b_n.is_folded(x_n));
-        assert(!c_n.is_folded(x_n));
-        assert(!x_n.is_folded());
-        assert(!a_m.is_folded(x_m));
-        assert(!b_m.is_folded(x_m));
-        assert(!c_m.is_folded(x_m));
-        assert(!x_m.is_folded());
-
-        if (a.rank > 0) a.slice(0, x.dim(0).min());
-        if (b.rank > 0) b.slice(0, x.dim(0).min());
-        if (c.rank > 0) c.slice(0, x.dim(0).min());
-        if (x.rank > 0) x.slice(0);
-        if (a.rank > 0) a.slice(0, x.dim(0).min());
-        if (b.rank > 0) b.slice(0, x.dim(0).min());
-        if (c.rank > 0) c.slice(0, x.dim(0).min());
-        if (x.rank > 0) x.slice(0);
+        const slinky::dim& a_n = a_dims[0];
+        const slinky::dim& b_n = b_dims[0];
+        const slinky::dim& c_n = c_dims[0];
+        const slinky::dim& x_n = x_dims[0];
+        const slinky::dim& a_m = a_dims[1];
+        const slinky::dim& b_m = b_dims[1];
+        const slinky::dim& c_m = c_dims[1];
+        const slinky::dim& x_m = x_dims[1];
 
         slinky::for_each_element(
             [&](void* x, const void* a, const void* b, const void* c) {

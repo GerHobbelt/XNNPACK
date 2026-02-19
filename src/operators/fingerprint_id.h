@@ -131,6 +131,8 @@ enum xnn_fingerprint_id_helper {
   xnn_fingerprint_id_helper_test = 1,
   xnn_fingerprint_id_helper_no_fingerprint = 2,
   xnn_fingerprint_id_helper_fully_connected_nc = 3,
+  xnn_fingerprint_id_helper_convolution2d_nchw = 4,
+  xnn_fingerprint_id_helper_convolution2d_nhwc = 5,
   // Type values
   xnn_fingerprint_id_helper_bf16 = 0,
   xnn_fingerprint_id_helper_f16 = 1,
@@ -147,12 +149,17 @@ enum xnn_fingerprint_id_helper {
   xnn_fingerprint_id_helper_qs8 = 12,
   xnn_fingerprint_id_helper_pqs8 = 13,
   xnn_fingerprint_id_helper_qu8 = 14,
+  xnn_fingerprint_id_helper_qc8 = 15,
   // Flag values
   //
   // Flag values are OR-ed so they need to avoid colliding. Not all operators
   // use the same flags values. Flags values that don't overlap between
   // operators may reuse the same value.
   xnn_fingerprint_id_helper_nr2 = (1 << 0),
+  xnn_fingerprint_id_helper_fp32_static_weights = (1 << 1),
+  xnn_fingerprint_id_helper_conv2d_hwc2chw = (1 << 2),
+  xnn_fingerprint_id_helper_dwconv = (1 << 3),
+  xnn_fingerprint_id_helper_vmulcaddc = (1 << 4),
   // The C preprocessor is obnoxious. For variadic arguments, there's no way to
   // differentiate between an empty argument list and one argument. This value
   // allows us to avoid bending around this issue when generating the
@@ -161,6 +168,9 @@ enum xnn_fingerprint_id_helper {
   // This value is OR-ed to the value by the COMBINE macro when no flag is
   // passed.
   xnn_fingerprint_id_helper_ = 0,
+  // Useful to mask flags from a fingerprint id
+  xnn_fingerprint_id_helper_flag_mask =
+      (1 << XNN_FINGERPRINT_ID_WEIGHTS_OFFSET) - 1,
 };
 
 // Identifies a fingerprint.
@@ -181,17 +191,18 @@ enum xnn_fingerprint_id {
       XNN_FINGERPRINT_ID_VALUE(unknown, unknown, unknown, unknown),
   xnn_fingerprint_id_no_fingerprint =
       XNN_FINGERPRINT_ID_VALUE(no_fingerprint, unknown, unknown, unknown),
-// LINT.ThenChange(../xnnpack/fingerprint_check.c:fingerprint_compute)
 #undef XNN_FINGERPRINT_ID
 };
 
 // Computes the fingerprint id value from the given helper values.
 //
 // Warning: All calls should have the last variadic argument be 0.
+//
+// Note: `weights` is defined as an `uint32_t` because variadic lists in C must
+// start with a type that doesn't go through integral promotion.
 enum xnn_fingerprint_id xnn_compute_fingerprint_id_value(
     enum xnn_fingerprint_id_helper op, enum xnn_fingerprint_id_helper in,
-    enum xnn_fingerprint_id_helper out, enum xnn_fingerprint_id_helper weights,
-    ...);
+    enum xnn_fingerprint_id_helper out, uint32_t weights, ...);
 
 const char* xnn_fingerprint_id_to_string(
     enum xnn_fingerprint_id fingerprint_id);

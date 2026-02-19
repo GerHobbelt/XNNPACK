@@ -21,9 +21,15 @@ typedef float xnn_simd_f32_t;
 
 #define XNN_SIMD_CONST_F32(var, val) static const xnn_simd_f32_t var = val;
 
+typedef union {
+  xnn_simd_f32_t f;
+  uint32_t u;
+  int32_t s;
+} xnn_f32_i32_t;
+
 #define XNN_SIMD_CONST_F32_FROM_INT32(var, val)  \
-  static const int32_t _##var##_int_value = val; \
-  const xnn_simd_f32_t var = *(const float *)&_##var##_int_value;
+  static const xnn_f32_i32_t _##var##_int_value = {.s = val}; \
+  const xnn_simd_f32_t var = _##var##_int_value.f;
 
 // Arithmetic operations.
 static XNN_INLINE xnn_simd_f32_t xnn_zero_f32() { return 0.0f; }
@@ -87,12 +93,6 @@ static XNN_INLINE xnn_simd_f32_t xnn_round_f32(xnn_simd_f32_t a) {
 }
 
 // Logical operations.
-
-typedef union {
-  xnn_simd_f32_t f;
-  uint32_t u;
-  int32_t s;
-} xnn_f32_i32_t;
 
 static XNN_INLINE xnn_simd_f32_t xnn_and_f32(xnn_simd_f32_t a,
                                              xnn_simd_f32_t b) {
@@ -159,13 +159,13 @@ static XNN_INLINE xnn_simd_f32_t xnn_sra_f32(xnn_simd_f32_t a, uint8_t bits) {
 
 static XNN_INLINE xnn_simd_f32_t xnn_cmpeq_f32(xnn_simd_f32_t a,
                                                xnn_simd_f32_t b) {
-  XNN_SIMD_CONST_F32_FROM_INT32(ones, 0xFFFFFFFF)
+  XNN_SIMD_CONST_F32_FROM_INT32(ones, INT32_C(-1));
   return a == b ? ones : 0.0f;
 }
 
 static XNN_INLINE xnn_simd_f32_t xnn_cmpneq_f32(xnn_simd_f32_t a,
                                                 xnn_simd_f32_t b) {
-  XNN_SIMD_CONST_F32_FROM_INT32(ones, 0xFFFFFFFF)
+  XNN_SIMD_CONST_F32_FROM_INT32(ones, INT32_C(-1));
   return a != b ? ones : 0.0f;
 }
 

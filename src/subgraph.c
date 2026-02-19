@@ -1565,9 +1565,8 @@ enum xnn_status xnn_subgraph_fusion(xnn_subgraph_t subgraph) {
             (padding_datatype == xnn_datatype_fp32 && padding_value == 0) ||
             ((padding_datatype == xnn_datatype_qint8 ||
               padding_datatype == xnn_datatype_quint8) &&
-             padding_value ==
-                 (uint32_t)subgraph->values[producer->outputs[0]]
-                     .quantization.zero_point);
+             padding_value == (uint32_t)subgraph->values[producer->outputs[0]]
+                                  .quantization.zero_point);
         switch (consumer->type) {
           case xnn_node_type_convolution_2d:
             if (is_spatial_2d_padding && is_zero_padding &&
@@ -3654,8 +3653,10 @@ static enum xnn_status optimize_common_subgraphs_iter(
 
         // Replace `div(x, x)` or `sub(x, x)` with a constant `1.0` or `0.0`,
         // respectively.
-        XNN_RETURN_IF_ERROR(optimize_common_subgraphs_binary_to_const(
-            subgraph, node_id, changes));
+        // TODO(b/460807548): Disabled due to bugs, complexity, and we don't
+        // have a use case for these yet.
+        // XNN_RETURN_IF_ERROR(optimize_common_subgraphs_binary_to_const(
+        //     subgraph, node_id, changes));
 
         // Replace `mul(reduce_sum(x), 1/n)`, `div(reduce_sum(x), n)`  or
         // `mul(reduce_sum_squared(x), 1/n)`, `div(reduce_sum_squared(x), n)`
@@ -3671,13 +3672,17 @@ static enum xnn_status optimize_common_subgraphs_iter(
         // Replaces `add(a, neg(b))`, `add(neg(a), b)`, or `sub(a, neg(b))`
         // with `sub(a, b)`, `sub(b, a)`, or `add(a, b)`, respectively, and
         // `{mul,div}(neg(a), neg(b))` with `{mul,div}(a, b)`.
-        XNN_RETURN_IF_ERROR(optimize_common_subgraphs_simplify_binary_neg(
-            subgraph, node_id, changes));
+        // TODO(b/460807548): Disabled due to bugs, complexity, and we don't
+        // have a use case for these yet.
+        // XNN_RETURN_IF_ERROR(optimize_common_subgraphs_simplify_binary_neg(
+        //     subgraph, node_id, changes));
 
         // Replace `mul(x, 1.0)`, `div(div, 1.0)`, `add(x, 0.0)`, or `sub(x,
         // 0.0)` with just `x`, where possible.
-        XNN_RETURN_IF_ERROR(optimize_common_subgraphs_binary_const_noop(
-            subgraph, node_id, changes));
+        // TODO(b/460807548): Disabled due to bugs, complexity, and we don't
+        // have a use case for these yet.
+        // XNN_RETURN_IF_ERROR(optimize_common_subgraphs_binary_const_noop(
+        //     subgraph, node_id, changes));
         break;
 
       case xnn_node_type_unary_elementwise:
@@ -4003,6 +4008,20 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph,
           node->packed_input_datatype = xnn_datatype_pqint8;
           node->flags |= XNN_FLAG_INLINE_LHS_PACKING;
         }
+        if (input_datatype == xnn_datatype_fp16 &&
+            (kernel_datatype == xnn_datatype_fp16 ||
+            kernel_datatype == xnn_datatype_fp32) &&
+            output_datatype == xnn_datatype_fp16 &&
+            xnn_init_pf16_gemm_config() != NULL &&
+            !(optimization_flags & XNN_FLAG_NO_INLINED_LHS_PACKING)) {
+          // Note that there is currently no option to not use inlining for this
+          // iGEMM kernel.
+          xnn_log_debug("Setting assumed_datatype=%s for node #%u (%s).",
+                        xnn_datatype_to_string(xnn_datatype_pfp16), node_id,
+                        xnn_node_type_to_string(node->type));
+          node->packed_input_datatype = xnn_datatype_pfp16;
+          node->flags |= XNN_FLAG_INLINE_LHS_PACKING;
+        }
       } break;
       default:
         break;
@@ -4054,6 +4073,65 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph,
   // Clean up after ourselves.
   if (changes) {
     xnn_subgraph_clean_up(subgraph);
+  }
+
+  return xnn_status_success;
+}
+
+enum xnn_status xnn_subgraph_rewrite_for_row_sum(xnn_subgraph_t subgraph) {
+  // Loop over the nodes in the subgraph.
+  for (uint32_t node_id = 0; node_id < subgraph->num_nodes; node_id++) {
+    struct xnn_node* node = &subgraph->nodes[node_id];
+
+
+    // Skip anything that is not a fully-connected node.
+    switch (node->type) {
+      case xnn_node_type_fully_connected: {
+        // Get a handle on the inputs/outputs.
+        const uint32_t input_id = node->inputs[0];
+        struct xnn_value* input_value = &subgraph->values[input_id];
+        struct xnn_value* kernel_value = &subgraph->values[node->inputs[1]];
+        struct xnn_value* output_value = &subgraph->values[node->outputs[0]];
+        const enum xnn_datatype input_datatype = input_value->datatype;
+        const enum xnn_datatype kernel_datatype = kernel_value->datatype;
+        const enum xnn_datatype output_datatype = output_value->datatype;
+
+        switch (input_datatype) {
+          case xnn_datatype_qdint8:
+            if (output_datatype == xnn_datatype_fp32) {
+              const struct xnn_gemm_config* gemm_config = NULL;
+
+              switch (kernel_datatype) {
+                case xnn_datatype_qcint2:
+                  if ((gemm_config = xnn_init_qd8_f32_qc2w_gemm_config())) {
+                    struct xnn_node* producer =
+                        &subgraph->nodes[input_value->producer];
+                    if (producer->type != xnn_node_type_convert) {
+                      xnn_log_error(
+                          "Expected producer node #%u of %s tensor #%u to be of"
+                          " type %s, but found type %s instead.",
+                          input_value->producer,
+                          xnn_datatype_to_string(input_datatype), input_id,
+                          xnn_node_type_to_string(xnn_node_type_convert),
+                          xnn_node_type_to_string(producer->type));
+                      return xnn_status_invalid_state;
+                    }
+                    producer->flags |= XNN_NODE_FLAG_REQUIRES_ROW_SUM;
+                  }
+                  break;
+                default:
+                  break;
+              }
+            }
+            break;
+          default:
+            // If none of the above happened, do nothing for this node.
+            continue;
+        }
+      } break;
+      default:
+        break;
+    }
   }
 
   return xnn_status_success;

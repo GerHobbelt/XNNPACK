@@ -18,6 +18,7 @@ py_binary(
         "generator.py",
         "x86.py",
         "x86_bf16_bf16_fp32.py",
+        "x86_fp16_fp16_fp32.py",
         "x86_fp32.py",
         "x86_fp32_k2.py",
         "x86_fp32_k4.py",
@@ -27,4 +28,5 @@ py_binary(
         "x86_uint8_int8_int32_k16.py",
     ],
     main = "generator.py",
+    tags = ["manual"],
 )

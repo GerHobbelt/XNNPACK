@@ -10,7 +10,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <sstream>
@@ -18,6 +20,7 @@
 #include <utility>
 #include <variant>
 #include <vector>
+
 
 #ifdef YNN_ENABLE_PERFETTO
 #include "ynnpack/subgraph/perfetto.h"
@@ -33,6 +36,7 @@
 #include "slinky/base/span.h"
 #include "slinky/base/thread_pool.h"
 #include "slinky/builder/pipeline.h"
+#include "slinky/builder/node_mutator.h"
 #include "slinky/builder/simplify.h"
 #include "slinky/builder/substitute.h"
 #include "slinky/runtime/buffer.h"
@@ -48,6 +52,11 @@ void ynn_runtime_value::make_buffer(ynn_runtime& runtime,
     }
   }
   buffer = ynn::make_buffer_expr(symbol, rank(), std::move(elem_size));
+  for (size_t i = 0; i < rank(); ++i) {
+    if (!extents[i].defined() || slinky::is_constant(extents[i], 1)) {
+      buffer->dim(i) = slinky::dim::broadcast();
+    }
+  }
   assert(buffer->sym() == symbol);
 }
 
@@ -74,7 +83,8 @@ slinky::var ynn_runtime::make_global_variable(slinky::expr value,
 std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
     const std::vector<slinky::var>& dims, const slinky::buffer_expr_ptr output,
     uint32_t output_value, slinky::span<const slinky::expr> given_splits,
-    const slinky::expr& element_cost) {
+    const slinky::expr& element_cost,
+    const std::vector<slinky::index_t>& loop_order) {
   auto sched = std::make_unique<ynn::scheduling_info>();
 
   int max_threads = threadpool() ? threadpool()->thread_count() : 1;
@@ -82,9 +92,6 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
   // Enough tasks to have good load balancing.
   slinky::index_t target_task_count = max_threads > 1 ? max_threads * 2 : 1;
 
-  // Area is selected such that tiles fit better into cache, this is a
-  // constant for now, but we could add a more advanced logic based on
-  // hardware info.
   assert(dims.size() == output->rank() || dims.size() + 1 == output->rank());
   // For min_max reductions dims.size() + 1 == output.rank().
   // Otherwise, dims.size() == output->rank().
@@ -95,11 +102,20 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
   }
   assert(output->rank() == output_extents.size());
 
+  // Area is selected such that tiles fit better into cache, this is a
+  // constant for now, but we could add a more advanced logic based on
+  // hardware info.
   slinky::expr tile_area = slinky::ceil_div(slinky::expr(32768 * 4),
                                             output->elem_size() * element_cost);
   std::vector<slinky::expr> splits(rank);
   slinky::expr tile_area_so_far = 1;
-  for (int d = 0; d < rank; ++d) {
+
+  auto get_loop_dim = [&](int index_d) {
+    return index_d < loop_order.size() ? loop_order[index_d] : index_d;
+  };
+
+  for (int index_d = 0; index_d < rank; ++index_d) {
+    int d = get_loop_dim(index_d);
     if (!output_extents[d].defined()) continue;
     if (d < given_splits.size()) {
       splits[d] = given_splits[d];
@@ -119,7 +135,8 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
   std::vector<slinky::expr> workers(rank);
   slinky::expr threads_so_far = 1;
 
-  for (int d = rank - 1; d >= 0; --d) {
+  for (int index_d = rank - 1; index_d >= 0; --index_d) {
+    int d = get_loop_dim(index_d);
     if (max_threads == 1) {
       workers[d] = slinky::loop::serial;
     } else if (output_extents[d].defined() && splits[d].defined()) {
@@ -135,7 +152,8 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
     }
   }
 
-  for (int d = 0; d < rank; ++d) {
+  for (int index_d = 0; index_d < rank; ++index_d) {
+    int d = get_loop_dim(index_d);
     if (output_extents[d].defined() && splits[d].defined()) {
       sched->loop_splits.push_back({dims[d], splits[d], workers[d], d});
     }
@@ -542,14 +560,17 @@ ynn_runtime::ynn_runtime(const ynn_subgraph& subgraph,
       value.symbol = symbols.insert_unique(value.name());
     }
     if (value.is_static()) {
+      for (size_t d = 0; d < value.extents.size(); ++d) {
+        if (!value.extents[d].defined() ||
+            slinky::is_constant(value.extents[d], 1)) {
+          value.data->dim(d) = slinky::dim::broadcast();
+        }
+      }
+
       value.buffer =
           slinky::buffer_expr::make_constant(value.symbol, value.data);
     } else if (value.is_external_input()) {
-      value.buffer = ynn::make_buffer_expr(value.symbol, value.rank(),
-                                           type_elem_size(value.type));
-      for (int d = 0; d < i.rank(); ++d) {
-        value.buffer->dim(d).fold_factor = slinky::dim::unfolded;
-      }
+      value.make_buffer(*this);
 
       if (!value.data) {
         value.data =
@@ -607,6 +628,15 @@ ynn_status ynn_runtime::build() {
     if (value.is_external_output()) {
       assert(value.buffer);
       outputs.push_back(value.buffer);
+    }
+
+    if (value.data) {
+      for (size_t d = 0; d < value.extents.size(); ++d) {
+        if (!value.extents[d].defined() ||
+            slinky::is_constant(value.extents[d], 1)) {
+          value.data->dim(d) = slinky::dim::broadcast();
+        }
+      }
     }
   }
 
@@ -718,6 +748,46 @@ ynn_status ynn_set_external_value_data(ynn_runtime_t runtime,
 
 ynn_status ynn_invoke_runtime(ynn_runtime_t runtime) {
   return runtime->invoke();
+}
+
+namespace {
+
+int32_t get_max_concurrency(const ynn_runtime& runtime) {
+  int32_t result = 1;
+  slinky::recursive_mutate<slinky::loop>(
+      runtime.pipeline.body, [&](const slinky::loop* op) -> slinky::stmt {
+        if (!slinky::prove_true(op->max_workers == 1)) {
+          result = std::numeric_limits<int32_t>::max();
+        }
+        return slinky::stmt{op};
+      });
+  return result;
+}
+
+}  // namespace
+
+ynn_status ynn_query_runtime(ynn_runtime_t runtime,
+                             ynn_runtime_property property, void* result,
+                             size_t* result_size) {
+  if (!result_size || !result) {
+    YNN_LOG_ERROR() << "Invalid result pointer";
+    return ynn_status_error;
+  }
+  switch (property) {
+    case ynn_runtime_property_concurrency: {
+      memset(result, 0, *result_size);
+      if (*result_size < sizeof(int32_t)) {
+        YNN_LOG_ERROR() << "result must be an int32_t.";
+        return ynn_status_error;
+      }
+      *result_size = sizeof(int32_t);
+      int32_t max_threads = get_max_concurrency(*runtime);
+      memcpy(result, &max_threads, sizeof(int32_t));
+      return ynn_status_success;
+    }
+  }
+  YNN_LOG_ERROR() << "Unknown runtime property: " << property;
+  return ynn_status_error;
 }
 
 void ynn_delete_runtime(ynn_runtime_t runtime) { delete runtime; }

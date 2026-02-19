@@ -5,7 +5,7 @@
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//ynnpack:build_defs.bzl", "ynn_cc_library")
+load("//ynnpack:build_defs.bzl", "ynn_binary_linkopts", "ynn_binary_malloc", "ynn_cc_library", "ynn_kernel_copts", "ynn_test_deps")
 
 _COMPATIBLE_WITH = []
 
@@ -40,10 +40,7 @@ ynn_cc_library(
         "sum_squared.inc",
     ],
     compatible_with = _COMPATIBLE_WITH,
-    copts = [
-        "-fno-unroll-loops",
-        "-O2",
-    ],
+    copts = ynn_kernel_copts(unroll_loops = False),
     per_arch_srcs = {
         "arm_neonfp16arith": [
             "arm_neonfp16arith.cc",
@@ -78,6 +75,8 @@ ynn_cc_library(
 cc_test(
     name = "test",
     srcs = ["test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":reduce",
         "//ynnpack/base",
@@ -86,14 +85,15 @@ cc_test(
         "//ynnpack/base/test:random",
         "//ynnpack/base/test:tensor",
         "//ynnpack/base/test:util",
-        "@com_google_googletest//:gtest_main",
-    ],
+    ] + ynn_test_deps(),
 )
 
 cc_test(
     name = "bench",
     srcs = ["bench.cc"],
     args = ["--benchmark_min_time=1x"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":reduce",
         "//ynnpack/base",

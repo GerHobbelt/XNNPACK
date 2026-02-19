@@ -29,6 +29,7 @@ YNN_DOT_KERNEL(arch_flag::amxint8, dot_uint8_int8_int32_16x64x64_16x16x4_amxint8
 #include "ynnpack/kernels/dot/x86_avx512f_fp32_k2.inc"
 #include "ynnpack/kernels/dot/x86_avx512f_fp32_k4.inc"
 #include "ynnpack/kernels/dot/x86_avx512f_bf16_bf16_fp32.inc"
+#include "ynnpack/kernels/dot/x86_avx512f_fp16_fp16_fp32.inc"
 #endif  // YNN_ARCH_X86_AVX512F
 #ifdef YNN_ARCH_X86_AVX2
 #ifndef MEMORY_SANITIZER  // TODO(b/458235638)
@@ -49,6 +50,12 @@ YNN_DOT_KERNEL(arch_flag::amxint8, dot_uint8_int8_int32_16x64x64_16x16x4_amxint8
 #ifdef YNN_ARCH_X86_AVX
 #include "ynnpack/kernels/dot/x86_avx_fp32.inc"
 #endif  // YNN_ARCH_X86_AVX
+#ifdef YNN_ARCH_X86_F16C
+#include "ynnpack/kernels/dot/x86_f16c_fp16_fp16_fp32.inc"
+#endif  // YNN_ARCH_X86_F16C
+#ifdef YNN_ARCH_X86_F16C_FMA3
+#include "ynnpack/kernels/dot/x86_f16c_fma3_fp16_fp16_fp32.inc"
+#endif  // YNN_ARCH_X86_F16C_FMA3
 #ifdef YNN_ARCH_X86_AVX2
 #ifndef MEMORY_SANITIZER  // TODO(b/458235638)
 #include "ynnpack/kernels/dot/x86_avx2_fp32_k2.inc"
@@ -105,9 +112,21 @@ YNN_DOT_KERNEL(arch_flag::sme, dot_int8_int8_int32_sme, sme_vl(int32_t{}),
 #include "ynnpack/kernels/dot/arm_neon_int8_int8_int32.inc"
 #endif  // YNN_ARCH_ARM_NEON
 
-YNN_DOT_KERNEL(arch_flag::none, dot_fp32, 1, 128, 1, 1, 1, 0, float, float, float)
-YNN_DOT_KERNEL(arch_flag::none, dot_fp16_fp16_fp32, 1, 128, 1, 1, 1, dot_flag::consistent_arithmetic, half, half, float)
-YNN_DOT_KERNEL(arch_flag::none, dot_bf16_bf16_fp32, 1, 128, 1, 1, 1, 0, bfloat16, bfloat16, float)
-YNN_DOT_KERNEL(arch_flag::none, dot_int8_int8_int32, 1, 128, 1, 1, 1, dot_flag::consistent_arithmetic, int8_t, int8_t, int32_t)
-YNN_DOT_KERNEL(arch_flag::none, dot_uint8_int8_int32, 1, 128, 1, 1, 1, dot_flag::consistent_arithmetic, uint8_t, int8_t, int32_t)
-YNN_DOT_KERNEL(arch_flag::none, dot_int8_int4_int32, 1, 128, 1, 2, 1, dot_flag::consistent_arithmetic, uint8_t, int4x2, int32_t)
+YNN_DOT_KERNEL(arch_flag::none, dot_fp32_1x128x1_1x1x1,
+               1, 128, 1, 1, 1,
+               0, float, float, float)
+YNN_DOT_KERNEL(arch_flag::none, dot_fp16_fp16_fp32_1x128x1_1x1x1,
+               1, 128, 1, 1, 1,
+               dot_flag::consistent_arithmetic, half, half, float)
+YNN_DOT_KERNEL(arch_flag::none, dot_bf16_bf16_fp32_1x128x1_1x1x1,
+               1, 128, 1, 1, 1,
+               0, bfloat16, bfloat16, float)
+YNN_DOT_KERNEL(arch_flag::none, dot_int8_int8_int32_1x128x1_1x1x1,
+               1, 128, 1, 1, 1,
+               dot_flag::consistent_arithmetic, int8_t, int8_t, int32_t)
+YNN_DOT_KERNEL(arch_flag::none, dot_uint8_int8_int32_1x128x1_1x1x1,
+               1, 128, 1, 1, 1,
+               dot_flag::consistent_arithmetic, uint8_t, int8_t, int32_t)
+YNN_DOT_KERNEL(arch_flag::none, dot_int8_int4_int32_1x128x2_1x1x2,
+               1, 128, 2, 1, 2,
+               dot_flag::consistent_arithmetic, uint8_t, int4x2, int32_t)

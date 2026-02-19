@@ -5,7 +5,7 @@
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//ynnpack:build_defs.bzl", "ynn_cc_library", "ynn_generate_src_hdr")
+load("//ynnpack:build_defs.bzl", "ynn_binary_linkopts", "ynn_binary_malloc", "ynn_cc_library", "ynn_generate_src_hdr", "ynn_kernel_copts", "ynn_test_deps")
 
 _COMPATIBLE_WITH = []
 
@@ -265,6 +265,73 @@ ynn_generate_src_hdr(
 )
 
 ynn_generate_src_hdr(
+    name = "x86_f16c_fp16_fp16_fp32",
+    compatible_with = _COMPATIBLE_WITH,
+    generator = "//ynnpack/kernels/dot/generator",
+    generator_args = [
+        "x86_f16c_fp16_fp16_fp32",
+        "dot,1x32x1",
+        "dot,2x32x1",
+        "dot,2x16x1",
+        "dot,3x16x1",
+        "dot,4x16x1",
+        "dot,4x8x1",
+        "dot,6x8x1",
+        "dot,8x8x1",
+    ],
+    output_hdr = "x86_f16c_fp16_fp16_fp32.inc",
+    output_src = "x86_f16c_fp16_fp16_fp32.cc",
+)
+
+ynn_generate_src_hdr(
+    name = "x86_f16c_fma3_fp16_fp16_fp32",
+    compatible_with = _COMPATIBLE_WITH,
+    generator = "//ynnpack/kernels/dot/generator",
+    generator_args = [
+        "x86_f16c_fma3_fp16_fp16_fp32",
+        "dot,1x32x1",
+        "dot,2x32x1",
+        "dot,1x16x1",
+        "dot,2x16x1",
+        "dot,4x16x1",
+        "dot,2x8x1",
+        "dot,4x8x1",
+        "dot,8x8x1",
+    ],
+    output_hdr = "x86_f16c_fma3_fp16_fp16_fp32.inc",
+    output_src = "x86_f16c_fma3_fp16_fp16_fp32.cc",
+)
+
+ynn_generate_src_hdr(
+    name = "x86_avx512f_fp16_fp16_fp32",
+    compatible_with = _COMPATIBLE_WITH,
+    generator = "//ynnpack/kernels/dot/generator",
+    generator_args = [
+        "x86_avx512f_fp16_fp16_fp32",
+        "dot,1x64x1",
+        "dot,2x64x1",
+        "dot,3x64x1",
+        "dot,4x64x1",
+        "dot,5x64x1",
+        "dot,2x32x1",
+        "dot,3x32x1",
+        "dot,4x32x1",
+        "dot,5x32x1",
+        # The kernels which are commented out should be good, but for some
+        # reason they don't perform well. They don't seem to spill, so keeping them
+        # until we understand why are they slower.
+        # "dot,6x32x1",
+        # "dot,8x32x1",
+        # "dot,10x32x1",
+        # "dot,12x32x1",
+        "dot,5x16x1",
+        # "dot,16x16x1",
+    ],
+    output_hdr = "x86_avx512f_fp16_fp16_fp32.inc",
+    output_src = "x86_avx512f_fp16_fp16_fp32.cc",
+)
+
+ynn_generate_src_hdr(
     name = "arm64_neon_fp32",
     compatible_with = _COMPATIBLE_WITH,
     generator = "//ynnpack/kernels/dot/generator",
@@ -476,6 +543,18 @@ cc_library(
 )
 
 cc_library(
+    name = "pack",
+    srcs = ["pack.cc"],
+    hdrs = ["pack.h"],
+    compatible_with = _COMPATIBLE_WITH,
+    visibility = ["//ynnpack:__subpackages__"],
+    deps = [
+        "//ynnpack/base",
+        "//ynnpack/kernels/transpose",
+    ],
+)
+
+cc_library(
     name = "arm64_sme_stubs",
     srcs = ["arm64_sme_stubs.cc"],
     compatible_with = _COMPATIBLE_WITH,
@@ -502,28 +581,26 @@ ynn_cc_library(
         "x86_avx512bw_int8_int8_int32.inc",
         "x86_avx512bw_int8_int8_int32_k16.inc",
         "x86_avx512f_bf16_bf16_fp32.inc",
+        "x86_avx512f_fp16_fp16_fp32.inc",
         "x86_avx512f_fp32.inc",
         "x86_avx512f_fp32_k2.inc",
         "x86_avx512f_fp32_k4.inc",
         "x86_avx512vnni_uint8_int8_int32.inc",
         "x86_avx512vnni_uint8_int8_int32_k16.inc",
         "x86_avx_fp32.inc",
+        "x86_f16c_fma3_fp16_fp16_fp32.inc",
+        "x86_f16c_fp16_fp16_fp32.inc",
         "x86_fma3_fp32.inc",
         "x86_sse2_fp32.inc",
     ],
     compatible_with = _COMPATIBLE_WITH,
-    copts = [
-        "-fno-unroll-loops",
-        "-O2",
-    ],
+    copts = ynn_kernel_copts(unroll_loops = False),
     per_arch_srcs = {
         "x86_sse2": ["x86_sse2_fp32.cc"],
-        "x86_avx": [
-            "x86_avx_fp32.cc",
-        ],
-        "x86_fma3": [
-            "x86_fma3_fp32.cc",
-        ],
+        "x86_avx": ["x86_avx_fp32.cc"],
+        "x86_f16c": ["x86_f16c_fp16_fp16_fp32.cc"],
+        "x86_f16c_fma3": ["x86_f16c_fma3_fp16_fp16_fp32.cc"],
+        "x86_fma3": ["x86_fma3_fp32.cc"],
         "x86_avx2": [
             "x86_avx2_int8_int8_int32.cc",
             "x86_avx2_fp32_k2.cc",
@@ -537,6 +614,7 @@ ynn_cc_library(
             "x86_avx512f_fp32_k2.cc",
             "x86_avx512f_fp32_k4.cc",
             "x86_avx512f_bf16_bf16_fp32.cc",
+            "x86_avx512f_fp16_fp16_fp32.cc",
         ],
         "x86_avx512bw": [
             "x86_avx512bw_int8_int8_int32.cc",
@@ -589,8 +667,11 @@ ynn_cc_library(
 cc_test(
     name = "test",
     srcs = ["test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":dot",
+        ":pack",
         "//ynnpack:ynnpack_h",
         "//ynnpack/base",
         "//ynnpack/base/test:buffer",
@@ -598,13 +679,14 @@ cc_test(
         "//ynnpack/base/test:random",
         "//ynnpack/base/test:tensor",
         "//ynnpack/base/test:util",
-        "@com_google_googletest//:gtest_main",
-    ],
+    ] + ynn_test_deps(),
 )
 
 cc_test(
     name = "consistent_arithmetic_test",
     srcs = ["consistent_arithmetic_test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":dot",
         "//ynnpack/base",
@@ -613,34 +695,48 @@ cc_test(
         "//ynnpack/base/test:random",
         "//ynnpack/base/test:tensor",
         "//ynnpack/base/test:util",
-        "@com_google_googletest//:gtest_main",
-    ],
+    ] + ynn_test_deps(),
 )
 
 cc_test(
     name = "schedule_test",
     srcs = ["schedule_test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":schedule",
-        "@com_google_googletest//:gtest_main",
-    ],
+    ] + ynn_test_deps(),
+)
+
+cc_test(
+    name = "pack_test",
+    srcs = ["pack_test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = [
+        ":pack",
+        "//ynnpack/base",
+    ] + ynn_test_deps(),
 )
 
 cc_test(
     name = "get_dot_kernel_test",
     srcs = ["get_dot_kernel_test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":dot",
         "//ynnpack:ynnpack_h",
         "//ynnpack/base",
-        "@com_google_googletest//:gtest_main",
-    ],
+    ] + ynn_test_deps(),
 )
 
 cc_test(
     name = "bench",
     srcs = ["bench.cc"],
     args = ["--benchmark_min_time=1x"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = [
         ":dot",
         "//ynnpack/base",

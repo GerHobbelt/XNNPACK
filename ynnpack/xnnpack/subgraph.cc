@@ -145,18 +145,21 @@ xnn_status xnn_define_unary(xnn_subgraph_t subgraph, xnn_unary_operator type,
     }
   }
   if (type == xnn_unary_leaky_relu) {
-    return ynn::xnn_status_from_ynn(ynn::define_binary_scalar_b(
-        subgraph->ynn, ynn_binary_leaky_relu, input_id,
-        params->leaky_relu.negative_slope, &output_id));
+    return ynn::xnn_status_from_ynn(ynn::implement_leaky_relu(
+        subgraph->ynn, input_id, output_id, params->leaky_relu.negative_slope));
   } else if (type == xnn_unary_clamp) {
     return ynn::xnn_status_from_ynn(
         ynn::define_clamp(subgraph->ynn, params->clamp.min, params->clamp.max,
                           input_id, &output_id));
   } else if (type == xnn_unary_elu) {
-    // return x < 0 ? alpha * expm1(x) : x;
+    return ynn::xnn_status_from_ynn(ynn::implement_elu(
+        subgraph->ynn, input_id, params->elu.alpha, output_id));
   } else if (type == xnn_unary_gelu) {
     return ynn::xnn_status_from_ynn(
         ynn::implement_gelu(subgraph->ynn, input_id, output_id));
+  } else if (type == xnn_unary_hardswish) {
+    return ynn::xnn_status_from_ynn(
+        ynn::implement_hardswish(subgraph->ynn, input_id, output_id));
   } else if (type == xnn_unary_approxgelu) {
     // return (x / 2) * (1 + tanh(sqrt(2.0 / pi) * x * (1 + 0.044715 * x *
     // x))));

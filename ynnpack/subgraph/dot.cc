@@ -208,10 +208,10 @@ auto make_dot_impl(dot_type type, bool consistent_arithmetic, bool transposed_a,
     // hopes of making i bigger, which should improve performance in cases where
     // block_m does not divide c_m.extent()
 
-    // One of these strides is one tile_k, the other is the distance between
-    // rows, depending on whether it is transposed. In either case, the stride
-    // the kernel wants is the bigger stride.
-    const index_t a_stride = std::max(a_stride_k1, a_stride_m);
+    const index_t a_stride = transposed_a ? a_stride_k1 : a_stride_m;
+    // The kernels assume that the column dimension of a is stride 1 element.
+    assert(transposed_a ? (a_m.extent() == 1 || a_stride_m == a.elem_size)
+                        : (a_k1.extent() == 1 || a_stride_k1 == a.elem_size));
 
     auto call_kernel = [=, kernel = kernel.kernel](
                            index_t m, index_t n, index_t k1, const void* a,
@@ -401,14 +401,16 @@ uint32_t define_pack_b(ynn_subgraph_t subgraph, const dot_type& type,
   // Make a global variable for the alignment, which is a messy expression,
   // but keep the max outside it, so slinky can learn bounds from it
   // (hacky...).
-  block_n =
-      max(kernel.tile_n, subgraph->make_global_variable(block_n, "block_n"));
+  block_n = max(kernel.tile_n, subgraph->globals.get(block_n, "block_n"));
   slinky::expr tiles_k = slinky::ceil_div<slinky::expr>(k1, kernel.tile_k);
   slinky::expr blocks_n = slinky::ceil_div(n, block_n);
 
   assert(kernel.tile_k % element_count == 0);
   packed_b.extents = {kernel.tile_k / element_count, block_n, tiles_k,
                       blocks_n};
+  for (slinky::expr& i : packed_b.extents) {
+    i = slinky::simplify(i);
+  }
   packed_b.extents.insert(packed_b.extents.end(), b.extents.begin() + 2,
                           b.extents.end());
 
@@ -426,7 +428,7 @@ uint32_t define_pack_b(ynn_subgraph_t subgraph, const dot_type& type,
 
     // Split + Transpose
     std::vector<slinky::var> dims =
-        make_dims(output.buffer->rank(), runtime.symbols);
+        runtime.globals.make_dims(output.buffer->rank());
 
     slinky::func::input func_input = {input.buffer};
     slinky::expr tile_k = output.extent(0);
@@ -486,7 +488,7 @@ auto make_transpose_a_impl(index_t tile_k, int m_dim) {
     const slinky::dim& output_m = output.dim(m_dim);
 
     const index_t elem_size = input.elem_size;
-    assert(output_m.stride() == elem_size * tile_k);
+    assert(output_m.extent() == 1 || output_m.stride() == elem_size * tile_k);
     (void)output_m;
 
     // We need the intersection of the input and output bounds.
@@ -530,7 +532,8 @@ void define_transpose_a(ynn_subgraph& subgraph, ynn_node& node, index_t tile_k,
 
   slinky::expr k = a.extent(0);
   output.extents = a.extents;
-  output.extents[0] = slinky::ceil_div<slinky::expr>(k, tile_k);
+  output.extents[0] =
+      slinky::simplify(slinky::ceil_div<slinky::expr>(k, tile_k));
 
   node.inputs = {input_a_id};
   node.outputs = {output.id};
@@ -542,14 +545,18 @@ void define_transpose_a(ynn_subgraph& subgraph, ynn_node& node, index_t tile_k,
     const ynn_runtime_value& input = runtime.value(node.inputs[0]);
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
-    output.make_buffer(runtime, input.buffer->elem_size() * tile_k);
-    output.buffer->dim(m_dim).stride = output.buffer->elem_size();
+    slinky::expr elem_size = input.buffer->elem_size() * tile_k;
+    output.make_buffer(runtime, elem_size);
+    output.buffer->dim(m_dim).stride = elem_size;
     output.buffer->dim(0).stride =
-        output.buffer->dim(m_dim).stride * output.buffer->dim(m_dim).extent();
+        elem_size * output.buffer->dim(m_dim).extent();
+    // Don't allow folding of dimensions we transpose.
+    output.buffer->dim(m_dim).fold_factor = slinky::dim::unfolded;
+    output.buffer->dim(0).fold_factor = slinky::dim::unfolded;
 
     // Split + Transpose
     std::vector<slinky::var> dims =
-        make_dims(output.buffer->rank(), runtime.symbols);
+        runtime.globals.make_dims(output.buffer->rank());
 
     slinky::expr ko = dims[0];
 
@@ -648,11 +655,11 @@ std::tuple<slinky::expr, slinky::expr> choose_split_factors(
   slinky::expr splits = slinky::call::make(impl, {m, n, k, block_n});
 
   // Extract the two splits from the single index_t result.
-  splits = runtime.make_global_variable(splits, "dot_splits");
+  splits = runtime.globals.get(splits, "dot_splits");
   slinky::expr split_m = splits / 65536;
   slinky::expr split_n = splits % 65536;
-  split_m = runtime.make_global_variable(split_m, "split_m");
-  split_n = runtime.make_global_variable(split_n, "split_n");
+  split_m = runtime.globals.get(split_m, "split_m");
+  split_n = runtime.globals.get(split_n, "split_n");
   return {split_n, split_m};
 }
 
@@ -947,7 +954,7 @@ ynn_status ynn_define_dot(ynn_subgraph_t subgraph, size_t num_k_dims,
     }
     output.make_buffer(runtime);
 
-    std::vector<slinky::var> dims = make_dims(output.rank(), runtime.symbols);
+    std::vector<slinky::var> dims = runtime.globals.make_dims(output.rank());
     slinky::var j = dims[0];
 
     // A: We need all of the k dims, i is elementwise.

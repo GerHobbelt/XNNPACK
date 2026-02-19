@@ -39,6 +39,7 @@
 #include "slinky/runtime/buffer.h"
 #include "slinky/runtime/evaluate.h"
 #include "slinky/runtime/expr.h"
+#include "slinky/runtime/print.h"
 
 std::string ynn_value::name() const {
   return name_prefix() + std::to_string(id);
@@ -137,29 +138,25 @@ ynn_subgraph::ynn_subgraph(uint32_t external_value_ids, uint32_t flags)
   }
 }
 
-ynn_value& ynn_subgraph::new_internal_value() {
-  values.push_back(ynn_value(values.size()));
-  return values.back();
-}
-
 ynn_value& ynn_subgraph::new_internal_value(ynn_type type) {
-  ynn_value& value = new_internal_value();
+  ynn_value value;
+  value.id = values.size();
   value.type = type;
-  return value;
-}
-
-ynn_value& ynn_subgraph::new_internal_value(const ynn_value& template_value) {
-  ynn_value& value = new_internal_value();
-  value.type = template_value.type;
-  value.scale_id = template_value.scale_id;
-  value.zero_point_id = template_value.zero_point_id;
-  return value;
+  values.push_back(std::move(value));
+  return values.back();
 }
 
 ynn_value& ynn_subgraph::get_output_value(uint32_t* output_id,
                                           const ynn_value& template_value) {
+  return get_output_value(output_id, template_value.type,
+                          template_value.zero_point_id,
+                          template_value.scale_id);
+}
+
+ynn_value& ynn_subgraph::get_output_value(uint32_t* output_id, ynn_type type) {
   if (*output_id == YNN_INVALID_VALUE_ID) {
-    ynn_value& new_output = new_internal_value(template_value);
+    ynn_value& new_output = new_internal_value();
+    new_output.type = type;
     *output_id = new_output.id;
     return new_output;
   } else {
@@ -167,9 +164,14 @@ ynn_value& ynn_subgraph::get_output_value(uint32_t* output_id,
   }
 }
 
-ynn_value& ynn_subgraph::get_output_value(uint32_t* output_id, ynn_type type) {
+ynn_value& ynn_subgraph::get_output_value(uint32_t* output_id, ynn_type type,
+                                          uint32_t zero_point_id,
+                                          uint32_t scale_id) {
   if (*output_id == YNN_INVALID_VALUE_ID) {
-    ynn_value& new_output = new_internal_value(type);
+    ynn_value& new_output = new_internal_value();
+    new_output.type = type;
+    new_output.zero_point_id = zero_point_id;
+    new_output.scale_id = scale_id;
     *output_id = new_output.id;
     return new_output;
   } else {
@@ -312,22 +314,6 @@ void ynn_subgraph::infer_elementwise_shape(ynn_node& node, int input_idx,
     // constant?
     output_i = input_i;
     if (input_type_element_count != 1) output_i /= output_type_element_count;
-  }
-}
-
-slinky::var ynn_subgraph::make_global_variable(slinky::expr value,
-                                               const char* prefix) {
-  value = slinky::simplify(value);
-  assert(value.defined());
-
-  auto i = std::find_if(globals.begin(), globals.end(),
-                        [&](const auto& j) { return match(j.second, value); });
-  if (i == globals.end()) {
-    slinky::var r = symbols.insert_unique(prefix);
-    globals.push_back(std::make_pair(r, value));
-    return r;
-  } else {
-    return i->first;
   }
 }
 
@@ -508,6 +494,7 @@ const char* name_of(const ynn_node::opaque&) { return "opaque"; }
 const char* name_of(const ynn_node::unary_elementwise&) {
   return "unary_elementwise";
 }
+const char* name_of(const ynn_node::lut&) { return "lut"; }
 const char* name_of(const ynn_node::binary_elementwise&) {
   return "binary_elementwise";
 }
@@ -608,6 +595,8 @@ void print(std::ostream& os, const ynn_node::opaque& op) {
 void print(std::ostream& os, const ynn_node::unary_elementwise& op) {
   os << "op=" << op.op;
 }
+
+void print(std::ostream& os, const ynn_node::lut& op) {}
 
 void print(std::ostream& os, const ynn_node::binary_elementwise& op) {
   os << "op=" << op.op;
@@ -798,6 +787,19 @@ void ynn_subgraph::dump(std::ostream& os) const {
         os << "value=" << *v;
       }
     }
+    os << "extents={";
+    for (const slinky::expr& i : value.extents) {
+      if (!i.defined()) {
+        os << 1;
+      } else if (const auto v = as_constant(i)) {
+        os << *v;
+      } else {
+        os << i;
+        // os << "?";
+      }
+      os << ",";
+    }
+    os << "}";
     os << std::endl;
     ++values_count;
   }

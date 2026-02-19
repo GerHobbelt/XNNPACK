@@ -20,6 +20,7 @@
 #include "ynnpack/kernels/ternary/ternary.h"
 #include "ynnpack/subgraph/dot.h"
 #include "ynnpack/subgraph/elementwise.h"
+#include "ynnpack/subgraph/reduce.h"
 #include "ynnpack/subgraph/stencil_copy.h"
 #include "ynnpack/subgraph/subgraph.h"
 
@@ -216,6 +217,7 @@ bool rewrite_convert_to_quantize(ynn_subgraph& subgraph, ynn_node& node,
     YNN_LOG_DEBUG() << "Rewriting convert to quantize";
     ynn::define_ternary(subgraph, node, node.inputs[0], output.scale_id,
                         output.zero_point_id, node.outputs[0], op, kernel);
+    return true;
   }
   return false;
 }
@@ -333,6 +335,8 @@ bool rewrite_transpose_stencil_copy(ynn_subgraph& subgraph, ynn_node& node,
   if (transpose_a == nullptr) {
     return false;
   }
+  const int tile_k = transpose_a->tile_k;
+  const int m_dim = transpose_a->m_dim;
 
   auto producer_it = analysis.producers.find(node.inputs[0]);
   if (producer_it == analysis.producers.end()) {
@@ -340,11 +344,12 @@ bool rewrite_transpose_stencil_copy(ynn_subgraph& subgraph, ynn_node& node,
   }
 
   ynn_node* stencil_node = producer_it->second;
-  const ynn_node::stencil_copy* stencil_copy =
+  const ynn_node::stencil_copy* stencil_copy_ptr =
       std::get_if<ynn_node::stencil_copy>(&stencil_node->op);
-  if (stencil_copy == nullptr) {
+  if (stencil_copy_ptr == nullptr) {
     return false;
   }
+  ynn_node::stencil_copy stencil_copy = *stencil_copy_ptr;
 
   const uint32_t y_id = stencil_node->outputs[0];
   if (analysis.consumers[y_id].size() != 1 ||
@@ -360,11 +365,25 @@ bool rewrite_transpose_stencil_copy(ynn_subgraph& subgraph, ynn_node& node,
     return false;
   }
 
-  for (const ynn_node::stencil_copy::stencil& stencil :
-       stencil_copy->stencils) {
+  // `stencil_copy` inserts a dimension at each `new_axis` position, so
+  // `stencil_copy` caused `m_dim` to increase by 1 for each new dimension
+  // before `m_dim`. We restore `m_dim` to its original value.
+  int new_m_dim = m_dim;
+  for (const ynn_node::stencil_copy::stencil& stencil : stencil_copy.stencils) {
     // We do not support stencils with stride > 1 yet.
     if (stencil.stride != 1) {
       YNN_LOG_DEBUG() << "Stencil node has stride > 1.";
+      return false;
+    }
+
+    if (stencil.new_axis < m_dim) {
+      new_m_dim--;
+    } else if (stencil.new_axis == m_dim) {
+      // The transposed dimension is one of the new dimensions.
+      YNN_LOG_DEBUG() << "Transposed dimension is a new dimension.";
+
+      // We could handle this in some cases, if the extent and dilation of
+      // all dimensions is divided evenly by tile_k.
       return false;
     }
   }
@@ -372,65 +391,185 @@ bool rewrite_transpose_stencil_copy(ynn_subgraph& subgraph, ynn_node& node,
   YNN_LOG_DEBUG() << "Rewriting transpose_a(stencil_copy(x)) to "
                      "stencil_copy(transpose_a(x))";
 
-  ynn_node::stencil_copy stencil_op_data = *stencil_copy;
   uint32_t stencil_input_id = stencil_node->inputs[0];
   uint32_t stencil_padding_id = stencil_node->inputs.size() > 1
                                     ? stencil_node->inputs[1]
                                     : YNN_INVALID_VALUE_ID;
   uint32_t stencil_output_id = stencil_node->outputs[0];
 
-  // `stencil_copy` inserts a dimension at each `new_axis` position, so
-  // `stencil_copy` caused `m_dim` to increase by 1 for each new dimension
-  // before `m_dim`. We restore `m_dim` to its original value.
-  int new_m_dim = transpose_a->m_dim -
-                  std::count_if(stencil_copy->stencils.begin(),
-                                stencil_copy->stencils.end(),
-                                [m_dim = transpose_a->m_dim](
-                                    const ynn_node::stencil_copy::stencil& i) {
-                                  return i.new_axis < m_dim;
-                                });
-
-  if (transpose_a->tile_k > 1) {
-    for (ynn_node::stencil_copy::stencil& stencil : stencil_op_data.stencils) {
-      if (stencil.axis == new_m_dim) {
-        // `transpose_a` packs elements `tile_k` at a time. The stencil must
-        // account for this by dilating its kernel dimension by `tile_k`.
-        stencil.dilation *= transpose_a->tile_k;
-      }
-    }
-  }
-
   // Replace stencil_copy(x) with transpose_a'(x), reusing the stencil_node's x
   // input and y output.
-  ynn::define_transpose_a(subgraph, *stencil_node, transpose_a->tile_k,
-                          new_m_dim, stencil_input_id, stencil_output_id);
+  ynn::define_transpose_a(subgraph, *stencil_node, tile_k, new_m_dim,
+                          stencil_input_id, stencil_output_id);
 
   uint32_t output_id = node.outputs[0];
   // Replace transpose_a(x) with stencil_copy'(transpose_a'(x)), reusing
   // transpose_a's output.
-  ynn::define_stencil_copy(subgraph, node, std::move(stencil_op_data),
+  ynn::define_stencil_copy(subgraph, node, std::move(stencil_copy),
                            stencil_output_id, stencil_padding_id, &output_id,
                            /*flags=*/0);
 
   return true;
 }
 
+// Rewrites ynn_reduce_sum(x*x) to ynn_reduce_sum_squared(x).
+// Specifically:
+//   ynn_reduce_sum(fp32 * fp32) -> ynn_reduce_sum_squared(fp32)
+//   ynn_reduce_sum(int32 * int32) -> ynn_reduce_sum_squared(int32)
+bool rewrite_reduce_sum_of_squared(ynn_subgraph& subgraph, ynn_node& node,
+                                   subgraph_analysis& analysis) {
+  const ynn_node::reduce* reduce_op = std::get_if<ynn_node::reduce>(&node.op);
+  if (reduce_op == nullptr || reduce_op->op != ynn_reduce_sum) {
+    return false;
+  }
+
+  auto producer = analysis.producers.find(node.inputs[0]);
+  if (producer == analysis.producers.end()) {
+    return false;
+  }
+
+  ynn_node* mul_node = producer->second;
+  if (!is_binary_node(*mul_node, ynn_binary_multiply)) {
+    return false;
+  }
+
+  if (mul_node->inputs[0] != mul_node->inputs[1]) {
+    return false;
+  }
+
+  uint32_t x_id = mul_node->inputs[0];
+  const ynn_value* x = &subgraph.value(x_id);
+
+  if (x->type != ynn_type_fp32 && x->type != ynn_type_int32) {
+    return false;
+  }
+
+  YNN_LOG_DEBUG() << "Rewriting reduce_sum(x*x) to reduce_sum_squared(x)";
+  ynn::define_reduce(subgraph, node, ynn_reduce_sum_squared, reduce_op->k_dims,
+                     x_id, node.inputs[1], node.outputs[0],
+                     reduce_op->keep_dims);
+
+  return true;
+}
+
+// Rewrites ynn_reduce_sum of convert to ynn_reduce_sum of convert's input.
+// Specifically:
+//   ynn_reduce_sum(f32(x_fp16)) -> ynn_reduce_sum(x_fp16)
+//   ynn_reduce_sum(f32(x_bf16)) -> ynn_reduce_sum(x_bf16)
+//   ynn_reduce_sum(int32(x_int8)) -> ynn_reduce_sum(x_int8)
+bool rewrite_reduce_sum_convert(ynn_subgraph& subgraph, ynn_node& node,
+                                subgraph_analysis& analysis) {
+  const ynn_node::reduce* reduce_op = std::get_if<ynn_node::reduce>(&node.op);
+  if (reduce_op == nullptr || reduce_op->op != ynn_reduce_sum) {
+    return false;
+  }
+
+  auto producer = analysis.producers.find(node.inputs[0]);
+  if (producer == analysis.producers.end()) {
+    return false;
+  }
+
+  ynn_node* convert_node = producer->second;
+  if (!is_unary_node(*convert_node, ynn_unary_convert)) {
+    return false;
+  }
+
+  const ynn_value& x = subgraph.value(convert_node->inputs[0]);
+  const ynn_value& converted_x = subgraph.value(convert_node->outputs[0]);
+
+  if (converted_x.type == ynn_type_fp32) {
+    if (!ynn::type_is_floating_point(x.type)) {
+      return false;
+    }
+  } else if (converted_x.type == ynn_type_int32) {
+    if (!ynn::type_is_integral(x.type)) {
+      return false;
+    }
+    if (x.scale_id != YNN_INVALID_VALUE_ID ||
+        x.zero_point_id != YNN_INVALID_VALUE_ID) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+
+  YNN_LOG_DEBUG() << "Rewriting reduce_sum(convert(x)) to reduce_sum(x)";
+  ynn::define_reduce(subgraph, node, ynn_reduce_sum, reduce_op->k_dims, x.id,
+                     node.inputs[1], node.outputs[0], reduce_op->keep_dims);
+  return true;
+}
+
+// Rewrites ynn_reduce_sum_squared of convert to ynn_reduce_sum_squared of
+// convert's input. Specifically:
+//   ynn_reduce_sum_squared(f32(x_fp16)) -> ynn_reduce_sum_squared(x_fp16)
+//   ynn_reduce_sum_squared(f32(x_bf16)) -> ynn_reduce_sum_squared(x_bf16)
+//   ynn_reduce_sum_squared(int32(x_int8)) -> ynn_reduce_sum_squared(x_int8)
+bool rewrite_reduce_sum_squared_convert(ynn_subgraph& subgraph, ynn_node& node,
+                                        subgraph_analysis& analysis) {
+  const ynn_node::reduce* reduce_op = std::get_if<ynn_node::reduce>(&node.op);
+  if (reduce_op == nullptr || reduce_op->op != ynn_reduce_sum_squared) {
+    return false;
+  }
+
+  auto producer = analysis.producers.find(node.inputs[0]);
+  if (producer == analysis.producers.end()) {
+    return false;
+  }
+
+  ynn_node* convert_node = producer->second;
+  if (!is_unary_node(*convert_node, ynn_unary_convert)) {
+    return false;
+  }
+
+  const ynn_value& x = subgraph.value(convert_node->inputs[0]);
+  const ynn_value& converted_x = subgraph.value(convert_node->outputs[0]);
+
+  if (converted_x.type == ynn_type_fp32) {
+    if (!ynn::type_is_floating_point(x.type)) {
+      return false;
+    }
+  } else if (converted_x.type == ynn_type_int32) {
+    if (!ynn::type_is_integral(x.type)) {
+      return false;
+    }
+    if (x.scale_id != YNN_INVALID_VALUE_ID ||
+        x.zero_point_id != YNN_INVALID_VALUE_ID) {
+      return false;
+    }
+  } else {
+    return false;
+  }
+
+  YNN_LOG_DEBUG() << "Rewriting reduce_sum_squared(convert(x)) to "
+                     "reduce_sum_squared(x)";
+  ynn::define_reduce(subgraph, node, ynn_reduce_sum_squared, reduce_op->k_dims,
+                     x.id, node.inputs[1], node.outputs[0],
+                     reduce_op->keep_dims);
+  return true;
+}
+
 }  // namespace
 
 ynn_status ynn_subgraph::fusion() {
-  subgraph_analysis analysis(*this);
+  bool changed;
+  do {
+    subgraph_analysis analysis(*this);
+    changed = false;
+    for (ynn_node& node : nodes) {
+      if (!node.is_valid()) continue;
 
-  for (ynn_node& node : nodes) {
-    if (!node.is_valid()) continue;
-
-    false || rewrite_multiply_add(*this, node, analysis) ||
-        rewrite_subtract_multiply(*this, node, analysis) ||
-        rewrite_convert_to_multiply(*this, node, analysis) ||
-        rewrite_clamp(*this, node, analysis) ||
-        rewrite_convert_to_quantize(*this, node, analysis) ||
-        remove_broadcast(*this, node, analysis) ||
-        rewrite_transpose_stencil_copy(*this, node, analysis);
-  }
+      changed = changed || rewrite_multiply_add(*this, node, analysis) ||
+                rewrite_subtract_multiply(*this, node, analysis) ||
+                rewrite_convert_to_multiply(*this, node, analysis) ||
+                rewrite_clamp(*this, node, analysis) ||
+                rewrite_convert_to_quantize(*this, node, analysis) ||
+                remove_broadcast(*this, node, analysis) ||
+                rewrite_transpose_stencil_copy(*this, node, analysis) ||
+                rewrite_reduce_sum_of_squared(*this, node, analysis) ||
+                rewrite_reduce_sum_convert(*this, node, analysis) ||
+                rewrite_reduce_sum_squared_convert(*this, node, analysis);
+    }
+  } while (changed);
 
   return ynn_status_success;
 }

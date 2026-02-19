@@ -25,12 +25,7 @@ cc_library(
 
 ynn_cc_library(
     name = "reduce",
-    srcs = [
-        "generic.h",
-        "min_max_accumulator.h",
-        "reduce.cc",
-        "sum_accumulator.h",
-    ],
+    srcs = ["reduce.cc"],
     hdrs = [
         "max.inc",
         "min.inc",
@@ -67,6 +62,22 @@ ynn_cc_library(
         "//ynnpack/base:log",
         "//ynnpack/base/simd",  # buildcleaner: keep
     ],
+)
+
+cc_test(
+    name = "consistent_reduce_test",
+    srcs = ["consistent_reduce_test.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = [
+        ":reduce",
+        "//ynnpack:ynnpack_h",
+        "//ynnpack/base",
+        "//ynnpack/base/test:fuzz_test",
+        "//ynnpack/base/test:random",
+        "//ynnpack/base/test:tensor",
+        "//ynnpack/base/test:util",
+    ] + ynn_test_deps(),
 )
 
 cc_test(

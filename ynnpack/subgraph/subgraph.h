@@ -16,13 +16,13 @@
 #include <optional>
 #include <ostream>
 #include <string>
-#include <utility>
 #include <variant>
 #include <vector>
 
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
 #include "ynnpack/kernels/ternary/ternary.h"
+#include "ynnpack/subgraph/slinky.h"
 #include "slinky/runtime/buffer.h"
 #include "slinky/runtime/evaluate.h"
 #include "slinky/runtime/expr.h"
@@ -154,6 +154,7 @@ struct ynn_node {
   struct unary_elementwise {
     ynn_unary_operator op;
   };
+  struct lut {};
   struct binary_elementwise {
     ynn_binary_operator op;
   };
@@ -254,8 +255,8 @@ struct ynn_node {
                even_split, copy, split_dim, fuse_dim, fuse_dims, split_dims,
                stack, static_reshape, static_broadcast, static_expand_dims,
                static_pad, static_slice, static_transpose, stencil_copy,
-               unary_elementwise, binary_elementwise, ternary_elementwise, dot,
-               pack_b, transpose_a, get_tensor_shape, reduce>
+               unary_elementwise, lut, binary_elementwise, ternary_elementwise,
+               dot, pack_b, transpose_a, get_tensor_shape, reduce>
       op;
 
   const char* name() const;
@@ -304,8 +305,7 @@ struct ynn_subgraph {
   std::deque<ynn_value> values;
   std::deque<ynn_node> nodes;
 
-  // Symbols we've named in Slinky.
-  slinky::node_context symbols;
+  ynn::slinky_globals globals;
 
   bool is_valid_value(uint32_t id) const { return id < values.size(); }
 
@@ -319,9 +319,7 @@ struct ynn_subgraph {
   }
 
   // Returns a newly allocated internal value.
-  ynn_value& new_internal_value();
-  ynn_value& new_internal_value(ynn_type type);
-  ynn_value& new_internal_value(const ynn_value& template_value);
+  ynn_value& new_internal_value(ynn_type type = ynn_type_invalid);
   void add_node(ynn_node node);
 
   // Find the node that produces `id`.
@@ -333,6 +331,8 @@ struct ynn_subgraph {
   ynn_value& get_output_value(uint32_t* output_id,
                               const ynn_value& template_value);
   ynn_value& get_output_value(uint32_t* output_id, ynn_type type);
+  ynn_value& get_output_value(uint32_t* output_id, ynn_type type,
+                              uint32_t zero_point_id, uint32_t scale_id);
 
   // Get a scalar value of the given type and quantization parameters.
   uint32_t get_scalar_value_id(ynn_type type, uint32_t zero_point_id,
@@ -348,14 +348,6 @@ struct ynn_subgraph {
                                /*zero_point_id=*/YNN_INVALID_VALUE_ID,
                                /*scale_id=*/YNN_INVALID_VALUE_ID, value);
   }
-
-  // This is a list of global variables and their (symbolic) value that will be
-  // lifted out of the pipeline.
-  std::vector<std::pair<slinky::var, slinky::expr>> globals;
-
-  // Make a global variable for the given expression. Deduplicates identical
-  // expressions to the same variable.
-  slinky::var make_global_variable(slinky::expr value, const char* prefix);
 
   void infer_elementwise_shape(ynn_node& node, int input_idx, int output_idx,
                                int input_dim, int output_dim,

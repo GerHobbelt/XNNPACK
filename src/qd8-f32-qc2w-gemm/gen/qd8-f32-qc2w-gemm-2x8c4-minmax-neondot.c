@@ -64,33 +64,14 @@ void xnn_qd8_f32_qc2w_gemm_minmax_ukernel_2x8c4__neondot(
     const int32x4_t vinput_zero_point1 = vld1q_dup_s32(&quantization_params[1].zero_point);
     int32x4_t vacc1x0123 = vmulq_s32(vksum0123, vinput_zero_point1);
     int32x4_t vacc1x4567 = vmulq_s32(vksum4567, vinput_zero_point1);
-
-    const float32x4_t lh_row_sum_0 = vld1q_dup_f32(&row_sum[0]);
-    const float32x4_t lh_row_sum_1 = vld1q_dup_f32(&row_sum[1]);
-
-    const float32x4_t rh_zero_points_0123 = vld1q_f32(w);
-    w = (const float*)w + 4;
-    const float32x4_t rh_zero_points_4567 = vld1q_f32(w);
-    w = (const float*)w + 4;
+    // TODO: move kernel zero point after weights
+    const void* kzp = w;
+    w = (const float*)w + 8;
 
     // Inner accumulation loop along the 8 columns.
     size_t k = kc;
 
-    // Compensation for uint2 compute: -2 row_sum.
-    const float32x4_t vtwo = vdupq_n_f32(2.0f);
-    const float32x4_t biased_rh_zero_points_0123 = vaddq_f32(rh_zero_points_0123, vtwo);
-    const float32x4_t biased_rh_zero_points_4567 = vaddq_f32(rh_zero_points_4567, vtwo);
-
-    const float32x4_t scaled_lh_row_sum_0x0123 =
-        vmulq_f32(biased_rh_zero_points_0123, lh_row_sum_0);
-    const float32x4_t scaled_lh_row_sum_0x4567 =
-        vmulq_f32(biased_rh_zero_points_4567, lh_row_sum_0);
-    const float32x4_t scaled_lh_row_sum_1x0123 =
-        vmulq_f32(biased_rh_zero_points_0123, lh_row_sum_1);
-    const float32x4_t scaled_lh_row_sum_1x4567 =
-        vmulq_f32(biased_rh_zero_points_4567, lh_row_sum_1);
-
-    // 4x partial unrolled loop to load 8 bytes at a time.
+    // 4x partial unrolled loop to load 16 bytes at a time.
     while (k >= 16 * sizeof(int8_t)) {
       // Load a 2x16 block of activations.
       const int8x16_t va_0x16 = vld1q_s8(a0); a0 += 16;
@@ -138,7 +119,7 @@ void xnn_qd8_f32_qc2w_gemm_minmax_ukernel_2x8c4__neondot(
 
       k -= 16 * sizeof(int8_t);
     }
-    // Handle 4, 8, or 12 final positions of `k`.
+    // Handle up to 8 final positions of `k`.
     if XNN_UNLIKELY(k > 0) {
       int8x16_t vb0123x16 = vld1q_s8(w); w = (const int8_t*) w + 16;
       int8x16_t vb4567x16 = vld1q_s8(w); w = (const int8_t*) w + 16;
@@ -155,7 +136,7 @@ void xnn_qd8_f32_qc2w_gemm_minmax_ukernel_2x8c4__neondot(
         const int8x16_t vb0123x4567 = vandq_s8(vshrq_n_s8(vb0123x16, 2), vmask);
         const int8x16_t vb4567x4567 = vandq_s8(vshrq_n_s8(vb4567x16, 2), vmask);
 
-        // Multiply-accumulate: 1x2 * 2x16 --> 1x16.
+        // Multiply-accumulate: 2x8 * 8x8 --> 2x8.
         vacc0x0123 = vdotq_lane_s32(vacc0x0123, vb0123x0123, va0x8, 0);
         vacc0x4567 = vdotq_lane_s32(vacc0x4567, vb4567x0123, va0x8, 0);
 
@@ -169,21 +150,15 @@ void xnn_qd8_f32_qc2w_gemm_minmax_ukernel_2x8c4__neondot(
 
         k -= 8 * sizeof(int8_t);
 
-        if XNN_UNLIKELY(k > 0) {
-          vb0123x16 = vshrq_n_s8(vb0123x16, 4);
-          vb4567x16 = vshrq_n_s8(vb4567x16, 4);
-        }
+        vb0123x16 = vshrq_n_s8(vb0123x16, 4);
+        vb4567x16 = vshrq_n_s8(vb4567x16, 4);
       }
 
       // Handle up to 4 final positions of `k`.
       if XNN_UNLIKELY(k >= 4 * sizeof(int8_t)) {
-        // Load a 1x4 block of activations.
-        const int8x8_t va0x0123 = vreinterpret_s8_u32(
-          vld1_lane_u32((const uint32_t*)a0, vmov_n_u32(0), 0));
-        a0 += 4;
-        const int8x8_t va1x0123 = vreinterpret_s8_u32(
-          vld1_lane_u32((const uint32_t*)a1, vmov_n_u32(0), 0));
-        a1 += 4;
+      // Load a 2x4 block of activations.
+        const int8x8_t va0x0123 = vreinterpret_s8_s32(vld1_dup_s32((const int32_t*)a0)); a0 += 4;
+        const int8x8_t va1x0123 = vreinterpret_s8_s32(vld1_dup_s32((const int32_t*)a1)); a1 += 4;
 
         // First crumb.
         const int8x16_t vb0123x0123 = vandq_s8(vb0123x16, vmask);
@@ -205,12 +180,19 @@ void xnn_qd8_f32_qc2w_gemm_minmax_ukernel_2x8c4__neondot(
     float32x4_t vout0x4567 = vcvtq_f32_s32(vacc0x4567);
     float32x4_t vout1x0123 = vcvtq_f32_s32(vacc1x0123);
     float32x4_t vout1x4567 = vcvtq_f32_s32(vacc1x4567);
+    const float32x4_t vtwo = vdupq_n_f32(2.0f);
+    const float32x4_t rh_zero_points_0123 = vld1q_f32(kzp); kzp = (const float*)kzp + 4;
+    const float32x4_t biased_rh_zero_points_0123 = vaddq_f32(rh_zero_points_0123, vtwo);
+    const float32x4_t rh_zero_points_4567 = vld1q_f32(kzp); kzp = (const float*)kzp + 4;
+    const float32x4_t biased_rh_zero_points_4567 = vaddq_f32(rh_zero_points_4567, vtwo);
 
     // Subtract out the scaled left-hand row sums.
-    vout0x0123 = vsubq_f32(vout0x0123, scaled_lh_row_sum_0x0123);
-    vout0x4567 = vsubq_f32(vout0x4567, scaled_lh_row_sum_0x4567);
-    vout1x0123 = vsubq_f32(vout1x0123, scaled_lh_row_sum_1x0123);
-    vout1x4567 = vsubq_f32(vout1x4567, scaled_lh_row_sum_1x4567);
+    const float32x4_t lh_row_sum_0 = vld1q_dup_f32(&row_sum[0]);
+    vout0x0123 = vfmsq_f32(vout0x0123, biased_rh_zero_points_0123, lh_row_sum_0);
+    vout0x4567 = vfmsq_f32(vout0x4567, biased_rh_zero_points_4567, lh_row_sum_0);
+    const float32x4_t lh_row_sum_1 = vld1q_dup_f32(&row_sum[1]);
+    vout1x0123 = vfmsq_f32(vout1x0123, biased_rh_zero_points_0123, lh_row_sum_1);
+    vout1x4567 = vfmsq_f32(vout1x4567, biased_rh_zero_points_4567, lh_row_sum_1);
 
     // Add the product of left/right-hand zero points and `kc`.
     const float32x4_t vscaled_lh_zero_point_0 =

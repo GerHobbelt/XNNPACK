@@ -394,43 +394,6 @@ def make_x86_integer_comparison_patterns(vector_bits, prefix):
   ]
 
 
-def make_x86_broadcast_patterns(vector_bits, prefix):
-  return [
-      Rule(
-          broadcast(i8_a, vector_bits // 8),
-          Op(Int(8, vector_bits // 8), prefix + "set1_epi8", [i8_a]),
-      ),
-      Rule(
-          broadcast(u8_a, vector_bits // 8),
-          Op(UInt(8, vector_bits // 8), prefix + "set1_epi8", [u8_a]),
-      ),
-      Rule(
-          broadcast(i16_a, vector_bits // 16),
-          Op(Int(16, vector_bits // 16), prefix + "set1_epi16", [i16_a]),
-      ),
-      Rule(
-          broadcast(u16_a, vector_bits // 16),
-          Op(UInt(16, vector_bits // 16), prefix + "set1_epi16", [u16_a]),
-      ),
-      Rule(
-          broadcast(i32_a, vector_bits // 32),
-          Op(Int(32, vector_bits // 32), prefix + "set1_epi32", [i32_a]),
-      ),
-      Rule(
-          broadcast(u32_a, vector_bits // 32),
-          Op(UInt(32, vector_bits // 32), prefix + "set1_epi32", [u32_a]),
-      ),
-      Rule(
-          broadcast(f32_a, vector_bits // 32),
-          Op(Float(32, vector_bits // 32), prefix + "set1_ps", [f32_a]),
-      ),
-      Rule(
-          broadcast(bf16_a, vector_bits // 16),
-          Op(BFloat(16, vector_bits // 16), prefix + "set1_epi16", [bf16_a]),
-      ),
-  ]
-
-
 def make_x86_slice_patterns(vector_bits, prefix):
   """Adds x86 slice patterns.
 
@@ -712,13 +675,13 @@ class X86(Target):
   def update_for_sse2(self):
     """Updates the target for SSE2 support."""
     self.types.update({
-        Int(8, 16): "__m128i",
-        Int(16, 8): "__m128i",
-        Int(32, 4): "__m128i",
-        UInt(8, 16): "__m128i",
-        UInt(16, 8): "__m128i",
-        UInt(32, 4): "__m128i",
-        Float(32, 4): "__m128",
+        Int(8, 16): "simd::vec<int8_t, 16>",
+        Int(16, 8): "simd::vec<int16_t, 8>",
+        Int(32, 4): "simd::vec<int32_t, 4>",
+        UInt(8, 16): "simd::vec<uint8_t, 16>",
+        UInt(16, 8): "simd::vec<uint16_t, 8>",
+        UInt(32, 4): "simd::vec<uint32_t, 8>",
+        Float(32, 4): "simd::vec<float, 4>",
     })
 
     self.add_load_intrinsics(128, "_mm_")
@@ -727,7 +690,6 @@ class X86(Target):
     self.patterns += make_x86_integer_patterns(128, "_mm_")
     self.patterns += make_x86_cast_patterns(128, "_mm_")
     self.patterns += make_x86_reinterpret_cast_patterns(128, "_mm_")
-    self.patterns += make_x86_broadcast_patterns(128, "_mm_")
     self.patterns += make_x86_float_comparison_patterns(128, "_mm_")
     self.patterns += make_x86_integer_comparison_patterns(128, "_mm_")
 
@@ -892,22 +854,21 @@ YNN_INTRINSIC __m128 wrapper_mm256_slice_extract_ps256_1(
 
 """
     self.types.update({
-        Float(32, 8): "__m256",
-        Float(16, 8): "__m128i",
-        Int(8, 32): "__m256i",
-        Int(16, 16): "__m256i",
-        Int(32, 8): "__m256i",
-        UInt(8, 32): "__m256i",
-        UInt(16, 16): "__m256i",
-        UInt(32, 8): "__m256i",
-        BFloat(16, 16): "__m256i",
-        BFloat(16, 8): "__m128i",
+        Float(32, 8): "simd::vec<float, 8>",
+        Float(16, 8): "simd::vec<half, 8>",
+        Int(8, 32): "simd::vec<int8_t, 32>",
+        Int(16, 16): "simd::vec<int16_t, 16>",
+        Int(32, 8): "simd::vec<int32_t, 8>",
+        UInt(8, 32): "simd::vec<uint8_t, 32>",
+        UInt(16, 16): "simd::vec<uint16_t, 16>",
+        UInt(32, 8): "simd::vec<uint32_t, 8>",
+        BFloat(16, 16): "simd::vec<bfloat16, 16>",
+        BFloat(16, 8): "simd::vec<bfloat16, 8>",
     })
     self.add_load_intrinsics(256, "_mm256_")
     self.add_store_intrinsics(256, "_mm256_")
     self.patterns += make_x86_float32_patterns(256, "_mm256_")
     self.patterns += make_x86_reinterpret_cast_patterns(256, "_mm256_")
-    self.patterns += make_x86_broadcast_patterns(256, "_mm256_")
     self.patterns += make_x86_slice_patterns(256, "_mm256_")
 
   def update_for_avx2(self):
@@ -1096,21 +1057,20 @@ YNN_INTRINSIC __m256 wrapper_mm512_slice_extract_ps512_1(
 
 """
     self.types.update({
-        Int(8, 64): "__m512i",
-        Int(16, 32): "__m512i",
-        Int(32, 16): "__m512i",
-        UInt(8, 64): "__m512i",
-        UInt(16, 32): "__m512i",
-        UInt(32, 16): "__m512i",
-        Float(32, 16): "__m512",
-        Float(16, 16): "__m256i",
+        Int(8, 64): "simd::vec<int8_t, 64>",
+        Int(16, 32): "simd::vec<int16_t, 32>",
+        Int(32, 16): "simd::vec<int32_t, 16>",
+        UInt(8, 64): "simd::vec<uint8_t, 64>",
+        UInt(16, 32): "simd::vec<uint16_t, 32>",
+        UInt(32, 16): "simd::vec<uint32_t, 16>",
+        Float(32, 16): "simd::vec<float, 16>",
+        Float(16, 16): "simd::vec<half, 16>",
     })
     self.add_load_intrinsics(512, "_mm512_")
     self.add_store_intrinsics(512, "_mm512_")
     self.patterns += make_x86_fma_patterns(512, "_mm512_")
     self.patterns += make_x86_float32_patterns(512, "_mm512_")
     self.patterns += make_x86_reinterpret_cast_patterns(512, "_mm512_")
-    self.patterns += make_x86_broadcast_patterns(512, "_mm512_")
     self.patterns += make_x86_integer_patterns(512, "_mm512_")
     self.patterns += make_x86_integer_min_max_patterns(512, "_mm512_")
     self.patterns += make_x86_cast_patterns(512, "_mm512_")
@@ -1125,11 +1085,17 @@ YNN_INTRINSIC __m512i convert_fp32_to_bf16_avx512(__m512 a, __m512 b) {
   return (__m512i)_mm512_cvtne2ps_pbh(b, a);
 }
 
-YNN_INTRINSIC void partial_store_32x(bfloat16* output, size_t num_elements, __m512i v) {
+YNN_INTRINSIC __m256i partial_load_16x(const ynn::bfloat16* ptr, size_t num_elements) {
+  __m256i v = _mm256_setzero_si256();
+  memcpy(&v, ptr, num_elements * 2);
+  return v;
+}
+
+YNN_INTRINSIC void partial_store_32x(ynn::bfloat16* output, size_t num_elements, __m512i v) {
   partial_store_32x((int16_t*)output, num_elements, v);
 }
 
-YNN_INTRINSIC __m512i partial_load_32x(const uint16_t* ptr, size_t num_elements) {
+YNN_INTRINSIC __m512i partial_load_32x(const ynn::bfloat16* ptr, size_t num_elements) {
   return partial_load_32x((const int16_t*)ptr, num_elements);
 }
 
@@ -1137,7 +1103,7 @@ YNN_INTRINSIC __m512i partial_load_32x(const uint16_t* ptr, size_t num_elements)
 
 """
     self.types.update({
-        BFloat(16, 32): "__m512i",
+        BFloat(16, 32): "simd::vec<bfloat16, 32>",
     })
     self.patterns += make_x86_bf16_patterns(512)
 
@@ -1261,15 +1227,23 @@ YNN_INTRINSIC __m512i saturating_cast_int16_to_uint8(__m512i a, __m512i b) {
       if feature not in known_features:
         raise ValueError(f"Unknown feature: {feature}")
 
+    simd_header = ""
     if "AVX512F" in all_features:
+      simd_header = "x86_avx512.h"
       self.tail_strategy = TailStrategy.MASK
       self.vector_bits = 512
     elif "AVX" in all_features:
+      simd_header = "x86_avx.h"
       self.tail_strategy = TailStrategy.MEMCPY
       self.vector_bits = 256
     elif "SSE2" in all_features:
+      simd_header = "x86_sse2.h"
       self.tail_strategy = TailStrategy.MEMCPY
       self.vector_bits = 128
+
+    self.header += (
+        f'#include "ynnpack/base/simd/{simd_header}"\n'
+    )
 
     if "AVX512BW" in all_features:
       self.update_for_avx512bw()

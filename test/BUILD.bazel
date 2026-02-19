@@ -1073,8 +1073,8 @@ xnnpack_unit_test(
         "//:buffer",
         "//:indirection",
         "//:math",
+        "//:operator_h",
         "//:operator_utils",
-        "//:operators",
         "//:xnnpack_h",
     ],
 )

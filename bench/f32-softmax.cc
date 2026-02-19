@@ -11,7 +11,6 @@
 #include "src/xnnpack/common.h"
 #include "src/xnnpack/hardware-config.h"
 #include "src/xnnpack/microfnptr.h"
-#include "src/xnnpack/microparams.h"
 #include "src/xnnpack/raddexpminusmax.h"
 #include "src/xnnpack/raddextexp.h"
 #include "src/xnnpack/raddstoreexpminusmax.h"
@@ -460,7 +459,7 @@ BENCHMARK_CAPTURE(
     ->UseManualTime();
 #endif  // XNN_ENABLE_AVX512F && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
-#if XNN_ARCH_X86 || XNN_ARCH_X86_64
+#if XNN_ENABLE_AVX2 && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 BENCHMARK_CAPTURE(TwoPassSoftMax, avx2_p5,
                   xnn_f32_raddextexp_ukernel__avx2_p5_u96,
                   xnn_f32_vscaleextexp_ukernel__avx2_p5_u32,
@@ -483,7 +482,7 @@ BENCHMARK_CAPTURE(ThreePassSoftMaxWithReloading, avx2_p5,
                   xnn_arch_x86_avx2)
     ->Apply(CharacteristicArguments)
     ->UseManualTime();
-#endif  // XNN_ARCH_X86 || XNN_ARCH_X86_64
+#endif  // XNN_ENABLE_AVX2 && (XNN_ARCH_X86 || XNN_ARCH_X86_64)
 
 #if XNN_ARCH_RISCV && XNN_ENABLE_RISCV_VECTOR
 BENCHMARK_CAPTURE(ThreePassSoftMaxWithReloading, rvv_p6_rmax_m8_exp_m4_vmulc_m8,

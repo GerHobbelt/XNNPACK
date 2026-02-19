@@ -77,6 +77,7 @@ static enum xnn_uarch cpuinfo_to_xnn_uarch(enum cpuinfo_uarch uarch) {
     case cpuinfo_uarch_dhyana: return xnn_uarch_dhyana;
     case cpuinfo_uarch_zen: return xnn_uarch_zen;
     case cpuinfo_uarch_zen4: return xnn_uarch_zen4;
+    case cpuinfo_uarch_zen5: return xnn_uarch_zen5;
 
     case cpuinfo_uarch_cortex_a5: return xnn_uarch_cortex_a5;
     case cpuinfo_uarch_cortex_a7: return xnn_uarch_cortex_a7;
@@ -209,8 +210,10 @@ static void init_hardware_config(void) {
   const bool use_x86_avx256skx = XNN_ENABLE_AVX256SKX && cpuinfo_has_x86_avx512f() && cpuinfo_has_x86_avx512bw() && cpuinfo_has_x86_avx512dq() && cpuinfo_has_x86_avx512vl();
   const bool use_x86_avx256vnni = XNN_ENABLE_AVX256VNNI && use_x86_avx256skx && cpuinfo_has_x86_avx512vnni();
 
-  set_arch_flag(xnn_arch_x86_ssse3, cpuinfo_has_x86_ssse3());
-  set_arch_flag(xnn_arch_x86_sse4_1, cpuinfo_has_x86_sse4_1());
+  set_arch_flag(xnn_arch_x86_sse, XNN_ENABLE_SSE && cpuinfo_has_x86_sse());
+  set_arch_flag(xnn_arch_x86_sse2, XNN_ENABLE_SSE2 && cpuinfo_has_x86_sse2());
+  set_arch_flag(xnn_arch_x86_ssse3, XNN_ENABLE_SSSE3 && cpuinfo_has_x86_ssse3());
+  set_arch_flag(xnn_arch_x86_sse4_1, XNN_ENABLE_SSE41 && cpuinfo_has_x86_sse4_1());
   set_arch_flag(xnn_arch_x86_avx, XNN_ENABLE_AVX2 && cpuinfo_has_x86_avx());
   set_arch_flag(xnn_arch_x86_f16c, XNN_ENABLE_F16C && cpuinfo_has_x86_f16c());
   set_arch_flag(xnn_arch_x86_fma3, XNN_ENABLE_FMA3 && cpuinfo_has_x86_fma3());

@@ -24,7 +24,6 @@
 #include "src/xnnpack/math.h"
 #include "src/xnnpack/microfnptr.h"
 #include "src/xnnpack/microparams-init.h"
-#include "src/xnnpack/microparams.h"
 #include "src/xnnpack/pack-lh.h"
 #include "src/xnnpack/pack.h"
 #include "src/xnnpack/packq.h"
@@ -789,7 +788,7 @@ void GEMMBenchmark(benchmark::State& state,
                    xnn_init_f32_minmax_params_fn init_minmax_params,
                    xnn_pack_weights_and_biases_fn pack_weights,
                    xnn_packed_stride_weights_and_biases_fn packed_stride,
-                   size_t mr, size_t nr, size_t kr, size_t sr, size_t mr_packed,
+                   ConstantOrFunction mr, ConstantOrFunction nr, size_t kr, size_t sr, ConstantOrFunction mr_packed,
                    uint64_t arch_flags) {
   if (!benchmark::utils::CheckArchFlags(state, arch_flags)) {
     return;
@@ -988,21 +987,14 @@ void GEMMBenchmark(benchmark::State& state,
     buffer_index = (buffer_index + 1) % num_buffers;
     state.ResumeTiming();
 
-    if (mr > 1) {
-      for (uint32_t m = 0; m < mc; m += mr) {
-        const uint32_t mb = min(mc - m, mr);
-        gemm(mb, nc, kc * sizeof(float),
-             input_packed.data() +
-                 xnn_x32_pack_lh_offset__neonsme(m, kc, mr_packed, kr, sr),
-             w.data() + packed_w_size / sizeof(float) * buffer_index,
-             c.data() + (buffer_index * mc + m) * nc, nc * sizeof(float),
-             sizeof(float), &minmax_params);
-      }
-    } else {
-      gemm(mr, nc, kc * sizeof(float), input_packed.data(),
-           w.data() + packed_w_size / sizeof(float) * buffer_index,
-           c.data() + (buffer_index * mc) * nc, nc * sizeof(float),
-           sizeof(float), &minmax_params);
+    for (uint32_t m = 0; m < mc; m += mr) {
+      const uint32_t mb = min(mc - m, mr);
+      gemm(mb, nc, kc * sizeof(float),
+            input_packed.data() +
+                xnn_x32_pack_lh_offset__neonsme(m, kc, mr_packed, kr, sr),
+            w.data() + packed_w_size / sizeof(float) * buffer_index,
+            c.data() + (buffer_index * mc + m) * nc, nc * sizeof(float),
+            sizeof(float), &minmax_params);
     }
   }
 
@@ -1107,21 +1099,14 @@ void GEMMBenchmark(benchmark::State& state,
     buffer_index = (buffer_index + 1) % num_buffers;
     state.ResumeTiming();
 
-    if (mr > 1) {
-      for (uint32_t m = 0; m < mc; m += mr) {
-        const uint32_t mb = min(mc - m, mr);
-        gemm(mb, nc, kc * sizeof(xnn_float16),
-             input_packed.data() +
-                 xnn_x16_pack_lh_offset__neonsme2(m, kc, mr_packed, kr, sr),
-             w.data() + packed_w_size * buffer_index,
-             &c[c_elements * buffer_index], nc * sizeof(xnn_float16),
-             sizeof(xnn_float16), &minmax_params);
-      }
-    } else {
-      gemm(mr, nc, kc * sizeof(xnn_float16), input_packed.data(),
-           w.data() + packed_w_size * buffer_index,
-           &c[c_elements * buffer_index], nc * sizeof(xnn_float16),
-           sizeof(xnn_float16), &minmax_params);
+    for (uint32_t m = 0; m < mc; m += mr) {
+      const uint32_t mb = min(mc - m, mr);
+      gemm(mb, nc, kc * sizeof(xnn_float16),
+            input_packed.data() +
+                xnn_x16_pack_lh_offset__neonsme2(m, kc, mr_packed, kr, sr),
+            w.data() + packed_w_size * buffer_index,
+            &c[c_elements * buffer_index], nc * sizeof(xnn_float16),
+            sizeof(xnn_float16), &minmax_params);
     }
   }
 

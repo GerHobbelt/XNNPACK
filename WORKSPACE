@@ -85,9 +85,9 @@ http_archive(
 # pthreadpool library, used for parallelization
 http_archive(
     name = "pthreadpool",
-    sha256 = "03524bb51d44e3f6c8cf3316de88cd8f4cec8ab5dde605451209a0051a5dd8c9",
-    strip_prefix = "pthreadpool-bad85d364ff2be7a7fcf780f1fbaa7835d781c18",
-    urls = ["https://github.com/google/pthreadpool/archive/bad85d364ff2be7a7fcf780f1fbaa7835d781c18.zip"],
+    sha256 = "bb468cf1c14951f48c802de905631993fd9bcf395f997187e1e0165ffb88668d",
+    strip_prefix = "pthreadpool-75b23a57b4e5ad206e8f69b698b5f1df04cf3d32",
+    urls = ["https://github.com/google/pthreadpool/archive/75b23a57b4e5ad206e8f69b698b5f1df04cf3d32.zip"],
 )
 # LINT.ThenChange(cmake/DownloadPThreadPool.cmake,MODULE.bazel:pthreadpool)
 
@@ -122,5 +122,14 @@ http_archive(
     strip_prefix = "ruy-9f53ba413e6fc879236dcaa3e008915973d67a4f",
     urls = [
         "https://github.com/google/ruy/archive/9f53ba413e6fc879236dcaa3e008915973d67a4f.zip",
+    ],
+)
+
+http_archive(
+    name = "slinky",
+    sha256 = "e30625e2a3071ed674d48436bd671547f29825953ea7349c066c21322587ff6e",
+    strip_prefix = "slinky-e9c16e794b1a0a5f7bcc86565108a325f98c1422",
+    urls = [
+        "https://github.com/dsharlet/slinky/archive/e9c16e794b1a0a5f7bcc86565108a325f98c1422.zip",
     ],
 )

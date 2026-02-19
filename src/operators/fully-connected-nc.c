@@ -251,22 +251,21 @@ static enum xnn_status create_fully_connected_nc(
         pack_gemm_gio_w(
             /*groups=*/1, output_channels, input_channels, nr, kr, sr,
             output_channels, kernel, bias, /*scale=*/NULL, weights_ptr,
-            gemm_config->nr * extra_weights_bytes, packing_params);
+            nr * extra_weights_bytes, packing_params);
       } else {
         pack_gemm_goi_w(
             /*groups=*/1, output_channels, input_channels, nr, kr, sr, kernel,
-            bias, /*scale=*/NULL, weights_ptr,
-            gemm_config->nr * extra_weights_bytes, packing_params);
+            bias, /*scale=*/NULL, weights_ptr, nr * extra_weights_bytes,
+            packing_params);
       }
       if (kernel_scale_params != NULL) {
         assert(init_kernel_scale_params != NULL);
 
         void* weights =
             (void*)((uintptr_t)weights_ptr +
-                    gemm_config->nr * ((k_stride << log2_filter_element_size) +
-                                       bias_element_size));
-        init_kernel_scale_params(output_channels, gemm_config->nr,
-                                 gemm_config->nr * weights_stride,
+                    nr * ((k_stride << log2_filter_element_size) +
+                        bias_element_size));
+        init_kernel_scale_params(output_channels, nr, nr * weights_stride,
                                  kernel_scale_params, weights);
       }
 
@@ -274,15 +273,14 @@ static enum xnn_status create_fully_connected_nc(
         assert(init_scale_params != NULL);
         void* weights =
             (void*)((uintptr_t)weights_ptr +
-                    gemm_config->nr * ((k_stride << log2_filter_element_size) +
-                                       bias_element_size));
+                    nr * ((k_stride << log2_filter_element_size) +
+                        bias_element_size));
         if (kernel_scale_params != NULL) {
           weights =
-              (void*)((uintptr_t)weights + gemm_config->nr * sizeof(float));
+              (void*)((uintptr_t)weights + nr * sizeof(float));
         }
-        init_scale_params(output_channels, gemm_config->nr,
-                          gemm_config->nr * weights_stride, scale_params,
-                          weights);
+        init_scale_params(output_channels, nr, nr * weights_stride,
+                          scale_params, weights);
       }
     }
 
@@ -1610,24 +1608,14 @@ enum xnn_status xnn_create_fully_connected_nc_f32(
   const struct xnn_gemm_config* gemm_nr2_config = xnn_init_f32_gemm_nr2_config(flags);
 
   // Select microkernel configuration based on output channels
-  if (gemm_nr2_config != NULL) {
-    const size_t nr = gemm_config->nr;
-    const size_t nr2 = gemm_nr2_config->nr;
-    size_t nr_overcompute = (nr - output_channels % nr) % nr;
-    size_t nr2_overcompute = (nr2 - output_channels % nr2) % nr2;
-    // Switch to alternative microkernel when:
-    // 1. Alternative microkernel better supports less output channels, or
-    // 2. Alternative microkernel has less overcompute and default wastes >1% of
-    // output channels
-    if (nr > output_channels || (nr2_overcompute < nr_overcompute &&
-                                 nr_overcompute * 100 > output_channels)) {
-      // Default microkernel is suboptimal, use a microkernel that better
-      // supports less output channels.
-      if (gemm_nr2_config->minmax.gemm[gemm_nr2_config->mr - 1]
-              .function[XNN_UARCH_DEFAULT] != NULL) {
-        gemm_config = gemm_nr2_config;
-      }
-    }
+  if (gemm_nr2_config != NULL &&
+      gemm_nr2_config->minmax.gemm[gemm_nr2_config->mr - 1]
+              .function[XNN_UARCH_DEFAULT] != NULL &&
+      xnn_use_nr2(gemm_config->nr, gemm_nr2_config->nr, output_channels)) {
+    xnn_log_debug(
+        "Using `nr2` GEMM config for %s op.",
+        xnn_operator_type_to_string(xnn_operator_type_fully_connected_nc_f32));
+    gemm_config = gemm_nr2_config;
   }
 
   return create_fully_connected_nc_f32(

@@ -292,7 +292,7 @@ class Op(Value):
     fn_ops.append(self)
 
   def __repr__(self):
-    return f"{self.name}<{self.ty}>({', '.join(map(str, self.args))})"
+    return f"{self.name}<{self.ty}>({', '.join(map(repr, self.args))})"
 
   def compare(self, other):
     return self.name == other.name and self.ty == other.ty
@@ -316,7 +316,7 @@ class Var(Value):
     return self.name
 
   def __repr__(self):
-    return str(self)
+    return f"{self.name}:{self.ty}"
 
   def __hash__(self):
     return hash((self.name, self.ty))
@@ -345,7 +345,7 @@ class Load(Value):
     self.offset_elements = offset_elements
 
   def __repr__(self):
-    return f"load({self.index}, {self.offset_elements})"
+    return f"load<{self.ty}>({self.index}, {self.offset_elements})"
 
   def with_lanes(self, lanes):
     return Load(self.ty.with_lanes(lanes), self.index, self.offset_elements)
@@ -585,6 +585,14 @@ def lower_saturating_add(x, y):
   return saturating_narrow(widen(x) + widen(y))
 
 
+def lower_multiply_add(x, y, z):
+  return x * y + z
+
+
+def lower_multiply_sub(x, y, z):
+  return x * y - z
+
+
 def broadcast(x, lanes):
   """Broadcasts a scalar to a vector."""
   assert x.ty.lanes == 1
@@ -624,6 +632,8 @@ lowering_funcs = {
     "saturating_add": lower_saturating_add,
     "select_bits": lower_select_bits,
     "select": lower_select,
+    "multiply_add": lower_multiply_add,
+    "multiply_sub": lower_multiply_sub,
 }
 
 
@@ -780,15 +790,6 @@ YNN_INTRINSIC T truediv(T a, T b) {
 } // namespace
 } // namespace ynn
 
-using int8x1_t = int8_t;
-using uint8x1_t = uint8_t;
-using int16x1_t = int16_t;
-using uint16x1_t = uint16_t;
-using int32x1_t = int32_t;
-using uint32x1_t = uint32_t;
-using float32x1_t = float;
-using float32_t = float;
-
 """
 
 
@@ -926,12 +927,13 @@ class Target:
     self.indent_level = 0
     self.patterns = []
     self.types = {
-        Int(8, 1): "char",
-        Int(16, 1): "short",
-        Int(32, 1): "int",
-        UInt(8, 1): "unsigned char",
-        UInt(16, 1): "unsigned short",
-        UInt(32, 1): "unsigned int",
+        Int(8, 1): "int8_t",
+        Int(16, 1): "int16_t",
+        Int(32, 1): "int32_t",
+        UInt(8, 1): "uint8_t",
+        UInt(16, 1): "uint16_t",
+        UInt(32, 1): "uint32_t",
+        Float(16, 1): "half",
         Float(32, 1): "float",
     }
     self.features = []
@@ -944,6 +946,15 @@ class Target:
 
   def indent(self):
     return "  " * self.indent_level
+
+  def get_natural_lanes_num(self, ty):
+    """Returns a number of lanes of the widest type registered in target's types list which also matches class and size of the type."""
+    lanes = 1
+    for t in self.types:
+      if t.type_class == ty.type_class and t.size == ty.size:
+        lanes = builtins.max(lanes, t.lanes)
+
+    return lanes
 
   def as_buffer(self, arg, buffers):
     b = None
@@ -962,8 +973,8 @@ class Target:
             implied_features[feature], implied_features, all_features
         )
 
-  def legalize_type(self, ty):
-    return self.types.get(ty, ty.to_c_decl(True))
+  def legalize_type(self, ty, is_const=True):
+    return self.types.get(ty, ty.to_c_decl(is_const))
 
   def vectorize(self, expr, lanes, cache):
     if expr in cache:
@@ -998,9 +1009,10 @@ class Target:
     if isinstance(expr, Var) or isinstance(expr, Constant):
       v = expr
     else:
-      natural_lanes = self.vector_bits // expr.ty.size
-      assert expr.ty.lanes % natural_lanes == 0
-      slices_num = expr.ty.lanes // natural_lanes
+      natural_lanes = self.get_natural_lanes_num(expr.ty)
+      # If the number of lanes is less than what hardware vector has there is
+      # nothing to slice.
+      slices_num = builtins.max(expr.ty.lanes // natural_lanes, 1)
 
       args = []
       if not isinstance(expr, Load):
@@ -1365,7 +1377,7 @@ class Target:
     for arg in args:
       b = self.as_buffer(arg, buffers)
       if b is not None:
-        t = str(b.ty)
+        t = self.legalize_type(b.ty, False)
         if is_load:
           t = "const " + t
         row_offset = ""
@@ -1408,8 +1420,8 @@ class Target:
         and is_rem_width
         and self.tail_strategy == TailStrategy.MEMCPY
     ):
-      dst = str_args[0] if is_store else f"&{i[0]}_{j}_{k}"
-      src = f"&{str_args[1]}" if is_store else str_args[0]
+      dst = str_args[0] if is_store else f"(void*)&{i[0]}_{j}_{k}"
+      src = f"(void*)&{str_args[1]}" if is_store else str_args[0]
 
       if is_load:
         self.result += f";\n{self.indent()}"
@@ -1471,7 +1483,7 @@ class Target:
         op_natural_vector_size = (
             1
             if is_rem_width and self.tail_strategy == TailStrategy.SCALAR
-            else self.vector_bits // op[1].ty.size
+            else op[1].ty.lanes
         )
         for k in range(output_vector_num):
           self.emit_op(
@@ -1490,7 +1502,6 @@ class Target:
 
   def emit_body(
       self,
-      output_type_size,
       ops,
       constants,
       buffers,
@@ -1535,7 +1546,7 @@ class Target:
         output_vector_num = (
             1
             if is_rem_width and self.tail_strategy == TailStrategy.SCALAR
-            else tile_width * output_type_size // self.vector_bits
+            else tile_width // natural_lanes
         )
 
         self.emit_inner_loop_body(
@@ -1572,7 +1583,6 @@ class Target:
 
   def handle_specialize(
       self,
-      output_type_size,
       ops,
       constants,
       buffers,
@@ -1591,7 +1601,6 @@ class Target:
         new_buffers[i].broadcast_mode = BroadcastMode.ALWAYS
 
         self.handle_specialize(
-            output_type_size,
             ops,
             constants,
             new_buffers,
@@ -1606,7 +1615,6 @@ class Target:
         new_buffers[i].broadcast_mode = BroadcastMode.NONE
 
         self.handle_specialize(
-            output_type_size,
             ops,
             constants,
             new_buffers,
@@ -1622,7 +1630,6 @@ class Target:
 
     # Just produce body for every other type of broadcasting.
     self.emit_body(
-        output_type_size,
         ops,
         constants,
         buffers,
@@ -1637,10 +1644,9 @@ class Target:
         func.value.ty == func.to.ty
     ), "Mismatching types of the output value and buffer."
 
-    output_type_size = func.value.ty.size
     ast = copy.deepcopy(func.value)
 
-    natural_lanes = self.vector_bits // output_type_size
+    natural_lanes = self.get_natural_lanes_num(func.value.ty)
     ast = self.vectorize(ast, natural_lanes, {})
     ast = self.slice_wide_types(ast, {})
     ast = self.optimize_slices(ast, {})
@@ -1677,7 +1683,6 @@ class Target:
       self.emit_constants(constants)
 
       self.handle_specialize(
-          output_type_size,
           ops,
           constants,
           buffer_args,
@@ -1759,6 +1764,8 @@ i32_a = Var("a", Int(32))
 i32_b = Var("b", Int(32))
 u32_a = Var("a", UInt(32))
 u32_b = Var("b", UInt(32))
+f16_a = Var("a", Float(16))
+f16_b = Var("b", Float(16))
 f32_a = Var("a", Float(32))
 f32_b = Var("b", Float(32))
 f32_c = Var("c", Float(32))

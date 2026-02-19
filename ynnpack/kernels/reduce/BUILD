@@ -35,13 +35,15 @@ ynn_cc_library(
         "max.inc",
         "min.inc",
         "min_max.inc",
-        "product.inc",
         "reduce.h",
         "sum.inc",
         "sum_squared.inc",
     ],
     compatible_with = _COMPATIBLE_WITH,
-    copts = ["-fno-unroll-loops"],
+    copts = [
+        "-fno-unroll-loops",
+        "-O2",
+    ],
     per_arch_srcs = {
         "arm_neonfp16arith": [
             "arm_neonfp16arith.cc",

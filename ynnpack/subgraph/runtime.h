@@ -22,8 +22,6 @@
 #include "slinky/runtime/pipeline.h"
 #include "slinky/runtime/stmt.h"
 
-#define YNN_THREADPOOL_FLAG_USE_XLA_THREADPOOL (1 << 0)
-
 struct ynn_runtime_value : public ynn_value {
   explicit ynn_runtime_value(const ynn_value& value) : ynn_value(value) {}
   ynn_runtime_value() = default;
@@ -78,8 +76,7 @@ struct ynn_runtime {
                                    const char* prefix = "r");
   std::unique_ptr<ynn::scheduling_info> make_schedule(
       const std::vector<slinky::var>& dims, slinky::buffer_expr_ptr output,
-      const std::vector<slinky::expr>& output_extents,
-      slinky::span<const slinky::expr> given_splits = {},
+      uint32_t output_value, slinky::span<const slinky::expr> given_splits = {},
       const slinky::expr& element_cost = 1);
 
   slinky::buffer_expr_ptr null_buffer();

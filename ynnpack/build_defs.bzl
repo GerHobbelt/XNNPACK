@@ -70,7 +70,11 @@ _YNN_PARAMS_FOR_ARCH = {
     "arm_neonfp16arith": {
         "cond": "//ynnpack:ynn_enable_arm_neonfp16arith",
         "copts": select({
-            "//ynnpack:arm32": ["-march=armv8.2-a+fp16"],
+            "//ynnpack:arm32": [
+                "-marm",
+                "-march=armv8.2-a+fp16",
+                "-mfpu=neon-fp-armv8",
+            ],
             "//ynnpack:arm64": ["-march=armv8.2-a+fp16"],
             "//conditions:default": [],
         }),
@@ -78,7 +82,11 @@ _YNN_PARAMS_FOR_ARCH = {
     "arm_neonbf16": {
         "cond": "//ynnpack:ynn_enable_arm_neonbf16",
         "copts": select({
-            "//ynnpack:arm32": ["-march=armv8.2-a+bf16"],
+            "//ynnpack:arm32": [
+                "-marm",
+                "-march=armv8.2-a+bf16",
+                "-mfpu=neon-fp-armv8",
+            ],
             "//ynnpack:arm64": ["-march=armv8.2-a+bf16"],
             "//conditions:default": [],
         }),

@@ -31,6 +31,8 @@ TEST_MAX(x86_avx2, s8x32, arch_flag::avx2);
 TEST_MAX(x86_avx2, s16x16, arch_flag::avx2);
 TEST_MAX(x86_avx2, s32x8, arch_flag::avx2);
 
+TEST_CONVERT(x86_avx2, f32x8, bf16x8, arch_flag::avx2);
+
 TEST_HORIZONTAL_MIN(x86_avx2, u8x32, arch_flag::avx2);
 TEST_HORIZONTAL_MIN(x86_avx2, s8x32, arch_flag::avx2);
 TEST_HORIZONTAL_MIN(x86_avx2, s16x16, arch_flag::avx2);
@@ -40,6 +42,9 @@ TEST_HORIZONTAL_MAX(x86_avx2, u8x32, arch_flag::avx2);
 TEST_HORIZONTAL_MAX(x86_avx2, s8x32, arch_flag::avx2);
 TEST_HORIZONTAL_MAX(x86_avx2, s16x16, arch_flag::avx2);
 TEST_HORIZONTAL_MAX(x86_avx2, s32x8, arch_flag::avx2);
+
+TEST_CONVERT(x86_avx2, s32x16, u8x16, arch_flag::avx2);
+TEST_CONVERT(x86_avx2, s32x16, s8x16, arch_flag::avx2);
 
 }  // namespace simd
 }  // namespace ynn

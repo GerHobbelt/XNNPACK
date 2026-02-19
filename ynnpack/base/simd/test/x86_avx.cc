@@ -11,6 +11,14 @@
 namespace ynn {
 namespace simd {
 
+TEST_BROADCAST(x86_avx, u8x32, arch_flag::avx);
+TEST_BROADCAST(x86_avx, s8x32, arch_flag::avx);
+TEST_BROADCAST(x86_avx, s16x16, arch_flag::avx);
+TEST_BROADCAST(x86_avx, f16x16, arch_flag::avx);
+TEST_BROADCAST(x86_avx, bf16x16, arch_flag::avx);
+TEST_BROADCAST(x86_avx, f32x8, arch_flag::avx);
+TEST_BROADCAST(x86_avx, s32x8, arch_flag::avx);
+
 TEST_LOAD_STORE(x86_avx, u8x32, arch_flag::avx);
 TEST_LOAD_STORE(x86_avx, s8x32, arch_flag::avx);
 TEST_LOAD_STORE(x86_avx, s16x16, arch_flag::avx);
@@ -40,6 +48,21 @@ TEST_SUBTRACT(x86_avx, f32x8, arch_flag::avx);
 TEST_MULTIPLY(x86_avx, f32x8, arch_flag::avx);
 TEST_MIN(x86_avx, f32x8, arch_flag::avx);
 TEST_MAX(x86_avx, f32x8, arch_flag::avx);
+
+TEST_EXTRACT(x86_avx, s32x4, s32x8, arch_flag::avx);
+TEST_EXTRACT(x86_avx, f32x4, f32x8, arch_flag::avx);
+TEST_EXTRACT(x86_avx, bf16x8, bf16x16, arch_flag::avx);
+TEST_EXTRACT(x86_avx, f16x8, f16x16, arch_flag::avx);
+TEST_EXTRACT(x86_avx, s8x16, s8x32, arch_flag::avx);
+TEST_EXTRACT(x86_avx, u8x16, u8x32, arch_flag::avx);
+
+TEST_CONCAT(x86_avx, s32x4, arch_flag::avx);
+TEST_CONCAT(x86_avx, f32x4, arch_flag::avx);
+TEST_CONCAT(x86_avx, bf16x8, arch_flag::avx);
+TEST_CONCAT(x86_avx, f16x8, arch_flag::avx);
+TEST_CONCAT(x86_avx, s8x16, arch_flag::avx);
+TEST_CONCAT(x86_avx, u8x16, arch_flag::avx);
+
 TEST_HORIZONTAL_MIN(x86_avx, f32x8, arch_flag::avx);
 TEST_HORIZONTAL_MAX(x86_avx, f32x8, arch_flag::avx);
 

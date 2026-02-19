@@ -9,14 +9,18 @@
 #include <cstdint>
 #include <initializer_list>
 #include <map>
+#include <utility>
 #include <variant>
 #include <vector>
 
 #include "ynnpack/base/log.h"
+#include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
 #include "ynnpack/kernels/binary/binary.h"
 #include "ynnpack/kernels/ternary/ternary.h"
+#include "ynnpack/subgraph/dot.h"
 #include "ynnpack/subgraph/elementwise.h"
+#include "ynnpack/subgraph/stencil_copy.h"
 #include "ynnpack/subgraph/subgraph.h"
 
 namespace {
@@ -68,8 +72,9 @@ bool rewrite_multiply_add(ynn_subgraph& subgraph, ynn_node& node,
             ynn::ternary_op::multiply_add, a.type, b.type, c.type, x.type);
         if (kernel != nullptr) {
           // Yes we do. Rewrite this to a multiply-add.
-          YNN_LOG_DEBUG() << "Rewriting convert to ternary multiply";
-          ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id, kernel);
+          YNN_LOG_DEBUG() << "Rewriting convert to ternary multiply_add";
+          ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id,
+                              ynn::ternary_op::multiply_add, kernel);
           return true;
         }
       }
@@ -110,7 +115,8 @@ bool rewrite_subtract_multiply(ynn_subgraph& subgraph, ynn_node& node,
           ynn::ternary_op::subtract_multiply, a.type, b.type, c.type, x.type);
       if (kernel != nullptr) {
         YNN_LOG_DEBUG() << "Rewriting convert to ternary subtract_multiply";
-        ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id, kernel);
+        ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id,
+                            ynn::ternary_op::subtract_multiply, kernel);
         return true;
       }
     }
@@ -157,7 +163,8 @@ bool rewrite_convert_to_multiply(ynn_subgraph& subgraph, ynn_node& node,
         // that matches the types we have.
         YNN_LOG_DEBUG() << "Rewriting convert to ternary multiply";
         ynn::define_ternary(subgraph, node, node.inputs[0], scale_a_id,
-                            scale_b_id, node.outputs[0], kernel);
+                            scale_b_id, node.outputs[0],
+                            ynn::ternary_op::multiply, kernel);
         return true;
       }
     }
@@ -199,15 +206,16 @@ bool rewrite_convert_to_quantize(ynn_subgraph& subgraph, ynn_node& node,
     return false;
   }
 
+  const ynn::ternary_op op = output.type == ynn_type_int8
+                                 ? ynn::ternary_op::quantize_int8
+                                 : ynn::ternary_op::quantize_uint8;
   ynn::ternary_kernel_fn kernel = ynn::get_ternary_kernel(
-      output.type == ynn_type_int8 ? ynn::ternary_op::quantize_int8
-                                   : ynn::ternary_op::quantize_uint8,
-      input.type, subgraph.value(output.scale_id).type,
+      op, input.type, subgraph.value(output.scale_id).type,
       subgraph.value(output.zero_point_id).type, output.type);
   if (kernel != nullptr) {
     YNN_LOG_DEBUG() << "Rewriting convert to quantize";
     ynn::define_ternary(subgraph, node, node.inputs[0], output.scale_id,
-                        output.zero_point_id, node.outputs[0], kernel);
+                        output.zero_point_id, node.outputs[0], op, kernel);
   }
   return false;
 }
@@ -235,7 +243,8 @@ bool rewrite_clamp(ynn_subgraph& subgraph, ynn_node& node,
         if (kernel != nullptr) {
           // Yes we do. Rewrite this to a clamp.
           YNN_LOG_DEBUG() << "Rewriting min(max(a, b), c) to ternary clamp";
-          ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id, kernel);
+          ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id,
+                              ynn::ternary_op::clamp, kernel);
           return true;
         }
       }
@@ -316,6 +325,96 @@ bool remove_broadcast(ynn_subgraph& subgraph, ynn_node& node,
          remove_broadcast<ynn_node::broadcast_like>(subgraph, node, analysis);
 }
 
+// Rewrite transpose_a(stencil_copy(x)) to stencil_copy(transpose_a(x)).
+bool rewrite_transpose_stencil_copy(ynn_subgraph& subgraph, ynn_node& node,
+                                    subgraph_analysis& analysis) {
+  const ynn_node::transpose_a* transpose_a =
+      std::get_if<ynn_node::transpose_a>(&node.op);
+  if (transpose_a == nullptr) {
+    return false;
+  }
+
+  auto producer_it = analysis.producers.find(node.inputs[0]);
+  if (producer_it == analysis.producers.end()) {
+    return false;
+  }
+
+  ynn_node* stencil_node = producer_it->second;
+  const ynn_node::stencil_copy* stencil_copy =
+      std::get_if<ynn_node::stencil_copy>(&stencil_node->op);
+  if (stencil_copy == nullptr) {
+    return false;
+  }
+
+  const uint32_t y_id = stencil_node->outputs[0];
+  if (analysis.consumers[y_id].size() != 1 ||
+      subgraph.value(y_id).is_external_output()) {
+    return false;
+  }
+
+  if (stencil_node->inputs.size() > 1 &&
+      stencil_node->inputs[1] != YNN_INVALID_VALUE_ID) {
+    // Stencil node has both a buffer and a padding input. If padding is SAME,
+    // we cannot rewrite this.
+    YNN_LOG_DEBUG() << "Stencil node has both a buffer and a padding input.";
+    return false;
+  }
+
+  for (const ynn_node::stencil_copy::stencil& stencil :
+       stencil_copy->stencils) {
+    // We do not support stencils with stride > 1 yet.
+    if (stencil.stride != 1) {
+      YNN_LOG_DEBUG() << "Stencil node has stride > 1.";
+      return false;
+    }
+  }
+
+  YNN_LOG_DEBUG() << "Rewriting transpose_a(stencil_copy(x)) to "
+                     "stencil_copy(transpose_a(x))";
+
+  ynn_node::stencil_copy stencil_op_data = *stencil_copy;
+  uint32_t stencil_input_id = stencil_node->inputs[0];
+  uint32_t stencil_padding_id = stencil_node->inputs.size() > 1
+                                    ? stencil_node->inputs[1]
+                                    : YNN_INVALID_VALUE_ID;
+  uint32_t stencil_output_id = stencil_node->outputs[0];
+
+  // `stencil_copy` inserts a dimension at each `new_axis` position, so
+  // `stencil_copy` caused `m_dim` to increase by 1 for each new dimension
+  // before `m_dim`. We restore `m_dim` to its original value.
+  int new_m_dim = transpose_a->m_dim -
+                  std::count_if(stencil_copy->stencils.begin(),
+                                stencil_copy->stencils.end(),
+                                [m_dim = transpose_a->m_dim](
+                                    const ynn_node::stencil_copy::stencil& i) {
+                                  return i.new_axis < m_dim;
+                                });
+
+  if (transpose_a->tile_k > 1) {
+    for (ynn_node::stencil_copy::stencil& stencil : stencil_op_data.stencils) {
+      if (stencil.axis == new_m_dim) {
+        // `transpose_a` packs elements `tile_k` at a time. The stencil must
+        // account for this by dilating its kernel dimension by `tile_k`.
+        stencil.dilation *= transpose_a->tile_k;
+      }
+    }
+  }
+
+  // Replace stencil_copy(x) with transpose_a'(x), reusing the stencil_node's x
+  // input and y output.
+  ynn::define_transpose_a(subgraph, *stencil_node, transpose_a->tile_k,
+                          new_m_dim, stencil_input_id, stencil_output_id);
+
+  uint32_t output_id = node.outputs[0];
+  // Replace transpose_a(x) with stencil_copy'(transpose_a'(x)), reusing
+  // transpose_a's output.
+  ynn::define_stencil_copy(subgraph, node, std::move(stencil_op_data),
+                           stencil_output_id, stencil_padding_id, &output_id,
+                           /*flags=*/0);
+
+  return true;
+}
+
 }  // namespace
 
 ynn_status ynn_subgraph::fusion() {
@@ -329,7 +428,8 @@ ynn_status ynn_subgraph::fusion() {
         rewrite_convert_to_multiply(*this, node, analysis) ||
         rewrite_clamp(*this, node, analysis) ||
         rewrite_convert_to_quantize(*this, node, analysis) ||
-        remove_broadcast(*this, node, analysis);
+        remove_broadcast(*this, node, analysis) ||
+        rewrite_transpose_stencil_copy(*this, node, analysis);
   }
 
   return ynn_status_success;

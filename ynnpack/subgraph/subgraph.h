@@ -22,6 +22,7 @@
 
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
+#include "ynnpack/kernels/ternary/ternary.h"
 #include "slinky/runtime/buffer.h"
 #include "slinky/runtime/evaluate.h"
 #include "slinky/runtime/expr.h"
@@ -156,6 +157,9 @@ struct ynn_node {
   struct binary_elementwise {
     ynn_binary_operator op;
   };
+  struct ternary_elementwise {
+    ynn::ternary_op op;
+  };
   struct copy {};
   struct fuse_dim {
     // Fuse `axes_count` dimensions starting at `axis` into one dimension.
@@ -228,7 +232,10 @@ struct ynn_node {
     size_t num_k_dims;
   };
   struct pack_b {};
-  struct transpose_a {};
+  struct transpose_a {
+    size_t tile_k;
+    int32_t m_dim;
+  };
   struct get_tensor_shape {
     std::vector<int32_t> axes;
     bool reshape_1d;
@@ -247,8 +254,8 @@ struct ynn_node {
                even_split, copy, split_dim, fuse_dim, fuse_dims, split_dims,
                stack, static_reshape, static_broadcast, static_expand_dims,
                static_pad, static_slice, static_transpose, stencil_copy,
-               unary_elementwise, binary_elementwise, dot, pack_b, transpose_a,
-               get_tensor_shape, reduce>
+               unary_elementwise, binary_elementwise, ternary_elementwise, dot,
+               pack_b, transpose_a, get_tensor_shape, reduce>
       op;
 
   const char* name() const;

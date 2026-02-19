@@ -42,10 +42,10 @@ package(default_visibility = ["//ynnpack:__subpackages__"])
     "x86_sse41",
     "x86_avx",
     "x86_avx2",
-    "x86_avx512f",
-    "x86_avx512bw",
+    "x86_avx512",
     "x86_f16c",
     "x86_fma3",
+    "hexagon_hvx",
 ]]
 
 cc_test(

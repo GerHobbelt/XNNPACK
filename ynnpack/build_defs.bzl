@@ -58,6 +58,8 @@ def _map_arch_copts_to_msvc(copts):
     else:
         return []
 
+_AVX512_COPTS = ["-mavx512f", "-mavx512bw", "-mavx512vl", "-mavx512dq"]
+
 def _copts_for_compiler(copts):
     return select({
         "@rules_cc//cc/compiler:clang-cl": ["/clang:" + i for i in copts],
@@ -217,29 +219,24 @@ _YNN_PARAMS_FOR_ARCH = {
         "arch_copts": _copts_for_compiler(["-mavx2", "-mfma"]),
         "arch_flag": "avx2_fma3",
     },
-    "x86_avx512f": {
-        "cond": "//ynnpack:ynn_enable_x86_avx512f",
-        "arch_copts": _copts_for_compiler(["-mavx512f"]),
-        "arch_flag": "avx512f",
-    },
-    "x86_avx512bw": {
-        "cond": "//ynnpack:ynn_enable_x86_avx512bw",
-        "arch_copts": _copts_for_compiler(["-mavx512bw"]),
-        "arch_flag": "avx512bw",
+    "x86_avx512": {
+        "cond": "//ynnpack:ynn_enable_x86_avx512",
+        "arch_copts": _copts_for_compiler(_AVX512_COPTS),
+        "arch_flag": "avx512",
     },
     "x86_avx512bf16": {
         "cond": "//ynnpack:ynn_enable_x86_avx512bf16",
-        "arch_copts": _copts_for_compiler(["-mavx512bf16", "-mavx512dq"]),
+        "arch_copts": _copts_for_compiler(_AVX512_COPTS + ["-mavx512bf16"]),
         "arch_flag": "avx512bf16",
     },
     "x86_avx512fp16": {
         "cond": "//ynnpack:ynn_enable_x86_avx512fp16",
-        "arch_copts": _copts_for_compiler(["-mavx512fp16", "-mavx512vl"]),
+        "arch_copts": _copts_for_compiler(_AVX512_COPTS + ["-mavx512fp16"]),
         "arch_flag": "avx512fp16",
     },
     "x86_avx512vnni": {
         "cond": "//ynnpack:ynn_enable_x86_avx512vnni",
-        "arch_copts": _copts_for_compiler(["-mavx512vnni"]),
+        "arch_copts": _copts_for_compiler(_AVX512_COPTS + ["-mavx512vnni"]),
         "arch_flag": "avx512vnni",
     },
     "x86_amxbf16": {
@@ -256,6 +253,11 @@ _YNN_PARAMS_FOR_ARCH = {
         "cond": "//ynnpack:ynn_enable_x86_amxint8",
         "arch_copts": _copts_for_compiler(["-mamx-tile", "-mamx-int8"]),
         "arch_flag": "amxint8",
+    },
+    "hexagon_hvx": {
+        "cond": "//ynnpack:ynn_enable_hvx",
+        "arch_copts": ["-mhvx"],
+        "arch_flag": "hvx",
     },
 }
 
@@ -279,21 +281,34 @@ def ynn_kernel_copts(unroll_loops = True):
 
 def ynn_binary_linkopts():
     return select({
+        "//ynnpack:hexagon": [
+            "-shared",
+            "-Wno-unused-command-line-argument",
+        ],
         "//conditions:default": [],
     })
 
 def ynn_binary_malloc():
     return select({
+        "//ynnpack:hexagon": "@bazel_tools//tools/cpp:malloc",
         "//conditions:default": "@bazel_tools//tools/cpp:malloc",
     })
 
 def ynn_test_deps():
     return select({
+        "//ynnpack:hexagon": [
+            "@com_google_googletest//:gtest",
+            "//ynnpack/base/hexagon:test_main",
+        ],
         "//conditions:default": ["@com_google_googletest//:gtest_main"],
     })
 
 def ynn_benchmark_deps():
     return select({
+        "//ynnpack:hexagon": [
+            "@com_google_benchmark//:benchmark",
+            "//ynnpack/base/hexagon:benchmark_main",
+        ],
         "//conditions:default": ["@com_google_benchmark//:benchmark_main"],
     })
 

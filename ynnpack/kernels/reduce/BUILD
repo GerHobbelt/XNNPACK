@@ -46,8 +46,10 @@ ynn_cc_library(
         "x86_sse2": ["x86_sse2.cc"],
         "x86_sse41": ["x86_sse41.cc"],
         "x86_avx512bf16": ["x86_avx512bf16.cc"],
-        "x86_avx512bw": ["x86_avx512bw.cc"],
-        "x86_avx512f": ["x86_avx512f.cc"],
+        "x86_avx512": [
+            "x86_avx512bw.cc",
+            "x86_avx512f.cc",
+        ],
         "x86_f16c": ["x86_f16c.cc"],
         "x86_avx": ["x86_avx.cc"],
         "x86_avx2": ["x86_avx2.cc"],
@@ -65,10 +67,13 @@ ynn_cc_library(
 
 cc_test(
     name = "consistent_reduce_test",
-    srcs = ["consistent_reduce_test.cc"],
+    srcs = select({
+        # We currently only attempt to provide consistency on x86
+        "//ynnpack:x86": ["consistent_reduce_test.cc"],
+        "//conditions:default": [],
+    }),
     linkopts = ynn_binary_linkopts(),
     malloc = ynn_binary_malloc(),
-    tags = ["not_run:arm"],  # we only attempt to provide consistency on x86_64.
     deps = [
         ":reduce",
         "//ynnpack:ynnpack_h",
@@ -94,6 +99,7 @@ cc_test(
         "//ynnpack/base/test:random",
         "//ynnpack/base/test:tensor",
         "//ynnpack/base/test:util",
+        "@slinky//slinky/base",
     ] + ynn_test_deps(),
 )
 

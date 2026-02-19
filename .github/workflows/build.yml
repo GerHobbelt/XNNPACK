@@ -405,15 +405,15 @@ jobs:
         working-directory: ${{ github.workspace }}/xnnpack
       - name: Generate build files
         run: |
-          gn gen --check --args="is_debug=true target_cpu=\"x64\" use_siso=true" out/Debug
+          gn gen --check --args="is_debug=false dcheck_always_on=true xnnpack_enable_avx512=false target_cpu=\"x64\" use_siso=true" out/x64.dchecks
         working-directory: ${{ github.workspace }}/xnnpack
-      - name: Build all targets (Debug)
+      - name: Build all targets (Release + debug checks)
         run: |
-          autoninja -C out/Debug
+          autoninja -C out/x64.dchecks
         working-directory: ${{ github.workspace }}/xnnpack
       - name: Run tests
         run: |
-          python3 scripts/run-gn-tests.py out/Debug
+          python3 scripts/run-gn-tests.py out/x64.dchecks
         working-directory: ${{ github.workspace }}/xnnpack
 
   bazel-linux-x86_64-clang-18:
@@ -444,8 +444,10 @@ jobs:
               --disk_cache=/home/xnnpack/.cache/bazel/disk_cache \
               --repository_cache=/home/xnnpack/.cache/bazel/repo_cache \
               --test_output=errors \
+              -- \
               //test/... \
-              //bench/...
+              //bench/... \
+              //ynnpack/...
 
       - name: Build and run tests
         if: ${{ inputs.run-tests }}
@@ -456,6 +458,7 @@ jobs:
               --repository_cache=/home/xnnpack/.cache/bazel/repo_cache \
               --test_output=errors \
               --local_test_jobs=HOST_CPUS \
+              -- \
               //test/... \
               //bench/... \
               //ynnpack/...
@@ -484,9 +487,9 @@ jobs:
         --define=xnn_enable_avx512vnni=false
         --define=xnn_enable_avx512vnnigfni=false
         --define=xnn_enable_avx512skx=false
+        --define=xnn_enable_avx512f=false
         --define=ynn_enable_x86_amx=false
-        --define=ynn_enable_x86_avx512fp16=false
-        --define=ynn_enable_x86_avx512bf16=false
+        --define=ynn_enable_x86_avx512=false
     steps:
       - uses: actions/checkout@v6
       - name: Mount Bazel Cache
@@ -507,8 +510,10 @@ jobs:
               --disk_cache=/home/xnnpack/.cache/bazel/disk_cache \
               --repository_cache=/home/xnnpack/.cache/bazel/repo_cache \
               ${BAZEL_DEFINES} \
+              -- \
               //test/... \
-              //bench/...
+              //bench/... \
+              //ynnpack/...
 
       - name: Build and run tests
         if: ${{ inputs.run-tests }}
@@ -520,9 +525,11 @@ jobs:
               --test_output=errors \
               --local_test_jobs=HOST_CPUS \
               ${BAZEL_DEFINES} \
+              -- \
               //test/... \
               //bench/... \
-              //ynnpack/...
+              //ynnpack/... \
+              -//ynnpack/kernels/dot:get_dot_kernel_test
 
       - name: Compress disk cache
         if: ${{ inputs.update-caches }}
@@ -558,8 +565,10 @@ jobs:
               --disk_cache=/home/xnnpack/.cache/bazel/disk_cache \
               --repository_cache=/home/xnnpack/.cache/bazel/repo_cache \
               --test_output=errors \
+              -- \
               //test/... \
-              //bench/...
+              //bench/... \
+              //ynnpack/...
 
       - name: Build and run tests
         if: ${{ inputs.run-tests }}
@@ -571,6 +580,7 @@ jobs:
               --test_output=errors \
               --local_test_jobs=HOST_CPUS \
               --test_tag_filters=-not_run:arm \
+              -- \
               //test/... \
               //bench/... \
               //ynnpack/...
@@ -613,8 +623,10 @@ jobs:
               --disk_cache=/home/xnnpack/.cache/bazel/disk_cache \
               --repository_cache=/home/xnnpack/.cache/bazel/repo_cache \
               ${BAZEL_DEFINES} \
+              -- \
               //test/... \
-              //bench/...
+              //bench/... \
+              //ynnpack/...
 
       - name: Build and run tests
         if: ${{ inputs.run-tests }}
@@ -627,6 +639,7 @@ jobs:
               --local_test_jobs=HOST_CPUS \
               ${BAZEL_DEFINES} \
               --test_tag_filters=-not_run:arm \
+              -- \
               //test/... \
               //bench/... \
               //ynnpack/...

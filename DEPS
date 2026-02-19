@@ -43,6 +43,8 @@ vars = {
   'checkout_clang_tidy': False,
   # Fetch clangd into the same bin/ directory as our clang binary.
   'checkout_clangd': False,
+  # Fetch the KleidiAI project for additional kernels on Arm.
+  'checkout_kleidiai': False,
   'rbe_instance': Str('projects/rbe-chrome-untrusted/instances/default_instance'),
   'siso_version': 'git_revision:03ee208f9c31a303e1ba61f9bc7219158078bd50',
   # RBE project to download rewrapper config files for. Only needed if
@@ -120,7 +122,11 @@ deps = {
     'url': Var('chromium_url') + '/chromium/src/third_party/google_benchmark.git' + '@' + 'abeba5d5e6db5bdf85261045e148f1db3fdc40ad',
   },
   'third_party/google_benchmark_chrome/src': {
-    'url': Var('chromium_url') + '/external/github.com/google/benchmark.git' + '@' + '188e8278990a9069ffc84441cb5a024fd0bede37',
+    'url': Var('chromium_url') + '/external/github.com/google/benchmark.git' + '@' + '7da00e8f6763d6e8c284d172c9cfcc5ae0ce9b7a',
+  },
+  'third_party/kleidiai/src': {
+    'url': 'https://gitlab.arm.com/kleidi/kleidiai@v1.21.0',
+    'condition': 'checkout_kleidiai'
   },
   'third_party/libc++/src':
     Var('chromium_url') + '/external/github.com/llvm/llvm-project/libcxx.git' + '@' + '7ab65651aed6802d2599dcb7a73b1f82d5179d05',

@@ -12,6 +12,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <tuple>
 #include <type_traits>
 
 #include "ynnpack/base/base.h"
@@ -269,104 +270,6 @@ YNN_ALWAYS_INLINE void store(int8_t* ptr, s8x16 b, decltype(s8x16::N) = {}) {
   _mm_storeu_si128(reinterpret_cast<__m128i*>(ptr), b.v);
 }
 
-// Partial load/store with a non-constant number of elements.
-
-namespace internal {
-
-template <typename T>
-vec<T, 4> partial_load_switch_x4(const T* ptr, size_t n, vec<T, 4> src) {
-  assert(n < 4);
-  alignas(sizeof(vec<T, 4>)) T lanes[4];
-  store_aligned(lanes, src);
-  switch (n) {
-    case 3:
-      lanes[2] = ptr[2];
-      [[fallthrough]];
-    case 2:
-      lanes[1] = ptr[1];
-      [[fallthrough]];
-    case 1:
-      lanes[0] = ptr[0];
-      break;
-    default:
-      break;
-  }
-  return load_aligned(lanes, std::integral_constant<size_t, 4>{});
-}
-
-YNN_ALWAYS_INLINE void store_64(void* ptr, __m128i v) {
-  _mm_storel_pi(reinterpret_cast<__m64*>(ptr), _mm_castsi128_ps(v));
-}
-YNN_ALWAYS_INLINE void store_64(void* ptr, __m128 v) {
-  _mm_storel_pi(reinterpret_cast<__m64*>(ptr), v);
-}
-
-YNN_ALWAYS_INLINE void store_32(void* ptr, __m128i v) {
-  _mm_store_ss(reinterpret_cast<float*>(ptr), _mm_castsi128_ps(v));
-}
-YNN_ALWAYS_INLINE void store_32(void* ptr, __m128 v) {
-  _mm_store_ss(reinterpret_cast<float*>(ptr), v);
-}
-
-template <typename T>
-void partial_store_x32x4(T* ptr, vec<T, 4> b, size_t n) {
-  assert(n < 4);
-  if (n & 2) {
-    store_64(ptr, b.v);
-    ptr += 2;
-    b.v = movehl(b.v, b.v);
-  }
-  if (n & 1) {
-    store_32(ptr, b.v);
-  }
-}
-
-}  // namespace internal
-
-YNN_ALWAYS_INLINE f32x4 load(const float* ptr, size_t n, f32x4 src) {
-  return internal::partial_load_switch_x4(ptr, n, src);
-}
-YNN_ALWAYS_INLINE s32x4 load(const int32_t* ptr, size_t n, s32x4 src) {
-  return internal::partial_load_switch_x4(ptr, n, src);
-}
-YNN_ALWAYS_INLINE bf16x8 load(const bfloat16* ptr, size_t n, bf16x8 src) {
-  return internal::partial_load_memcpy(ptr, n, src);
-}
-YNN_ALWAYS_INLINE f16x8 load(const half* ptr, size_t n, f16x8 src) {
-  return internal::partial_load_memcpy(ptr, n, src);
-}
-YNN_ALWAYS_INLINE s16x8 load(const int16_t* ptr, size_t n, s16x8 src) {
-  return internal::partial_load_memcpy(ptr, n, src);
-}
-YNN_ALWAYS_INLINE void store(float* ptr, f32x4 b, size_t n) {
-  internal::partial_store_x32x4(ptr, b, n);
-}
-YNN_ALWAYS_INLINE void store(int32_t* ptr, s32x4 b, size_t n) {
-  internal::partial_store_x32x4(ptr, b, n);
-}
-YNN_ALWAYS_INLINE void store(bfloat16* ptr, bf16x8 b, size_t n) {
-  internal::partial_store_memcpy(ptr, b, n);
-}
-YNN_ALWAYS_INLINE void store(half* ptr, f16x8 b, size_t n) {
-  internal::partial_store_memcpy(ptr, b, n);
-}
-YNN_ALWAYS_INLINE void store(int16_t* ptr, s16x8 b, size_t n) {
-  internal::partial_store_memcpy(ptr, b, n);
-}
-
-YNN_ALWAYS_INLINE u8x16 load(const uint8_t* ptr, size_t n, u8x16 src) {
-  return internal::partial_load_memcpy(ptr, n, src);
-}
-YNN_ALWAYS_INLINE s8x16 load(const int8_t* ptr, size_t n, s8x16 src) {
-  return internal::partial_load_memcpy(ptr, n, src);
-}
-
-YNN_ALWAYS_INLINE void store(uint8_t* ptr, u8x16 val, size_t n) {
-  internal::partial_store_memcpy(ptr, val, n);
-}
-YNN_ALWAYS_INLINE void store(int8_t* ptr, s8x16 val, size_t n) {
-  internal::partial_store_memcpy(ptr, val, n);
-}
 
 YNN_ALWAYS_INLINE f32x4& operator+=(f32x4& a, f32x4 b) {
   a.v = _mm_add_ps(a.v, b.v);
@@ -496,6 +399,37 @@ YNN_ALWAYS_INLINE uint8_t horizontal_min(u8x16 a) {
   const __m128i min2 = _mm_min_epu8(min4, _mm_srli_si128(min4, 2));
   const __m128i min1 = _mm_min_epu8(min2, _mm_srli_si128(min2, 1));
   return (uint8_t)_mm_cvtsi128_si32(min1);
+}
+
+YNN_ALWAYS_INLINE std::tuple<u8x16, u8x16> interleave(
+    std::integral_constant<size_t, 64>, u8x16 x0, u8x16 x1) {
+  return {u8x16{_mm_unpacklo_epi64(x0.v, x1.v)},
+          u8x16{_mm_unpackhi_epi64(x0.v, x1.v)}};
+}
+YNN_ALWAYS_INLINE std::tuple<u8x16, u8x16> interleave(
+    std::integral_constant<size_t, 32>, u8x16 x0, u8x16 x1) {
+  return {u8x16{_mm_unpacklo_epi32(x0.v, x1.v)},
+          u8x16{_mm_unpackhi_epi32(x0.v, x1.v)}};
+}
+YNN_ALWAYS_INLINE std::tuple<u8x16, u8x16> interleave(
+    std::integral_constant<size_t, 16>, u8x16 x0, u8x16 x1) {
+  return {u8x16{_mm_unpacklo_epi16(x0.v, x1.v)},
+          u8x16{_mm_unpackhi_epi16(x0.v, x1.v)}};
+}
+YNN_ALWAYS_INLINE std::tuple<u8x16, u8x16> interleave(
+    std::integral_constant<size_t, 8>, u8x16 x0, u8x16 x1) {
+  return {u8x16{_mm_unpacklo_epi8(x0.v, x1.v)},
+          u8x16{_mm_unpackhi_epi8(x0.v, x1.v)}};
+}
+YNN_ALWAYS_INLINE std::tuple<u8x16, u8x16> interleave(
+    std::integral_constant<size_t, 4>, u8x16 x0, u8x16 x1) {
+  __m128i even0 = _mm_and_si128(x0.v, _mm_set1_epi8(0x0f));
+  __m128i even1 = _mm_and_si128(x1.v, _mm_set1_epi8(0x0f));
+  __m128i odd0 = _mm_and_si128(x0.v, _mm_set1_epi8(0xf0));
+  __m128i odd1 = _mm_and_si128(x1.v, _mm_set1_epi8(0xf0));
+  return interleave(std::integral_constant<size_t, 8>{},
+                    u8x16{_mm_or_si128(_mm_slli_epi16(even1, 4), even0)},
+                    u8x16{_mm_or_si128(odd1, _mm_srli_epi16(odd0, 4))});
 }
 
 template <typename T>

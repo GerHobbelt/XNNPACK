@@ -28,6 +28,13 @@ float16_wrapper<Float, Int> horizontal_max(
   return horizontal_max(static_cast<simd::vec<Int, N>>(x));
 }
 
+// We want to store float16_wrappers as the underlying float type.
+template <typename Float, typename Int, size_t N, typename NT>
+void store(Float* dst,
+           float16_wrapper<simd::vec<Float, N>, simd::vec<Int, N>> x, NT n) {
+  store(dst, static_cast<simd::vec<Float, N>>(x), n);
+}
+
 // Below, we define an accumulator for both min and max at the same time.
 // This type allows indicating that the accumulator should only produce min or
 // max, by setting the other value to this dummy type.
@@ -100,8 +107,8 @@ struct min_max_accumulator {
   template <typename AT, typename NT>
   YNN_ALWAYS_INLINE void reduce(const AT* A, size_t A_stride_n, NT n,
                                 size_t k) {
-    AccMaxT id_max(type_info<AccMaxT>::max_identity());
-    AccMinT id_min(type_info<AccMinT>::min_identity());
+    auto id_max = type_info<AccMaxT>::max_identity();
+    auto id_min = type_info<AccMinT>::min_identity();
 
     auto a_0_min = load(offset_bytes(A, 0 * A_stride_n), k, id_min);
     auto a_0_max = load(offset_bytes(A, 0 * A_stride_n), k, id_max);
@@ -167,12 +174,13 @@ struct min_max_accumulator {
 
   YNN_ALWAYS_INLINE void accumulate(size_t C_stride_m, T* __restrict C,
                                     size_t n) {
-    accumulate_min(C, n, acc_min);
     if (!std::is_same<AccMinT, dummy_t>::value) {
-      // The min was not a dummy, move to the next row.
+      accumulate_min(C, n, acc_min);
       C = offset_bytes(C, C_stride_m);
     }
-    accumulate_max(C, n, acc_max);
+    if (!std::is_same<AccMaxT, dummy_t>::value) {
+      accumulate_max(C, n, acc_max);
+    }
   }
 };
 
@@ -183,14 +191,12 @@ struct min_max_accumulator_k1_1 {
 
   template <typename NT>
   void accumulate_min(T* __restrict C, const AccMinT& acc, NT n) {
-    AccMinT id_min(type_info<AccMinT>::min_identity());
-    store(C, min(acc, load(C, n, id_min)), n);
+    store(C, min(acc, load(C, n, simd::undef<N>{})), n);
   }
 
   template <typename NT>
   void accumulate_max(T* __restrict C, const AccMaxT& acc, NT n) {
-    AccMaxT id_max(type_info<AccMaxT>::max_identity());
-    store(C, max(acc, load(C, n, id_max)), n);
+    store(C, max(acc, load(C, n, simd::undef<N>{})), n);
   }
 
   template <typename AT, typename NT, typename K2T>
@@ -199,8 +205,8 @@ struct min_max_accumulator_k1_1 {
                                            size_t C_stride_m, T* __restrict C) {
     assert(k2 <= K2);
     assert(n <= N);
-    AccMaxT id_max(type_info<AccMaxT>::max_identity());
-    AccMinT id_min(type_info<AccMinT>::min_identity());
+    auto id_max = type_info<AccMaxT>::max_identity();
+    auto id_min = type_info<AccMinT>::min_identity();
 
     auto a_0_min = load(offset_bytes(A, 0 * A_stride_k2), n, id_min);
     auto a_0_max = load(offset_bytes(A, 0 * A_stride_k2), n, id_max);
@@ -227,12 +233,13 @@ struct min_max_accumulator_k1_1 {
     acc_min = min(acc_min, a_3_min);
     acc_max = max(acc_max, a_3_max);
 
-    accumulate_min(C, acc_min, n);
     if (!std::is_same<AccMinT, dummy_t>::value) {
-      // The min was not a dummy, move to the next row.
+      accumulate_min(C, acc_min, n);
       C = offset_bytes(C, C_stride_m);
     }
-    accumulate_max(C, acc_max, n);
+    if (!std::is_same<AccMaxT, dummy_t>::value) {
+      accumulate_max(C, acc_max, n);
+    }
   }
 };
 

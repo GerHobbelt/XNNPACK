@@ -2222,7 +2222,10 @@ static bool convert_gemm_to_qduint8(
   const struct xnn_gemm_config* original_config = NULL;
   const struct xnn_gemm_config* unsigned_config = NULL;
   if (input_datatype == xnn_datatype_fp32) {
-    if (consumer_weights_type == xnn_datatype_qcint4) {
+    if (consumer_weights_type == xnn_datatype_qcint2) {
+      original_config = xnn_init_qd8_f32_qc2w_gemm_config();
+      unsigned_config = xnn_init_qdu8_f32_qc2w_gemm_config();
+    } else if (consumer_weights_type == xnn_datatype_qcint4) {
       original_config = xnn_init_qd8_f32_qc4w_gemm_config();
       unsigned_config = xnn_init_qdu8_f32_qc4w_gemm_config();
     } else if (consumer_weights_type == xnn_datatype_qcint8) {
@@ -2875,19 +2878,32 @@ static enum xnn_status optimize_common_subgraphs_min_max_to_clamp(
     return xnn_status_success;
   }
 
-  // Check that `arg_value` is a static scalar value.
+  // `arg_value` must be a static scalar value, but we can swap the arguments to
+  // make that true.
   struct xnn_value* input_value = &subgraph->values[node->inputs[0]];
   struct xnn_value* arg_value = &subgraph->values[node->inputs[1]];
-  if (!xnn_value_is_const(arg_value->flags) &&
-      !(xnn_shape_multiply_all_dims(&arg_value->shape) == 1 &&
-        xnn_value_is_static(arg_value->allocation_type))) {
-    if (xnn_value_is_const(input_value->flags) ||
-        (xnn_shape_multiply_all_dims(&input_value->shape) == 1 &&
-         xnn_value_is_static(input_value->allocation_type))) {
+
+  const bool input_is_static_scalar =
+      xnn_value_is_const(input_value->flags) ||
+      (xnn_shape_multiply_all_dims(&input_value->shape) == 1 &&
+       xnn_value_is_static(input_value->allocation_type));
+  const bool arg_is_static_scalar =
+      xnn_value_is_const(arg_value->flags) ||
+      (xnn_shape_multiply_all_dims(&arg_value->shape) == 1 &&
+       xnn_value_is_static(arg_value->allocation_type));
+
+  if (input_is_static_scalar) {
+    if (!arg_is_static_scalar) {
       swap_value_pointers(&arg_value, &input_value);
-    } else {
-      return xnn_status_success;
     }
+  } else if (!arg_is_static_scalar) {
+    return xnn_status_success;
+  }
+
+  if (arg_value->shape.num_dims > input_value->shape.num_dims) {
+    // The min or max operator is broadcasting the input to match the scalar's
+    // rank, so we can't replace the operator.
+    return xnn_status_success;
   }
 
   // Extract the min/max argument.

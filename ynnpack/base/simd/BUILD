@@ -29,28 +29,29 @@ cc_library(
     textual_hdrs = [
         # These headers should not be directly included.
         "x86_avx2_base.h",
-        "x86_avx512f_base.h",
         "x86_avx_base.h",
         "x86_sse2_base.h",
         "x86_sse41_base.h",
+        "x86_avx_partial_load_store.h",
+        "x86_sse2_partial_load_store.h",
         "generic.inc",
         # For the most part, only one of these headers should be included. Multiple of these headers
         # may define the same operation and type, using a different implementation, depending on the
-        # target. For example, f32x16 is provided by both avx512f as a single 512-bit vector, and
+        # target. For example, f32x16 is provided by both avx512 as a single 512-bit vector, and
         # avx as two 256-bit vectors, and the `concat` operation of two f32x8 values is implemented
         # appropriately for that type.
+        "arm_neon.h",
+        "arm_neonfma.h",
+        "arm_neonfp16.h",
+        "hexagon_hvx.h",
+        "scalar.h",
         "x86_avx.h",
         "x86_avx2.h",
-        "x86_avx512bw.h",
-        "x86_avx512f.h",
+        "x86_avx512.h",
         "x86_f16c.h",
         "x86_fma3.h",
         "x86_sse2.h",
         "x86_sse41.h",
-        "arm_neon.h",
-        "arm_neonfma.h",
-        "arm_neonfp16.h",
-        "scalar.h",
     ],
     deps = ["//ynnpack/base"],
 )

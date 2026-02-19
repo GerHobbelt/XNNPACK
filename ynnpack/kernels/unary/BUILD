@@ -88,6 +88,7 @@ ynn_generate_src_hdr(
     generator = ":generator",
     generator_args = [
         "x86_avx2",
+        "convert_bf16_to_fp32,16x1",
         "convert_fp32_to_bf16,16x1",
         "exp_fp32,16x1",
         "sigmoid_fp32,16x1",
@@ -157,6 +158,7 @@ ynn_generate_src_hdr(
     generator = ":generator",
     generator_args = [
         "x86_avx512bf16",
+        "convert_bf16_to_fp32,32x1",
         "convert_fp32_to_bf16,32x1",
     ],
     output_hdr = "x86_avx512bf16.inc",
@@ -211,6 +213,7 @@ ynn_cc_library(
         "x86_avx2.inc",
         "x86_avx512bf16.inc",
         "x86_avx512f.inc",
+        "x86_f16c.inc",
         "x86_fma3.inc",
         "x86_sse2.inc",
         "x86_sse41.inc",
@@ -224,7 +227,7 @@ ynn_cc_library(
         "x86_avx2": ["x86_avx2.cc"],
         "x86_avx512bf16": ["x86_avx512bf16.cc"],
         "x86_avx512f": ["x86_avx512f.cc"],
-        "x86_f16c": ["x86_f16c"],
+        "x86_f16c": ["x86_f16c.cc"],
         "x86_fma3": ["x86_fma3.cc"],
         "x86_sse2": ["x86_sse2.cc"],
         "x86_sse41": ["x86_sse41.cc"],

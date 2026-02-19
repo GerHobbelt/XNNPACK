@@ -130,6 +130,8 @@ cc_test(
 cc_test(
     name = "fusion_lut",
     srcs = ["fusion_lut.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
     deps = TEST_DEPS + [
         "//ynnpack/subgraph",
     ],
@@ -170,6 +172,14 @@ cc_test(
     "static_pad",
     "stencil_copy",
 ]]
+
+cc_test(
+    name = "reduce_window",
+    srcs = ["reduce_window.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = TEST_DEPS + ["//ynnpack/subgraph"],
+)
 
 cc_test(
     name = "utils",

@@ -50,22 +50,25 @@ YNN_ALWAYS_INLINE vec<T, N> load(const T* ptr, size_t n, vec<T, N> src) {
 template <typename T, size_t N>
 YNN_ALWAYS_INLINE void store(T* ptr, vec<T, N> value,
                              std::integral_constant<size_t, N> n) {
-  store(ptr, value.lo());
-  store(ptr + N / 2, value.hi());
+  std::integral_constant<size_t, N / 2> n2 = {};
+  store(ptr, value.lo(), n2);
+  store(ptr + n2, value.hi(), n2);
 }
 template <typename T, size_t N>
 YNN_ALWAYS_INLINE void store_aligned(T* ptr, vec<T, N> value,
                                      std::integral_constant<size_t, N> n) {
-  store_aligned(ptr, value.lo());
-  store_aligned(ptr + N / 2, value.hi());
+  std::integral_constant<size_t, N / 2> n2 = {};
+  store_aligned(ptr, value.lo(), n2);
+  store_aligned(ptr + n2, value.hi(), n2);
 }
 template <typename T, size_t N>
 YNN_ALWAYS_INLINE void store(T* ptr, vec<T, N> value, size_t n) {
-  if (n < N / 2) {
+  std::integral_constant<size_t, N / 2> n2 = {};
+  if (n < n2) {
     store(ptr, value.lo(), n);
   } else {
-    store(ptr, value.lo());
-    store(ptr + N / 2, value.hi(), n - N / 2);
+    store(ptr, value.lo(), n2);
+    store(ptr + n2, value.hi(), n - n2);
   }
 }
 
@@ -152,6 +155,10 @@ YNN_ALWAYS_INLINE vec<To, N> convert(vec<From, N> from, To) {
   return {convert(from.lo(), To()), convert(from.hi(), To())};
 }
 
+template <typename T, size_t N>
+YNN_ALWAYS_INLINE T horizontal_sum(vec<T, N> x) {
+  return horizontal_sum(x.lo() + x.hi());
+}
 template <typename T, size_t N>
 YNN_ALWAYS_INLINE T horizontal_min(vec<T, N> x) {
   return horizontal_min(min(x.lo(), x.hi()));

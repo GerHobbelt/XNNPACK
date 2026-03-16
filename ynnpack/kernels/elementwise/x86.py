@@ -5,22 +5,10 @@ from ynnpack.kernels.elementwise.common_rules import add_saturating_cast_rules
 from ynnpack.kernels.elementwise.compiler import *  # pylint: disable=wildcard-import
 
 
-def make_x86_cast_patterns(vector_bits, prefix):
+def make_x86_cast_patterns(vector_bits):
   """Adds x86 cast patterns."""
 
-  return [
-      i.vectorize(vector_bits)
-      for i in [
-          Rule(
-              cast(Float(32), i32_a),
-              Op(Float(32), prefix + "cvtepi32_ps", [i32_a]),
-          ),
-          Rule(
-              cast(Int(32), round(f32_a)),
-              Op(Int(32), prefix + "cvtps_epi32", [f32_a]),
-          ),
-      ]
-  ] + add_saturating_cast_rules(vector_bits)
+  return add_saturating_cast_rules(vector_bits)
 
 
 def make_x86_bf16_patterns(vector_bits):
@@ -106,113 +94,10 @@ def make_x86_bf16_patterns(vector_bits):
   return rules
 
 
-def make_x86_reinterpret_cast_patterns(vector_bits, prefix):
-  return [
-      i.vectorize(vector_bits)
-      for i in [
-          Rule(
-              Op(Float(32), "reinterpret_cast", [i32_a]),
-              Op(
-                  Float(32),
-                  prefix + "castsi" + str(vector_bits) + "_ps",
-                  [i32_a],
-              ),
-          ),
-          Rule(
-              Op(Int(32), "reinterpret_cast", [f32_a]),
-              Op(Int(32), prefix + "castps_si" + str(vector_bits), [f32_a]),
-          ),
-          Rule(
-              Op(Float(32), "reinterpret_cast", [u32_a]),
-              Op(
-                  Float(32),
-                  prefix + "castsi" + str(vector_bits) + "_ps",
-                  [u32_a],
-              ),
-          ),
-          Rule(
-              Op(UInt(32), "reinterpret_cast", [f32_a]),
-              Op(UInt(32), prefix + "castps_si" + str(vector_bits), [f32_a]),
-          ),
-      ]
-  ]
-
-
 def make_x86_integer_patterns(vector_bits, prefix):
   return [
       i.vectorize(vector_bits)
       for i in [
-          Rule(u8_a + u8_b, Op(UInt(8), prefix + "add_epi8", [u8_a, u8_b])),
-          Rule(i8_a + i8_b, Op(Int(8), prefix + "add_epi8", [i8_a, i8_b])),
-          Rule(
-              u16_a + u16_b, Op(UInt(16), prefix + "add_epi16", [u16_a, u16_b])
-          ),
-          Rule(
-              i16_a + i16_b, Op(Int(16), prefix + "add_epi16", [i16_a, i16_b])
-          ),
-          Rule(
-              u32_a + u32_b, Op(UInt(32), prefix + "add_epi32", [u32_a, u32_b])
-          ),
-          Rule(
-              i32_a + i32_b, Op(Int(32), prefix + "add_epi32", [i32_a, i32_b])
-          ),
-          Rule(u8_a - u8_b, Op(UInt(8), prefix + "sub_epi8", [u8_a, u8_b])),
-          Rule(i8_a - i8_b, Op(Int(8), prefix + "sub_epi8", [i8_a, i8_b])),
-          Rule(
-              u16_a - u16_b, Op(UInt(16), prefix + "sub_epi16", [u16_a, u16_b])
-          ),
-          Rule(
-              i16_a - i16_b, Op(Int(16), prefix + "sub_epi16", [i16_a, i16_b])
-          ),
-          Rule(
-              u32_a - u32_b, Op(UInt(32), prefix + "sub_epi32", [u32_a, u32_b])
-          ),
-          Rule(
-              i32_a - i32_b, Op(Int(32), prefix + "sub_epi32", [i32_a, i32_b])
-          ),
-          Rule(
-              i32_a * i32_b, Op(Int(32), prefix + "mullo_epi32", [i32_a, i32_b])
-          ),
-          Rule(min(u8_a, u8_b), Op(UInt(8), prefix + "min_epu8", [u8_a, u8_b])),
-          Rule(max(u8_a, u8_b), Op(UInt(8), prefix + "max_epu8", [u8_a, u8_b])),
-          Rule(
-              min(i16_a, i16_b),
-              Op(Int(16), prefix + "min_epi16", [i16_a, i16_b]),
-          ),
-          Rule(
-              max(i16_a, i16_b),
-              Op(Int(16), prefix + "max_epi16", [i16_a, i16_b]),
-          ),
-          Rule(
-              u32_a & u32_b,
-              Op(
-                  UInt(32),
-                  prefix + "and_si" + str(vector_bits),
-                  [u32_a, u32_b],
-              ),
-          ),
-          Rule(
-              i32_a & i32_b,
-              Op(Int(32), prefix + "and_si" + str(vector_bits), [i32_a, i32_b]),
-          ),
-          Rule(
-              u32_a | u32_b,
-              Op(UInt(32), prefix + "or_si" + str(vector_bits), [u32_a, u32_b]),
-          ),
-          Rule(
-              i32_a | i32_b,
-              Op(Int(32), prefix + "or_si" + str(vector_bits), [i32_a, i32_b]),
-          ),
-          Rule(
-              u32_a ^ u32_b,
-              Op(
-                  UInt(32), prefix + "xor_si" + str(vector_bits), [u32_a, u32_b]
-              ),
-          ),
-          Rule(
-              i32_a ^ i32_b,
-              Op(Int(32), prefix + "xor_si" + str(vector_bits), [i32_a, i32_b]),
-          ),
           Rule(
               saturating_add(u8_a, u8_b),
               Op(UInt(8), prefix + "adds_epu8", [u8_a, u8_b]),
@@ -493,71 +378,6 @@ def make_x86_slice_patterns(vector_bits, prefix):
   return []
 
 
-def make_x86_float32_patterns(vector_bits, prefix):
-  return [
-      i.vectorize(vector_bits)
-      for i in [
-          Rule(f32_a + f32_b, Op(Float(32), prefix + "add_ps", [f32_a, f32_b])),
-          Rule(f32_a - f32_b, Op(Float(32), prefix + "sub_ps", [f32_a, f32_b])),
-          Rule(f32_a * f32_b, Op(Float(32), prefix + "mul_ps", [f32_a, f32_b])),
-          Rule(f32_a / f32_b, Op(Float(32), prefix + "div_ps", [f32_a, f32_b])),
-          Rule(
-              ceil(f32_a),
-              Op(Float(32), prefix + "ceil_ps", [f32_a]),
-              features=["SSE41"],
-          ),
-          Rule(
-              floor(f32_a),
-              Op(Float(32), prefix + "floor_ps", [f32_a]),
-              features=["SSE41"],
-          ),
-          Rule(
-              sqrt(f32_a),
-              Op(Float(32), prefix + "sqrt_ps", [f32_a]),
-          ),
-          Rule(
-              f32_a & f32_b,
-              Op(Float(32), prefix + "and_ps", [f32_a, f32_b]),
-          ),
-          Rule(
-              f32_a | f32_b,
-              Op(Float(32), prefix + "or_ps", [f32_a, f32_b]),
-          ),
-          Rule(
-              f32_a ^ f32_b,
-              Op(Float(32), prefix + "xor_ps", [f32_a, f32_b]),
-          ),
-      ]
-  ]
-
-
-def make_x86_f16c_patterns(vector_bits, prefix):
-  # TODO(vksnk): this is just a workaround, because the fp16 vector is shorter
-  # than target bit width. This needs a clean-up.
-  f32_to_f16_rule = Rule(
-      cast(Float(16), f32_a).with_lanes(vector_bits // 32),
-      Op(Float(16), "wrapper" + prefix + "cvtps_ph", [f32_a]).with_lanes(
-          vector_bits // 32
-      ),
-      ["F16C"],
-  )
-  return [
-      i.vectorize(vector_bits)
-      for i in [
-          Rule(
-              cast(Float(32), f16_a),
-              Op(Float(32), prefix + "cvtph_ps", [f16_a]),
-              ["F16C"],
-          ),
-          Rule(
-              cast(Float(16), f32_a),
-              Op(Float(16), prefix + "cvtps_ph", [f32_a]),
-              ["F16C"],
-          ),
-      ]
-  ] + [f32_to_f16_rule]
-
-
 def make_x86_fma_patterns(vector_bits, prefix):
   return [
       i.vectorize(vector_bits)
@@ -591,10 +411,8 @@ class X86(Target):
         Float(32, 4): "simd::vec<float, 4>",
     })
 
-    self.patterns += make_x86_float32_patterns(128, "_mm_")
     self.patterns += make_x86_integer_patterns(128, "_mm_")
-    self.patterns += make_x86_cast_patterns(128, "_mm_")
-    self.patterns += make_x86_reinterpret_cast_patterns(128, "_mm_")
+    self.patterns += make_x86_cast_patterns(128)
     self.patterns += make_x86_float_comparison_patterns(128, "_mm_")
     self.patterns += make_x86_integer_comparison_patterns(128, "_mm_")
 
@@ -650,41 +468,16 @@ YNN_INTRINSIC __m128i saturating_cast_f32_to_uint8(__m128 f0, __m128 f1, __m128 
   return _mm_packus_epi16(i01_16, i23_16);
 }
 
-YNN_INTRINSIC __m128 bitwise_not(__m128 val) {
-  __m128 all_ones = _mm_castsi128_ps(_mm_set1_epi32(-1));
-  return _mm_xor_ps(val, all_ones);
-}
-
 } // namespace
 """
 
   def update_for_sse41(self):
     """Updates the target for SSE41 support."""
-    self.header += """
-namespace {
-
-YNN_INTRINSIC __m128 round(__m128 x) {
-  return _mm_round_ps(x, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
-}
-
-} // namespace
-
-"""
-    self.patterns += make_x86_float32_patterns(128, "_mm_")
 
   def update_for_avx(self):
     """Updates the target for AVX support."""
     self.header += """
 namespace {
-
-YNN_INTRINSIC __m256 round(__m256 x) {
-  return _mm256_round_ps(x, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
-}
-
-YNN_INTRINSIC __m256 bitwise_not(__m256 val) {
-  __m256 all_ones = _mm256_castsi256_ps(_mm256_set1_epi32(-1));
-  return _mm256_xor_ps(val, all_ones);
-}
 
 YNN_INTRINSIC __m256 greater_than(__m256 a, __m256 b) {
   return _mm256_cmp_ps(a, b, _CMP_GT_OS);
@@ -725,14 +518,12 @@ YNN_INTRINSIC __m128 wrapper_mm256_slice_extract_ps256_1(
         BFloat(16, 16): "simd::vec<bfloat16, 16>",
         BFloat(16, 8): "simd::vec<bfloat16, 8>",
     })
-    self.patterns += make_x86_float32_patterns(256, "_mm256_")
-    self.patterns += make_x86_reinterpret_cast_patterns(256, "_mm256_")
     self.patterns += make_x86_slice_patterns(256, "_mm256_")
 
   def update_for_avx2(self):
     """Updates the target for AVX2 support."""
     self.patterns += make_x86_integer_patterns(256, "_mm256_")
-    self.patterns += make_x86_cast_patterns(256, "_mm256_")
+    self.patterns += make_x86_cast_patterns(256)
     self.patterns += make_x86_bf16_patterns(256)
 
     self.header += """
@@ -822,31 +613,11 @@ YNN_INTRINSIC __m256i saturating_cast_f32_to_uint8(__m256 f0, __m256 f1, __m256 
 
   def update_for_f16c(self):
     """Updates the target for F16C support."""
-    self.header += """
-namespace {
-
-YNN_INTRINSIC __m128i wrapper_mm256_cvtps_ph(__m256 x) {
-  return _mm256_cvtps_ph(x, _MM_FROUND_TO_NEAREST_INT);
-}
-
-} // namespace
-
-"""
-    self.patterns += make_x86_f16c_patterns(256, "_mm256_")
 
   def update_for_avx512f(self):
     """Updates the target for AVX512F support."""
     self.header += """
 namespace {
-
-YNN_INTRINSIC __m512 round(__m512 x) {
-  return _mm512_roundscale_ps(x, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
-}
-
-YNN_INTRINSIC __m512i bitwise_not(__m512i val) {
-  __m512i all_ones = _mm512_set1_epi32(-1);
-  return _mm512_xor_si512(val, all_ones);
-}
 
 YNN_INTRINSIC __m512 convert_bf16_to_fp32_avx512(__m256i a) {
   const __m512i fp32_integers = _mm512_cvtepu16_epi32(a);
@@ -888,10 +659,8 @@ YNN_INTRINSIC __m256 wrapper_mm512_slice_extract_ps512_1(
         Float(16, 16): "simd::vec<half, 16>",
     })
     self.patterns += make_x86_fma_patterns(512, "_mm512_")
-    self.patterns += make_x86_float32_patterns(512, "_mm512_")
-    self.patterns += make_x86_reinterpret_cast_patterns(512, "_mm512_")
     self.patterns += make_x86_integer_patterns(512, "_mm512_")
-    self.patterns += make_x86_cast_patterns(512, "_mm512_")
+    self.patterns += make_x86_cast_patterns(512)
     self.patterns += make_x86_slice_patterns(512, "_mm512_")
 
   def update_for_avx512bf16(self):
@@ -1015,10 +784,18 @@ YNN_INTRINSIC __m512i saturating_cast_int16_to_uint8(__m512i a, __m512i b) {
       simd_header = "x86_avx512.h"
       self.tail_strategy = TailStrategy.VECTOR
       self.vector_bits = 512
+    elif "AVX2" in all_features:
+      simd_header = "x86_avx2.h"
+      self.tail_strategy = TailStrategy.VECTOR
+      self.vector_bits = 256
     elif "AVX" in all_features:
       simd_header = "x86_avx.h"
       self.tail_strategy = TailStrategy.VECTOR
       self.vector_bits = 256
+    elif "SSE41" in all_features:
+      simd_header = "x86_sse41.h"
+      self.tail_strategy = TailStrategy.VECTOR
+      self.vector_bits = 128
     elif "SSE2" in all_features:
       simd_header = "x86_sse2.h"
       self.tail_strategy = TailStrategy.VECTOR
@@ -1028,6 +805,10 @@ YNN_INTRINSIC __m512i saturating_cast_int16_to_uint8(__m512i a, __m512i b) {
         f'#include "ynnpack/base/simd/{simd_header}"\n'
     )
 
+    if "F16C" in all_features:
+      self.header += (
+          '#include "ynnpack/base/simd/x86_f16c.h"\n'
+      )
     if "AVX512BW" in all_features:
       self.update_for_avx512bw()
     if "AVX512BF16" in all_features:

@@ -141,29 +141,59 @@ auto make_unary_reduce_impl(ynn_reduce_operator op,
     size_t a_stride_k2 = 0;
     for (int i = 0; i < a.rank;) {
       if (k_dims[i + sliced]) {
-        if (k2 == 1) {
-          k2 = a.dim(i).extent();
-          a_stride_k2 = a.dim(i).stride();
+        slinky::index_t extent_i = a.dim(i).extent();
+        if (extent_i == 0) {
+          // The reduction is an empty reduction, so we are done after
+          // initializing the output.
+          return 0;
+        }
+        slinky::index_t stride_i = a.dim(i).stride();
+        if (k1 * a.elem_size == stride_i) {
+          k1 *= extent_i;
+          slice(i);
+          continue;
+        } else if (a_stride_k2 * k2 == stride_i) {
+          k2 *= extent_i;
+          slice(i);
+          continue;
+        } else if (a_stride_k3 * k3 == stride_i) {
+          k3 *= extent_i;
+          slice(i);
+          continue;
+        } else if (k2 == 1) {
+          k2 = extent_i;
+          a_stride_k2 = stride_i;
           slice(i);
           continue;
         } else if (k3 == 1) {
-          k3 = a.dim(i).extent();
-          a_stride_k3 = a.dim(i).stride();
+          k3 = extent_i;
+          a_stride_k3 = stride_i;
           slice(i);
           continue;
         }
       } else {
         // Not a reduction dimension. If we haven't already found a dimension
         // for the kernel, give it this one.
-        if (n == 1 && c.dim(i).stride() == c.elem_size) {
-          n = c.dim(i).extent();
-          a_stride_n = a.dim(i).stride();
-          slice(i);
-          continue;
+        if (c.dim(i).stride() == n * c.elem_size) {
+          if (a_stride_n * n == a.dim(i).stride()) {
+            n *= c.dim(i).extent();
+            slice(i);
+            continue;
+          } else if (n == 1) {
+            n = c.dim(i).extent();
+            a_stride_n = a.dim(i).stride();
+            slice(i);
+            continue;
+          }
         }
       }
       // If we get here, we are keeping this dimension.
       ++i;
+    }
+
+    if (n == 0) {
+      // The output is empty.
+      return 0;
     }
 
     slinky::for_each_element(

@@ -93,6 +93,36 @@ TEST_MAX(x86_avx512, s16, 32);
 TEST_MAX(x86_avx512, f32, 16);
 TEST_MAX(x86_avx512, s32, 16);
 
+TEST_AND(x86_avx512, u8, 64);
+TEST_AND(x86_avx512, s8, 64);
+TEST_AND(x86_avx512, s16, 32);
+TEST_AND(x86_avx512, s32, 16);
+
+TEST_OR(x86_avx512, u8, 64);
+TEST_OR(x86_avx512, s8, 64);
+TEST_OR(x86_avx512, s16, 32);
+TEST_OR(x86_avx512, s32, 16);
+
+TEST_XOR(x86_avx512, u8, 64);
+TEST_XOR(x86_avx512, s8, 64);
+TEST_XOR(x86_avx512, s16, 32);
+TEST_XOR(x86_avx512, s32, 16);
+
+TEST_NOT(x86_avx512, u8, 64);
+TEST_NOT(x86_avx512, s8, 64);
+TEST_NOT(x86_avx512, s16, 32);
+TEST_NOT(x86_avx512, s32, 16);
+
+TEST_FLOOR(x86_avx512, f32, 16);
+TEST_CEIL(x86_avx512, f32, 16);
+TEST_ROUND(x86_avx512, f32, 16);
+TEST_SQRT(x86_avx512, f32, 16);
+
+TEST_ABS(x86_avx512, s8, 64);
+TEST_ABS(x86_avx512, s16, 32);
+TEST_ABS(x86_avx512, s32, 16);
+TEST_ABS(x86_avx512, f32, 16);
+
 TEST_FMA(x86_avx512, f32, 16);
 
 TEST_EXTRACT(x86_avx512, s32x16, 4);
@@ -130,6 +160,8 @@ TEST_CONVERT(x86_avx512, s32, s8x16);
 TEST_CONVERT(x86_avx512, s32, u8x16);
 TEST_CONVERT(x86_avx512, s32, s8x32);
 TEST_CONVERT(x86_avx512, s32, u8x32);
+TEST_CONVERT(x86_avx512, f32, s32x16);
+TEST_CONVERT(x86_avx512, s32, f32x16);
 
 }  // namespace simd
 }  // namespace ynn

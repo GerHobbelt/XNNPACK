@@ -253,7 +253,7 @@ class Value:
     return Op(self.ty, "bitwise_xor", promote_types(self, wrap(y)))
 
   def __invert__(self):
-    return Op(self.ty, "bitwise_not", [self])
+    return Op(self.ty, "~", [self])
 
   def __neg__(self):
     return Constant(self.ty, 0) - self
@@ -401,11 +401,6 @@ def not_equal(self, y):
 @intrinsic
 def abs(value):
   return Op(value.ty, "abs", [value])
-
-
-def lower_abs(x):
-  assert x.ty.is_float()
-  return x & reinterpret_cast(Float(32), i32(0x7FFFFFFF))
 
 
 @intrinsic
@@ -559,7 +554,15 @@ def select_bits(mask, x, y):
 
 
 def lower_select_bits(mask, x, y):
-  return y ^ ((x ^ y) & mask)
+  if x.ty.is_float():
+    ity = Int(x.ty.size, x.ty.lanes)
+    iy = reinterpret_cast(ity, y)
+    return reinterpret_cast(
+        x.ty,
+        iy ^ ((reinterpret_cast(ity, x) ^ iy) & reinterpret_cast(ity, mask)),
+    )
+  else:
+    return y ^ ((x ^ y) & mask)
 
 
 @intrinsic
@@ -570,7 +573,16 @@ def select(cond, x, y):
 
 # We assume that cond produces a mask.
 def lower_select(cond, x, y):
-  return (x & cond) | (y & ~cond)
+  if x.ty.is_float():
+    ity = Int(x.ty.size, x.ty.lanes)
+    icond = reinterpret_cast(ity, cond)
+    return reinterpret_cast(
+        x.ty,
+        (reinterpret_cast(ity, x) & icond)
+        | (reinterpret_cast(ity, y) & ~icond),
+    )
+  else:
+    return (x & cond) | (y & ~cond)
 
 
 def load(x, offset_index=0):
@@ -634,7 +646,6 @@ def slice_vector(arg, index, total):
 # Would it be bad if instead of using a map we looked up in a global namespace
 # if there is a function called "lower" + op.name?
 lowering_funcs = {
-    "abs": lower_abs,
     "widening_sub": lower_widening_sub,
     "widening_mul": lower_widening_mul,
     "saturating_add": lower_saturating_add,
@@ -949,7 +960,27 @@ class Target:
     self.tail_strategy = TailStrategy.SCALAR
     self.result = ""
     self.header = header
-    self.simd_ops = {"min", "max", "load", "store"}
+    self.simd_ops = {
+        "abs",
+        "min",
+        "max",
+        "load",
+        "store",
+        "round",
+        "floor",
+        "ceil",
+        "sqrt",
+        "reinterpret_cast",
+        "cast",
+    }
+    self.infix_ops = {
+        "add": "+",
+        "sub": "-",
+        "mul": "*",
+        "bitwise_and": "&",
+        "bitwise_or": "|",
+        "bitwise_xor": "^",
+    }
 
   def indent(self):
     return "  " * self.indent_level
@@ -981,12 +1012,12 @@ class Target:
         )
 
   def needs_simd_wrapper(self, op):
-    if op.name in self.simd_ops:
+    if op.name in self.simd_ops or op.name in self.infix_ops:
       return False
     return True
 
   def simd_suffix(self, op):
-    if op.name in self.simd_ops:
+    if op.name in self.simd_ops or op.name in self.infix_ops:
       return ""
     return ".v"
 
@@ -994,11 +1025,19 @@ class Target:
     return self.types.get(ty, ty.to_c_decl(is_const))
 
   def legalize_op(self, op):
+    """Legalizes an operator."""
     if op.name == "broadcast":
       return (
           f"simd::broadcast<{op.ty.lanes},"
           f" {self.legalize_type(op.ty.scalar())}>"
       )
+    elif op.name == "reinterpret_cast":
+      return (
+          f"bit_cast<{self.legalize_type(op.ty)},"
+          f" {self.legalize_type(op.args[0].ty)}>"
+      )
+    elif op.name == "cast":
+      return "convert"
     elif op.name == "min" or op.name == "max":
       return f"simd::{op.name}"
     return op.name
@@ -1373,7 +1412,8 @@ class Target:
 
     is_load = isinstance(op, Load)
     is_store = isinstance(op, Op) and op.name == "store"
-    is_load_store = is_load or is_store
+
+    offset = op.offset_elements if is_load else 0
 
     str_args = []
 
@@ -1385,7 +1425,7 @@ class Target:
       # the existing broadcast value.
       b = self.as_buffer(op.index, buffers)
       if b is not None and b.broadcast_mode == BroadcastMode.ALWAYS:
-        self.result += f" = {result_type}({b.name}_broadcasted[{j}]);\n"
+        self.result += f" = {b.name}_broadcasted[{j}];\n"
         return
       # hack
       args = [op.index]
@@ -1413,7 +1453,6 @@ class Target:
             )
           else:
             row_offset = f" + stride_{arg.name}_m * min({j}, m - i - 1)"
-        offset = op.offset_elements if is_load else 0
         str_args.append(
             f"({t}*)offset_bytes({arg.name}, {stride_n} *"
             f" ({k * output_lanes}{row_offset} + {offset}))"
@@ -1426,48 +1465,39 @@ class Target:
         else:
           str_args.append(f"{arg}_{j}_{k}{self.simd_suffix(op)}")
 
-    offset = op.offset_elements if is_load else 0
     lanes = (
         f"min({op_natural_vector_size}, (size_t)std::max<int>(j -"
         f" {k * output_lanes} - {offset}, 0))"
     )
 
-    if (
-        is_load_store
-        and is_rem_width
-    ):
-      mask_op = ""
-      if is_load:
-        self.result += " = "
-        mask_op = "simd::load"
+    if not is_store:
+      self.result += " = "
+
+    mem_op = ""
+    if is_load:
+      mem_op = "simd::load"
+      if is_rem_width:
+        str_args.append(lanes)
+        str_args.append(f"simd::undef<{op.ty.lanes}>()")
       else:
-        mask_op = "simd::store"
-      self.result += f"{mask_op}({str_args[0]}"
-
-      if is_store:
-        self.result += f", {str_args[1]}"
-
-      self.result += f", {lanes}"
-
-      if is_load:
-        self.result += f", simd::undef<{op.ty.lanes}>()"
-      self.result += ");\n"
-    else:
-      if not is_store:
-        self.result += " = "
-      mem_op = ""
-
-      if is_load:
-        mem_op = "simd::load"
         str_args.append(f"{self.legalize_type(op.ty)}::N")
-      elif is_store:
-        mem_op = "simd::store"
-      else:
-        mem_op = self.legalize_op(op)
-      if self.needs_simd_wrapper(op):
-        self.result += f"{result_type}({mem_op}({', '.join(str_args)}));\n"
-      else:
-        self.result += f"{mem_op}({', '.join(str_args)});\n"
+    elif is_store:
+      mem_op = "simd::store"
+      if is_rem_width:
+        str_args.append(lanes)
+    elif op.name in self.infix_ops:
+      pass
+    else:
+      if op.name == "cast":
+        str_args.append(f"{self.legalize_type(op.ty.scalar())}{{}}")
+      mem_op = self.legalize_op(op)
+
+    if op.name in self.infix_ops:
+      self.result += f"{str_args[0]} {self.infix_ops[op.name]} {str_args[1]};\n"
+    elif self.needs_simd_wrapper(op):
+      self.result += f"{result_type}({mem_op}({', '.join(str_args)}));\n"
+    else:
+      self.result += f"{mem_op}({', '.join(str_args)});\n"
 
   def emit_inner_loop_body(
       self,

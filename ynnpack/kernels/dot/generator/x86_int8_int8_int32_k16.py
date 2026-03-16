@@ -1,14 +1,22 @@
+# Copyright 2025 Google LLC
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 """Specializations for int8 x86 dot kernel generators."""
 
-from ynnpack.kernels.dot.generator.x86 import x86_avx
+# pylint: disable=missing-class-docstring
+# pylint: disable=invalid-name
+
+from ynnpack.kernels.dot.generator.x86 import x86_avx512
 
 
 # In this generator, we tell the base class that we are generating 128-bit
 # tiles, but we accumulate in 512-bit vectors.
-class x86_avx512bw_int8_int8_int32_k16(x86_avx):  # pylint: disable=invalid-name
+class x86_avx512_int8_int8_int32_k16(x86_avx512):
   """Generates tile_k=16 avx512bw dot kernels."""
 
-  def __init__(self, arch="avx512bw"):
+  def __init__(self, arch="avx512"):
     super().__init__(
         arch, "int8_int8_int32", "int32_t", 128, tile_shape=(1, 4, 16)
     )

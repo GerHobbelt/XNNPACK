@@ -1,7 +1,15 @@
+# Copyright 2025 Google LLC
+#
+# This source code is licensed under the BSD-style license found in the
+# LICENSE file in the root directory of this source tree.
+
 """Base class for x86 dot kernel generators.
 
 Handles accumulating C tiles to the output.
 """
+
+# pylint: disable=missing-class-docstring
+# pylint: disable=invalid-name
 
 from ynnpack.kernels.dot.generator.dot_base import dot_base, indent
 
@@ -103,9 +111,13 @@ class x86(dot_base):
       result += indent(self.add_c_block_vectors(n), "  ")
       result += "\n}\n"
       n //= 2
-    result += "if (N > 0) {\n"
-    result += indent(self.add_c_block_vector_tail(), "  ")
-    result += "\n}\n"
+    if self.block_shape[1] > self.bits // 32:
+      result += "if (N > 0) {\n"
+      result += indent(self.add_c_block_vector_tail(), "  ")
+      result += "\n}\n"
+    else:
+      result += "assert(N > 0);\n"
+      result += self.add_c_block_vector_tail()
 
     return result
 
@@ -208,12 +220,15 @@ static const int32_t mask_table[16] = {-1, -1, -1, -1, -1, -1, -1, -1, 0, 0, 0, 
     result += f"N = 0;\n"
     return result
 
-class x86_avx512f(x86):
+
+class x86_avx512(x86):
   def add_c_block_vector_tail(self):
     result = ""
     result += f"assert(N < {self.bits//32});\n"
 
-    result += f"const __mmask16 mask = _cvtu32_mask16((uint32_t) (((UINT64_C(1) << N) - 1) >> 0));\n"
+    result += (
+        "const __mmask16 mask = _cvtu32_mask16((uint32_t) ((1 << N) - 1));\n"
+    )
 
     add_c_tiles = ""
     # Load all of the output and add it, before writing anything.

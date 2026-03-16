@@ -16,16 +16,20 @@
 #include "ynnpack/base/test/random.h"
 #include "ynnpack/base/test/tensor.h"
 #include "ynnpack/base/test/util.h"
+#include "ynnpack/base/to_string.h"
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
 #include "ynnpack/kernels/binary/reference.h"
 #include "ynnpack/subgraph/test/subgraph_builder.h"
 
+// This needs to be in the global namespace for argument dependent lookup to
+// work.
+using ::ynn::to_string;  // NOLINT(misc-unused-using-decls)
+
 namespace ynn {
 
 using ::testing::Combine;
 using ::testing::ValuesIn;
-using ::ynn::to_string;  // NOLINT(misc-unused-using-decls)
 
 void update_shape(std::vector<size_t>& shape,
                   const std::vector<size_t>& update) {

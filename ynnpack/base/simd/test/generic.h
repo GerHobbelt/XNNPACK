@@ -13,7 +13,6 @@
 #include <cstring>
 #include <type_traits>
 #include <utility>
-#include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -22,6 +21,7 @@
 #include "ynnpack/base/simd/vec.h"
 #include "ynnpack/base/test/fuzz_test.h"
 #include "ynnpack/base/test/random.h"
+#include "slinky/base/span.h"
 
 namespace ynn {
 
@@ -31,12 +31,12 @@ using testing::Each;
 using testing::ElementsAreArray;
 
 template <typename T>
-std::vector<T> as_vector(T* array, size_t size) {
-  return std::vector<T>(array, array + size);
+slinky::span<T> as_span(T* array, size_t size) {
+  return slinky::span<T>(array, array + size);
 }
 template <typename T>
-std::vector<T> as_vector(T* begin, T* end) {
-  return std::vector<T>(begin, end);
+slinky::span<T> as_span(T* begin, T* end) {
+  return slinky::span<T>(begin, end);
 }
 
 using u8 = uint8_t;
@@ -73,7 +73,7 @@ void test_load_store() {
     auto v = load(src, std::integral_constant<size_t, N>{});
 
     store(dst, v);
-    EXPECT_THAT(as_vector(dst, N), ElementsAreArray(src, N));
+    EXPECT_THAT(as_span(dst, N), ElementsAreArray(src, N));
   }
 }
 
@@ -119,8 +119,8 @@ void test_partial_load() {
 
       scalar dst[N];
       store(dst, v);
-      EXPECT_THAT(as_vector(dst, n), ElementsAreArray(src, n));
-      EXPECT_THAT(as_vector(dst + n, dst + N),
+      EXPECT_THAT(as_span(dst, n), ElementsAreArray(src, n));
+      EXPECT_THAT(as_span(dst + n, dst + N),
                   ElementsAreArray(init + n, init + N));
     }
   }
@@ -141,8 +141,8 @@ void test_partial_load_zero() {
 
       scalar dst[N];
       store(dst, v);
-      EXPECT_THAT(as_vector(dst, n), ElementsAreArray(src, n));
-      EXPECT_THAT(as_vector(dst + n, dst + N),
+      EXPECT_THAT(as_span(dst, n), ElementsAreArray(src, n));
+      EXPECT_THAT(as_span(dst + n, dst + N),
                   ElementsAreArray(dst + n, dst + N));
     }
   }
@@ -163,7 +163,7 @@ void test_partial_load_undef() {
 
       scalar dst[N];
       store(dst, v);
-      EXPECT_THAT(as_vector(dst, n), ElementsAreArray(src, n));
+      EXPECT_THAT(as_span(dst, n), ElementsAreArray(src, n));
     }
   }
 }
@@ -185,7 +185,7 @@ void test_partial_store() {
     vector v = load(src, vector::N);
     for (size_t n = 1; n < N; ++n) {
       store(dst, v, n);
-      EXPECT_THAT(as_vector(dst, n), ElementsAreArray(src, n));
+      EXPECT_THAT(as_span(dst, n), ElementsAreArray(src, n));
       for (size_t i = n; i < N; ++i) {
         ASSERT_EQ(dst[i], static_cast<scalar>(i + 5));
       }
@@ -207,60 +207,98 @@ void test_partial_store() {
     test_partial_store<type, N>();                      \
   }
 
-template <typename scalar, size_t N, template <typename> typename Op>
+template <typename scalar, size_t N, typename Op>
 void test_op() {
   using vector = vec<scalar, N>;
 
-  scalar a[vector::N];
-  scalar b[vector::N];
-  for (size_t i = 0; i < vector::N; ++i) {
-    a[i] = i * 2;
-    b[i] = vector::N / 2 - i;
-  }
+  ReplicableRandomDevice rng;
+  Op op;
 
-  scalar result[vector::N];
+  for (auto _ : FuzzTest(std::chrono::milliseconds(100))) {
+    scalar a[vector::N];
+    scalar b[vector::N];
+    fill_random(a, vector::N, rng);
+    fill_random(b, vector::N, rng);
 
-  Op<vector> vector_op;
-  Op<scalar> scalar_op;
+    scalar result[vector::N];
 
-  store(result, vector_op(load(a, vector::N), load(b, vector::N)));
-  for (size_t i = 0; i < vector::N; ++i) {
-    ASSERT_EQ(result[i], scalar_op(a[i], b[i]));
+    store(result, op(load(a, vector::N), load(b, vector::N)));
+    for (size_t i = 0; i < vector::N; ++i) {
+      scalar expected = op(a[i], b[i]);
+#ifdef YNN_ARCH_ARM32
+      if (std::abs(expected) < type_info<scalar>::smallest_normal()) {
+        // ARM32 flushes denormals to 0(?).
+        continue;
+      }
+#endif  // YNN_ARCH_ARM32
+      ASSERT_EQ(result[i], expected);
+    }
   }
 }
 
-template <typename T>
 struct min_op {
+  template <typename T>
   T operator()(T a, T b) {
     using std::min;
     return min(a, b);
   }
 };
 
-template <typename T>
 struct max_op {
+  template <typename T>
   T operator()(T a, T b) {
     using std::max;
     return max(a, b);
   }
 };
 
-template <typename T>
 struct copysign_op {
+  template <typename T>
   T operator()(T a, T b) {
     using std::copysign;
     return copysign(a, b);
   }
 };
 
-#define TEST_ADD(test_class, type, N) \
-  TEST_F(test_class, add_##type##x##N) { test_op<type, N, std::plus>(); }
-#define TEST_SUBTRACT(test_class, type, N) \
-  TEST_F(test_class, subtract_##type##x##N) { test_op<type, N, std::minus>(); }
-#define TEST_MULTIPLY(test_class, type, N)  \
-  TEST_F(test_class, multiply_##type##x##N) { \
-    test_op<type, N, std::multiplies>();    \
+struct add_op {
+  template <typename T>
+  T operator()(T a, T b) {
+    return a + b;
   }
+  int32_t operator()(int32_t a, int32_t b) {
+    // For integers, don't hit signed integer overflow.
+    return static_cast<int64_t>(a) + static_cast<int64_t>(b);
+  }
+};
+
+struct sub_op {
+  template <typename T>
+  T operator()(T a, T b) {
+    return a - b;
+  }
+  int32_t operator()(int32_t a, int32_t b) {
+    // For integers, don't hit signed integer overflow.
+    return static_cast<int64_t>(a) - static_cast<int64_t>(b);
+  }
+};
+
+struct multiply_op {
+  template <typename T>
+  T operator()(T a, T b) {
+    return a * b;
+  }
+  int32_t operator()(int32_t a, int32_t b) {
+    // For integers, don't hit signed integer overflow.
+    return static_cast<int64_t>(a) * static_cast<int64_t>(b);
+  }
+};
+
+#define TEST_ADD(test_class, type, N) \
+  TEST_F(test_class, add_##type##x##N) { test_op<type, N, add_op>(); }
+#define TEST_SUBTRACT(test_class, type, N) \
+  TEST_F(test_class, subtract_##type##x##N) { test_op<type, N, sub_op>(); }
+#define TEST_MULTIPLY(test_class, type, N) \
+  TEST_F(test_class, multiply_##type##x##N) { test_op<type, N, multiply_op>(); }
 #define TEST_COPYSIGN(test_class, type, N) \
   TEST_F(test_class, copysign_##type##x##N) { test_op<type, N, copysign_op>(); }
 #define TEST_MIN(test_class, type, N) \

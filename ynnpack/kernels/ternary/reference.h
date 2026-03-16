@@ -15,7 +15,6 @@
 
 #include <gtest/gtest.h>
 #include "ynnpack/base/arithmetic.h"
-#include "ynnpack/base/base.h"
 #include "ynnpack/base/test/tensor.h"
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
@@ -86,6 +85,16 @@ struct quantize_uint8 {
 
   float tolerance(float, float, float, ynn_type type) const {
     return 1.0f;
+  }
+};
+
+struct dequantize {
+  float operator()(float a, float zero_point, float scale) const {
+    return (a - zero_point) * scale;
+  }
+
+  float tolerance(float a, float b, float c, ynn_type type) const {
+    return epsilon(type);
   }
 };
 

@@ -39,9 +39,9 @@ cc_library(
     hdrs = ["matchers.h"],
     deps = [
         "//ynnpack:ynnpack_h",
-        "//ynnpack/kernels/ternary",
         "//ynnpack/subgraph",
         "@com_google_googletest//:gtest",
+        "@slinky//slinky/base",
     ],
 )
 
@@ -148,6 +148,7 @@ cc_test(
     linkopts = ynn_binary_linkopts(),
     malloc = ynn_binary_malloc(),
     deps = TEST_DEPS + [
+        "//ynnpack/kernels/ternary",
         "//ynnpack/subgraph",
     ],
 )
@@ -175,24 +176,25 @@ cc_test(
     malloc = ynn_binary_malloc(),
     deps = TEST_DEPS,
 ) for name in [
+    "concatenate",
     "copy",
-    "static_broadcast",
-    "static_expand_dims",
-    "static_reshape",
-    "split_dim",
+    "broadcast_like",
+    "errors",
+    "even_split",
     "fuse_dim",
     "fuse_dims",
-    "concatenate",
-    "errors",
     "get_tensor_shape",
     "lut",
     "reduce",
-    "even_split",
     "runtime",
+    "split_dim",
     "stack",
-    "static_transpose",
-    "static_slice",
+    "static_broadcast",
+    "static_expand_dims",
     "static_pad",
+    "static_reshape",
+    "static_slice",
+    "static_transpose",
     "stencil_copy",
 ]]
 

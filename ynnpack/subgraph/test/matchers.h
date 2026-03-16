@@ -7,8 +7,10 @@
 #define XNNPACK_YNNPACK_SUBGRAPH_TEST_MATCHERS_H_
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
+#include <ostream>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -18,6 +20,16 @@
 #include <gtest/gtest.h>
 #include "ynnpack/include/ynnpack.h"
 #include "ynnpack/subgraph/subgraph.h"
+#include "slinky/base/span.h"
+
+// This causes gmock to print the subgraph instead of just a hex encoded dump of
+// the memory. It needs to be in the global namespace for argument dependent
+// lookup to work.
+inline std::ostream& operator<<(std::ostream& os, const ynn_subgraph& g) {
+  os << "subgraph:" << std::endl;
+  g.dump(os);
+  return os;
+}
 
 namespace ynn {
 
@@ -170,6 +182,11 @@ MATCHER_P(IsStencilCopy, stencils, "") {
   return true;
 }
 
+MATCHER(IsCopy, "") {
+  const ynn_node::copy* copy = std::get_if<ynn_node::copy>(&arg.op);
+  return copy != nullptr;
+}
+
 // Checks that the given value ID is valid in the given subgraph.
 //
 // Example:
@@ -258,6 +275,7 @@ auto InputsInclude(Args&&... args) {
 inline const ynn_node& ProducerOf(uint32_t value_id,
                                   const ynn_subgraph& subgraph) {
   const ynn_node* node = subgraph.get_producer(value_id);
+  assert(node);
   return *node;
 }
 
@@ -267,7 +285,7 @@ inline const ynn_node& ProducerOf(uint32_t value_id,
 //   EXPECT_THAT(ValuesIn<float>(subgraph.value(x_id)),
 //               testing::ElementsAre(1.0f, 2.0f, 3.0f));
 template <typename T>
-std::vector<T> ValuesIn(const ynn_value& value) {
+slinky::span<const T> ValuesIn(const ynn_value& value) {
   if (!value.is_static()) {
     return {};
   }
@@ -275,8 +293,7 @@ std::vector<T> ValuesIn(const ynn_value& value) {
   if (count == 0) {
     return {};
   }
-  return std::vector<T>(static_cast<const T*>(value.data->base),
-                        static_cast<const T*>(value.data->base) + count);
+  return slinky::span<const T>(static_cast<const T*>(value.data->base), count);
 }
 
 }  // namespace ynn

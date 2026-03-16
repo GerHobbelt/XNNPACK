@@ -33,11 +33,13 @@ package(default_visibility = ["//ynnpack:__subpackages__"])
         "//ynnpack/base/simd",  # buildcleaner:keep
         "//ynnpack/base/test:fuzz_test",
         "//ynnpack/base/test:random",
+        "@slinky//slinky/base",
     ] + ynn_test_deps(),
 ) for arch in [
     "arm_neon",
     "arm_neonfp16",
     "arm_neonfma",
+    "arm64_sve",
     "x86_sse2",
     "x86_sse41",
     "x86_avx",
@@ -65,5 +67,6 @@ cc_test(
         "//ynnpack/base/simd",  # buildcleaner:keep
         "//ynnpack/base/test:fuzz_test",
         "//ynnpack/base/test:random",
+        "@slinky//slinky/base",
     ] + ynn_test_deps(),
 )

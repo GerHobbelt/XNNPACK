@@ -6,12 +6,15 @@
 #include <cmath>
 #include <cstdint>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include "ynnpack/include/ynnpack.h"
+#include "ynnpack/kernels/dequantize_dot/dequantize_dot.h"
 #include "ynnpack/kernels/ternary/ternary.h"
+#include "ynnpack/subgraph/dot.h"
 #include "ynnpack/subgraph/elementwise.h"
 #include "ynnpack/subgraph/subgraph.h"
 #include "ynnpack/subgraph/test/matchers.h"
@@ -20,6 +23,7 @@
 namespace ynn {
 
 using ::testing::AllOf;
+using ::testing::ElementsAre;
 
 TEST(fusion, multiply_add) {
   // rewrite add(multiply(a, b), c) -> multiply_add(a, b, c)
@@ -612,6 +616,54 @@ TEST(fusion, dequantize_quantize) {
   }
 }
 
+TEST(fusion, convert_dequantize) {
+  // rewrite convert(dequantize(x, T1), T2) -> dequantize(x, T2)
+  const uint32_t a_id = 0;
+  const uint32_t x_id = 1;
+  SubgraphBuilder builder(2);
+  uint32_t b_id = YNN_INVALID_VALUE_ID;
+  uint32_t zero_point_id = builder.DefineScalar(5);
+  uint32_t scale_id = builder.DefineScalar(0.5f);
+  builder.AddInput(ynn_type_int8, 2, a_id)
+      .AddOutput(ynn_type_bf16, 2, x_id)
+      .AddTensor(ynn_type_fp32, 2, b_id);
+  builder.AddDequantize(a_id, zero_point_id, scale_id, ynn_type_fp32, b_id)
+      .AddConvert(b_id, ynn_type_fp32, x_id);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  ASSERT_THAT(subgraph, AllOf(HasValidNodeCount(1), HasValidValueCount(4)));
+  EXPECT_THAT(ProducerOf(x_id, subgraph),
+              AllOf(IsDequantize(), InputsAre(a_id, zero_point_id, scale_id)));
+}
+
+TEST(fusion, quantize_convert) {
+  // rewrite quantize(convert(x, T1), T2) -> quantize(x, T2)
+  const uint32_t a_id = 0;
+  const uint32_t x_id = 1;
+  SubgraphBuilder builder(2);
+  uint32_t b_id = YNN_INVALID_VALUE_ID;
+  uint32_t zero_point_id = builder.DefineScalar(5);
+  uint32_t scale_id = builder.DefineScalar(0.5f);
+  builder.AddInput(ynn_type_bf16, 2, a_id)
+      .AddOutput(ynn_type_int8, 2, x_id)
+      .AddTensor(ynn_type_fp32, 2, b_id);
+  builder.AddConvert(a_id, ynn_type_fp32, b_id)
+      .AddQuantize(b_id, ynn_type_int8, zero_point_id, scale_id, x_id);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  ASSERT_THAT(subgraph, AllOf(HasValidNodeCount(1), HasValidValueCount(4)));
+  EXPECT_THAT(ProducerOf(x_id, subgraph),
+              AllOf(IsQuantize(), InputsAre(a_id, scale_id, zero_point_id)));
+}
+
 TEST(fusion, bf16_elementwise) {
   for (bool no_excess_precision : {false, true}) {
     // We don't have bf16 binary elementwise ops, we will insert converts to
@@ -877,6 +929,182 @@ TEST(fusion, fast_math_tanh_folded) {
   const auto& unary = std::get<ynn_node::unary_elementwise>(node.op);
   EXPECT_NEAR(unary.params.approx_tanh.output_multiplier, a, 1e-6f);
   EXPECT_NEAR(unary.params.approx_tanh.output_offset, b, 1e-6f);
+}
+
+TEST(fusion, dynamic_quantize_to_uint8) {
+  int rewrite_count = 0;
+  for (ynn_type rhs_type : {ynn_type_int8, ynn_type_int4, ynn_type_int2}) {
+    const uint32_t input_id = 0;
+    const uint32_t rhs_id = 1;
+    const uint32_t output_id = 2;
+
+    SubgraphBuilder builder(3);
+
+    builder.AddInput(ynn_type_fp32, {8, 16}, input_id)
+        .AddInput(rhs_type, {16, 32}, rhs_id)
+        .AddOutput(ynn_type_int32, {8, 32}, output_id);
+
+    uint32_t min_max_id = YNN_INVALID_VALUE_ID;
+    uint32_t scale_id = YNN_INVALID_VALUE_ID;
+    uint32_t zp_id = YNN_INVALID_VALUE_ID;
+    uint32_t quantized_id = YNN_INVALID_VALUE_ID;
+
+    builder.AddTensor(ynn_type_fp32, {2, 8, 1}, min_max_id)
+        .AddTensor(ynn_type_fp32, {8, 1}, scale_id)
+        .AddTensor(ynn_type_int32, {8, 1}, zp_id)
+        .AddTensor(ynn_type_int8, {8, 16}, quantized_id);
+
+    ynn_subgraph& subgraph = *builder.GetSubgraph();
+
+    int32_t reduce_axes[] = {-1};
+    ynn_status status = ynn_define_reduce(
+        &subgraph, ynn_reduce_min_max, 1, reduce_axes, input_id,
+        YNN_INVALID_VALUE_ID, &min_max_id, YNN_NODE_FLAG_KEEP_DIMS);
+    ASSERT_EQ(status, ynn_status_success);
+
+    status = ynn_define_dynamic_quantization(
+        &subgraph, min_max_id, ynn_type_int8, &zp_id, &scale_id, 0);
+    ASSERT_EQ(status, ynn_status_success);
+
+    builder.AddQuantize(input_id, ynn_type_int8, zp_id, scale_id, quantized_id);
+    builder.AddDot(1, quantized_id, rhs_id, YNN_INVALID_VALUE_ID, output_id);
+
+    bool expect_rewrite = prefer_uint8_dot(rhs_type);
+    if (expect_rewrite) {
+      rewrite_count++;
+    }
+
+    subgraph.fusion();
+    subgraph.invalidate_dead_values();
+
+    if (expect_rewrite) {
+      EXPECT_EQ(subgraph.value(quantized_id).type, ynn_type_uint8);
+      const ynn_node* dq_node = subgraph.get_producer(zp_id);
+      ASSERT_NE(dq_node, nullptr);
+      const auto* dq_op =
+          std::get_if<ynn_node::dynamic_quantization>(&dq_node->op);
+      ASSERT_NE(dq_op, nullptr);
+      EXPECT_EQ(dq_op->output_zero_point, 128);
+    } else {
+      EXPECT_EQ(subgraph.value(quantized_id).type, ynn_type_int8);
+    }
+  }
+  EXPECT_GT(rewrite_count, 0);
+}
+
+TEST(fusion, dynamic_quantize_to_uint8_with_pad) {
+  int rewrite_count = 0;
+  for (ynn_type rhs_type : {ynn_type_int8, ynn_type_int4, ynn_type_int2}) {
+    const uint32_t input_id = 0;
+    const uint32_t rhs_id = 1;
+    const uint32_t output_id = 2;
+
+    SubgraphBuilder builder(3);
+
+    builder.AddInput(ynn_type_fp32, {8, 16}, input_id)
+        .AddInput(rhs_type, {16, 32}, rhs_id)
+        .AddOutput(ynn_type_int32, {8, 32}, output_id);
+
+    uint32_t min_max_id = YNN_INVALID_VALUE_ID;
+    uint32_t scale_id = YNN_INVALID_VALUE_ID;
+    uint32_t zp_id = YNN_INVALID_VALUE_ID;
+    uint32_t quantized_id = YNN_INVALID_VALUE_ID;
+    uint32_t padded_quantized_id = YNN_INVALID_VALUE_ID;
+
+    builder.AddTensor(ynn_type_fp32, {2, 8, 1}, min_max_id)
+        .AddTensor(ynn_type_fp32, {8, 1}, scale_id)
+        .AddTensor(ynn_type_int32, {8, 1}, zp_id)
+        .AddTensor(ynn_type_int8, {8, 16}, quantized_id)
+        .AddTensor(ynn_type_int8, {8, 16}, padded_quantized_id);
+
+    ynn_subgraph& subgraph = *builder.GetSubgraph();
+
+    int32_t reduce_axes[] = {-1};
+    ynn_status status = ynn_define_reduce(
+        &subgraph, ynn_reduce_min_max, 1, reduce_axes, input_id,
+        YNN_INVALID_VALUE_ID, &min_max_id, YNN_NODE_FLAG_KEEP_DIMS);
+    ASSERT_EQ(status, ynn_status_success);
+
+    status = ynn_define_dynamic_quantization(
+        &subgraph, min_max_id, ynn_type_int8, &zp_id, &scale_id, 0);
+    ASSERT_EQ(status, ynn_status_success);
+
+    builder.AddQuantize(input_id, ynn_type_int8, zp_id, scale_id, quantized_id);
+
+    // Add static pad (zero padding):
+    builder.AddPad({0, 1}, {0, 0}, {0, 0}, quantized_id, YNN_INVALID_VALUE_ID,
+                   padded_quantized_id);
+
+    builder.AddDot(1, padded_quantized_id, rhs_id, YNN_INVALID_VALUE_ID,
+                   output_id);
+
+    bool expect_rewrite = prefer_uint8_dot(rhs_type);
+    if (expect_rewrite) {
+      rewrite_count++;
+    }
+
+    subgraph.fusion();
+    subgraph.invalidate_dead_values();
+
+    if (expect_rewrite) {
+      EXPECT_THAT(subgraph.value(quantized_id), HasType(ynn_type_int8));
+      EXPECT_THAT(subgraph.value(padded_quantized_id), HasType(ynn_type_int8));
+
+      EXPECT_THAT(ProducerOf(zp_id, subgraph), IsDynamicQuantization(0));
+
+      const ynn_node& dot_node = ProducerOf(output_id, subgraph);
+      uint32_t dot_in_id = dot_node.inputs[0];
+      EXPECT_THAT(subgraph.value(dot_in_id), HasType(ynn_type_uint8));
+    } else {
+      EXPECT_THAT(subgraph.value(quantized_id), HasType(ynn_type_int8));
+      EXPECT_THAT(subgraph.value(padded_quantized_id), HasType(ynn_type_int8));
+    }
+  }
+  EXPECT_GT(rewrite_count, 0);
+}
+
+TEST(fusion, requantize_quantize) {
+  // requantize_to_uint8(quantize_int8(input, scale, zero_point)) ->
+  // quantize_uint8(input, scale, zero_point + 128)
+  // Leaves the old quantize node in place because it has another consumer.
+  const uint32_t input_id = 0;
+  const uint32_t scale_id = 1;
+  const uint32_t zp_id = 2;
+  const uint32_t output_id = 3;
+  const uint32_t output2_id = 4;
+
+  SubgraphBuilder builder(5);
+  uint32_t q_id = YNN_INVALID_VALUE_ID;
+  builder.AddInput(ynn_type_fp32, 2, input_id)
+      .AddInput(ynn_type_fp32, 2, scale_id)
+      .AddScalar<int32_t>(0, zp_id)
+      .AddOutput(ynn_type_uint8, 2, output_id)
+      .AddOutput(ynn_type_int8, 2, output2_id)
+      .AddTensor(ynn_type_int8, 2, q_id);
+
+  builder.AddQuantize(input_id, ynn_type_int8, zp_id, scale_id, q_id)
+      .AddUnary(ynn_unary_requantize_to_uint8, q_id, output_id)
+      .AddCopy(q_id, output2_id);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  // Valid nodes: quantize_int8, copy, quantize_uint8
+  ASSERT_THAT(subgraph, AllOf(HasValidNodeCount(3), HasValidValueCount(7)));
+  EXPECT_THAT(ProducerOf(output_id, subgraph),
+              AllOf(IsTernary(ternary_op::quantize_uint8),
+                    InputsInclude(input_id, scale_id)));
+
+  uint32_t new_zp_id = ProducerOf(output_id, subgraph).inputs[2];
+  EXPECT_THAT(ValuesIn<int32_t>(subgraph.value(new_zp_id)), ElementsAre(128));
+
+  // Check that old quantize is still there and has correct type
+  EXPECT_THAT(subgraph.value(q_id), HasType(ynn_type_int8));
+  EXPECT_THAT(ProducerOf(q_id, subgraph),
+              AllOf(IsTernary(ternary_op::quantize_int8),
+                    InputsInclude(input_id, scale_id)));
 }
 
 }  // namespace ynn

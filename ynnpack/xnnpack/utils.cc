@@ -113,8 +113,8 @@ ynn_status convert_to(xnn_subgraph_t subgraph, uint32_t* value_id,
   }
 
   uint32_t converted_id = YNN_INVALID_VALUE_ID;
-  ynn_status status = ynn_define_convert_v2(
-      subgraph->ynn, *value_id, type, &converted_id, /*flags=*/0);
+  ynn_status status = ynn_define_convert(subgraph->ynn, *value_id, type,
+                                         &converted_id, /*flags=*/0);
   if (status == ynn_status_success) {
     *value_id = converted_id;
   }
@@ -753,17 +753,6 @@ void copy_quantization(xnn_subgraph_t subgraph, uint32_t from_id,
   if (subgraph->scale_ids.count(from_id)) {
     subgraph->scale_ids[to_id] = subgraph->scale_ids[from_id];
   }
-}
-
-uint32_t value_flags_from_xnn(uint32_t flags) {
-  uint32_t ynn = 0;
-  if (flags & XNN_VALUE_FLAG_EXTERNAL_INPUT) {
-    ynn |= YNN_VALUE_FLAG_EXTERNAL_INPUT;
-  }
-  if (flags & XNN_VALUE_FLAG_EXTERNAL_OUTPUT) {
-    ynn |= YNN_VALUE_FLAG_EXTERNAL_OUTPUT;
-  }
-  return ynn;
 }
 
 xnn_status xnn_status_from_ynn(ynn_status status) {

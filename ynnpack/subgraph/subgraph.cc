@@ -301,10 +301,14 @@ ynn_value& ynn_subgraph::get_output_value(uint32_t* output_id, ynn_type type) {
 void ynn_subgraph::add_node(ynn_node node) { nodes.push_back(std::move(node)); }
 
 const ynn_node* ynn_subgraph::get_producer(uint32_t id) const {
+  return const_cast<ynn_subgraph*>(this)->get_producer(id);
+}
+
+ynn_node* ynn_subgraph::get_producer(uint32_t id) {
   if (id == YNN_INVALID_VALUE_ID) {
     return nullptr;
   }
-  for (const ynn_node& node : nodes) {
+  for (ynn_node& node : nodes) {
     if (!node.is_valid()) continue;
     for (uint32_t i : node.outputs) {
       if (i == id) {
@@ -407,10 +411,6 @@ bool should_constant_fold(const ynn_subgraph& subgraph, const ynn_node& node) {
     // fold and the heuristic below allowed it, it's possible we would produce
     // two copies of the same value.
     return false;
-  } else if (std::holds_alternative<ynn_node::pack_b>(node.op)) {
-    // The heuristic below doesn't fold this sometimes due to alignment padding,
-    // but we usually do want to constant fold this.
-    return true;
   }
 
   size_t size_of_inputs = static_size_of_inputs(subgraph, node);

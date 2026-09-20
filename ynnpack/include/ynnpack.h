@@ -144,6 +144,7 @@ enum ynn_status ynn_define_iota(ynn_subgraph_t subgraph, enum ynn_type type,
 
 #define YNN_NODE_FLAG_KEEP_DIMS (1 << 0)
 #define YNN_NODE_FLAG_SLICE_DIMS (1 << 0)
+#define YNN_NODE_FLAG_KEEP_SHAPE (1 << 0)
 #define YNN_NODE_FLAG_RESHAPE_1D (1 << 0)
 #define YNN_NODE_FLAG_UNIQUE_DIMS (1 << 1)
 #define YNN_NODE_FLAG_NO_EXCESS_PRECISION (1 << 2)
@@ -176,6 +177,9 @@ enum ynn_unary_operator {
   ynn_unary_round_to_bf16 = 23,
   ynn_unary_approx_erf = 24,
   ynn_unary_approx_tanh = 25,
+
+  // Internal use only
+  ynn_unary_requantize_to_uint8,
 };
 
 // Defines a unary operation of a single input to a single output.
@@ -198,8 +202,7 @@ enum ynn_status ynn_define_unary_polynomial(ynn_subgraph_t subgraph,
 // If the `YNN_NODE_FLAG_NO_EXCESS_PRECISION` flag is set, the resulting value
 // will have the `YNN_VALUE_FLAG_NO_EXCESS_PRECISION` flag set.
 enum ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
-                                   enum ynn_type type, uint32_t zero_point_id,
-                                   uint32_t scale_id, uint32_t* output_id,
+                                   enum ynn_type type, uint32_t* output_id,
                                    uint32_t flags);
 
 // A helper for `ynn_define_unary` with `op` = `ynn_unary_convert`, which is
@@ -387,6 +390,9 @@ enum ynn_status ynn_define_static_slice(
 
 // Extracts the range of indices `[0, end)` in `axes` dimensions, where `end` is
 // the extent of the same axis in the template value.
+//
+// If the YNN_NODE_FLAG_KEEP_SHAPE flag is set, this replaces the sliced values
+// with zeros; the shape of the output is unchanged by this operation.
 enum ynn_status ynn_define_slice_like(ynn_subgraph_t subgraph, size_t num_axes,
                                       const int32_t* axes, uint32_t input_id,
                                       uint32_t template_id, uint32_t* output_id,
@@ -445,10 +451,6 @@ enum ynn_status ynn_define_stencil_copy(
     const size_t* stencil_strides, const size_t* stencil_dilations,
     uint32_t input_id, uint32_t padding_id, uint32_t* output_id,
     uint32_t flags);
-
-// This flag indicates that the dot operation should be rewritten to use 3
-// BF16 dot operations to approximate F32 precision.
-#define YNN_NODE_FLAG_F32_DOT_TO_BF16_X3 (1 << 0)
 
 // Performs the operation:
 //

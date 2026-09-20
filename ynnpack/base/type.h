@@ -33,7 +33,9 @@ using bfloat16x1_t = bfloat16;
 using float8_e5m2x1_t = fp8_e5m2;
 using float8_e4m3x1_t = fp8_e4m3;
 using float32x1_t = float;
+#if !defined(__aarch64__) || !defined(__ARM_NEON)
 using float64x1_t = double;
+#endif
 
 // TODO: b/501068911 - When we have an option to disable fp64 support, we should
 // make this float when fp64 is disabled.
@@ -765,7 +767,7 @@ struct quantization_params {
 template <typename Dst, typename F>
 void generate_n(Dst* dst, size_t offset, size_t n, F&& f) {
   using DstInfo = type_info<Dst>;
-  if (DstInfo::element_count() == 1) {
+  if constexpr (DstInfo::element_count() == 1) {
     std::generate_n(dst + offset, n, std::forward<F>(f));
   } else {
     // We could relax these requirements if needed...
@@ -787,7 +789,8 @@ void copy_n(Src* src, size_t src_offset, size_t n, Dst* dst,
             size_t dst_offset) {
   using SrcInfo = type_info<std::remove_cv_t<Src>>;
   using DstInfo = type_info<std::remove_cv_t<Dst>>;
-  if (SrcInfo::element_count() == 1 && DstInfo::element_count() == 1) {
+  if constexpr (SrcInfo::element_count() == 1 &&
+                DstInfo::element_count() == 1) {
     std::copy_n(src + src_offset, n, dst + dst_offset);
   } else {
     // We could relax these requirements if needed...

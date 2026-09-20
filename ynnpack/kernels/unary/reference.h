@@ -108,6 +108,13 @@ struct convert : public unary_op_info {
   }
 };
 
+struct requantize_to_uint8 : public unary_op_info {
+  explicit requantize_to_uint8(const unary_params& = {}) {}
+  int32_t operator()(int32_t x) const override {
+    return static_cast<uint8_t>(static_cast<int8_t>(x) ^ 0x80);
+  }
+};
+
 struct abs : public unary_op_info {
   explicit abs(const unary_params& = {}) {}
   float operator()(float x) const override { return std::abs(x); }
@@ -467,7 +474,7 @@ struct sign : public unary_op_info {
 struct trig : public unary_op_info {
   explicit trig(const unary_params& = {}) {}
   tolerance_spec tolerance(ynn_type /*type*/) const override {
-    return tolerance_spec{/*relative=*/5.0f, /*absolute=*/3.0f};
+    return tolerance_spec{/*relative=*/5.0f};
   }
 
   interval domain(ynn_type type) const override { return {-100.0f, 100.0f}; }

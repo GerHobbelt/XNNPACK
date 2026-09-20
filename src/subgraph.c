@@ -15,7 +15,7 @@
 
 #include "include/experimental.h"
 #include "include/xnnpack.h"
-#include "src/subgraph/rewrites/fp16_to_fp32.h"
+#include "src/subgraph/rewrites/cvt_to_fp32.h"
 #include "src/xnnpack/allocation-type.h"
 #include "src/xnnpack/allocator.h"
 #include "src/xnnpack/common.h"
@@ -195,7 +195,8 @@ enum xnn_status xnn_subgraph_add_internal_values(xnn_subgraph_t subgraph,
   XNN_RETURN_IF_ERROR(xnn_subgraph_reserve_values(subgraph, num_values));
   struct xnn_value* new_values = subgraph->values + subgraph->num_values;
   for (size_t i = 0; i < num_values; i++) {
-    xnn_value_clear(&new_values[i]);
+    assert(new_values + i != NULL);
+    memset(new_values + i, 0, sizeof(struct xnn_value));
     new_values[i].id = subgraph->num_values + i;
   }
   subgraph->num_values += num_values;
@@ -210,6 +211,12 @@ void xnn_node_clear(struct xnn_node* node) {
 
 void xnn_value_clear(struct xnn_value* value) {
   assert(value != NULL);
+  if ((value->flags & XNN_VALUE_FLAG_NEEDS_CLEANUP) && value->data != NULL) {
+    XNN_PRAGMA_CLANG("clang diagnostic push")
+    XNN_PRAGMA_CLANG("clang diagnostic ignored \"-Wcast-qual\"")
+    xnn_release_memory((void*)value->data);
+    XNN_PRAGMA_CLANG("clang diagnostic pop")
+  }
   memset(value, 0, sizeof(struct xnn_value));
 }
 
@@ -1783,6 +1790,15 @@ static uint32_t is_pure_unary_elementwise(xnn_subgraph_t subgraph,
                                           uint32_t num_unary_values) {
   switch (node->type) {
     case xnn_node_type_unary_elementwise:
+      // A pure unary elementwise function takes exactly one tensor input and
+      // must have a valid operator. A node already fused into a LUT by this
+      // same pass (see `xnn_define_unary_elementwise_lut_in_place`) has 2
+      // inputs (the tensor and the LUT table) and
+      // `unary_operator == xnn_unary_invalid`; it isn't safe to treat that as
+      // a plain unary function and fuse it into another LUT.
+      if (node->num_inputs != 1 || node->unary_operator == xnn_unary_invalid) {
+        return XNN_INVALID_VALUE_ID;
+      }
       assert(node->num_inputs >= 1);
       return node->inputs[0];
     case xnn_node_type_binary_elementwise: {
@@ -2730,7 +2746,8 @@ static enum xnn_status optimize_common_subgraphs_broadcast(
 
     // Create a static right-hand side value filled with zeros.
     void* data = xnn_allocate_zero_memory(
-        num_elements * xnn_datatype_size_bytes(input_value->datatype));
+        num_elements * xnn_datatype_size_bytes(input_value->datatype) +
+        XNN_EXTRA_BYTES);
     uint32_t new_value_id;
     XNN_RETURN_IF_ERROR(
         xnn_datatype_is_quantized(input_value->datatype)
@@ -4669,6 +4686,11 @@ enum xnn_status xnn_subgraph_optimize(xnn_subgraph_t subgraph,
     XNN_RETURN_IF_ERROR(xnn_subgraph_fallback_from_fp16_to_fp32(subgraph, optimization_flags));
   }
 
+  // bf16 values are independent of the fp16 force flag, so this always runs to
+  // lower any bf16 ops that lack a native kernel to fp32.
+  XNN_RETURN_IF_ERROR(
+      xnn_subgraph_fallback_from_bf16_to_fp32(subgraph, optimization_flags));
+
   return xnn_status_success;
 }
 
@@ -4706,7 +4728,9 @@ enum xnn_status xnn_delete_subgraph(xnn_subgraph_t subgraph) {
       // subgraph still has ownership of them.
       for (uint32_t i = 0; i < subgraph->num_values; i++) {
         struct xnn_value* value = &subgraph->values[i];
-        if (value->fp16_rewrite.fp16_compatible && value->data != NULL) {
+        if ((value->fp16_rewrite.fp16_compatible ||
+             (value->flags & XNN_VALUE_FLAG_NEEDS_CLEANUP)) &&
+            value->data != NULL) {
           XNN_PRAGMA_CLANG("clang diagnostic push")
           XNN_PRAGMA_CLANG("clang diagnostic ignored \"-Wcast-qual\"")
           xnn_release_memory((void*)value->data);

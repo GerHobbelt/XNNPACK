@@ -47,7 +47,6 @@ cc_library(
 
 define_build_option(
     name = "ynn_enable_tsl_profiler",
-    default_all = [],
 )
 
 _TSL_PROFILER_DEPS = [
@@ -69,7 +68,6 @@ cc_library(
         "copy.cc",
         "copy.h",
         "dot.cc",
-        "dot.h",
         "dynamic_quantization.cc",
         "elementwise.cc",
         "even_split.cc",
@@ -101,6 +99,7 @@ cc_library(
         "utils.cc",
     ],
     hdrs = [
+        "dot.h",  # Only public for tests...
         "elementwise.h",  # Only public for tests...
         "runtime.h",
         "slinky.h",

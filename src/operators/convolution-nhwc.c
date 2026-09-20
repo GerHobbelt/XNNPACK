@@ -1092,7 +1092,7 @@ static enum xnn_status init_packing_params_fxx_qc8w(
   return xnn_status_success;
 }
 
-static enum xnn_status init_gemm_params_qu8(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_gemm_params_qu8(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   if (context->output_max > UINT8_MAX) {
@@ -1112,7 +1112,7 @@ static enum xnn_status init_gemm_params_qu8(
   return xnn_status_success;
 }
 
-static enum xnn_status init_gemm_params_qs8_qc8w(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_gemm_params_qs8_qc8w(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   if (context->output_max > INT8_MAX) {
@@ -1131,7 +1131,7 @@ static enum xnn_status init_gemm_params_qs8_qc8w(
   return xnn_status_success;
 }
 
-static enum xnn_status init_gemm_params_f16(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_gemm_params_f16(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   if XNN_LIKELY (context->gemm_config->init.f16 != NULL) {
@@ -1144,7 +1144,7 @@ static enum xnn_status init_gemm_params_f16(
   return xnn_status_success;
 }
 
-static enum xnn_status init_gemm_params_f32(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_gemm_params_f32(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   if XNN_LIKELY (context->gemm_config->init.f32 != NULL) {
@@ -1156,7 +1156,7 @@ static enum xnn_status init_gemm_params_f32(
   return xnn_status_success;
 }
 
-static enum xnn_status init_dwconv_params_qu8(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_qu8(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   const struct xnn_dwconv_config* dwconv_config = xnn_init_qu8_dwconv_config();
@@ -1181,7 +1181,7 @@ static enum xnn_status init_dwconv_params_qu8(
   return xnn_status_success;
 }
 
-static enum xnn_status init_dwconv_params_qs8_qc8w(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_qs8_qc8w(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   const struct xnn_dwconv_config* dwconv_config =
@@ -1206,7 +1206,7 @@ static enum xnn_status init_dwconv_params_qs8_qc8w(
   return xnn_status_success;
 }
 
-static enum xnn_status init_dwconv_params_f16(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_f16(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   const struct xnn_dwconv_config* dwconv_config = xnn_init_f16_dwconv_config();
@@ -1229,7 +1229,7 @@ static enum xnn_status init_dwconv_params_f16(
   return xnn_status_success;
 }
 
-static enum xnn_status init_dwconv_params_f32(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_f32(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   const struct xnn_dwconv_config* dwconv_config = xnn_init_f32_dwconv_config();
@@ -1251,7 +1251,7 @@ static enum xnn_status init_dwconv_params_f32(
   return xnn_status_success;
 }
 
-static enum xnn_status init_vmuladdc_params_f16(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_vmuladdc_params_f16(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   const struct xnn_vmulcaddc_config* vmulcaddc_config =
@@ -1273,7 +1273,7 @@ static enum xnn_status init_vmuladdc_params_f16(
   return xnn_status_success;
 }
 
-static enum xnn_status init_vmuladdc_params_f32(
+static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_vmuladdc_params_f32(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
   const struct xnn_vmulcaddc_config* vmulcaddc_config =
@@ -2954,8 +2954,15 @@ static enum xnn_status reshape_dwconv(
       convolution_op->convolution_op->dilation_width == 1
           ? min(convolution_op->convolution_op->stride_width, kernel_width)
           : kernel_width;
-  const size_t step_height =
-      kernel_size + (output_width - 1) * step_width * kernel_height;
+  size_t step_height_increment = 0;
+  size_t step_height = 0;
+  if (!xnn_safe_mul(output_width - 1, step_width, &step_height_increment) ||
+      !xnn_safe_mul(step_height_increment, kernel_height, &step_height_increment) ||
+      !xnn_safe_add(kernel_size, step_height_increment, &step_height)) {
+    xnn_log_error("failed to reshape %s operator: step_height overflows size_t",
+                  xnn_operator_type_to_string_v2(convolution_op));
+    return xnn_status_out_of_memory;
+  }
   const struct xnn_ukernel_dwconv dwconv_ukernel =
       convolution_op->ukernel.dwconv;
   const size_t primary_tile = dwconv_ukernel.primary_tile;
@@ -2963,10 +2970,19 @@ static enum xnn_status reshape_dwconv(
 
   // Micro-kernel will read (tile_size - kernel_size) elements after the end of
   // indirection buffer.
+  size_t indirection_buffer_elements = 0;
+  size_t indirection_buffer_size_raw = 0;
+  if (!xnn_safe_mul(output_height, step_height, &indirection_buffer_elements) ||
+      !xnn_safe_add(primary_tile - kernel_size, indirection_buffer_elements,
+                    &indirection_buffer_elements) ||
+      !xnn_safe_mul(indirection_buffer_elements, sizeof(void*),
+                    &indirection_buffer_size_raw)) {
+    xnn_log_error("failed to reshape %s operator: indirection buffer size overflows size_t",
+                  xnn_operator_type_to_string_v2(convolution_op));
+    return xnn_status_out_of_memory;
+  }
   const size_t indirection_buffer_size =
-      round_up_po2(sizeof(void*) * (primary_tile - kernel_size +
-                                    output_height * step_height),
-                   XNN_ALLOCATION_ALIGNMENT);
+      round_up_po2(indirection_buffer_size_raw, XNN_ALLOCATION_ALIGNMENT);
 
   size_t dwconv_compute_index;
   const bool is_transient_indirection_buffer =
@@ -3230,13 +3246,15 @@ static enum xnn_status reshape_convolution2d_nhwc(
             convolution_op->convolution_op->dilation_width +
         1;
     const size_t total_padding_height =
-        (convolution_op->convolution_op->output_height - 1) *
-            convolution_op->convolution_op->stride_height +
-        effective_kernel_height - input_height;
+        doz((convolution_op->convolution_op->output_height - 1) *
+                    convolution_op->convolution_op->stride_height +
+                effective_kernel_height,
+            input_height);
     const size_t total_padding_width =
-        (convolution_op->convolution_op->output_width - 1) *
-            convolution_op->convolution_op->stride_width +
-        effective_kernel_width - input_width;
+        doz((convolution_op->convolution_op->output_width - 1) *
+                    convolution_op->convolution_op->stride_width +
+                effective_kernel_width,
+            input_width);
     convolution_op->convolution_op->padding_top = total_padding_height / 2;
     convolution_op->convolution_op->padding_left = total_padding_width / 2;
     convolution_op->convolution_op->padding_bottom =
@@ -3244,17 +3262,40 @@ static enum xnn_status reshape_convolution2d_nhwc(
     convolution_op->convolution_op->padding_right =
         total_padding_width - convolution_op->convolution_op->padding_left;
   } else {
+    // The (dilated) kernel must fit inside the padded input. Otherwise
+    // xnn_compute_convolution_output_dimension() clamps the spilled dimension
+    // to 1 via the trailing `+ 1`, producing a phantom output for which no
+    // valid receptive field exists, and the indirection buffer then addresses
+    // input pixels outside the input tensor (out-of-bounds read at run time).
+    const size_t padded_input_height = convolution_op->convolution_op->padding_top +
+        input_height + convolution_op->convolution_op->padding_bottom;
+    const size_t padded_input_width = convolution_op->convolution_op->padding_left +
+        input_width + convolution_op->convolution_op->padding_right;
+    const size_t effective_kernel_height =
+        (convolution_op->convolution_op->kernel_height - 1) *
+            convolution_op->convolution_op->dilation_height + 1;
+    const size_t effective_kernel_width =
+        (convolution_op->convolution_op->kernel_width - 1) *
+            convolution_op->convolution_op->dilation_width + 1;
+    if (padded_input_height < effective_kernel_height ||
+        padded_input_width < effective_kernel_width) {
+      xnn_log_error(
+          "failed to reshape %s operator with %zux%zu input: the padded input "
+          "(%zux%zu) is smaller than the effective kernel (%zux%zu)",
+          xnn_operator_type_to_string_v2(convolution_op), input_width,
+          input_height, padded_input_width, padded_input_height,
+          effective_kernel_width, effective_kernel_height);
+      return xnn_status_invalid_parameter;
+    }
     convolution_op->convolution_op->output_height =
         xnn_compute_convolution_output_dimension(
-            convolution_op->convolution_op->padding_top + input_height +
-                convolution_op->convolution_op->padding_bottom,
+            padded_input_height,
             convolution_op->convolution_op->kernel_height,
             convolution_op->convolution_op->dilation_height,
             convolution_op->convolution_op->stride_height);
     convolution_op->convolution_op->output_width =
         xnn_compute_convolution_output_dimension(
-            convolution_op->convolution_op->padding_left + input_width +
-                convolution_op->convolution_op->padding_right,
+            padded_input_width,
             convolution_op->convolution_op->kernel_width,
             convolution_op->convolution_op->dilation_width,
             convolution_op->convolution_op->stride_width);

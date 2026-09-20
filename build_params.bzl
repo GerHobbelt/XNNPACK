@@ -397,6 +397,13 @@ XNNPACK_PARAMS_FOR_ARCH = {
             "@KleidiAI//kai/ukernels/matmul:matmul",
         ]),
     ),
+    "neoni8mmbf16": _create_params(
+        cond = "//:arm_i8mm_enabled",
+        copts = ["-march=armv8.2-a+i8mm+fp16+bf16"],
+        extra_deps = xnnpack_if_kleidiai_enabled([
+            "@KleidiAI//kai/ukernels/matmul:matmul",
+        ]),
+    ),
     "neonsme": _create_params(
         cond = "//:arm_sme_enabled",
         copts = ["-march=armv8.2-a+sve+sve2"],
@@ -478,7 +485,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msvc_x86_64_copts = ["/arch:SSE2"],
     ),
     "avx": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx_enabled",
         copts = _x86_align_stack(32),
         gcc_x86_copts = [
             "-mavx",
@@ -516,7 +523,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msvc_x86_64_copts = ["/arch:AVX"],
     ),
     "f16c": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:f16c_enabled",
         copts = _x86_align_stack(32),
         gcc_x86_copts = [
             "-mf16c",
@@ -527,7 +534,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msvc_x86_64_copts = ["/arch:AVX"],
     ),
     "fma3": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:fma3_enabled",
         copts = _x86_align_stack(32),
         gcc_x86_copts = [
             "-mf16c",
@@ -538,7 +545,7 @@ XNNPACK_PARAMS_FOR_ARCH = {
         msvc_x86_64_copts = ["/arch:AVX"],
     ),
     "avx2": _create_params(
-        cond = "//build_config:x86",
+        cond = "//:avx2_enabled",
         copts = _x86_align_stack(32),
         gcc_x86_copts = [
             "-mf16c",

@@ -44,9 +44,13 @@ namespace ynn {
   } while (0)
 
 // dot packing splits + transposes 2 dimensions.
-constexpr size_t ynn_internal_extra_dims = 2;
+constexpr size_t internal_extra_dims = 2;
 
-struct axes_set : std::bitset<YNN_MAX_TENSOR_RANK + ynn_internal_extra_dims> {
+// This constant is the internal max tensor rank (as opposed to
+// YNN_MAX_TENSOR_RANK, the limit in the public API).
+constexpr size_t max_tensor_rank = YNN_MAX_TENSOR_RANK + internal_extra_dims;
+
+struct axes_set : std::bitset<max_tensor_rank> {
   using bitset::bitset;
 };
 
@@ -444,11 +448,12 @@ struct ynn_node {
   };
   struct slice_like {
     ynn::axes_set axes;
+    bool keep_shape = false;
     friend bool operator==(const slice_like& a, const slice_like& b) {
-      return a.axes == b.axes;
+      return a.axes == b.axes && a.keep_shape == b.keep_shape;
     }
     friend bool operator<(const slice_like& a, const slice_like& b) {
-      return a.axes < b.axes;
+      return std::tie(a.axes, a.keep_shape) < std::tie(b.axes, b.keep_shape);
     }
   };
   struct static_transpose {
@@ -653,6 +658,7 @@ struct ynn_subgraph : public ynn::ref_counted<ynn_subgraph> {
 
   // Find the node that produces `id`.
   const ynn_node* get_producer(uint32_t id) const;
+  ynn_node* get_producer(uint32_t id);
 
   // If `output_id` is `YNN_INVALID_VALUE_ID`, makes a new value like
   // `template_value`, and updates `output_id` with the new value ID.

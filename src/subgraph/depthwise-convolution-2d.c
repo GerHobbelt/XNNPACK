@@ -163,7 +163,11 @@ static enum xnn_status create_depthwise_convolution_operator(
     switch (filter_datatype) {
       case xnn_datatype_fp16:
         switch (output_datatype) {
-          case xnn_datatype_fp32:
+          case xnn_datatype_fp32: {
+            uint32_t flags = node->flags | XNN_FLAG_DEPTHWISE_CONVOLUTION;
+            if (bias_datatype == xnn_datatype_fp32) {
+              flags |= XNN_FLAG_FP32_STATIC_BIASES;
+            }
             status = xnn_create_convolution2d_nhwc_f32_f16(
                 node->params.depthwise_convolution_2d.input_padding_top,
                 node->params.depthwise_convolution_2d.input_padding_right,
@@ -187,9 +191,10 @@ static enum xnn_status create_depthwise_convolution_operator(
                         .depth_multiplier /* output_channel_stride */,
                 filter_data, bias_data, node->activation.output_min,
                 node->activation.output_max,
-                node->flags | XNN_FLAG_DEPTHWISE_CONVOLUTION, weights_cache,
+                flags, weights_cache,
                 &opdata->operator_objects[0]);
             break;
+          }
           case xnn_datatype_fp16: {
             uint32_t flags = node->flags | XNN_FLAG_DEPTHWISE_CONVOLUTION;
             if (bias_datatype == xnn_datatype_fp32) {
@@ -412,6 +417,25 @@ static enum xnn_status reshape_depthwise_convolution_operator(
   const size_t batch_size = input_value->shape.dim[0];
   const size_t input_height = input_value->shape.dim[1];
   const size_t input_width = input_value->shape.dim[2];
+
+  // The indirection buffer strides across input pixels by the operator's
+  // create-time input_pixel_stride, so an NHWC input carrying fewer channels
+  // than that makes the microkernel read past the end of the input buffer.
+  const xnn_operator_t convolution_op = opdata->operator_objects[0];
+  if (convolution_op->type != xnn_operator_type_convolution_nchw_f16 &&
+      convolution_op->type != xnn_operator_type_convolution_nchw_f32) {
+    const size_t input_channels =
+        input_value->shape.dim[input_value->shape.num_dims - 1];
+    if (input_channels != convolution_op->input_pixel_stride) {
+      xnn_log_error("failed to reshape %s operator with input ID #%" PRIu32
+                    ": mismatch at channel dimension (%zu != %zu)",
+                    xnn_node_type_to_string(xnn_node_type_depthwise_convolution_2d),
+                    input_id, input_channels,
+                    convolution_op->input_pixel_stride);
+      return xnn_status_invalid_parameter;
+    }
+  }
+
   enum xnn_status status = xnn_status_invalid_state;
   const size_t old_workspace_size = opdata->workspace_size;
   size_t output_height, output_width;
@@ -614,6 +638,11 @@ static inline bool validate_datatypes_with_bias(
       if (input_datatype == xnn_datatype_fp32 &&
           bias_datatype == xnn_datatype_fp16 &&
           output_datatype == xnn_datatype_fp32) {
+        return true;
+      } else if (input_datatype == xnn_datatype_fp32 &&
+                 bias_datatype == xnn_datatype_fp32 &&
+                 output_datatype == xnn_datatype_fp32) {
+        // Flag: XNN_FLAG_FP32_STATIC_BIASES
         return true;
       } else if (input_datatype == xnn_datatype_fp16 &&
                  (bias_datatype == xnn_datatype_fp16 || bias_datatype == xnn_datatype_fp32) &&

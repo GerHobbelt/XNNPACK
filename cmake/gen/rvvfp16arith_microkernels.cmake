@@ -32,6 +32,7 @@ SET(PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/f16-rminmax/gen/f16-rmin-rvvfp16arith-u8v.c
   src/f16-rminmax/gen/f16-rminmax-rvvfp16arith-u8v.c
   src/f16-spmm/gen/f16-spmm-8vx1-minmax-rvvfp16arith.c
+  src/f16-vapproxgelu/gen/f16-vapproxgelu-rvvfp16arith-rational-6-4-div-u2v.c
   src/f16-vbinary/gen/f16-vadd-rvvfp16arith-u8v.c
   src/f16-vbinary/gen/f16-vaddc-rvvfp16arith-u8v.c
   src/f16-vbinary/gen/f16-vdiv-rvvfp16arith-u8v.c
@@ -52,6 +53,10 @@ SET(PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/f16-vbinary/gen/f16-vsub-rvvfp16arith-u8v.c
   src/f16-vbinary/gen/f16-vsubc-rvvfp16arith-u8v.c
   src/f16-vclamp/gen/f16-vclamp-rvvfp16arith-u8v.c
+  src/f16-vcos/gen/f16-vcos-rvvfp16arith-rational-3-2-div-u8v.c
+  src/f16-velu/gen/f16-velu-rvvfp16arith-rr1-p3-u2v.c
+  src/f16-vexp/gen/f16-vexp-rvvfp16arith-poly-3-u8v.c
+  src/f16-vgelu/gen/f16-vgelu-rvvfp16arith-rational-6-4-div-u2v.c
   src/f16-vhswish/gen/f16-vhswish-rvvfp16arith-u8v.c
   src/f16-vlrelu/gen/f16-vlrelu-rvvfp16arith-u8v.c
   src/f16-vmulcaddc/gen/f16-vmulcaddc-c4v-minmax-rvvfp16arith-2x.c
@@ -60,7 +65,10 @@ SET(PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/f16-vrnd/gen/f16-vrndu-rvvfp16arith-u8v.c
   src/f16-vrnd/gen/f16-vrndz-rvvfp16arith-u8v.c
   src/f16-vrsqrt/gen/f16-vrsqrt-rvvfp16arith-rsqrt-u4v.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-rvvfp16arith-rr2-p2-u2v.c
+  src/f16-vsin/gen/f16-vsin-rvvfp16arith-rational-3-2-div-u8v.c
   src/f16-vsqrt/gen/f16-vsqrt-rvvfp16arith-sqrt-u8v.c
+  src/f16-vtanh/gen/f16-vtanh-rvvfp16arith-expm1minus-rr1-p3h2ts-div-u2v.c
   src/f16-vunary/gen/f16-vabs-rvvfp16arith-u8v.c
   src/f16-vunary/gen/f16-vneg-rvvfp16arith-u8v.c
   src/f16-vunary/gen/f16-vsqr-rvvfp16arith-u8v.c
@@ -93,6 +101,8 @@ SET(NON_PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/f16-spmm/gen/f16-spmm-1vx1-minmax-rvvfp16arith.c
   src/f16-spmm/gen/f16-spmm-2vx1-minmax-rvvfp16arith.c
   src/f16-spmm/gen/f16-spmm-4vx1-minmax-rvvfp16arith.c
+  src/f16-vapproxgelu/gen/f16-vapproxgelu-rvvfp16arith-rational-6-4-div-u1v.c
+  src/f16-vapproxgelu/gen/f16-vapproxgelu-rvvfp16arith-rational-6-4-div-u4v.c
   src/f16-vbinary/gen/f16-vadd-rvvfp16arith-u1v.c
   src/f16-vbinary/gen/f16-vadd-rvvfp16arith-u2v.c
   src/f16-vbinary/gen/f16-vadd-rvvfp16arith-u4v.c
@@ -153,6 +163,16 @@ SET(NON_PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/f16-vclamp/gen/f16-vclamp-rvvfp16arith-u1v.c
   src/f16-vclamp/gen/f16-vclamp-rvvfp16arith-u2v.c
   src/f16-vclamp/gen/f16-vclamp-rvvfp16arith-u4v.c
+  src/f16-vcos/gen/f16-vcos-rvvfp16arith-rational-3-2-div-u1v.c
+  src/f16-vcos/gen/f16-vcos-rvvfp16arith-rational-3-2-div-u2v.c
+  src/f16-vcos/gen/f16-vcos-rvvfp16arith-rational-3-2-div-u4v.c
+  src/f16-velu/gen/f16-velu-rvvfp16arith-rr1-p3-u1v.c
+  src/f16-velu/gen/f16-velu-rvvfp16arith-rr1-p3-u4v.c
+  src/f16-vexp/gen/f16-vexp-rvvfp16arith-poly-3-u1v.c
+  src/f16-vexp/gen/f16-vexp-rvvfp16arith-poly-3-u2v.c
+  src/f16-vexp/gen/f16-vexp-rvvfp16arith-poly-3-u4v.c
+  src/f16-vgelu/gen/f16-vgelu-rvvfp16arith-rational-6-4-div-u1v.c
+  src/f16-vgelu/gen/f16-vgelu-rvvfp16arith-rational-6-4-div-u4v.c
   src/f16-vhswish/gen/f16-vhswish-rvvfp16arith-u4v.c
   src/f16-vlrelu/gen/f16-vlrelu-rvvfp16arith-u4v.c
   src/f16-vmulcaddc/gen/f16-vmulcaddc-c8v-minmax-rvvfp16arith-2x.c
@@ -161,7 +181,14 @@ SET(NON_PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/f16-vrnd/gen/f16-vrndu-rvvfp16arith-u4v.c
   src/f16-vrnd/gen/f16-vrndz-rvvfp16arith-u4v.c
   src/f16-vrsqrt/gen/f16-vrsqrt-rvvfp16arith-rsqrt-u2v.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-rvvfp16arith-rr2-p2-u1v.c
+  src/f16-vsigmoid/gen/f16-vsigmoid-rvvfp16arith-rr2-p2-u4v.c
+  src/f16-vsin/gen/f16-vsin-rvvfp16arith-rational-3-2-div-u1v.c
+  src/f16-vsin/gen/f16-vsin-rvvfp16arith-rational-3-2-div-u2v.c
+  src/f16-vsin/gen/f16-vsin-rvvfp16arith-rational-3-2-div-u4v.c
   src/f16-vsqrt/gen/f16-vsqrt-rvvfp16arith-sqrt-u4v.c
+  src/f16-vtanh/gen/f16-vtanh-rvvfp16arith-expm1minus-rr1-p3h2ts-div-u1v.c
+  src/f16-vtanh/gen/f16-vtanh-rvvfp16arith-expm1minus-rr1-p3h2ts-div-u4v.c
   src/f16-vunary/gen/f16-vabs-rvvfp16arith-u1v.c
   src/f16-vunary/gen/f16-vabs-rvvfp16arith-u2v.c
   src/f16-vunary/gen/f16-vabs-rvvfp16arith-u4v.c
@@ -178,4 +205,4 @@ SET(NON_PROD_RVVFP16ARITH_MICROKERNEL_SRCS
   src/qd8-f16-qc8w-gemm/gen/qd8-f16-qc8w-gemm-4x2v-minmax-rvvfp16arith.c
   src/qd8-f16-qc8w-igemm/gen/qd8-f16-qc8w-igemm-4x2v-minmax-rvvfp16arith.c)
 
-SET(ALL_RVVFP16ARITH_MICROKERNEL_SRCS ${PROD_RVVFP16ARITH_MICROKERNEL_SRCS} + ${NON_PROD_RVVFP16ARITH_MICROKERNEL_SRCS})
+SET(ALL_RVVFP16ARITH_MICROKERNEL_SRCS ${PROD_RVVFP16ARITH_MICROKERNEL_SRCS} ${NON_PROD_RVVFP16ARITH_MICROKERNEL_SRCS})

@@ -668,6 +668,22 @@ xnn_status xnn_define_fully_connected(xnn_subgraph_t subgraph, float output_min,
                                       float output_max, uint32_t input_id,
                                       uint32_t filter_id, uint32_t bias_id,
                                       uint32_t output_id, uint32_t flags) {
+  if (ynn::type_of_value(subgraph, filter_id) == ynn_type_int4 ||
+      ynn::type_of_value(subgraph, filter_id) == ynn_type_int2) {
+    assert(!(flags & XNN_FLAG_TRANSPOSE_WEIGHTS));
+    uint32_t unpacked_id = YNN_INVALID_VALUE_ID;
+    ynn_status status =
+        ynn_define_convert(subgraph->ynn, filter_id, ynn_type_int8,
+                           ynn::get_zero_point_id(subgraph, filter_id),
+                           ynn::get_scale_id(subgraph, filter_id), &unpacked_id,
+                           /*flags=*/0);
+    if (status != ynn_status_success) {
+      return ynn::xnn_status_from_ynn(status);
+    }
+
+    filter_id = unpacked_id;
+  }
+
   if (!(flags & XNN_FLAG_TRANSPOSE_WEIGHTS)) {
     uint32_t filter_id_transposed = YNN_INVALID_VALUE_ID;
     assert(ynn::rank_of_value(subgraph, filter_id) == 2);
@@ -811,6 +827,12 @@ xnn_status xnn_define_static_expand_dims(xnn_subgraph_t subgraph,
                                          const size_t* new_axes,
                                          uint32_t input_id, uint32_t output_id,
                                          uint32_t flags) {
+  if (num_new_axes > XNN_MAX_TENSOR_DIMS) {
+    YNN_LOG_ERROR() << "failed to define static_expand_dims: num_new_axes "
+                    << num_new_axes << " exceeds XNN_MAX_TENSOR_DIMS ("
+                    << XNN_MAX_TENSOR_DIMS << ")";
+    return xnn_status_invalid_parameter;
+  }
   int32_t ynn_axes[XNN_MAX_TENSOR_DIMS];
   for (size_t i = 0; i < num_new_axes; ++i) {
     ynn_axes[i] = new_axes[i];
@@ -842,6 +864,12 @@ xnn_status xnn_define_static_reduce(xnn_subgraph_t subgraph,
                                     const size_t* reduction_axes,
                                     uint32_t input_id, uint32_t output_id,
                                     uint32_t flags) {
+  if (num_reduction_axes > XNN_MAX_TENSOR_DIMS) {
+    YNN_LOG_ERROR() << "failed to define static_reduce: num_reduction_axes "
+                    << num_reduction_axes << " exceeds XNN_MAX_TENSOR_DIMS ("
+                    << XNN_MAX_TENSOR_DIMS << ")";
+    return xnn_status_invalid_parameter;
+  }
   int64_t signed_reduction_axes[XNN_MAX_TENSOR_DIMS];
   for (int i = 0; i < num_reduction_axes; i++) {
     signed_reduction_axes[i] = reduction_axes[i];
@@ -885,6 +913,12 @@ xnn_status xnn_define_static_reduce_v2(xnn_subgraph_t subgraph,
       return xnn_status_deprecated;
   }
 
+  if (num_reduction_axes > XNN_MAX_TENSOR_DIMS) {
+    YNN_LOG_ERROR() << "failed to define static_reduce_v2: num_reduction_axes "
+                    << num_reduction_axes << " exceeds XNN_MAX_TENSOR_DIMS ("
+                    << XNN_MAX_TENSOR_DIMS << ")";
+    return xnn_status_invalid_parameter;
+  }
   int32_t ynn_axes[XNN_MAX_TENSOR_DIMS];
   for (size_t i = 0; i < num_reduction_axes; ++i) {
     ynn_axes[i] = reduction_axes[i];

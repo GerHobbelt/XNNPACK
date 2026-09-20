@@ -6,6 +6,7 @@ package(default_visibility = ["//visibility:public"])
 cc_library(
     name = "macros",
     hdrs = ["macros.h"],
+    # copybara:uncomment includes = ["../utils"],
     deps = [
         ":source_location",
         "@abseil-cpp//absl/log:absl_log",
@@ -35,6 +36,20 @@ cc_library(
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",
         "@com_google_googletest//:gtest",  # lib test only
+    ],
+)
+
+# This should mirror the :matchers target and is provided for compatibility
+# with internal targets that are built exclusively for OSS.
+cc_library(
+    name = "matchers_no_g3",
+    testonly = True,
+    hdrs = ["matchers.h"],
+    deps = [
+        ":macros",
+        "@abseil-cpp//absl/status",
+        "@abseil-cpp//absl/status:statusor",
+        "@com_google_googletest//:gtest",  # no g3
     ],
 )
 

@@ -188,10 +188,10 @@ ynn_status ynn_value::set_external_shape(size_t rank, const size_t* dims) {
 
   for (int i = 0; i < rank; ++i) {
     auto extent = slinky::as_constant(extents[rank - 1 - i]);
-    if (extent && *extent != physical_dims[i]) {
+    if (extent && *extent != dims[i]) {
       YNN_LOG_ERROR() << "value " << id << " has fixed shape " << *extent
                       << " in dimension " << i << " and cannot be reshaped to "
-                      << physical_dims[i];
+                      << dims[i];
       return ynn_status_invalid_parameter;
     }
   }
@@ -233,11 +233,11 @@ ynn_status ynn_value::get_external_shape(size_t* rank, size_t* dims) const {
   return ynn_status_success;
 }
 
-std::optional<float> ynn_value::as_scalar_float() const {
+std::optional<ynn::real> ynn_value::as_scalar() const {
   if (!is_static_scalar()) return std::nullopt;
   switch (type) {
     case ynn_type_fp64:
-      return static_cast<float>(static_scalar_value<double>());
+      return static_cast<ynn::real>(static_scalar_value<double>());
     case ynn_type_fp32:
       return static_scalar_value<float>();
     case ynn_type_fp16:
@@ -245,11 +245,11 @@ std::optional<float> ynn_value::as_scalar_float() const {
     case ynn_type_bf16:
       return static_scalar_value<ynn::bfloat16>();
     case ynn_type_int32:
-      return static_cast<float>(static_scalar_value<int32_t>());
+      return static_cast<ynn::real>(static_scalar_value<int32_t>());
     case ynn_type_int8:
-      return static_cast<float>(static_scalar_value<int8_t>());
+      return static_cast<ynn::real>(static_scalar_value<int8_t>());
     case ynn_type_uint8:
-      return static_cast<float>(static_scalar_value<uint8_t>());
+      return static_cast<ynn::real>(static_scalar_value<uint8_t>());
     case ynn_type_int4:
     case ynn_type_uint4:
     case ynn_type_int2:
@@ -378,6 +378,9 @@ uint32_t ynn_subgraph::get_static_value_id(ynn_type type, size_t rank,
 
   std::vector<char> data(size * ynn::type_size_bytes(type));
   switch (type) {
+    case ynn_type_fp64:
+      std::copy_n(value_f32, size, reinterpret_cast<double*>(data.data()));
+      break;
     case ynn_type_fp32:
       std::copy_n(value_f32, size, reinterpret_cast<float*>(data.data()));
       break;
@@ -415,9 +418,7 @@ uint32_t ynn_subgraph::get_static_value_id(ynn_type type, size_t rank,
 
 void ynn_subgraph::infer_elementwise_shape(ynn_node& node, int input_idx,
                                            int output_idx, int input_dim,
-                                           int output_dim,
-                                           int input_type_element_count,
-                                           int output_type_element_count) {
+                                           int output_dim) {
   const int input_id = node.inputs[input_idx];
   if (input_id == YNN_INVALID_VALUE_ID) {
     return;
@@ -433,58 +434,99 @@ void ynn_subgraph::infer_elementwise_shape(ynn_node& node, int input_idx,
     // This input is a broadcast, we don't learn anything from it.
     return;
   }
-  if (input_type_element_count != 1) input_i *= input_type_element_count;
   ynn_value& output = value(output_id);
   assert(output_dim < output.extents.size());
   slinky::expr& output_i = output.extents[output_dim];
   if (output_i.defined()) {
     // If we already have an extent here, it must match the new extent.
     node.checks.push_back(ynn_node::check{
-        output_i * output_type_element_count == input_i,
-        {"dimension ", output_dim, " (", output_i * output_type_element_count,
-         ") of ", ynn_node::output_idx{output_idx},
-         " does not match dimension ", input_dim, " (", input_i, ") of ",
-         ynn_node::input_idx{input_idx}},
+        output_i == input_i,
+        {"dimension ", output_dim, " (", output_i, ") of ",
+         ynn_node::output_idx{output_idx}, " does not match dimension ",
+         input_dim, " (", input_i, ") of ", ynn_node::input_idx{input_idx}},
     });
   }
   if (!output_i.defined() || !as_constant(output_i)) {
     // We don't have an extent, or it wasn't constant. Maybe the new extent is
     // constant?
     output_i = input_i;
-    if (input_type_element_count != 1) output_i /= output_type_element_count;
   }
 }
 
 namespace {
 
+size_t static_size_of_value(const ynn_value& value) {
+  size_t size = ynn::type_size_bytes(value.type);
+  for (const auto& extent : value.extents) {
+    if (auto extent_c = as_constant(extent)) {
+      size *= *extent_c;
+    } else {
+      return 0;
+    }
+  }
+  return size;
+}
+
+size_t static_size_of_inputs(const ynn_subgraph& subgraph,
+                             const ynn_node& node) {
+  size_t size = 0;
+  for (uint32_t i : node.inputs) {
+    if (i == YNN_INVALID_VALUE_ID) continue;
+    const ynn_node* producer = subgraph.get_producer(i);
+    if (producer) {
+      size += static_size_of_inputs(subgraph, *producer);
+    } else {
+      size += static_size_of_value(subgraph.value(i));
+    }
+  }
+  return size;
+}
+
 bool should_constant_fold(const ynn_subgraph& subgraph, const ynn_node& node) {
-  if (std::all_of(node.outputs.begin(), node.outputs.end(), [&](uint32_t i) {
-        return i == YNN_INVALID_VALUE_ID || subgraph.value(i).rank() == 0;
-      })) {
-    // All of the outputs of this op are scalar, we can constant fold them
-    // regardless of whether the node is cheap.
+  if (std::holds_alternative<ynn_node::broadcast>(node.op) ||
+      std::holds_alternative<ynn_node::broadcast_like>(node.op) ||
+      std::holds_alternative<ynn_node::fuse_dim>(node.op) ||
+      std::holds_alternative<ynn_node::fuse_dims>(node.op) ||
+      std::holds_alternative<ynn_node::split_dim>(node.op) ||
+      std::holds_alternative<ynn_node::split_dims>(node.op) ||
+      std::holds_alternative<ynn_node::static_broadcast>(node.op) ||
+      std::holds_alternative<ynn_node::static_expand_dims>(node.op) ||
+      std::holds_alternative<ynn_node::static_reshape>(node.op) ||
+      std::holds_alternative<ynn_node::static_transpose>(node.op)) {
+    // Don't constant fold these "free" ops. If we allowed them to constant
+    // fold and the heuristic below allowed it, it's possible we would produce
+    // two copies of the same value.
+    return false;
+  } else if (std::holds_alternative<ynn_node::pack_b>(node.op)) {
+    // The heuristic below doesn't fold this sometimes due to alignment padding,
+    // but we usually do want to constant fold this.
     return true;
   }
 
-  if (std::holds_alternative<ynn_node::broadcast>(node.op) ||
-      std::holds_alternative<ynn_node::broadcast_like>(node.op) ||
-      std::holds_alternative<ynn_node::static_broadcast>(node.op) ||
-      std::holds_alternative<ynn_node::static_expand_dims>(node.op) ||
-      std::holds_alternative<ynn_node::static_reshape>(node.op)) {
+  size_t size_of_inputs = static_size_of_inputs(subgraph, node);
+  size_t size_of_outputs = 0;
+  for (uint32_t i : node.outputs) {
+    if (i == YNN_INVALID_VALUE_ID) continue;
+    const ynn_value& value = subgraph.value(i);
+    size_t s = static_size_of_value(value);
+    size_of_outputs += s;
+  }
+
+  constexpr size_t small_constant_bytes = 64;
+  if (size_of_outputs < small_constant_bytes) {
+    // Always allow constant folding small constants.
+    return true;
+  } else if (size_of_outputs < size_of_inputs * 2) {
+    // Allow constant folding because the outputs are not too big compared to
+    // the inputs.
+    return true;
+  } else {
+    YNN_LOG_DEBUG() << "Not folding " << node.to_string() << " because the "
+                    << "outputs (" << size_of_outputs
+                    << " bytes) are significantly larger than the inputs ("
+                    << size_of_inputs << " bytes).";
     return false;
   }
-
-  if (const auto* unary = std::get_if<ynn_node::unary_elementwise>(&node.op)) {
-    if (unary->op == ynn_unary_convert) {
-      // Avoid constant folding converts to a bigger type.
-      const ynn_value& input = subgraph.value(node.inputs[0]);
-      const ynn_value& output = subgraph.value(node.outputs[0]);
-      return ynn::type_size_bits(output.type) <=
-             ynn::type_size_bits(input.type);
-    }
-  }
-
-  return true;
 }
 
 }  // namespace
@@ -514,16 +556,22 @@ ynn_status ynn_subgraph::fold_constants(slinky::thread_pool* threadpool) {
       continue;
     }
 
+    if (std::any_of(node.outputs.begin(), node.outputs.end(), [&](uint32_t i) {
+          return i != YNN_INVALID_VALUE_ID && values[i].is_external_output();
+        })) {
+      // This op has an external output, so it is not constant folded.
+      continue;
+    }
+
     // Count references to the static inputs.
     for (uint32_t i : node.inputs) {
       if (i == YNN_INVALID_VALUE_ID) continue;
       static_refs[i]++;
     }
 
-    // Mark outputs non-static.
+    // Mark outputs static.
     for (uint32_t i : node.outputs) {
       if (i == YNN_INVALID_VALUE_ID) continue;
-      if (values[i].is_external_output()) continue;
       value_is_static[i] = true;
     }
   }
@@ -534,7 +582,6 @@ ynn_status ynn_subgraph::fold_constants(slinky::thread_pool* threadpool) {
   for (auto i = nodes.rbegin(); i != nodes.rend(); ++i) {
     ynn_node& node = *i;
     if (!node.is_valid()) continue;
-    if (should_constant_fold(*this, node)) continue;
 
     if (std::any_of(node.outputs.begin(), node.outputs.end(), [&](uint32_t i) {
           return i != YNN_INVALID_VALUE_ID && !value_is_static[i];
@@ -549,6 +596,8 @@ ynn_status ynn_subgraph::fold_constants(slinky::thread_pool* threadpool) {
       // This cheap op is still needed by another folded op.
       continue;
     }
+
+    if (should_constant_fold(*this, node)) continue;
 
     // Drop references to the static inputs.
     for (uint32_t i : node.inputs) {
@@ -803,6 +852,57 @@ ynn_status ynn_subgraph::eliminate_common_subgraphs() {
   return ynn_status_success;
 }
 
+void ynn_subgraph::topological_sort() {
+  std::vector<bool> value_ready(values.size(), false);
+  for (uint32_t i = 0; i < values.size(); ++i) {
+    if (values[i].is_external_input() || values[i].is_static()) {
+      value_ready[i] = true;
+    }
+  }
+
+  // This topological sort implementation would be inefficient if the nodes were
+  // not already mostly sorted.
+  size_t begin = 0;
+  size_t invalid_count = 0;
+  bool changed;
+  do {
+    changed = false;
+    for (size_t i = begin; i < nodes.size(); ++i) {
+      if (!nodes[i].is_valid()) {
+        ++invalid_count;
+        continue;
+      }
+
+      const bool node_is_ready = std::all_of(
+          nodes[i].inputs.begin(), nodes[i].inputs.end(), [&](uint32_t id) {
+            return id == YNN_INVALID_VALUE_ID || value_ready[id];
+          });
+
+      if (!node_is_ready) continue;
+
+      if (i > begin) {
+        std::rotate(nodes.begin() + begin, nodes.begin() + i,
+                    nodes.begin() + i + 1);
+      }
+      for (uint32_t output_id : nodes[begin].outputs) {
+        if (output_id != YNN_INVALID_VALUE_ID) {
+          value_ready[output_id] = true;
+        }
+      }
+      begin++;
+      changed = true;
+    }
+  } while (changed && begin < nodes.size());
+
+  if (begin + invalid_count < nodes.size()) {
+    YNN_LOG_WARNING()
+        << "Failed to topologically sort subgraph; graph may have "
+           "cycles.";
+  }
+
+  nodes.resize(begin);
+}
+
 ynn_status ynn_subgraph::optimize(slinky::thread_pool* threadpool) {
   ynn_status status;
 
@@ -870,6 +970,7 @@ const char* name_of(const ynn_node::static_transpose&) {
 }
 const char* name_of(const ynn_node::stencil_copy&) { return "stencil_copy"; }
 const char* name_of(const ynn_node::dot&) { return "dot"; }
+const char* name_of(const ynn_node::iota&) { return "iota"; }
 const char* name_of(const ynn_node::pack_b&) { return "pack_b"; }
 const char* name_of(const ynn_node::transpose_a&) { return "transpose_a"; }
 const char* name_of(const ynn_node::dequantize_dot&) {
@@ -1046,6 +1147,8 @@ void print(std::ostream& os, const ynn_node::dot& op) {
   os << "num_k_dims=" << op.num_k_dims;
 }
 
+void print(std::ostream& os, const ynn_node::iota& op) {}
+
 void print(std::ostream& os, const ynn_node::pack_b& op) {}
 void print(std::ostream& os, const ynn_node::transpose_a& op) {
   os << "tile_k=" << op.tile_k << " m_dim=" << op.m_dim;
@@ -1132,7 +1235,7 @@ void ynn_subgraph::dump(std::ostream& os) const {
     }
     if (value.is_static()) {
       os << "static ";
-      if (std::optional<float> v = value.as_scalar_float()) {
+      if (auto v = value.as_scalar()) {
         os << "value=" << *v << " ";
       }
     }

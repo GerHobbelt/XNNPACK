@@ -231,6 +231,12 @@ MATCHER(IsRescaleDot, "") {
 //   EXPECT_THAT(ProducerOf(y_id, subgraph), IsDot());
 MATCHER(IsDot, "") { return std::holds_alternative<ynn_node::dot>(arg.op); }
 
+// Checks that the given node is an iota.
+//
+// Example:
+//   EXPECT_THAT(ProducerOf(y_id, subgraph), IsIota());
+MATCHER(IsIota, "") { return std::holds_alternative<ynn_node::iota>(arg.op); }
+
 // Checks that the given node is a broadcast_like.
 //
 // Example:
@@ -250,6 +256,16 @@ MATCHER(IsStaticExpandDims, "") {
 MATCHER(IsStaticSlice, "") {
   return std::holds_alternative<ynn_node::static_slice>(arg.op);
 }
+MATCHER(IsStaticTranspose, "") {
+  return std::holds_alternative<ynn_node::static_transpose>(arg.op);
+}
+MATCHER_P(IsStaticTransposeWithPerm, perm_matcher, "") {
+  const ynn_node::static_transpose* transpose =
+      std::get_if<ynn_node::static_transpose>(&arg.op);
+  return transpose &&
+         testing::ExplainMatchResult(perm_matcher, transpose->permutation,
+                                     result_listener);
+}
 
 // Checks that the given value ID is valid in the given subgraph.
 //
@@ -260,7 +276,7 @@ MATCHER_P(HasValidValueId, value_id, "") {
   if (subgraph == nullptr) {
     return false;
   }
-  if (!subgraph->value(value_id).is_valid()) {
+  if (!subgraph->is_valid_value(value_id)) {
     *result_listener << "value " << value_id << " is invalid";
     return false;
   }
@@ -276,7 +292,7 @@ MATCHER_P(IsValidValueIn, subgraph, "") {
   if (s == nullptr) {
     return false;
   }
-  if (!s->value(arg).is_valid()) {
+  if (!s->is_valid_value(arg)) {
     *result_listener << "value " << arg << " is invalid";
     return false;
   }

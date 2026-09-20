@@ -51,11 +51,11 @@ std::pair<slinky::expr, slinky::expr> calc_begin_end(const slice_info& slice,
 }  // namespace
 
 void define_static_slice(ynn_subgraph& subgraph, ynn_node& node,
-                         uint32_t input_id, uint32_t output_id,
+                         uint32_t input_id, uint32_t* output_id,
                          std::vector<ynn_node::static_slice::slice> slices,
                          bool slice_dims) {
   const ynn_value& input = subgraph.value(input_id);
-  ynn_value& output = subgraph.value(output_id);
+  ynn_value& output = subgraph.get_output_value(output_id, input);
 
   std::reverse(slices.begin(), slices.end());
 
@@ -73,7 +73,7 @@ void define_static_slice(ynn_subgraph& subgraph, ynn_node& node,
       auto begin_end = calc_begin_end(slice, output.extents[slice.axis]);
       const slinky::expr& begin = begin_end.first;
       const slinky::expr& end = begin_end.second;
-      output.extents[slice.axis] = end - begin;
+      output.extents[slice.axis] = slinky::simplify(end - begin);
       if (slinky::prove_true(output.extents[slice.axis] == 1)) {
         output.extents[slice.axis] = {};
       }
@@ -81,7 +81,7 @@ void define_static_slice(ynn_subgraph& subgraph, ynn_node& node,
   }
 
   node.inputs = {input_id};
-  node.outputs = {output_id};
+  node.outputs = {output.id};
   node.op = std::move(op);
   node.create = [](const ynn_node& node, ynn_runtime& runtime) {
     const ynn_node::static_slice& op =
@@ -94,20 +94,20 @@ void define_static_slice(ynn_subgraph& subgraph, ynn_node& node,
     const int rank = input.rank();
     std::vector<slinky::var> dims = runtime.globals.make_dims(rank);
     slinky::func::input func_input{
-        input.buffer, make_elementwise_bounds(dims, input.extents)};
+        input.buffer, make_elementwise_bounds(dims, input.physical_extents())};
     if (!op.slice_dims) {
       func_input.output_crop.resize(rank);
     }
     for (const slice_info& slice : op.slices) {
       const int d = slice.axis;
-      auto begin_end = calc_begin_end(slice, input.extents[d]);
+      auto begin_end = calc_begin_end(slice, input.physical_extent(d));
       if (op.slice_dims) {
         dims.erase(dims.begin() + d);
         func_input.bounds[d] = slinky::point(begin_end.first);
       } else {
         const slinky::expr& begin = begin_end.first;
         func_input.bounds[d] = func_input.bounds[d] + begin;
-        func_input.output_crop[d] = all_bounds(output.extents[d]);
+        func_input.output_crop[d] = all_bounds(output.physical_extent(d));
       }
     }
     auto func =
@@ -131,9 +131,9 @@ ynn_status ynn_define_static_slice(ynn_subgraph_t subgraph, size_t num_axes,
   YNN_RETURN_IF_ERROR(validate_subgraph("static_slice", subgraph));
   YNN_RETURN_IF_ERROR(
       validate_input_tensor("static_slice", subgraph, "input_id", input_id));
-  if (!slice_dims && (ends == nullptr || strides == nullptr)) {
+  if (!slice_dims && ends == nullptr) {
     YNN_LOG_ERROR()
-        << "For node `static_slice`, ends and strides must be non-null when "
+        << "For node `static_slice`, ends must be non-null when "
            "YNN_NODE_FLAG_SLICE_DIMS is not set";
     return ynn_status_invalid_parameter;
   }
@@ -150,7 +150,7 @@ ynn_status ynn_define_static_slice(ynn_subgraph_t subgraph, size_t num_axes,
           dim,
           begins[d],
           slice_dims ? 0 : ends[d],
-          slice_dims ? 0 : strides[d],
+          slice_dims ? 0 : (strides ? strides[d] : 1),
       });
     } else {
       // The implicit dimensions are broadcasts, slicing them is a no-op.
@@ -163,10 +163,8 @@ ynn_status ynn_define_static_slice(ynn_subgraph_t subgraph, size_t num_axes,
       slices.begin(), slices.end(),
       [](const slice_info& a, const slice_info& b) { return a.axis < b.axis; });
 
-  // Propagate rank.
-  ynn_value& output = subgraph->get_output_value(output_id, input);
   ynn_node node;
-  define_static_slice(*subgraph, node, input_id, output.id, std::move(slices),
+  define_static_slice(*subgraph, node, input_id, output_id, std::move(slices),
                       slice_dims);
   subgraph->add_node(std::move(node));
   return ynn_status_success;

@@ -500,10 +500,8 @@ TEST(FullyConnectedQU8, static_b) { TestStaticB<quint8, quint8, qint32>(); }
 #endif  // XNNPACK_USE_YNNPACK
 
 TEST(FullyConnectedQS8QC8W, static_b) { TestStaticB<qint8, qcint8, qcint32>(); }
-#ifndef XNNPACK_USE_YNNPACK
 TEST(FullyConnectedQS8QC4W, static_b) { TestStaticB<qint8, qcint4, qcint32>(); }
 TEST(FullyConnectedQS8QC2W, static_b) { TestStaticB<qint8, qcint2, qcint32>(); }
-#endif  // XNNPACK_USE_YNNPACK
 
 TEST(FullyConnectedF16F32F16, static_b) {
   TestStaticB<xnn_float16, float, float>();
@@ -548,17 +546,16 @@ TEST(FullyConnectedQD8F16QC4W, static_b) {
   TestStaticB<xnn_float16, qcint4, float>(/*convert_to=*/xnn_datatype_qdint8);
 }
 #endif  // XNNPACK_USE_YNNPACK
+
 TEST(FullyConnectedQD8F16QC8W, static_b) {
   TestStaticB<xnn_float16, qcint8, float>(/*convert_to=*/xnn_datatype_qdint8);
 }
-#ifndef XNNPACK_USE_YNNPACK
 TEST(FullyConnectedQD8F32QC4W, static_b) {
   TestStaticB<float, qcint4, float>(/*convert_to=*/xnn_datatype_qdint8);
 }
 TEST(FullyConnectedQD8F32QC2W, static_b) {
   TestStaticB<float, qcint2, float>(/*convert_to=*/xnn_datatype_qdint8);
 }
-#endif  // XNNPACK_USE_YNNPACK
 TEST(FullyConnectedQD8F32QC8W, static_b) {
   TestStaticB<float, qcint8, float>(/*convert_to=*/xnn_datatype_qdint8);
 }

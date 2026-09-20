@@ -56,9 +56,12 @@ void dequantize(size_t m, size_t n, size_t stride_a_m, size_t stride_a_n,
                 const int32_t* b, size_t stride_c_m, size_t stride_c_n,
                 const float* c, size_t stride_x_m, X* x,
                 const ternary_params* params) {
+  assert(stride_a_n == 0 || stride_a_n == sizeof(A));
+  if (stride_a_n != 0) stride_a_n = 1;
+
   for (size_t i = 0; i < m; ++i) {
     for (size_t j = 0; j < n; ++j) {
-      const A a_j = *offset_bytes(a, j * stride_a_n);
+      const float a_j = type_info<A>::get(a, j * stride_a_n);
       const int32_t b_j = *offset_bytes(b, j * stride_b_n);
       const float c_j = *offset_bytes(c, j * stride_c_n);
       x[j] = (a_j - b_j) * c_j;
@@ -131,6 +134,32 @@ void dequantize_int32_to_fp32(size_t m, size_t n, size_t stride_a_m,
              stride_b_m, stride_b_n, reinterpret_cast<const int32_t*>(b),
              stride_c_m, stride_c_n, reinterpret_cast<const float*>(c),
              stride_x_m, reinterpret_cast<float*>(x), params);
+}
+
+void dequantize_int4_to_fp32(size_t m, size_t n, size_t stride_a_m,
+                             size_t stride_a_n, const void* va,
+                             size_t stride_b_m, size_t stride_b_n,
+                             const void* vb, size_t stride_c_m,
+                             size_t stride_c_n, const void* vc,
+                             size_t stride_x_m, void* vx,
+                             const ternary_params* params) {
+  dequantize(m, n, stride_a_m, stride_a_n, reinterpret_cast<const int4x2*>(va),
+             stride_b_m, stride_b_n, reinterpret_cast<const int32_t*>(vb),
+             stride_c_m, stride_c_n, reinterpret_cast<const float*>(vc),
+             stride_x_m, reinterpret_cast<float*>(vx), params);
+}
+
+void dequantize_int2_to_fp32(size_t m, size_t n, size_t stride_a_m,
+                             size_t stride_a_n, const void* va,
+                             size_t stride_b_m, size_t stride_b_n,
+                             const void* vb, size_t stride_c_m,
+                             size_t stride_c_n, const void* vc,
+                             size_t stride_x_m, void* vx,
+                             const ternary_params* params) {
+  dequantize(m, n, stride_a_m, stride_a_n, reinterpret_cast<const int2x4*>(va),
+             stride_b_m, stride_b_n, reinterpret_cast<const int32_t*>(vb),
+             stride_c_m, stride_c_n, reinterpret_cast<const float*>(vc),
+             stride_x_m, reinterpret_cast<float*>(vx), params);
 }
 
 ternary_kernel_fn get_ternary_kernel(ternary_op op, ynn_type type_a,

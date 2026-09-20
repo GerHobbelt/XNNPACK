@@ -7,14 +7,11 @@
 #define XNNPACK_YNNPACK_BASE_TEST_TENSOR_H_
 
 #include <algorithm>
-#include <array>
+#include <bitset>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
-#include <cstdlib>
-#include <cstring>
 #include <functional>
-#include <iostream>
 #include <memory>
 #include <numeric>
 #include <sstream>
@@ -25,15 +22,119 @@
 #include "ynnpack/base/arithmetic.h"
 #include "ynnpack/base/base.h"
 #include "ynnpack/base/test/buffer.h"
+#include "ynnpack/base/type.h"
 
 namespace ynn {
 
+namespace internal {
+
+class IndexIterator {
+  std::vector<size_t> extents_;
+  std::vector<size_t> i_;
+
+ public:
+  static IndexIterator make_end(std::vector<size_t> extents) {
+    IndexIterator result;
+    result.extents_ = std::move(extents);
+    if (result.extents_.empty()) {
+      // This is a bit of a hack. For rank 0 shapes, we need a way of separating
+      // "begin" from "end". We call "begin" {}, which is the rank 0 index.
+      // "end" is {1}.
+      result.i_ = {1};
+    } else {
+      // The "end" iterator is when we reach one past the end of the first
+      // dimension, and the rest of the dimensions are 0.
+      result.i_ = std::vector<size_t>(result.extents_.size(), 0);
+      result.i_.front() = result.extents_.front();
+    }
+    return result;
+  }
+  static IndexIterator make_begin(std::vector<size_t> extents) {
+    size_t size =
+        std::accumulate(extents.begin(), extents.end(), static_cast<size_t>(1),
+                        std::multiplies<size_t>());
+    if (size == 0) {
+      return make_end(extents);
+    }
+    IndexIterator result;
+    result.extents_ = std::move(extents);
+    result.i_ = std::vector<size_t>(result.extents_.size(), 0);
+    return result;
+  }
+
+  IndexIterator& operator++() {
+    if (i_.empty()) {
+      i_.push_back(1);
+    } else {
+      i_.back() += 1;
+      for (size_t d = i_.size() - 1; d > 0; --d) {
+        if (i_[d] >= extents_[d]) {
+          ++i_[d - 1];
+          i_[d] = 0;
+        } else {
+          break;
+        }
+      }
+    }
+    return *this;
+  }
+
+  IndexIterator operator++(int) {
+    IndexIterator result = *this;
+    ++(*this);
+    return result;
+  }
+
+  const std::vector<size_t>& operator*() const { return i_; }
+  const std::vector<size_t>* operator->() const { return &i_; }
+
+  bool operator!=(const IndexIterator& other) const { return i_ != other.i_; }
+};
+
+class IndexRange {
+  IndexIterator begin_;
+  IndexIterator end_;
+
+ public:
+  using value_type = std::vector<size_t>;
+
+  IndexRange(IndexIterator begin, IndexIterator end)
+      : begin_(std::move(begin)), end_(std::move(end)) {}
+
+  const IndexIterator& begin() const { return begin_; }
+  const IndexIterator& end() const { return end_; }
+};
+
+}  // namespace internal
+
+// Enumerate the indices in a multidimensional range [0, extents)
+// This is very inefficient, it is intended for use in tests, where a more
+// efficient approach would result in calling ASSERT_* in another function.
+inline internal::IndexRange EnumerateIndices(
+    const std::vector<size_t>& extents) {
+  return internal::IndexRange(internal::IndexIterator::make_begin(extents),
+                              internal::IndexIterator::make_end(extents));
+}
+
+inline std::string index_to_string(const std::vector<size_t>& v) {
+  std::stringstream ss;
+  ss << "{";
+  for (size_t i = 0; i < v.size(); i++) {
+    ss << v[i];
+    if (i + 1 < v.size()) {
+      ss << ", ";
+    }
+  }
+  ss << "}";
+  return ss.str();
+}
+
 // This stores a multi-dimensional array in a Buffer<T> object
 // (above). The sizes of dimensions are `extent`s, the distance between elements
-// in a dimension in memory are `stride`s. The address of an element x is
-// base() + sum(x[i]*stride(i) for i in rank)
-// This buffer holds an std::shared_ptr to the underlying Buffer<T>
-// objects, i.e. copies are shallow.
+// in a dimension in memory are `stride`s. The "flat index" `i` =
+// `sum(x[d]*stride(d) for d in rank)` for a multi-dimensional index `x`. This
+// buffer holds an std::shared_ptr to the underlying Buffer<T> objects, i.e.
+// copies are shallow.
 template <typename T>
 class Tensor {
  public:
@@ -56,8 +157,8 @@ class Tensor {
       stride *= extents_[i - 1];
     }
     data_ = std::make_shared<Buffer<T>>(stride, alignment);
-    begin_ = data_->begin();
-    end_ = data_->end();
+    begin_ = 0;
+    end_ = stride;
   }
   Tensor& operator=(const Tensor& other) = default;
   Tensor& operator=(Tensor&& other) = default;
@@ -88,6 +189,18 @@ class Tensor {
   const index_type& strides() const { return strides_; }
   size_t extent(size_t dim) const { return extents_[dim]; }
   size_t stride(size_t dim) const { return strides_[dim]; }
+  size_t stride_bytes(size_t dim) const {
+    size_t result = strides_[dim] * sizeof(T);
+    if (result == 1) {
+      // The stride 1 dimension is a special case. Kernels might accept a stride
+      // for this dimension, but the only valid values are 0 or the size of the
+      // type. If the type is a sub-byte type, we need to just return 1.
+      return 1;
+    } else {
+      assert(result % type_info<T>::element_count() == 0);
+      return result / type_info<T>::element_count();
+    }
+  }
 
   // This is a dangerous function, use carefully.
   void set_shape(index_type extents, index_type strides) {
@@ -99,50 +212,85 @@ class Tensor {
   YNN_ALWAYS_INLINE bool empty() const { return begin_ >= end_; }
 
   // Returns a pointer to the element {0,...}
-  YNN_ALWAYS_INLINE T* base() { return begin_; }
-  YNN_ALWAYS_INLINE const T* base() const { return begin_; }
+  T* base() {
+    if (!data_) return nullptr;
+    return at_flat_index(begin_);
+  }
+  const T* base() const {
+    if (!data_) return nullptr;
+    return at_flat_index(begin_);
+  }
 
   // Form a reference to an element at a particular index.
-  T& operator()(const index_type& indices) {
-    return *(begin_ + flat_offset(indices));
+  decltype(auto) operator()(const index_type& indices) {
+    assert(data_);
+    return type_info<T>::ref(data_->data(), begin_ + flat_offset(indices));
   }
-  const T& operator()(const index_type& indices) const {
-    return *(begin_ + flat_offset(indices));
+  auto operator()(const index_type& indices) const {
+    assert(data_);
+    return type_info<T>::get(data_->data(), begin_ + flat_offset(indices));
   }
 
   template <typename... Args>
-  T& operator()(Args... args) {
+  decltype(auto) operator()(Args... args) {
+    assert(data_);
     assert(sizeof...(args) >= rank());
-    return *(begin_ + flat_offset_variadic(sizeof...(args) - rank(), args...));
+    return type_info<T>::ref(
+        data_->data(),
+        begin_ + flat_offset_variadic(sizeof...(args) - rank(), args...));
   }
   template <typename... Args>
-  const T& operator()(Args... args) const {
+  auto operator()(Args... args) const {
+    assert(data_);
     assert(sizeof...(args) >= rank());
-    return *(begin_ + flat_offset_variadic(sizeof...(args) - rank(), args...));
+    return type_info<T>::get(
+        data_->data(),
+        begin_ + flat_offset_variadic(sizeof...(args) - rank(), args...));
   }
 
   // The following functions produce iterators or accessors to the "flat" array
   // in memory, and can only be used if `is_contiguous()` is true.
   T* data() {
+    if (!data_) return nullptr;
     assert(is_contiguous());
-    return begin_;
+    return at_flat_index(begin_);
   }
   const T* data() const {
+    if (!data_) return nullptr;
     assert(is_contiguous());
-    return begin_;
+    return at_flat_index(begin_);
   }
   size_t size() const {
     assert(is_contiguous());
     return end_ - begin_;
   }
+  size_t size_bytes() const {
+    return ceil_div(size(), type_info<T>::element_count()) * sizeof(T);
+  }
   T* begin() { return data(); }
-  T* end() { return end_; }
-  const T* begin() const { return data(); }
-  const T* end() const { return end_; }
+  T* end() {
+    if (!data_) return nullptr;
+    assert(is_contiguous());
+    return at_flat_index(end_);
+  }
+  const T* begin() const { return cbegin(); }
+  const T* end() const { return cend(); }
   const T* cbegin() const { return data(); }
-  const T* cend() const { return end_; }
-  T& operator[](size_t index) { return data()[index]; }
-  const T& operator[](size_t index) const { return data()[index]; }
+  const T* cend() const {
+    if (!data_) return nullptr;
+    assert(is_contiguous());
+    return at_flat_index(end_);
+  }
+  decltype(auto) operator[](size_t index) {
+    assert(data_);
+    assert(is_contiguous());
+    return type_info<T>::ref(data_->data(), begin_ + index);
+  }
+  auto operator[](size_t index) const {
+    assert(data_);
+    assert(is_contiguous());
+    return type_info<T>::get(data_->data(), begin_ + index);
+  }
 
   // The following manipulators only affect the strides or extents of the
   // Tensor, they do not affect the memory addressed by the Tensor. To realize
@@ -254,7 +402,7 @@ class Tensor {
     return result;
   }
 
-  Tensor<T> broadcast_like(const std::vector<size_t>& extents) {
+  Tensor<T> broadcast_like(const std::vector<size_t>& extents) const {
     Tensor<T> result(*this);
     while (result.rank() < extents.size()) {
       result = result.expand_dims({0});
@@ -344,6 +492,55 @@ class Tensor {
     return result;
   }
 
+  // Compute the reduction of `axes` dimensions using the binary operator `op`.
+  template <typename Op>
+  Tensor<T> reduce(std::vector<int32_t> axes, Op op) const {
+    std::bitset<32> axes_set = {};
+    for (int32_t axis : axes) {
+      axes_set[axis >= 0 ? axis : rank() + axis] = true;
+    }
+
+    // Normalize negative axes and compute the total number of reduced elements.
+    size_t num_reduced_elements = 1;
+    for (size_t i = 0; i < rank(); ++i) {
+      if (axes_set[i]) {
+        num_reduced_elements *= extent(i);
+      }
+    }
+
+    // Make a transpose that puts all the reduction dimensions at the end.
+    std::vector<int32_t> perm(rank());
+    std::iota(perm.begin(), perm.end(), 0);
+    // Stable sort so we don't transpose unnecessarily.
+    std::stable_sort(perm.begin(), perm.end(), [&](int32_t i, int32_t j) {
+      return !axes_set[i] && axes_set[j];
+    });
+
+    Tensor<T> buffer = transpose(perm).deep_copy();
+
+    // Remove reduced dimensions from the buffer.
+    std::vector<size_t> extents = buffer.extents();
+    std::vector<size_t> strides = buffer.strides();
+    extents.resize(extents.size() - axes_set.count());
+    strides.resize(strides.size() - axes_set.count());
+    buffer.set_shape(extents, strides);
+
+    // Now we can do a 1D tree reduction in-place on buffer.
+    for (auto i : EnumerateIndices(buffer.shape())) {
+      T* begin = &buffer(i);
+      size_t size = num_reduced_elements;
+      while (size > 1) {
+        size_t next_size = (size + 1) / 2;
+        for (size_t j = 0; j < size / 2; ++j) {
+          begin[j] = op(begin[j], begin[j + next_size]);
+        }
+        size = next_size;
+      }
+    }
+
+    return buffer.deep_copy();
+  }
+
   // Remove `pre` elements from the beginning of each dimension, and `post`
   // elements from the end of each dimension.'
   Tensor<T> crop_padding(const index_type& pre, const index_type& post) const {
@@ -425,7 +622,7 @@ class Tensor {
       assert(other.stride(i) == 0 || other.extent(i) == extent(i));
     }
     copy_impl(rank(), extents().data(), other.strides().data(), other.base(),
-              strides().data(), base());
+              0, strides().data(), data_->data(), begin_);
   }
 
   // Make a copy of the buffer. The result will be contiguous, i.e. the strides
@@ -440,12 +637,14 @@ class Tensor {
   // std::generate).
   template <typename G>
   void generate(const G& g) {
-    generate_impl(rank(), extents_.data(), strides_.data(), base(), g);
+    generate_impl(rank(), extents_.data(), strides_.data(), data_->data(),
+                  begin_, g);
   }
 
   // Fill each element of this tensor with the given value (compare to
   // std::fill).
-  void fill(T value) {
+  template <typename U>
+  void fill(U value) {
     generate([=]() { return value; });
   }
 
@@ -453,45 +652,58 @@ class Tensor {
   template <typename From>
   static void copy_impl(size_t rank, const size_t* extents,
                         const size_t* src_strides, const From* src,
-                        const size_t* dst_strides, T* dst) {
+                        size_t src_offset, const size_t* dst_strides, T* dst,
+                        size_t dst_offset) {
     if (rank == 0) {
-      *dst = *src;
-      return;
+      copy_n(src, src_offset, 1, dst, dst_offset);
     } else {
       --rank;
       size_t extent = *extents++;
       size_t src_stride = *src_strides++;
       size_t dst_stride = *dst_strides++;
-      if (rank == 0 && src_stride == 1 && dst_stride == 1) {
-        std::copy_n(src, extent, dst);
-      } else if (rank == 0 && src_stride == 0 && dst_stride == 1) {
-        std::fill_n(dst, extent, *src);
+      if (rank == 0) {
+        if (src_stride == 1 && dst_stride == 1) {
+          copy_n(src, src_offset, extent, dst, dst_offset);
+        } else if (src_stride == 0 && dst_stride == 1) {
+          assert(dst_offset % type_info<T>::element_count() == 0);
+          assert(extent % type_info<T>::element_count() == 0);
+          dst += dst_offset / type_info<T>::element_count();
+          extent /= type_info<T>::element_count();
+          std::fill_n(dst, extent, type_info<From>::get(src, src_offset));
+        } else {
+          for (size_t i = 0; i < extent; ++i) {
+            type_info<T>::set(dst, dst_offset,
+                              type_info<From>::get(src, src_offset));
+            src_offset += src_stride;
+            dst_offset += dst_stride;
+          }
+        }
       } else {
         for (size_t i = 0; i < extent; ++i) {
-          copy_impl(rank, extents, src_strides, src, dst_strides, dst);
-          src += src_stride;
-          dst += dst_stride;
+          copy_impl(rank, extents, src_strides, src, src_offset, dst_strides,
+                    dst, dst_offset);
+          src_offset += src_stride;
+          dst_offset += dst_stride;
         }
       }
     }
   }
 
   template <typename G>
-  static void generate_impl(size_t rank, const size_t* extents,
-                            const size_t* strides, T* dst, const G& g) {
+  void generate_impl(size_t rank, const size_t* extents, const size_t* strides,
+                     T* dst, size_t offset, const G& g) {
     if (rank == 0) {
-      *dst = g();
-      return;
+      generate_n(dst, offset, 1, g);
     } else {
       --rank;
       size_t extent = *extents++;
       size_t stride = *strides++;
       if (rank == 0 && stride == 1) {
-        std::generate_n(dst, extent, g);
+        generate_n(dst, offset, extent, g);
       } else {
         for (size_t i = 0; i < extent; ++i) {
-          generate_impl(rank, extents, strides, dst, g);
-          dst += stride;
+          generate_impl(rank, extents, strides, dst, offset, g);
+          offset += stride;
         }
       }
     }
@@ -556,11 +768,22 @@ class Tensor {
     return *strides * idx0 + flat_offset_no_broadcast(strides + 1, idxs...);
   }
 
+  T* at_flat_index(size_t index) {
+    assert(data_ != nullptr);
+    assert(index % type_info<T>::element_count() == 0);
+    return data_->data() + (index / type_info<T>::element_count());
+  }
+  const T* at_flat_index(size_t index) const {
+    assert(data_ != nullptr);
+    assert(index % type_info<T>::element_count() == 0);
+    return data_->data() + (index / type_info<T>::element_count());
+  }
+
   index_type extents_;
   index_type strides_;
   std::shared_ptr<Buffer<T>> data_;
-  T* begin_ = nullptr;
-  T* end_ = nullptr;
+  size_t begin_ = 0;
+  size_t end_ = 0;
 };
 
 template <typename T>
@@ -603,109 +826,6 @@ inline Tensor<T> make_stencil_dim(Tensor<T> x, int dim, int size,
   std::swap(extents[dim], extents[dim + 1]);
   x.set_shape(std::move(extents), std::move(strides));
   return x;
-}
-
-namespace internal {
-
-class IndexIterator {
-  std::vector<size_t> extents_;
-  std::vector<size_t> i_;
-
- public:
-  static IndexIterator make_end(std::vector<size_t> extents) {
-    IndexIterator result;
-    result.extents_ = std::move(extents);
-    if (result.extents_.empty()) {
-      // This is a bit of a hack. For rank 0 shapes, we need a way of separating
-      // "begin" from "end". We call "begin" {}, which is the rank 0 index.
-      // "end" is {1}.
-      result.i_ = {1};
-    } else {
-      // The "end" iterator is when we reach one past the end of the first
-      // dimension, and the rest of the dimensions are 0.
-      result.i_ = std::vector<size_t>(result.extents_.size(), 0);
-      result.i_.front() = result.extents_.front();
-    }
-    return result;
-  }
-  static IndexIterator make_begin(std::vector<size_t> extents) {
-    size_t size =
-        std::accumulate(extents.begin(), extents.end(), static_cast<size_t>(1),
-                        std::multiplies<size_t>());
-    if (size == 0) {
-      return make_end(extents);
-    }
-    IndexIterator result;
-    result.extents_ = std::move(extents);
-    result.i_ = std::vector<size_t>(result.extents_.size(), 0);
-    return result;
-  }
-
-  IndexIterator& operator++() {
-    if (i_.empty()) {
-      i_.push_back(1);
-    } else {
-      i_.back() += 1;
-      for (size_t d = i_.size() - 1; d > 0; --d) {
-        if (i_[d] >= extents_[d]) {
-          ++i_[d - 1];
-          i_[d] = 0;
-        } else {
-          break;
-        }
-      }
-    }
-    return *this;
-  }
-
-  IndexIterator operator++(int) {
-    IndexIterator result = *this;
-    ++(*this);
-    return result;
-  }
-
-  const std::vector<size_t>& operator*() const { return i_; }
-  const std::vector<size_t>* operator->() const { return &i_; }
-
-  bool operator!=(const IndexIterator& other) const { return i_ != other.i_; }
-};
-
-class IndexRange {
-  IndexIterator begin_;
-  IndexIterator end_;
-
- public:
-  using value_type = std::vector<size_t>;
-
-  IndexRange(IndexIterator begin, IndexIterator end)
-      : begin_(std::move(begin)), end_(std::move(end)) {}
-
-  const IndexIterator& begin() const { return begin_; }
-  const IndexIterator& end() const { return end_; }
-};
-
-}  // namespace internal
-
-// Enumerate the indices in a multidimensional range [0, extents)
-// This is very inefficient, it is intended for use in tests, where a more
-// efficient approach would result in calling ASSERT_* in another function.
-inline internal::IndexRange EnumerateIndices(
-    const std::vector<size_t>& extents) {
-  return internal::IndexRange(internal::IndexIterator::make_begin(extents),
-                              internal::IndexIterator::make_end(extents));
-}
-
-inline std::string index_to_string(const std::vector<size_t>& v) {
-  std::stringstream ss;
-  ss << "{";
-  for (size_t i = 0; i < v.size(); i++) {
-    ss << v[i];
-    if (i + 1 < v.size()) {
-      ss << ", ";
-    }
-  }
-  ss << "}";
-  return ss.str();
 }
 
 template <typename T, typename Scale, typename ZeroPoint>

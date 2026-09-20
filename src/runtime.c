@@ -76,6 +76,12 @@ enum xnn_status xnn_reshape_external_value(
     value->shape = new_shape;
   }
   value->size = xnn_runtime_tensor_get_size(value);
+  if (value->size == SIZE_MAX) {
+    xnn_log_error(
+      "failed to reshape runtime: size overflow for Value %" PRIu32 " with the given shape",
+      external_id);
+    return xnn_status_unsupported_parameter;
+  }
   return xnn_status_success;
 }
 
@@ -877,6 +883,26 @@ enum xnn_status xnn_reshape_runtime(xnn_runtime_t runtime) {
           "Operator #%u: %s failed reshape", opdata_id,
           xnn_operator_type_to_string_v2(opdata->operator_objects[0]));
       return status;
+    }
+
+    for (size_t i = 0; i < opdata->num_inputs && !reallocation_required; i++) {
+      const uint32_t input_id = opdata->inputs[i];
+      if (input_id == XNN_INVALID_VALUE_ID) {
+        continue;
+      }
+      for (size_t j = 0; j < opdata->num_outputs && !reallocation_required; j++) {
+        const uint32_t output_id = opdata->outputs[j];
+        if (output_id == XNN_INVALID_VALUE_ID) {
+          continue;
+        }
+        const struct xnn_runtime_value* input = &runtime->values[input_id];
+        const struct xnn_runtime_value* output = &runtime->values[output_id];
+        if (input->data != NULL && input->data == output->data) {
+          if (xnn_runtime_tensor_get_size(input) != xnn_runtime_tensor_get_size(output)) {
+            reallocation_required = true;
+          }
+        }
+      }
     }
   }
   if (reallocation_required || !runtime->memory_planned) {

@@ -30,6 +30,7 @@ cc_library(
         ":buffer",
         ":datatypes",
         "//litert/tensor/internal:graph",
+        "//litert/tensor/utils:macros",
         "//litert/tensor/utils:source_location",
         "@abseil-cpp//absl/log:absl_check",
         "@abseil-cpp//absl/log:absl_log",
@@ -68,6 +69,9 @@ cc_test(
 cc_library(
     name = "datatypes",
     hdrs = ["datatypes.h"],
+    deps = [
+        "//litert/tensor/internal:fp16",
+    ],
 )
 
 cc_test(

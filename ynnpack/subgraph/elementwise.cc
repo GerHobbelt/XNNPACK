@@ -40,7 +40,9 @@ auto make_unary_elementwise_impl(unary_kernel_fn kernel, unary_params params) {
                           slinky::raw_buffer x) -> slinky::index_t {
     slinky::dim a_dims[2], x_dims[2];
 
-    fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a);
+    if (!fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a)) {
+      return 0;
+    }
 
     // We don't support broadcasting of `a` here in the innermost
     // dimension (and it would waste computation).
@@ -66,7 +68,9 @@ auto make_lut_impl(lut_kernel_fn kernel) {
                   slinky::raw_buffer x) -> slinky::index_t {
     slinky::dim a_dims[1], x_dims[1];
 
-    fuse_and_slice_leading_dims<1>(&x_dims[0], x, &a_dims[0], a);
+    if (!fuse_and_slice_leading_dims<1>(&x_dims[0], x, &a_dims[0], a)) {
+      return 0;
+    }
 
     // We don't support broadcasting of `a` here in the innermost
     // dimension (and it would waste computation).
@@ -88,7 +92,10 @@ auto make_binary_elementwise_impl(binary_kernel_fn kernel) {
                   slinky::raw_buffer x) -> slinky::index_t {
     slinky::dim a_dims[2], b_dims[2], x_dims[2];
 
-    fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a, &b_dims[0], b);
+    if (!fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a,
+                                        &b_dims[0], b)) {
+      return 0;
+    }
 
     const slinky::index_t x_m_extent = x_dims[1].extent();
     const slinky::index_t x_n_extent = x_dims[0].extent();
@@ -125,8 +132,10 @@ auto make_ternary_elementwise_impl(ternary_kernel_fn kernel) {
                slinky::raw_buffer x) -> slinky::index_t {
         slinky::dim a_dims[2], b_dims[2], c_dims[2], x_dims[2];
 
-        fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a, &b_dims[0],
-                                       b, &c_dims[0], c);
+        if (!fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a,
+                                            &b_dims[0], b, &c_dims[0], c)) {
+          return 0;
+        }
 
         const slinky::index_t x_m_extent = x_dims[1].extent();
         const slinky::index_t x_n_extent = x_dims[0].extent();
@@ -158,38 +167,46 @@ auto make_dequantize_dot_impl(dequantize_dot_kernel_fn kernel,
                           slinky::raw_buffer output) -> slinky::index_t {
     using slinky::index_t;
 
-    const slinky::dim& n = slice_dim0(output);
-    const slinky::in_bounds n_min{n.min()};
-    const index_t n_extent = n.extent();
+    index_t n_extent = 1;
+    // These are intentionally left uninitialized, if the extent is 1 they
+    // should be unused.
+    index_t b_offset_n_stride, b_scale_n_stride, offset_n_stride;
+    if (is_contiguous(dot.dim(0), dot.elem_size) &&
+        is_broadcast(a_offset.dim(0)) && is_broadcast(a_scale.dim(0))) {
+      const slinky::dim& n = slice_dim0(output);
+      assert(is_contiguous(n, output.elem_size));
+      const slinky::in_bounds n_min{n.min()};
+      n_extent = n.extent();
 
-    assert(is_contiguous(n, output.elem_size));
-    assert(is_contiguous(dot.dim(0), dot.elem_size));
-    assert(is_broadcast(a_offset.dim(0)));
+      dot.slice(0, n_min);
+      a_offset.slice(0);
+      a_scale.slice(0);
+      b_offset_n_stride = slice_dim0(b_offset, n_min).stride();
+      b_scale_n_stride = slice_dim0(b_scale, n_min).stride();
+      offset_n_stride = slice_dim0(offset, n_min).stride();
+    }
 
-    dot.slice(0, n_min);
-    a_offset.slice(0);
-    assert(is_broadcast(a_scale.dim(0)));
-    a_scale.slice(0);
-    const index_t b_offset_n_stride = slice_dim0(b_offset, n_min).stride();
-    const index_t b_scale_n_stride = slice_dim0(b_scale, n_min).stride();
-    const index_t offset_n_stride = slice_dim0(offset, n_min).stride();
+    index_t m_extent = 1;
+    // These are intentionally left uninitialized, if the extent is 1 they
+    // should be unused.
+    index_t m_stride, dot_m_stride, a_offset_m_stride, a_scale_m_stride;
+    if (is_broadcast(b_offset.dim(0)) && is_broadcast(b_scale.dim(0)) &&
+        is_broadcast(offset.dim(0))) {
+      const slinky::dim& m = slice_dim0(output);
+      const slinky::in_bounds m_min{m.min()};
+      m_extent = m.extent();
+      m_stride = m.stride();
+      dot_m_stride = slice_dim0(dot, m_min).stride();
+      a_offset_m_stride = slice_dim0(a_offset, m_min).stride();
+      a_scale_m_stride = slice_dim0(a_scale, m_min).stride();
+      b_offset.slice(0);
+      b_scale.slice(0);
+      offset.slice(0);
+    }
 
-    // Get the m dimension. rank 1 buffers are common, so try to optimize
-    // for that case.
-    assert(is_broadcast(b_offset.dim(0)));
-    assert(is_broadcast(b_scale.dim(0)));
-    assert(is_broadcast(offset.dim(0)));
-    const slinky::dim& m = slice_dim0(output);
-    const slinky::in_bounds m_min{m.min()};
-    const index_t m_extent = m.extent();
-    const index_t m_stride = m.stride();
-    const index_t dot_m_stride = slice_dim0(dot, m_min).stride();
-    const index_t a_offset_m_stride = slice_dim0(a_offset, m_min).stride();
-    const index_t a_scale_m_stride = slice_dim0(a_scale, m_min).stride();
-    b_offset.slice(0);
-    offset.slice(0);
-    b_scale.slice(0);
-
+    if (n_extent <= 0 || m_extent <= 0) {
+      return 0;
+    }
 
     slinky::for_each_element(
         [=, &params](void* output, const void* dot, const void* a_offset,
@@ -218,7 +235,7 @@ ynn_status create_unary(const ynn_node& node, ynn_runtime& runtime,
   ynn_runtime_value& x = runtime.value(node.outputs[0]);
   x.make_buffer(runtime);
   std::vector<slinky::var> dims = runtime.globals.make_dims(x.rank());
-  slinky::box_expr bounds = make_elementwise_bounds(dims, a.extents);
+  slinky::box_expr bounds = make_elementwise_bounds(dims, a.physical_extents());
 
   slinky::call_stmt::attributes attrs;
   attrs.name = to_string(std::get<ynn_node::unary_elementwise>(node.op).op);
@@ -228,7 +245,8 @@ ynn_status create_unary(const ynn_node& node, ynn_runtime& runtime,
       make_unary_elementwise_impl(kernel, params),
       {{a.buffer, std::move(bounds)}}, {{x.buffer, dims}}, std::move(attrs));
 
-  auto sched = runtime.make_schedule(dims, x.buffer, node.outputs[0]);
+  auto sched =
+      runtime.make_schedule(dims, x.physical_extents(), x.buffer->elem_size());
   func.user_data() = sched.get();
   runtime.scheduling_info_storage.push_back(std::move(sched));
 
@@ -247,7 +265,7 @@ ynn_status create_lut(const ynn_node& node, ynn_runtime& runtime,
 
   x.make_buffer(runtime);
   std::vector<slinky::var> dims = runtime.globals.make_dims(x.rank());
-  slinky::box_expr bounds = make_elementwise_bounds(dims, a.extents);
+  slinky::box_expr bounds = make_elementwise_bounds(dims, a.physical_extents());
 
   slinky::box_expr lut_bounds = {
       slinky::interval_expr(0, 1 << type_size_bytes(a.type))};
@@ -261,7 +279,8 @@ ynn_status create_lut(const ynn_node& node, ynn_runtime& runtime,
       {{a.buffer, std::move(bounds)}, {lut.buffer, std::move(lut_bounds)}},
       {{x.buffer, dims}}, std::move(attrs));
 
-  auto sched = runtime.make_schedule(dims, x.buffer, node.outputs[0]);
+  auto sched =
+      runtime.make_schedule(dims, x.physical_extents(), x.buffer->elem_size());
   func.user_data() = sched.get();
   runtime.scheduling_info_storage.push_back(std::move(sched));
   runtime.funcs.push_back(std::move(func));
@@ -287,8 +306,10 @@ ynn_status create_binary(const ynn_node& node, ynn_runtime& runtime,
   // Make the dims and bounds for this operation (does not depend on the
   // specific operation.)
   std::vector<slinky::var> dims = runtime.globals.make_dims(x.rank());
-  slinky::box_expr a_bounds = make_elementwise_bounds(dims, a.extents);
-  slinky::box_expr b_bounds = make_elementwise_bounds(dims, b.extents);
+  slinky::box_expr a_bounds =
+      make_elementwise_bounds(dims, a.physical_extents());
+  slinky::box_expr b_bounds =
+      make_elementwise_bounds(dims, b.physical_extents());
   a_bounds.resize(a.rank());
   b_bounds.resize(b.rank());
   auto func = slinky::func::make(
@@ -296,7 +317,8 @@ ynn_status create_binary(const ynn_node& node, ynn_runtime& runtime,
       {{a.buffer, std::move(a_bounds)}, {b.buffer, std::move(b_bounds)}},
       {{x.buffer, dims}}, std::move(attrs));
 
-  auto sched = runtime.make_schedule(dims, x.buffer, node.outputs[0]);
+  auto sched =
+      runtime.make_schedule(dims, x.physical_extents(), x.buffer->elem_size());
   func.user_data() = sched.get();
   runtime.scheduling_info_storage.push_back(std::move(sched));
   runtime.funcs.push_back(std::move(func));
@@ -323,9 +345,12 @@ ynn_status create_ternary(const ynn_node& node, ynn_runtime& runtime,
   // Make the dims and bounds for this operation (does not depend on the
   // specific operation.)
   std::vector<slinky::var> dims = runtime.globals.make_dims(x.rank());
-  slinky::box_expr a_bounds = make_elementwise_bounds(dims, a.extents);
-  slinky::box_expr b_bounds = make_elementwise_bounds(dims, b.extents);
-  slinky::box_expr c_bounds = make_elementwise_bounds(dims, c.extents);
+  slinky::box_expr a_bounds =
+      make_elementwise_bounds(dims, a.physical_extents());
+  slinky::box_expr b_bounds =
+      make_elementwise_bounds(dims, b.physical_extents());
+  slinky::box_expr c_bounds =
+      make_elementwise_bounds(dims, c.physical_extents());
   a_bounds.resize(a.rank());
   b_bounds.resize(b.rank());
   c_bounds.resize(c.rank());
@@ -335,7 +360,8 @@ ynn_status create_ternary(const ynn_node& node, ynn_runtime& runtime,
                                   {c.buffer, std::move(c_bounds)}},
                                  {{x.buffer, dims}}, attrs);
 
-  auto sched = runtime.make_schedule(dims, x.buffer, node.outputs[0]);
+  auto sched =
+      runtime.make_schedule(dims, x.physical_extents(), x.buffer->elem_size());
   func.user_data() = sched.get();
   runtime.scheduling_info_storage.push_back(std::move(sched));
   runtime.funcs.push_back(std::move(func));
@@ -478,7 +504,8 @@ bool define_dequantize_dot(ynn_subgraph& subgraph, ynn_node& node,
                                     {offset.buffer, bounds}},
                                    {{output.buffer, dims}}, std::move(attrs));
 
-    auto sched = runtime.make_schedule(dims, output.buffer, node.outputs[0]);
+    auto sched = runtime.make_schedule(dims, output.physical_extents(),
+                                       output.buffer->elem_size());
     func.user_data() = sched.get();
     runtime.scheduling_info_storage.push_back(std::move(sched));
 
@@ -625,9 +652,10 @@ ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
                                  a.scale_id, output_type, output_id, flags);
   }
 
-  // We can only look for a kernel if we don't have any quantization to handle.
+  // We can use a convert kernel if quantization parameters match, or if there
+  // are no quantization parameters.
   unary_kernel_fn kernel =
-      !a_is_quantized && !x_is_quantized
+      (a.scale_id == x_scale_id && a.zero_point_id == x_zero_point_id)
           ? get_unary_kernel(ynn_unary_convert, a.type, x.type)
           : nullptr;
   if (!kernel) {

@@ -69,12 +69,7 @@ class SubgraphBuilder {
   template <typename T>
   SubgraphBuilder& AddTensor(const Tensor<T>& tensor, uint32_t id,
                              uint32_t flags = 0) {
-    std::vector<size_t> extents(tensor.extents());
-    if (!extents.empty()) {
-      // Convert physical shape of tensor to logical shape for YNNPACK API.
-      extents.back() *= type_element_count(type_of<T>());
-    }
-    return AddTensor(type_of<T>(), extents, id, tensor.data(), flags);
+    return AddTensor(type_of<T>(), tensor.extents(), id, tensor.data(), flags);
   }
 
   template <typename T>
@@ -106,6 +101,10 @@ class SubgraphBuilder {
   SubgraphBuilder& AddBinary(ynn_binary_operator op, uint32_t input_a_id,
                              uint32_t input_b_id, uint32_t output_id,
                              uint32_t flags = 0);
+
+  SubgraphBuilder& AddIota(ynn_type type, const std::vector<size_t>& shape,
+                           uint32_t begin_id, uint32_t stride_id,
+                           uint32_t output_id, uint32_t flags = 0);
 
   SubgraphBuilder& AddBroadcast(const std::vector<size_t>& shape,
                                 uint32_t input_id, uint32_t output_id,

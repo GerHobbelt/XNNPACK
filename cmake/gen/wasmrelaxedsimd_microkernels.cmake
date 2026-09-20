@@ -11,6 +11,10 @@
 
 SET(PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS
   src/f16-f32-vcvt/gen/f16-f32-vcvt-wasmrelaxedsimd-int16-u16.c
+  src/f16-vcos/gen/f16-vcos-wasmrelaxedsimd-rational-3-2-div.c
+  src/f16-vsin/gen/f16-vsin-wasmrelaxedsimd-rational-3-2-div.c
+  src/f16-vsqrt/gen/f16-vsqrt-wasmrelaxedsimd-sqrt.c
+  src/f16-vtanh/gen/f16-vtanh-wasmrelaxedsimd-expm1minus-rr1-p3h2ts-div.c
   src/f32-dwconv/gen/f32-dwconv-3p8c-minmax-wasmrelaxedsimd-fma.c
   src/f32-dwconv/gen/f32-dwconv-3p8c-wasmrelaxedsimd-fma.c
   src/f32-dwconv/gen/f32-dwconv-4p8c-minmax-wasmrelaxedsimd-fma.c
@@ -523,4 +527,4 @@ SET(NON_PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS
   src/x8-lut/gen/x8-lut-wasmpshufb-u48.c
   src/x8-lut/gen/x8-lut-wasmpshufb-u64.c)
 
-SET(ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS ${PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS} + ${NON_PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS})
+SET(ALL_WASMRELAXEDSIMD_MICROKERNEL_SRCS ${PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS} ${NON_PROD_WASMRELAXEDSIMD_MICROKERNEL_SRCS})

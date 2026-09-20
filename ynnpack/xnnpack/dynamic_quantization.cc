@@ -102,8 +102,10 @@ auto make_compute_qd8_params_impl(int32_t output_zero_point) {
     slinky::dim zero_point_n[1];
     slinky::dim min_max_n[1];
 
-    fuse_and_slice_leading_dims<1>(scale_n, scale, zero_point_n, zero_point,
-                                   min_max_n, min_max);
+    if (!fuse_and_slice_leading_dims<1>(scale_n, scale, zero_point_n,
+                                        zero_point, min_max_n, min_max)) {
+      return 0;
+    }
 
     assert(is_contiguous(scale_n[0], scale.elem_size));
     assert(is_contiguous(zero_point_n[0], zero_point.elem_size));
@@ -186,7 +188,8 @@ ynn_status define_qd8_params(ynn_subgraph_t subgraph, size_t num_nonbatch_axes,
         YNN_UNREACHABLE;
     }
 
-    auto sched = runtime.make_schedule(dims, scale.buffer, node.outputs[0]);
+    auto sched =
+        runtime.make_schedule(dims, scale.extents, scale.buffer->elem_size());
 
     // `make_schedule` schedules the scale output buffer, but we
     // also need to schedule the zero point buffer too.

@@ -13,13 +13,13 @@
 
 #include <cassert>
 #include <cstddef>
-#include <cstdint>
 #include <limits>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "ynnpack/base/base.h"
+#include "ynnpack/base/span.h"
 #include "slinky/builder/pipeline.h"
 #include "slinky/runtime/buffer.h"
 #include "slinky/runtime/expr.h"
@@ -29,15 +29,27 @@
 
 namespace ynn {
 
+static constexpr char reduction_dim_prefix[] = "k";
+static constexpr char pure_dim_prefix[] = "d";
+
 class slinky_globals {
  public:
   // Make a global variable for the given expression. Deduplicates identical
   // expressions to the same variable.
   slinky::expr get(slinky::expr value, const char* prefix);
 
+  // Make a single dimension with index `d`.
+  slinky::var make_dim(int d, const char* prefix = pure_dim_prefix);
+  slinky::var make_reduction_dim(int d);
+
+  bool is_reduction_dim(slinky::var dim);
+  bool is_pure_dim(slinky::var dim);
+
   // Make an array of dimensions that is begin, 1, ... end - 1.
-  std::vector<slinky::var> make_dims(int begin, int end);
-  std::vector<slinky::var> make_dims(int rank);
+  std::vector<slinky::var> make_dims(int begin, int end,
+                                     const char* prefix = pure_dim_prefix);
+  std::vector<slinky::var> make_dims(int rank,
+                                     const char* prefix = pure_dim_prefix);
 
   slinky::buffer_expr_ptr make_buffer_expr(const std::string& name, int rank,
                                            slinky::expr elem_size);
@@ -93,13 +105,18 @@ slinky::box_expr make_broadcast_bounds(
     std::vector<slinky::var> dims, const std::vector<slinky::expr>& src_extents,
     const std::vector<slinky::expr>& dst_extents, bool no_broadcast = false);
 
+std::vector<slinky::expr> make_split_factors(
+    ynn::slinky_globals& globals, ynn::span<const slinky::expr> extents,
+    const slinky::expr& element_cost,
+    ynn::span<const slinky::expr> given_splits = {},
+    ynn::span<const int> loop_order = {});
+
 // A loop split for a given function.
 struct scheduling_split {
   slinky::var var;
   slinky::expr step;
   slinky::expr workers = slinky::loop::parallel;
-  // The axis of the extent which was used to compute this split.
-  slinky::index_t axis;
+  slinky::expr extent;
   // If this is true the corresponding loop is required to have this specific
   // step, i.e. it can not get scheduled in the loop of the other function
   // unless the step matches or the other loop doesn't have required step yet.
@@ -130,10 +147,6 @@ struct scheduling_info {
   // A set of loop splits for a given function.
   std::vector<scheduling_split> loop_splits;
   std::vector<scheduled_buffer> scheduled_buffers;
-
-  // This is an ID of the buffer whose extents were used to compute this
-  // scheduling info.
-  uint32_t base_buffer_id = 0;
 
   bool force_root = false;
 };
@@ -218,6 +231,7 @@ bool fuse_and_slice_leading_dim(int i, slinky::dim* x_dims,
   // First check whether fusing dimensions is possible.
   const slinky::dim& x_dim_0 = x.dims[0];
   bool can_fuse_all =
+      !x_dim_0.empty() &&
       slinky::can_fuse(x_dims[i], x_dim_0) &&
       all_of_pairs(
           [x_dims, i, &x_dim_0](const slinky::dim* in_dims,
@@ -265,7 +279,7 @@ bool fuse_and_slice_leading_dim(int i, slinky::dim* x_dims,
 //
 // This function assumes that all of the input buffers are in bounds.
 template <int NumInnerDims, typename... DimBufferPairs>
-void fuse_and_slice_leading_dims(slinky::dim* x_dims, slinky::raw_buffer& x,
+bool fuse_and_slice_leading_dims(slinky::dim* x_dims, slinky::raw_buffer& x,
                                  DimBufferPairs&&... inputs) {
   for (int i = 0; i < NumInnerDims; ++i) {
     // If the output innermost (n) dimension has extent 1, we need to make the n
@@ -274,6 +288,9 @@ void fuse_and_slice_leading_dims(slinky::dim* x_dims, slinky::raw_buffer& x,
     assert(i != 0 || is_contiguous(x.dim(0), x.elem_size));
 
     x_dims[i] = slice_dim0(x);
+    if (x_dims[i].empty()) {
+      return false;
+    }
 
     // Initialize `in_dims[i]` for each input.
     // `x` is already a view to the correct tile in the larger output buffer.
@@ -296,6 +313,8 @@ void fuse_and_slice_leading_dims(slinky::dim* x_dims, slinky::raw_buffer& x,
       }
     }
   }
+
+  return true;
 }
 
 }  // namespace ynn

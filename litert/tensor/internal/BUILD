@@ -31,9 +31,9 @@ cc_library(
         ":utils",
         "//litert/tensor",
         "//litert/tensor:datatypes",
+        "//litert/tensor/utils:macros",
         "//litert/tensor/utils:source_location",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/status:statusor",
         "@abseil-cpp//absl/types:span",
     ],
 )
@@ -202,4 +202,9 @@ cc_test(
         "@abseil-cpp//absl/log:scoped_mock_log",
         "@com_google_googletest//:gtest_main",  # gunit
     ],
+)
+
+cc_library(
+    name = "fp16",
+    hdrs = ["fp16.h"],
 )

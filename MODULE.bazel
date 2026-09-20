@@ -63,6 +63,7 @@ http_archive(
     strip_prefix = "benchmark-7da00e8f6763d6e8c284d172c9cfcc5ae0ce9b7a",
     urls = ["https://github.com/google/benchmark/archive/7da00e8f6763d6e8c284d172c9cfcc5ae0ce9b7a.zip"],
 )
+
 # LINT.ThenChange(cmake/DownloadGoogleBenchmark.cmake)
 # FXdiv library, used for repeated integer division by the same factor
 http_archive(
@@ -71,8 +72,6 @@ http_archive(
     strip_prefix = "FXdiv-b408327ac2a15ec3e43352421954f5b1967701d1",
     urls = ["https://github.com/Maratyszcza/FXdiv/archive/b408327ac2a15ec3e43352421954f5b1967701d1.zip"],
 )
-
-
 
 # LINT.IfChange(pthreadpool)
 # pthreadpool library, used for parallelization
@@ -88,6 +87,8 @@ http_archive(
 # cpuinfo library, used for detecting processor characteristics
 http_archive(
     name = "cpuinfo",
+    patch_args = ["-p1"],
+    patches = ["//:cpuinfo_windows_arm64_msvc.patch"],
     sha256 = "995316f224247d1611ab1b624a66bc5cbd5b5d2e5ce991ed68d983aac950ad8b",
     strip_prefix = "cpuinfo-bc3c01e230c6974283e4b89421cfb0e232435589",
     urls = [
@@ -120,9 +121,9 @@ http_archive(
 
 http_archive(
     name = "slinky",
-    sha256 = "cd84dd2ff1956480fac6e50f477441d74e0ad08e34e863ffad2a1d3adf043dc2",
-    strip_prefix = "slinky-eb004cb32169f87a4d95ee73af4eb9cf3df42868",
+    sha256 = "e4e72c7b45fc3b964a76fe3d2f7af7f3c135eaba88112e08510143dbde1c9b7e",
+    strip_prefix = "slinky-dad55945ad3c70d3268ffc043078469db810cd03",
     urls = [
-        "https://github.com/dsharlet/slinky/archive/eb004cb32169f87a4d95ee73af4eb9cf3df42868.zip",
+        "https://github.com/dsharlet/slinky/archive/dad55945ad3c70d3268ffc043078469db810cd03.zip",
     ],
 )

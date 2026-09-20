@@ -19,6 +19,7 @@ namespace ynn {
 
 #if defined(YNN_ARCH_X86_64) && defined(__linux__) && !defined(CHROMIUM)
 #include <sys/syscall.h>
+#include <sys/types.h>
 
 #define XFEATURE_XTILEDATA 18
 #define ARCH_REQ_XCOMP_PERM 0x1023
@@ -79,6 +80,10 @@ uint64_t get_supported_arch_flags() {
     if (cpuinfo_has_arm_neon_fp16_arith()) result |= arch_flag::neonfp16arith;
     if (cpuinfo_has_arm_neon_bf16()) result |= arch_flag::neonbf16;
     if (cpuinfo_has_arm_i8mm()) result |= arch_flag::neoni8mm;
+    // We need cpuinfo support for neonfp8. Until then, these kernels are
+    // disabled in the build by default.
+    result |= arch_flag::neonfp8;
+    result |= arch_flag::neonfp8dot4;
 #if !YNN_COMPILER_HAS_FEATURE(memory_sanitizer)
     // msan (understandably) does not support SVE/SME (b/494230133).
     if (cpuinfo_has_arm_sme()) result |= arch_flag::sme;

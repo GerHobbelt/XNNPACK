@@ -21,6 +21,7 @@
 #include <gtest/gtest.h>
 #include "ynnpack/base/arithmetic.h"
 #include "ynnpack/base/bfloat16.h"
+#include "ynnpack/base/fp8.h"
 #include "ynnpack/base/half.h"
 #include "ynnpack/base/simd/vec.h"
 #include "ynnpack/base/span.h"
@@ -48,6 +49,8 @@ using u8 = uint8_t;
 using s8 = int8_t;
 using u16 = uint16_t;
 using s16 = int16_t;
+using f8_e4m3 = fp8_e4m3;
+using f8_e5m2 = fp8_e5m2;
 using f16 = half;
 using bf16 = bfloat16;
 using f32 = float;
@@ -234,7 +237,8 @@ void test_op() {
     for (size_t i = 0; i < vector::N; ++i) {
       scalar expected = op(a[i], b[i]);
 #ifdef YNN_ARCH_ARM32
-      if (std::abs(expected) < type_info<scalar>::smallest_normal()) {
+      if (std::abs(static_cast<double>(expected)) <
+          type_info<scalar>::smallest_normal()) {
         // ARM32 flushes denormals to 0(?).
         continue;
       }
@@ -359,6 +363,29 @@ static float tol_relative(float y_ref, float rel_tol) {
 template <typename scalar, size_t N>
 void test_sqrt() {
   using vector = vec<scalar, N>;
+
+  std::pair<scalar, scalar> special_values[] = {
+      {static_cast<scalar>(0.0), 0.0},
+      {static_cast<scalar>(-0.0), 0.0},
+      {type_info<scalar>::infinity(), type_info<scalar>::infinity()},
+      {static_cast<scalar>(-1.0), type_info<scalar>::nan()},
+      {-type_info<scalar>::infinity(), type_info<scalar>::nan()},
+      {-type_info<scalar>::max(), type_info<scalar>::nan()},
+      {type_info<scalar>::nan(), type_info<scalar>::nan()},
+  };
+
+  for (const auto& [input, expected] : special_values) {
+    scalar a[vector::N];
+    std::fill_n(a, vector::N, input);
+
+    scalar result[vector::N];
+    store(result, sqrt(load(a, vector::N)));
+    if (ynn::isnan(expected)) {
+      ASSERT_TRUE(ynn::isnan(result[0])) << input;
+    } else {
+      ASSERT_EQ(result[0], expected) << input;
+    }
+  }
 
   ReplicableRandomDevice rng;
   for (auto _ : FuzzTest(std::chrono::milliseconds(100))) {
@@ -603,6 +630,10 @@ struct multiply_op {
   }
   half operator()(half a, half b) {
     return static_cast<half>(static_cast<float>(a) * static_cast<float>(b));
+  }
+  uint16_t operator()(uint16_t a, uint16_t b) {
+    // For integers, don't hit signed integer overflow.
+    return static_cast<int64_t>(a) * static_cast<int64_t>(b);
   }
   int32_t operator()(int32_t a, int32_t b) {
     // For integers, don't hit signed integer overflow.

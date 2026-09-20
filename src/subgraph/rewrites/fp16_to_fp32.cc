@@ -211,6 +211,41 @@ OpAction GetOpAction(const xnn_subgraph_t subgraph, const xnn_node& node) {
     }
       XNN_OP_ACTION_CASE(node_type, depthwise_convolution_2d, dwconv);
       XNN_OP_ACTION_CASE(node_type, fully_connected_sparse, spmm);
+    case xnn_node_type_convert: {
+      const xnn_value& input = subgraph->values[node.inputs[0]];
+      const xnn_value& output = subgraph->values[node.outputs[0]];
+      if (input.datatype == output.datatype &&
+          (input.datatype == xnn_datatype_fp16 ||
+           input.datatype == xnn_datatype_fp32)) {
+        return OpAction::kElide;
+      }
+      if (input.datatype == xnn_datatype_fp16 &&
+          output.datatype == xnn_datatype_qdint8) {
+        if (IsValid(xnn_init_f16_to_qs8_cvt_config()) &&
+            IsValid(xnn_init_f16_rminmax_config()) &&
+            IsValid(xnn_init_qs8_rsum_config())) {
+          return OpAction::kTransparent;
+        }
+      } else if (input.datatype == xnn_datatype_fp16 &&
+                 output.datatype == xnn_datatype_qduint8) {
+        if (IsValid(xnn_init_f16_to_qu8_cvt_config()) &&
+            IsValid(xnn_init_f16_rminmax_config()) &&
+            IsValid(xnn_init_qu8_rsum_config())) {
+          return OpAction::kTransparent;
+        }
+      } else if (input.datatype == xnn_datatype_fp32 &&
+                 output.datatype == xnn_datatype_fp16) {
+        if (IsValid(xnn_init_f32_to_f16_cvt_config())) {
+          return OpAction::kTransparent;
+        }
+      } else if (input.datatype == xnn_datatype_fp16 &&
+                 output.datatype == xnn_datatype_fp32) {
+        if (IsValid(xnn_init_f16_to_f32_cvt_config())) {
+          return OpAction::kTransparent;
+        }
+      }
+      break;
+    }
     case xnn_node_type_static_reshape:
     case xnn_node_type_static_transpose:
     case xnn_node_type_even_split:
@@ -534,9 +569,12 @@ extern "C" enum xnn_status xnn_subgraph_fallback_from_fp16_to_fp32(
 
     // Insert conversions to fp32 for fp16 inputs.
     for (uint32_t i = 0; i < CurrentNode().num_inputs; i++) {
+      const uint32_t input_id = CurrentNode().inputs[i];
+      assert(input_id != XNN_INVALID_VALUE_ID);
+      assert(input_id < subgraph->num_values);
       // The value is copied because adding new values may invalidate
       // references.
-      const xnn_value value = subgraph->values[CurrentNode().inputs[i]];
+      const xnn_value value = subgraph->values[input_id];
       if (value.datatype == xnn_datatype_fp16) {
         if (fp16_id_to_fp32_id[value.id] == XNN_INVALID_VALUE_ID) {
           const xnn_value* value_ptr =

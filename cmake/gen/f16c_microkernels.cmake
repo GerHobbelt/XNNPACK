@@ -17,6 +17,7 @@ SET(PROD_F16C_MICROKERNEL_SRCS
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u32-acc4.c
   src/f16-f32acc-rsum2/gen/f16-f32acc-rsum2-f16c.c
   src/f16-rminmax/f16-rmax-f16c-u32.c
+  src/f16-vapproxgelu/gen/f16-f32acc-vapproxgelu-f16c-rational-6-4-div.c
   src/f16-vbinary/gen/f16-vadd-f16c-u16.c
   src/f16-vbinary/gen/f16-vaddc-f16c-u16.c
   src/f16-vbinary/gen/f16-vdiv-f16c-u8.c
@@ -37,6 +38,7 @@ SET(PROD_F16C_MICROKERNEL_SRCS
   src/f16-vbinary/gen/f16-vsub-f16c-u16.c
   src/f16-vbinary/gen/f16-vsubc-f16c-u16.c
   src/f16-vclamp/gen/f16-vclamp-f16c-u16.c
+  src/f16-vexp/gen/f16-f32acc-vexp-f16c-poly-3.c
   src/f16-vhswish/gen/f16-vhswish-f16c-u16.c
   src/f16-vlog/gen/f16-f32acc-vlog-f16c-rational-1-3-div.c
   src/f16-vlrelu/gen/f16-vlrelu-f16c-u16.c
@@ -59,6 +61,7 @@ SET(NON_PROD_F16C_MICROKERNEL_SRCS
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u16-acc2.c
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u24-acc3.c
   src/f16-f32acc-rsum/gen/f16-f32acc-rsum-f16c-u32-acc2.c
+  src/f16-vapproxgelu/gen/f16-f32acc-vapproxgelu-f16c-rational-6-4-nr.c
   src/f16-vbinary/gen/f16-vadd-f16c-u8.c
   src/f16-vbinary/gen/f16-vaddc-f16c-u8.c
   src/f16-vbinary/gen/f16-vdiv-f16c-u16.c

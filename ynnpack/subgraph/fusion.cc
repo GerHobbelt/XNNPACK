@@ -270,8 +270,8 @@ bool rewrite_ternary(ynn_subgraph& subgraph, ynn_node& node,
     if (kernel != nullptr) {
       // Yes we do. Rewrite this to a ternary op.
       YNN_LOG_DEBUG() << "Rewriting " << to_string(outer->op) << "("
-                      << to_string(inner) << "(a, b), c) to "
-                      << to_string(r.op) << "(a, b, c)";
+                      << to_string(inner) << "(a, b), c) to " << to_string(r.op)
+                      << "(a, b, c)";
       ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id, r.op, kernel);
       return true;
     }
@@ -302,14 +302,6 @@ bool rewrite_binary_convert(ynn_subgraph& subgraph, ynn_node& node,
   const ynn_value& b =
       subgraph.value(is_convert[1] ? producers[1]->inputs[0] : node.inputs[1]);
   const ynn_value& output = subgraph.value(node.outputs[0]);
-
-  // Check if either input is quantized.
-  if (a.scale_id != YNN_INVALID_VALUE_ID ||
-      a.zero_point_id != YNN_INVALID_VALUE_ID ||
-      b.scale_id != YNN_INVALID_VALUE_ID ||
-      b.zero_point_id != YNN_INVALID_VALUE_ID) {
-    return false;
-  }
 
   // If it's a square, we must rewrite both or neither to keep it a square.
   if (node.inputs[0] == node.inputs[1] && is_convert[0]) {
@@ -418,8 +410,7 @@ bool rewrite_negate_multiply(ynn_subgraph& subgraph, ynn_node& node,
     const ynn_value& b = subgraph.value(producer->inputs[0]);
     const ynn_value& c = subgraph.value(producer->inputs[1]);
     const ynn_value& x = subgraph.value(node.outputs[0]);
-    uint32_t a_id = subgraph.get_scalar_value_id(x.type, YNN_INVALID_VALUE_ID,
-                                                 YNN_INVALID_VALUE_ID, 0.0f);
+    uint32_t a_id = subgraph.get_scalar_value_id(x.type, 0.0f);
     const ynn_value& a = subgraph.value(a_id);
 
     const ynn::ternary_kernel_fn kernel = ynn::get_ternary_kernel(
@@ -487,9 +478,12 @@ bool is_broadcast_noop(const ynn_subgraph& subgraph, const ynn_node& node,
       }
     }
     return true;
-  } else if (std::holds_alternative<ynn_node::lut>(node.op) &&
-             input_id == node.inputs[0]) {
-    return true;
+  } else if (const auto* g = std::get_if<ynn_node::gather>(&node.op)) {
+    const ynn_value& table = subgraph.value(node.inputs[0]);
+    if (table.rank() == 1 && g->axes.size() == 1 && g->axes[0] == 0 &&
+        input_id == node.inputs[1]) {
+      return true;
+    }
   } else if (const auto* t =
                  std::get_if<ynn_node::static_transpose>(&node.op)) {
     assert(input_id == node.inputs[0]);
@@ -561,8 +555,6 @@ bool move_broadcast_to_output(ynn_subgraph& subgraph, ynn_node& broadcast,
   ynn_value& broadcast_output = subgraph.value(broadcast.outputs[0]);
   const ynn_value& consumer_output = subgraph.value(consumer->outputs[0]);
   broadcast_output.type = consumer_output.type;
-  broadcast_output.zero_point_id = consumer_output.zero_point_id;
-  broadcast_output.scale_id = consumer_output.scale_id;
   broadcast_output.extents = input.extents;
 
   broadcast.inputs[0] = broadcast.outputs[0];
@@ -734,7 +726,7 @@ bool remove_static_broadcast_from_elementwise(ynn_subgraph& subgraph,
 
         const ynn_value& input = subgraph.value(id);
         return d < input.extents.size() &&
-               slinky::prove_true(input.extents[d] == broadcast->new_dims[d]);
+               slinky::prove_true(input.extent(d) == broadcast->new_dims[d]);
       };
       return !std::any_of(node.inputs.begin(), node.inputs.end(),
                           implicitly_broadcasts);
@@ -1012,12 +1004,6 @@ bool rewrite_reduce_convert(ynn_subgraph& subgraph, ynn_node& node,
   }
 
   const ynn_value& x = subgraph.value(convert->inputs[0]);
-  const ynn_value& converted_x = subgraph.value(convert->outputs[0]);
-  if (x.scale_id != converted_x.scale_id ||
-      x.zero_point_id != converted_x.zero_point_id) {
-    // Don't rewrite quantization changes.
-    return false;
-  }
 
   const ynn_value& output = subgraph.value(node.outputs[0]);
   reduce_kernel kernel = get_reduce_kernel(reduce_op->op, x.type, output.type);
@@ -1055,7 +1041,8 @@ bool fuse_converts(ynn_subgraph& subgraph, ynn_node& node,
   assert(producer->outputs[0] == node.inputs[0]);
   const ynn_value& intermediate = subgraph.value(node.inputs[0]);
   if (!is_convert_lossless(input.type, intermediate.type) &&
-      (subgraph.flags & YNN_FLAG_NO_EXCESS_PRECISION) != 0) {
+      ((subgraph.flags & YNN_FLAG_NO_EXCESS_PRECISION) != 0 ||
+       (intermediate.flags & YNN_VALUE_FLAG_NO_EXCESS_PRECISION) != 0)) {
     if (intermediate.type == ynn_type_bf16) {
       unary_kernel_fn kernel = ynn::get_unary_kernel(ynn_unary_round_to_bf16,
                                                      input.type, output.type);
@@ -1071,15 +1058,8 @@ bool fuse_converts(ynn_subgraph& subgraph, ynn_node& node,
     // This conversion loses information, and the converts might have been
     // inserted because we don't have a kernel for this type.
     YNN_LOG_DEBUG()
-        << "Not fusing no-op converts because YNN_FLAG_NO_EXCESS_PRECISION "
-           "is set.";
-    return false;
-  }
-
-  if (analysis.consumers[intermediate.id].size() != 1) {
-    // TODO: b/488394862 - We probably should rewrite even in this case, but it
-    // breaks dot bf16 rewrites until we can be explicit that we don't want this
-    // sequence of converts to be treated as a round_to_bf16 op.
+        << "Not fusing no-op converts because YNN_FLAG_NO_EXCESS_PRECISION or "
+           "YNN_VALUE_FLAG_NO_EXCESS_PRECISION is set.";
     return false;
   }
 
@@ -1152,7 +1132,7 @@ bool rewrite_dequantize_dot(ynn_subgraph& subgraph, ynn_node& node,
   const ynn_node::dot* dot_op = std::get_if<ynn_node::dot>(&dot_node->op);
   if (!dot_op || dot_node->inputs.size() < 2) return false;
 
-  uint32_t input_c_id = dot_node->inputs[1];
+  uint32_t input_c_id = dot_node->inputs[2];
   ynn_node* input_c_producer = analysis.producer_of(input_c_id);
   if (!input_c_producer ||
       !is_ternary_node(*input_c_producer, ternary_op::subtract_multiply)) {
@@ -1184,11 +1164,10 @@ bool rewrite_dequantize_dot(ynn_subgraph& subgraph, ynn_node& node,
                      "c, d) to dequantize_dot";
 
   const ynn_value& output = subgraph.value(node.outputs[0]);
-  uint32_t offset_id = subgraph.get_scalar_value_id(
-      output.type, YNN_INVALID_VALUE_ID, YNN_INVALID_VALUE_ID, 0.0f);
+  uint32_t offset_id = subgraph.get_scalar_value_id(output.type, 0.0f);
 
   uint32_t input1_id = dot_node->inputs[1];
-  dot_node->inputs[1] = YNN_INVALID_VALUE_ID;
+  dot_node->inputs[2] = YNN_INVALID_VALUE_ID;
   bool result = ynn::define_dequantize_dot(
       subgraph, node, output.type, dot_node->outputs[0], a_offset_id,
       b_offset_id, a_scale_id, b_scale_id, offset_id, node.outputs[0],
@@ -1196,7 +1175,7 @@ bool rewrite_dequantize_dot(ynn_subgraph& subgraph, ynn_node& node,
   if (!result) {
     // There is no kernel for dequantize_dot, so don't do rewrite and restore
     // the old value.
-    dot_node->inputs[1] = input1_id;
+    dot_node->inputs[2] = input1_id;
   }
   return result;
 }
@@ -1213,9 +1192,9 @@ bool rewrite_dequantize_dot_add(ynn_subgraph& subgraph, ynn_node& node,
     ynn_node* dequantize_dot_node =
         analysis.producer_of(dequantize_dot_output_id);
     if (!dequantize_dot_node) continue;
-    const ynn_node::dequantize_dot* rescale_op =
+    const ynn_node::dequantize_dot* dequantize_dot_op =
         std::get_if<ynn_node::dequantize_dot>(&dequantize_dot_node->op);
-    if (!rescale_op) continue;
+    if (!dequantize_dot_op) continue;
 
     if (analysis.consumers[dequantize_dot_output_id].size() != 1 ||
         subgraph.value(dequantize_dot_output_id).is_external_output()) {
@@ -1238,7 +1217,7 @@ bool rewrite_dequantize_dot_add(ynn_subgraph& subgraph, ynn_node& node,
         subgraph, node, output.type, dequantize_dot_node->inputs[0],
         dequantize_dot_node->inputs[1], dequantize_dot_node->inputs[2],
         dequantize_dot_node->inputs[3], dequantize_dot_node->inputs[4],
-        new_offset_id, node.outputs[0], rescale_op->params);
+        new_offset_id, node.outputs[0], dequantize_dot_op->params);
 
     if (!result) {
       continue;
@@ -1247,6 +1226,43 @@ bool rewrite_dequantize_dot_add(ynn_subgraph& subgraph, ynn_node& node,
     return true;
   }
   return false;
+}
+
+// Rewrite convert(dequantize_dot(...)) to dequantize_dot(...) with the
+// target type if a kernel exists for that type.
+bool rewrite_dequantize_dot_convert(ynn_subgraph& subgraph, ynn_node& node,
+                                    subgraph_analysis& analysis) {
+  if (!is_unary_node(node, ynn_unary_convert)) {
+    return false;
+  }
+
+  uint32_t dequantize_dot_output_id = node.inputs[0];
+  ynn_node* dequantize_dot_node =
+      analysis.producer_of(dequantize_dot_output_id);
+  if (!dequantize_dot_node) return false;
+  const ynn_node::dequantize_dot* dequantize_dot_op =
+      std::get_if<ynn_node::dequantize_dot>(&dequantize_dot_node->op);
+  if (!dequantize_dot_op) return false;
+
+  if (analysis.consumers[dequantize_dot_output_id].size() != 1 ||
+      subgraph.value(dequantize_dot_output_id).is_external_output()) {
+    return false;
+  }
+
+  const ynn_value& output = subgraph.value(node.outputs[0]);
+
+  // Check if we have a dequantize_dot kernel for the target type.
+  dequantize_dot_kernel_fn kernel = get_dequantize_dot_kernel(output.type);
+  if (!kernel) return false;
+
+  YNN_LOG_DEBUG()
+      << "Rewriting convert(dequantize_dot(...)) to dequantize_dot(...) "
+         "with type "
+      << to_string(output.type);
+
+  dequantize_dot_node->outputs[0] = node.outputs[0];
+  node.invalidate();
+  return true;
 }
 
 // Rewrite f(x * C) to fold the arithmetic into the params.
@@ -1278,8 +1294,25 @@ bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
       // We can't handle addition here.
       return false;
     }
+
+    ynn_type input_type = subgraph.value(mul->x_id).type;
+    ynn_type folded_type = subgraph.value(node.inputs[0]).type;
+
+    unary_kernel_fn convert_kernel = nullptr;
+    if (input_type != folded_type) {
+      if (analysis.consumers[node.inputs[0]].size() != 1) {
+        return false;
+      }
+      convert_kernel =
+          get_unary_kernel(ynn_unary_convert, input_type, folded_type);
+      if (!convert_kernel) {
+        return false;
+      }
+    }
+
     YNN_LOG_DEBUG() << "Folding multiply by " << mul->a << " into "
-                    << to_string(unary->op) << ".";
+                    << to_string(unary->op);
+
     if (unary->op == ynn_unary_exp || unary->op == ynn_unary_expm1) {
       unary->params.exp.input_multiplier *= mul->a;
     } else if (unary->op == ynn_unary_approx_erf) {
@@ -1287,7 +1320,15 @@ bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
     } else {
       unary->params.erf.input_multiplier *= mul->a;
     }
-    node.inputs[0] = mul->x_id;
+
+    if (input_type != folded_type) {
+      define_unary(subgraph, *producer, mul->x_id, producer->outputs[0],
+                   ynn_unary_convert, convert_kernel);
+    } else {
+      node.inputs[0] = mul->x_id;
+    }
+
+    analysis.invalidate();
     return true;
   }
   return false;
@@ -1331,6 +1372,16 @@ bool fold_unary_output(ynn_subgraph& subgraph, ynn_node& node,
   // Check if the output is only used by this binary node.
   if (analysis.consumers[producer->outputs[0]].size() != 1) return false;
 
+  ynn_type folded_type = subgraph.value(producer->outputs[0]).type;
+  ynn_type output_type = subgraph.value(node.outputs[0]).type;
+
+  unary_kernel_fn convert_kernel = nullptr;
+  if (folded_type != output_type) {
+    convert_kernel =
+        get_unary_kernel(ynn_unary_convert, folded_type, output_type);
+    if (!convert_kernel) return false;
+  }
+
   YNN_LOG_DEBUG() << "Folding scalar arithmetic onto " << to_string(unary->op);
 
   unary->params.poly3.c0 *= scalar_arithmetic->a;
@@ -1341,8 +1392,15 @@ bool fold_unary_output(ynn_subgraph& subgraph, ynn_node& node,
   }
   unary->params.poly3.c0 += scalar_arithmetic->b;
 
-  producer->outputs[0] = node.outputs[0];
-  node.invalidate();
+  if (folded_type != output_type) {
+    define_unary(subgraph, node, producer->outputs[0], node.outputs[0],
+                 ynn_unary_convert, convert_kernel);
+  } else {
+    producer->outputs[0] = node.outputs[0];
+    node.invalidate();
+  }
+
+  analysis.invalidate();
   return true;
 }
 
@@ -1438,8 +1496,8 @@ bool rewrite_reshape(ynn_subgraph& subgraph, ynn_node& node,
   }
 
   YNN_LOG_DEBUG() << "Rewriting reshape to static_transpose";
-  ynn::define_static_transpose(subgraph, node, std::move(permutation),
-                               input.id, &output.id);
+  ynn::define_static_transpose(subgraph, node, std::move(permutation), input.id,
+                               &output.id);
   return true;
 }
 
@@ -1990,6 +2048,7 @@ ynn_status ynn_subgraph::fusion() {
                 ynn::rewrite_negate_multiply(*this, node, analysis) ||
                 ynn::rewrite_dequantize_dot(*this, node, analysis) ||
                 ynn::rewrite_dequantize_dot_add(*this, node, analysis) ||
+                ynn::rewrite_dequantize_dot_convert(*this, node, analysis) ||
                 ynn::rewrite_get_tensor_shape_of_unary(*this, node, analysis) ||
                 ynn::move_broadcast_to_output(*this, node, analysis) ||
                 ynn::remove_broadcast(*this, node, analysis) ||

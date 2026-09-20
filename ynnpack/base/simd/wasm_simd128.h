@@ -640,6 +640,14 @@ YNN_ALWAYS_INLINE s32x16 cast(u8x16 a, int32_t) {
   return cast(cast(a, uint16_t()), int32_t());
 }
 
+YNN_ALWAYS_INLINE f32x16 cast(s8x16 a, float) {
+  return cast(cast(a, int32_t()), float());
+}
+
+YNN_ALWAYS_INLINE f32x16 cast(u8x16 a, float) {
+  return cast(cast(a, int32_t()), float());
+}
+
 YNN_ALWAYS_INLINE f32x4 cast(s32x4 x, float) {
   return f32x4{wasm_f32x4_convert_i32x4(x.v)};
 }
@@ -862,6 +870,7 @@ YNN_ALWAYS_INLINE std::tuple<u8x16, u8x16> interleave(
 
 }  // namespace ynn
 
-#include "ynnpack/base/simd/generic.inc"  // IWYU pragma: export
+#include "ynnpack/base/simd/extend_vec.inc"  // IWYU pragma: export
+#include "ynnpack/base/simd/target_independent.inc"  // IWYU pragma: export
 
 #endif  // XNNPACK_YNNPACK_BASE_SIMD_WASM_SIMD128_H_

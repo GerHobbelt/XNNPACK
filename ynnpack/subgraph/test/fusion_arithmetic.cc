@@ -176,6 +176,47 @@ TEST(fusion, exp_negate) {
   EXPECT_NEAR(unary.params.exp.input_multiplier, -1.0f, 1e-6f);
 }
 
+TEST(fusion, fold_unary_input_mixed_types) {
+  // input (bf16) -> multiply (bf16, fp32 -> fp32) -> intermediate (fp32) -> erf
+  // (fp32 -> fp32) -> output (fp32) Should fold multiply into erf, and replace
+  // multiply with convert (bf16 -> fp32). Result: input (bf16) -> convert (bf16
+  // -> fp32) -> intermediate (fp32) -> erf (fp32 -> fp32) (with folded params)
+  // -> output (fp32).
+  const uint32_t x_id = 0;
+  const uint32_t c_id = 1;
+  const uint32_t y_id = 2;
+
+  SubgraphBuilder builder(3, YNN_FLAG_FAST_MATH);
+  uint32_t xc_id = YNN_INVALID_VALUE_ID;
+  float c = 0.707107f;
+
+  builder.AddInput(ynn_type_bf16, 2, x_id)
+      .AddScalar(c, c_id)
+      .AddOutput(ynn_type_fp32, 2, y_id)
+      .AddTensor(ynn_type_fp32, 2, xc_id);
+
+  builder.AddBinary(ynn_binary_multiply, x_id, c_id, xc_id)
+      .AddUnary(ynn_unary_erf, xc_id, y_id);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  ASSERT_THAT(subgraph, AllOf(HasValidNodeCount(2), HasValidValueCount(3)));
+
+  const ynn_node& erf_node = ProducerOf(y_id, subgraph);
+  EXPECT_THAT(erf_node, IsUnary(ynn_unary_approx_erf));
+  EXPECT_EQ(erf_node.inputs[0], xc_id);
+
+  const ynn_node& convert_node = ProducerOf(xc_id, subgraph);
+  EXPECT_THAT(convert_node, IsUnary(ynn_unary_convert));
+  EXPECT_EQ(convert_node.inputs[0], x_id);
+
+  const auto& unary = std::get<ynn_node::unary_elementwise>(erf_node.op);
+  EXPECT_NEAR(unary.params.approx_erf.input_multiplier, c, 1e-6f);
+}
+
 TEST(fusion, subtract_multiply) {
   // subtract(a, mul(b, c) -> subtract_multiply(a, b, c)
   const uint32_t a_id = 0;
@@ -399,7 +440,7 @@ TEST(fusion, dequantize_dot) {
 
   ASSERT_THAT(subgraph, AllOf(HasValidNodeCount(3), HasValidValueCount(10)));
   EXPECT_THAT(ProducerOf(x_id, subgraph),
-              AllOf(IsRescaleDot(), HasInputCount(6)));
+              AllOf(IsDequantizeDot(), HasInputCount(6)));
 }
 
 TEST(fusion, dequantize_dot_add) {
@@ -440,8 +481,50 @@ TEST(fusion, dequantize_dot_add) {
 
   ASSERT_THAT(subgraph, AllOf(HasValidNodeCount(1), HasValidValueCount(7)));
   const ynn_node& final_node = ProducerOf(out_id, subgraph);
-  EXPECT_THAT(final_node, IsRescaleDot());
+  EXPECT_THAT(final_node, IsDequantizeDot());
   EXPECT_EQ(final_node.inputs[5], x_offset_id);
+}
+
+TEST(fusion, dequantize_dot_convert) {
+  // rewrite convert(dequantize_dot(...)) -> dequantize_dot(...) with new type
+  const uint32_t dot_id = 0;
+  const uint32_t a_offset_id = 1;
+  const uint32_t b_offset_id = 2;
+  const uint32_t a_scale_id = 3;
+  const uint32_t b_scale_id = 4;
+  const uint32_t offset_id = 5;
+  const uint32_t out_id = 6;
+  SubgraphBuilder builder(7);
+
+  uint32_t dequantize_dot_out_id = YNN_INVALID_VALUE_ID;
+
+  builder.AddInput(ynn_type_fp32, 2, dot_id)
+      .AddInput(ynn_type_fp32, 1, a_offset_id)
+      .AddInput(ynn_type_fp32, 1, b_offset_id)
+      .AddInput(ynn_type_fp32, 1, a_scale_id)
+      .AddInput(ynn_type_fp32, 1, b_scale_id)
+      .AddInput(ynn_type_fp32, 2, offset_id)
+      .AddOutput(ynn_type_bf16, 2, out_id)
+      .AddTensor(ynn_type_fp32, 2, dequantize_dot_out_id);
+
+  ynn_subgraph& subgraph = *builder.GetSubgraph();
+  ynn_node rescale_node;
+  ynn::define_dequantize_dot(subgraph, rescale_node, ynn_type_fp32, dot_id,
+                             a_offset_id, b_offset_id, a_scale_id, b_scale_id,
+                             offset_id, dequantize_dot_out_id,
+                             ynn::dequantize_dot_params{});
+  subgraph.add_node(std::move(rescale_node));
+
+  builder.AddUnary(ynn_unary_convert, dequantize_dot_out_id, out_id);
+
+  subgraph.fusion();
+  subgraph.invalidate_dead_values();
+
+  ASSERT_THAT(subgraph, HasValidNodeCount(1));
+  const ynn_node& final_node = ProducerOf(out_id, subgraph);
+  EXPECT_THAT(final_node, IsDequantizeDot());
+
+  EXPECT_EQ(subgraph.value(final_node.outputs[0]).type, ynn_type_bf16);
 }
 
 TEST(fusion, output_convert_convert) {
@@ -757,8 +840,6 @@ TEST(fusion, fast_math_erf_folded) {
   EXPECT_NEAR(unary.params.approx_erf.output_multiplier, a, 1e-6f);
   EXPECT_NEAR(unary.params.approx_erf.output_offset, b, 1e-6f);
 }
-
-
 
 TEST(fusion, fast_math_tanh_folded) {
   const uint32_t x_id = 0;

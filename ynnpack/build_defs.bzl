@@ -71,9 +71,12 @@ _YNN_IMPLIED_ARCHS = {
     "arm_neonfma": ["arm_neon"],
     "arm_neonfp16": ["arm_neon"],
     "arm_neonfp16arith": ["arm_neon"],
+    "arm_neonfp8": ["arm_neon"],
     "arm_neonbf16": ["arm_neon"],
     "arm64_neon": ["arm_neonfma"],
     "arm64_neoni8mm": ["arm64_neon"],
+    "arm64_neonfp8": ["arm64_neon"],
+    "arm64_neonfp8dot4": ["arm64_neonfp8"],
     "arm64_sme": ["arm64_neon"],
     "arm64_sme2": ["arm64_neon"],
     "arm64_sve": ["arm64_neon"],
@@ -158,6 +161,19 @@ _YNN_PARAMS_FOR_ARCH = {
         }),
         "arch_flag": "neonfp16arith",
         "arch_defines": ["YNN_ARCH_FP16_ARITHMETIC"],
+    },
+    "arm64_neonfp8": {
+        "cond": "//ynnpack:ynn_enable_arm64_neonfp8",
+        "arch_copts": select({
+            "//ynnpack:arm64": ["-march=armv8.2-a+fp8+bf16"],
+            "//conditions:default": [],
+        }),
+        "arch_flag": "neonfp8",
+    },
+    "arm64_neonfp8dot4": {
+        "cond": "//ynnpack:ynn_enable_arm64_neonfp8dot4",
+        "arch_copts": ["-march=armv8.2-a+fp8+fp8dot4"],
+        "arch_flag": "neonfp8dot4",
     },
     "arm_neonbf16": {
         "cond": "//ynnpack:ynn_enable_arm_neonbf16",

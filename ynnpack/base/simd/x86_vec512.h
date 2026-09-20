@@ -1088,6 +1088,9 @@ using s32x64 = vec<int32_t, 64>;
 YNN_ALWAYS_INLINE f32x16 cast(f16x16 x, float) {
   return f32x16{_mm512_cvtph_ps(x.v)};
 }
+YNN_ALWAYS_INLINE f16x16 cast(f32x16 a, half) {
+  return f16x16{_mm512_cvtps_ph(a.v, _MM_FROUND_TO_NEAREST_INT)};
+}
 
 YNN_ALWAYS_INLINE f32x16 cast(bf16x16 a, float) {
   return f32x16{_mm512_castsi512_ps(_mm512_slli_epi32(
@@ -1121,7 +1124,7 @@ YNN_ALWAYS_INLINE bf16x32 cast(f32x32 a, bfloat16) {
   const __m512i d = _mm512_packus_epi32(c1, c2);
   const __m512i permutation =
       _mm512_set_epi32(15, 14, 11, 10, 7, 6, 3, 2, 13, 12, 9, 8, 5, 4, 1, 0);
-  return bf16x32{_mm512_permutevar_epi32(permutation, d)};
+  return bf16x32{_mm512_permutexvar_epi32(permutation, d)};
 #endif
 }
 YNN_ALWAYS_INLINE bf16x16 cast(f32x16 a, bfloat16) {
@@ -1158,6 +1161,14 @@ YNN_ALWAYS_INLINE s16x32 cast(u8x32 a, int16_t) {
 
 YNN_ALWAYS_INLINE f32x16 cast(s32x16 x, float) {
   return f32x16{_mm512_cvtepi32_ps(x.v)};
+}
+
+YNN_ALWAYS_INLINE f32x16 cast(s8x16 a, float) {
+  return cast(cast(a, int32_t()), float());
+}
+
+YNN_ALWAYS_INLINE f32x16 cast(u8x16 a, float) {
+  return cast(cast(a, int32_t()), float());
 }
 
 YNN_ALWAYS_INLINE f64x8 cast(f32x8 a, double) {
@@ -1282,6 +1293,7 @@ YNN_ALWAYS_INLINE s8x64 cast(s4x64 from, int8_t) {
 
 }  // namespace ynn
 
-#include "ynnpack/base/simd/generic.inc"  // IWYU pragma: export
+#include "ynnpack/base/simd/extend_vec.inc"  // IWYU pragma: export
+#include "ynnpack/base/simd/target_independent.inc"  // IWYU pragma: export
 
 #endif  // XNNPACK_YNNPACK_BASE_SIMD_X86_VEC512_H_

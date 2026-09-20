@@ -69,7 +69,13 @@ class slinky_globals {
 };
 
 inline int axis_to_slinky_dim(int rank, int axis) {
-  return axis < 0 ? -(axis + 1) : rank - (axis + 1);
+  if (axis < 0) {
+    return -(axis + 1);
+  } else if (axis < rank) {
+    return rank - (axis + 1);
+  } else {
+    return rank;
+  }
 }
 
 slinky::buffer_expr_ptr make_buffer_expr(slinky::var sym, int rank,
@@ -128,6 +134,9 @@ struct scheduling_split {
   // unless the step matches or the other loop doesn't have required step yet.
   // In the latter case this step will override the existing step of that loop.
   bool step_is_required = false;
+  // If defined, this bound expression is used to infer source regions
+  // during scheduling, instead of evaluating the consumer's input bounds.
+  std::optional<slinky::interval_expr> scheduler_bound;
 };
 
 // A scheduling information for a buffer -- it's expected to be attached to the

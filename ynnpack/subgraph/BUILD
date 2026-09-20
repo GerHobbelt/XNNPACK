@@ -45,6 +45,21 @@ cc_library(
     ],
 )
 
+define_build_option(
+    name = "ynn_enable_tsl_profiler",
+    default_all = [],
+)
+
+_TSL_PROFILER_DEPS = [
+    # The capability to add tsl profiler traces is disabled by default. To enable and use it:add:
+    #
+    # git_repository(name = "xla", branch = "main", remote = "https://github.com/openxla/xla")
+    #
+    # To MODULE.bazel, add `--define ynn_enable_tsl_profiler=true` to the bazel command line, and
+    # uncomment this dependency.
+    # "@xla//xla/tsl/profiler/lib:traceme"
+]
+
 cc_library(
     name = "subgraph",
     srcs = [
@@ -55,6 +70,7 @@ cc_library(
         "copy.h",
         "dot.cc",
         "dot.h",
+        "dynamic_quantization.cc",
         "elementwise.cc",
         "even_split.cc",
         "fusion.cc",
@@ -62,6 +78,8 @@ cc_library(
         "fusion_lut.h",
         "fusion_types.cc",
         "fusion_types.h",
+        "gather.cc",
+        "gather.h",
         "get_tensor_shape.cc",
         "iota.cc",
         "iota.h",
@@ -92,6 +110,10 @@ cc_library(
         "utils.h",
     ],
     compatible_with = _COMPATIBLE_WITH,
+    defines = select({
+        ":ynn_enable_tsl_profiler": ["YNN_ENABLE_TSL_PROFILER"],
+        "//conditions:default": [],
+    }),
     visibility = ["//ynnpack:__subpackages__"],
     deps = [
         ":slinky_thread_pool",
@@ -115,6 +137,9 @@ cc_library(
         "@slinky//slinky/runtime",
     ] + select({
         ":ynn_enable_perfetto": [":perfetto"],
+        "//conditions:default": [],
+    }) + select({
+        ":ynn_enable_tsl_profiler": _TSL_PROFILER_DEPS,
         "//conditions:default": [],
     }),
 )

@@ -158,13 +158,21 @@ define_build_option(
 )
 
 define_build_option(
-    name = "ynn_enable_arm64_neoni8mm",
+    name = "ynn_enable_arm64_neon",
     default_all = [":ynn_enable_arm64"],
 )
 
 define_build_option(
-    name = "ynn_enable_arm64_neon",
-    default_all = [":ynn_enable_arm64"],
+    name = "ynn_enable_arm64_neoni8mm",
+    default_all = [":ynn_enable_arm64_neon"],
+)
+
+define_build_option(
+    name = "ynn_enable_arm64_neonfp8",
+)
+
+define_build_option(
+    name = "ynn_enable_arm64_neonfp8dot4",
 )
 
 define_build_option(
@@ -301,4 +309,9 @@ define_build_option(
 define_build_option(
     name = "ynn_enable_wasm_simd128",
     default_all = [":wasm"],
+)
+
+define_build_option(
+    name = "ynn_enable_gnu_vector",
+    default_all = [],
 )

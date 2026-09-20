@@ -15,15 +15,19 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <variant>
 #include <vector>
 
-
 #ifdef YNN_ENABLE_PERFETTO
 #include "ynnpack/subgraph/perfetto.h"
+#endif
+#ifdef YNN_ENABLE_TSL_PROFILER
+#include "xla/tsl/profiler/lib/traceme.h"
 #endif
 #include "ynnpack/base/base.h"
 #include "ynnpack/base/log.h"
@@ -41,6 +45,7 @@
 #include "slinky/builder/simplify.h"
 #include "slinky/builder/substitute.h"
 #include "slinky/runtime/buffer.h"
+#include "slinky/runtime/depends_on.h"
 #include "slinky/runtime/evaluate.h"
 #include "slinky/runtime/expr.h"
 #include "slinky/runtime/stmt.h"
@@ -124,8 +129,7 @@ std::unique_ptr<ynn::scheduling_info> ynn_runtime::make_schedule(
   for (int index_d = 0; index_d < rank; ++index_d) {
     int d = get_loop_dim(index_d);
     if (extents[d].defined() && splits[d].defined()) {
-      loop_splits.push_back(
-          {dims[d], splits[d], workers[d], extents[d]});
+      loop_splits.push_back({dims[d], splits[d], workers[d], extents[d]});
     }
   }
 
@@ -146,23 +150,201 @@ bool find_n(const T* data, size_t size, const Target& x) {
   return false;
 }
 
+// Finds which {`buffer`, `dim`} corresponds to the output dimension variable
+// `v`.
+std::pair<slinky::var, int> find_output_dim(const slinky::func* f,
+                                            const slinky::var& v) {
+  if (f) {
+    for (const auto& out : f->outputs()) {
+      for (int i = 0; i < out.dims.size(); ++i) {
+        if (out.dims[i] == v) {
+          return {out.sym(), i};
+        }
+      }
+    }
+  }
+  return {slinky::var(), -1};
+}
+
+// Least common multiple of two (possibly symbolic) loop steps, evaluated at
+// runtime. Used to reconcile two producers that require different tiles for a
+// shared loop: a multiple of both keeps the fused loop an integer number of
+// each producer's tile (and hence a multiple of each kernel's m/n block).
+// If the LCM overflows, it clamps at the max index_t value.
+slinky::expr lcm_sat(ynn::slinky_globals& globals, slinky::expr a,
+                     slinky::expr b) {
+  if (slinky::prove_true(a == b)) return a;
+  auto impl = [](const slinky::call* op,
+                 slinky::eval_context& ctx) -> slinky::index_t {
+    slinky::index_t a_val = slinky::evaluate(op->args[0], ctx);
+    slinky::index_t b_val = slinky::evaluate(op->args[1], ctx);
+    assert(a_val != 0 && b_val != 0);
+    return slinky::mul_sat(a_val / slinky::gcd(a_val, b_val), b_val);
+  };
+  return globals.get(slinky::call::make(impl, {std::move(a), std::move(b)}),
+                     "lcm_sat");
+}
+
+// This pass infers symbolic source regions for all buffers, traversing the
+// pipeline in reverse topological order (consumers to producers). It ensures
+// that loops are only fused if their dimensions share a common source
+// region origin, which naturally prevents incorrect fusions of unrelated
+// dimensions that happen to have the same constant size. This is similar
+// to the backward bounds inference, but much more lightweight because we
+// only care if given extents are the same in terms of consumer extents.
+std::map<std::pair<slinky::var, int>, int> infer_source_regions(
+    const std::vector<slinky::func>& funcs) {
+  std::map<slinky::var, const slinky::func*> buffer_to_producer;
+  for (const auto& f : funcs) {
+    for (const auto& out : f.outputs()) {
+      buffer_to_producer[out.sym()] = &f;
+    }
+  }
+
+  // Maps {buffer_sym, dim_index} to its inferred source region unique
+  // identifier.
+  std::map<std::pair<slinky::var, int>, int> source_regions;
+
+  int next_source_region_id = 0;
+
+  // Lazily creates a new symbolic source region identifier if one doesn't
+  // exist.
+  auto get_source_region = [&](slinky::var buf, int dim) {
+    auto key = std::make_pair(buf, dim);
+    if (source_regions.find(key) == source_regions.end()) {
+      source_regions[key] = next_source_region_id++;
+    }
+    return source_regions[key];
+  };
+
+  // Traverses operations backwards to propagate source region symbols.
+  for (int i = funcs.size() - 1; i >= 0; --i) {
+    const slinky::func& f = funcs[i];
+    if (f.outputs().empty()) continue;
+
+    // Collect all unique output variables for this function.
+    std::set<slinky::var> out_vars;
+    for (const auto& out : f.outputs()) {
+      for (auto v : out.dims) {
+        out_vars.insert(v);
+      }
+    }
+
+    for (const auto& in : f.inputs()) {
+      for (int d = 0; d < in.bounds.size(); ++d) {
+        slinky::interval_expr bound = in.bounds[d];
+
+        // If the producer provided a custom scheduler_bound, we use it instead
+        // of the forward bounds. This allows tricks like fusing pack_b's
+        // blocks_n (extent N/16) with dot's n (extent N) by forcing a virtual
+        // 1-to-1 mapping.
+        if (buffer_to_producer.count(in.sym()) > 0) {
+          const slinky::func* f_prod = buffer_to_producer[in.sym()];
+          slinky::var v_prod;
+          for (const auto& out : f_prod->outputs()) {
+            if (out.sym() == in.sym() && d < out.dims.size()) {
+              v_prod = out.dims[d];
+              break;
+            }
+          }
+
+          if (v_prod.defined()) {
+            if (f_prod->user_data()) {
+              const auto* sched =
+                  static_cast<const ynn::scheduling_info*>(f_prod->user_data());
+              for (const auto& split : sched->loop_splits) {
+                if (split.var == v_prod && split.scheduler_bound.has_value()) {
+                  bound = *split.scheduler_bound;
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // Find which output variables this input dimension depends on.
+        slinky::var correlated_var;
+        for (auto v : out_vars) {
+          if (slinky::depends_on(bound, v).any()) {
+            if (correlated_var.defined()) {
+              correlated_var = slinky::var();
+              break;
+            }
+            correlated_var = v;
+          }
+        }
+
+        int inferred_region = next_source_region_id++;
+
+        if (correlated_var.defined()) {
+          slinky::var v = correlated_var;
+
+          // Collect source regions for this variable from all outputs that
+          // contain it.
+          std::vector<int> parent_source_regions;
+          for (const auto& out : f.outputs()) {
+            for (int od = 0; od < out.dims.size(); ++od) {
+              if (out.dims[od] == v) {
+                parent_source_regions.push_back(
+                    get_source_region(out.sym(), od));
+              }
+            }
+          }
+
+          if (slinky::is_variable(bound.min, v) &&
+              slinky::is_variable(bound.max, v) &&
+              !parent_source_regions.empty()) {
+            // Check if all parent extents are equivalent.
+            bool all_equal = true;
+            for (size_t k = 1; k < parent_source_regions.size(); ++k) {
+              if (parent_source_regions[0] != parent_source_regions[k]) {
+                all_equal = false;
+                break;
+              }
+            }
+            if (all_equal) {
+              inferred_region = parent_source_regions[0];
+            }
+          }
+        }
+
+        auto key = std::make_pair(in.sym(), d);
+        if (source_regions.count(key) > 0) {
+          // If this buffer has multiple consumers with conflicting inferred
+          // regions, merge them into a new unique ID (breaks fusion for this
+          // dimension).
+          if (source_regions[key] != inferred_region) {
+            source_regions[key] = next_source_region_id++;
+          }
+        } else {
+          source_regions[key] = inferred_region;
+        }
+      }
+    }
+  }
+
+  return source_regions;
+}
+
 }  // namespace
 
 // Logically this function has multiple separate blocks:
-// 1) computing a list of possible compute_at locations for a given function.
+// 1) infer symbolic source regions for all buffers to ensure loops are only
+//    fused if they share a common source region origin.
+// 2) computing a list of possible compute_at locations for a given function.
 //    This is a very concrete thing and doesn't require any heuristics.
-// 2) using the set of locations from 1) decide if we want for this function
+// 3) using the set of locations from 2) decide if we want for this function
 //    to be computed at root or at one of the existing loops based on the
 //    available information such as scheduling_info attached to the function
-//.   or forward bounds.
-// 3) if we decide to share the loop location possibly update loop parameters
+//    or source regions inferred in 1).
+// 4) if we decide to share the loop location possibly update loop parameters
 //    such as step based on the specific of the given function (this is pretty
-//.   much a no-op right now and is solely defined by a "parent" function of
+//    much a no-op right now and is solely defined by a "parent" function of
 //    the loop, but we can use it in the future to figure out, for example, a
 //    step size based on the *all* functions which were assigned to the loop).
-// 4) potentially add new loop(s) into the loop nest based on a given
+// 5) potentially add new loop(s) into the loop nest based on a given
 //    function.
-// 5) based on compute locations computed in 1) - 4), set up the
+// 6) based on compute locations computed in 2) - 5), set up the
 //    func-s. This is done in a separate loop once all of the functions from
 //    the pipeline were processed.
 void ynn_runtime::schedule() {
@@ -202,6 +384,18 @@ void ynn_runtime::schedule() {
   std::vector<loop_level> global_loop_nest;
 
   std::vector<scheduling_data> func_scheduling_data(funcs.size());
+
+  // Maps {buffer_sym, dim_index} to its inferred source region unique
+  // identifier.
+  std::map<std::pair<slinky::var, int>, int> source_regions =
+      infer_source_regions(funcs);
+
+  auto get_source_region = [&](slinky::var buf, int dim) {
+    auto key = std::make_pair(buf, dim);
+    auto it = source_regions.find(key);
+    return it != source_regions.end() ? it->second : -1;
+  };
+
   for (int i = funcs.size() - 1; i >= 0; --i) {
     slinky::func& f = funcs[i];
     scheduling_data& sched_data = func_scheduling_data[i];
@@ -268,40 +462,62 @@ void ynn_runtime::schedule() {
         }
         int loop_nest_id = loop_nest[compute_at];
         loop_level& global_loop = global_loop_nest[loop_nest_id];
-        if (split.step_is_required && global_loop.step_is_required &&
-            !prove_true(split.step == global_loop.step)) {
-          // Loops can't be shared if the existing loop step and this loop
-          // step are not equal and both are required.
-          break;
-        }
         if (!globals.is_pure_dim(split.var)) {
           // We don't want to fuse a reduction dimension because it is likely
           // being broadcasted here.
           break;
         }
-        if (!prove_true(split.extent == global_loop.extent)) {
-          // The extent doesn't match, stop trying to fuse.
+        // Map the consumer's loop variable back to its output dimension
+        // index.
+        auto [consumer_buf, consumer_dim] =
+            find_output_dim(global_loop.loop_id.func, global_loop.loop_id.var);
+
+        // Map the producer's loop variable back to its output dimension index.
+        auto [producer_buf, producer_dim] = find_output_dim(&f, split.var);
+
+        // Instead of comparing forward extents (which causes false positives
+        // for unrelated constant extents), we check if both loops share the
+        // exact same inferred source region identifier.
+        bool extents_match = false;
+        if (producer_dim != -1 && consumer_dim != -1 &&
+            producer_buf.defined() && consumer_buf.defined()) {
+          int producer_source_region =
+              get_source_region(producer_buf, producer_dim);
+          int consumer_source_region =
+              get_source_region(consumer_buf, consumer_dim);
+
+          if (producer_source_region != -1 &&
+              producer_source_region == consumer_source_region) {
+            extents_match = true;
+          }
+        }
+
+        if (!extents_match) {
           break;
         }
-        // We can overwrite the current loop step if it's not required, but
-        // this one is.
+
         if (split.step_is_required) {
-          if (std::optional<slinky::var> v =
-                  slinky::as_variable(global_loop.step)) {
-            // This is a special variable which defines partial reduction
-            // bounds, so we need to override to match the loop step.
-            if (globals.symbols.name(*v).rfind("pr_split", 0) == 0) {
-              globals.update_let(*v, split.step);
+          if (global_loop.step_is_required &&
+              !prove_true(split.step == global_loop.step)) {
+            // Two producers require different tiles for this shared loop (e.g.
+            // the two attention matmuls pick different query tiles). Use their
+            // least common multiple so the loop is an integer number of *both*
+            // tiles, keeping it a multiple of each kernel's m/n block. If the
+            // LCM overflows, it clamps at max index_t (assuming no splitting).
+            global_loop.step = lcm_sat(globals, global_loop.step, split.step);
+          } else {
+            if (std::optional<slinky::var> v =
+                    slinky::as_variable(global_loop.step)) {
+              // This is a special variable which defines partial reduction
+              // bounds, so we need to override to match the loop step.
+              if (globals.symbols.name(*v).rfind("pr_split", 0) == 0) {
+                globals.update_let(*v, split.step);
+              }
             }
+            global_loop.step = split.step;
           }
-          global_loop.step = split.step;
           global_loop.step_is_required = true;
         }
-        // NOTE(vksnk): Another example of how can we use scheduling_info from
-        // all functions assigned to a loop to compute a loop step.
-        // global_loop_nest[loop_nest[compute_at]].step = slinky::simplify(
-        //     slinky::min(global_loop_nest[loop_nest[compute_at]].step,
-        //                 loop_splits[splits_match].step));
         compute_at++;
         sched_data.splits_match = split_i + 1;
       }
@@ -478,6 +694,17 @@ auto make_reshape_impl(ynn_runtime* runtime) {
 const char* get_trace_filename() { return getenv("YNN_TRACE"); }
 #endif
 
+#ifdef YNN_ENABLE_TSL_PROFILER
+bool ynn_traceme_enabled() {
+  // We can't use `TraceMe::Active` here, because it returns false when called,
+  // even if it would later return true when we actually want to trace. We
+  // should also gate this behind an extra flag because our tracing might be a
+  // lot higher frequency than other xprof tracing.
+  const char* traceme = getenv("YNN_TRACEME");
+  return traceme && strcmp(traceme, "0") != 0;
+}
+#endif
+
 }  // namespace
 
 extern "C" {
@@ -503,13 +730,30 @@ ynn_runtime::ynn_runtime(ynn::ref_count<const ynn_subgraph> subgraph,
   eval_config.base_alignment = YNN_ALLOCATION_ALIGNMENT;
 
 #ifdef YNN_ENABLE_PERFETTO
-  eval_config.trace_begin = [](const char* name) {
-    ynn::perfetto_session::global()->begin(name);
-    return reinterpret_cast<slinky::index_t>(name);
-  };
-  eval_config.trace_end = [](slinky::index_t token) {
-    ynn::perfetto_session::global()->end();
-  };
+  if (ynn::perfetto_session::global()) {
+    eval_config.trace_begin = [](const char* name) {
+      ynn::perfetto_session::global()->begin(name);
+      return reinterpret_cast<slinky::index_t>(name);
+    };
+    eval_config.trace_end = [](slinky::index_t token) {
+      ynn::perfetto_session::global()->end();
+    };
+  }
+#endif
+#ifdef YNN_ENABLE_TSL_PROFILER
+  if (ynn_traceme_enabled()) {
+    if (ynn::perfetto_session::global()) {
+      YNN_LOG_WARNING()
+          << "tsl::profiler tracing is overriding perfetto tracing.";
+    }
+    eval_config.trace_begin = [](const char* name) {
+      return static_cast<slinky::index_t>(
+          tsl::profiler::TraceMe::ActivityStart(name));
+    };
+    eval_config.trace_end = [](slinky::index_t token) {
+      tsl::profiler::TraceMe::ActivityEnd(token);
+    };
+  }
 #endif
   eval_context.config = &eval_config;
 
@@ -534,7 +778,7 @@ ynn_runtime::ynn_runtime(ynn::ref_count<const ynn_subgraph> subgraph,
 
       value.buffer =
           slinky::buffer_expr::make_constant(value.symbol, value.data);
-    } else if (value.is_external_input()) {
+    } else if (value.is_external()) {
       value.make_buffer(*this);
 
       for (size_t d = 0; d < value.extents.size(); ++d) {
@@ -546,11 +790,13 @@ ynn_runtime::ynn_runtime(ynn::ref_count<const ynn_subgraph> subgraph,
         }
       }
 
-      if (!value.data) {
-        value.data =
-            slinky::raw_buffer::make(i.rank(), ynn::type_size_bytes(i.type));
-      } else {
-        assert(value.data->rank == value.rank());
+      if (value.is_external_input()) {
+        if (!value.data) {
+          value.data =
+              slinky::raw_buffer::make(i.rank(), ynn::type_size_bytes(i.type));
+        } else {
+          assert(value.data->rank == value.rank());
+        }
       }
     }
   }
@@ -620,7 +866,10 @@ ynn_status ynn_runtime::build() {
 
   slinky::build_options options;
 #ifdef YNN_ENABLE_PERFETTO
-  options.trace = get_trace_filename() != nullptr;
+  options.trace = options.trace || get_trace_filename() != nullptr;
+#endif
+#ifdef YNN_ENABLE_TSL_PROFILER
+  options.trace = options.trace || ynn_traceme_enabled();
 #endif
 #ifdef NDEBUG
   options.no_checks = true;

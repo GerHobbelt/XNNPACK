@@ -123,6 +123,7 @@ cc_test(
     linkopts = ynn_binary_linkopts(),
     malloc = ynn_binary_malloc(),
     shard_count = 24,
+    tags = ["nowasm"],  # b/525770952
     deps = TEST_DEPS,
 )
 
@@ -181,14 +182,15 @@ cc_test(
 ) for name in [
     "concatenate",
     "copy",
+    "dynamic_quantization",
     "broadcast_like",
     "errors",
     "even_split",
     "fuse_dim",
     "fuse_dims",
+    "gather",
     "get_tensor_shape",
     "iota",
-    "lut",
     "reduce",
     "reduce_dot",
     "runtime",
@@ -260,5 +262,20 @@ cc_test(
         "//ynnpack",
         "//ynnpack/base",
         "//ynnpack/subgraph",
+    ] + ynn_benchmark_deps(),
+)
+
+cc_test(
+    name = "gather_bench",
+    srcs = ["gather_bench.cc"],
+    args = ["--benchmark_min_time=1x"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = [
+        "//ynnpack",
+        "//ynnpack/base",
+        "//ynnpack/base/test:buffer",
+        "//ynnpack/base/test:random",
+        "//ynnpack/base/test:tensor",
     ] + ynn_benchmark_deps(),
 )

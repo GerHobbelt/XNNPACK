@@ -28,7 +28,6 @@ package(default_visibility = ["//ynnpack:__subpackages__"])
     deps = [
         "//ynnpack/base",  # buildcleaner:keep
         "//ynnpack/base/simd",  # buildcleaner:keep
-        "//ynnpack/base/simd:emulate_fma",
         "//ynnpack/base/test:fuzz_test",
         "//ynnpack/base/test:random",
         "@slinky//slinky/base",
@@ -40,6 +39,7 @@ package(default_visibility = ["//ynnpack:__subpackages__"])
     "arm_neonfp16arith",
     "arm_neonfma",
     "arm64_neon",
+    "arm64_neonfp8",
     "arm64_sve",
     "x86_sse2",
     "x86_sse2_fma",
@@ -85,6 +85,29 @@ cc_test(
     ],
     features = [
         # We can't use copts with header modules...?
+        "-use_header_modules",
+    ],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = [
+        "//ynnpack/base",  # buildcleaner:keep
+        "//ynnpack/base/simd",  # buildcleaner:keep
+        "//ynnpack/base/test:fuzz_test",
+        "//ynnpack/base/test:random",
+        "@slinky//slinky/base",
+    ] + ynn_test_deps(),
+)
+
+cc_test(
+    name = "gnu_vector",
+    srcs = select({
+        "//ynnpack:ynn_enable_gnu_vector": [
+            "generic.h",
+            "gnu_vector.cc",
+        ],
+        "//conditions:default": [],
+    }),
+    features = [
         "-use_header_modules",
     ],
     linkopts = ynn_binary_linkopts(),

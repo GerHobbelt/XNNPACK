@@ -3,8 +3,6 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "ynnpack/base/simd/x86_sse2.h"
-
 #include <immintrin.h>
 
 #include <array>
@@ -16,6 +14,7 @@
 #include "ynnpack/base/bfloat16.h"
 #include "ynnpack/base/half.h"
 #include "ynnpack/base/simd/vec.h"
+#include "ynnpack/base/simd/x86_vec128.h"
 #include "ynnpack/kernels/reduce/generic.h"
 #include "ynnpack/kernels/reduce/min_max.h"
 #include "ynnpack/kernels/reduce/reduce.h"
@@ -63,7 +62,7 @@ static f32x16 reduce_add(
       reduce_add(extract<2>(a, f32x4::N), extract<2>(b, bf16x8::N), map_fn);
   f32x4 a3 =
       reduce_add(extract<3>(a, f32x4::N), extract<3>(b, bf16x8::N), map_fn);
-  return {{a0, a1}, {a2, a3}};
+  return concat(concat(a0, a1), concat(a2, a3));
 }
 
 }  // namespace simd

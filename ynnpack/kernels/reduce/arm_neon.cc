@@ -3,8 +3,6 @@
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
-#include "ynnpack/base/simd/arm_neon.h"
-
 #include <arm_neon.h>
 
 #include <cstddef>
@@ -12,6 +10,7 @@
 #include <type_traits>
 
 #include "ynnpack/base/arithmetic.h"
+#include "ynnpack/base/simd/arm_vec128.h"
 #include "ynnpack/kernels/reduce/generic.h"
 #include "ynnpack/kernels/reduce/min_max.h"
 #include "ynnpack/kernels/reduce/reduce.h"
@@ -43,6 +42,44 @@ static f32x4 reduce_add(
   a += odd * odd;
   a += even * even;
   return a;
+}
+
+static s32x8 operator+(s32x8 a, s16x8 b) {
+  a[0].v = vaddw_s16(a[0].v, vget_low_s16(b.v));
+  a[1].v = vaddw_s16(a[1].v, vget_high_s16(b.v));
+  return a;
+}
+
+static s32x8 operator+(s32x8 a, u16x8 b) {
+  a[0].v = vreinterpretq_s32_u32(
+      vaddw_u16(vreinterpretq_u32_s32(a[0].v), vget_low_u16(b.v)));
+  a[1].v = vreinterpretq_s32_u32(
+      vaddw_u16(vreinterpretq_u32_s32(a[1].v), vget_high_u16(b.v)));
+  return a;
+}
+
+static s32x16 reduce_add(
+    s32x16 a, s8x16 b, square /*map_fn*/,
+    std::integral_constant<size_t, 1> /*horizontal_factor*/) {
+  int8x8_t b_lo_s8 = vget_low_s8(b.v);
+  int8x8_t b_hi_s8 = vget_high_s8(b.v);
+  s16x8 sq_lo{vmull_s8(b_lo_s8, b_lo_s8)};
+  s16x8 sq_hi{vmull_s8(b_hi_s8, b_hi_s8)};
+
+  return concat(extract<0>(a, s32x8::N) + sq_lo,
+                extract<1>(a, s32x8::N) + sq_hi);
+}
+
+static s32x16 reduce_add(
+    s32x16 a, u8x16 b, square /*map_fn*/,
+    std::integral_constant<size_t, 1> /*horizontal_factor*/) {
+  uint8x8_t b_lo_s8 = vget_low_u8(b.v);
+  uint8x8_t b_hi_s8 = vget_high_u8(b.v);
+  u16x8 sq_lo{vmull_u8(b_lo_s8, b_lo_s8)};
+  u16x8 sq_hi{vmull_u8(b_hi_s8, b_hi_s8)};
+
+  return concat(extract<0>(a, s32x8::N) + sq_lo,
+                extract<1>(a, s32x8::N) + sq_hi);
 }
 
 }  // namespace simd
@@ -98,11 +135,15 @@ SUM_FLOAT_K1_KERNEL(sum_k1_fp32_neon, float, float, 4, 1, identity);
 SUM_FLOAT_KN_KERNEL(sum_kn_fp32_neon, float, float, 4, identity);
 SUM_K1_KERNEL(sum_k1_int32_neon, int32_t, int32_t, 4, 1, identity);
 SUM_KN_KERNEL(sum_kn_int32_neon, int32_t, int32_t, 4, identity);
+SUM_KN_KERNEL(sum_kn_uint8_int32_neon, uint8_t, int32_t, 16, identity);
+SUM_KN_KERNEL(sum_kn_int8_int32_neon, int8_t, int32_t, 16, identity);
 
 SUM_FLOAT_K1_KERNEL(sum_squared_k1_bf16_fp32_neon, bfloat16, float, 4, 2,
                     square);
 SUM_FLOAT_KN_KERNEL(sum_squared_kn_bf16_fp32_neon, bfloat16, float, 8, square);
 SUM_FLOAT_K1_KERNEL(sum_squared_k1_fp32_neon, float, float, 4, 1, square);
 SUM_FLOAT_KN_KERNEL(sum_squared_kn_fp32_neon, float, float, 4, square);
+SUM_KN_KERNEL(sum_squared_kn_uint8_int32_neon, uint8_t, int32_t, 16, square);
+SUM_KN_KERNEL(sum_squared_kn_int8_int32_neon, int8_t, int32_t, 16, square);
 
 }  // namespace ynn

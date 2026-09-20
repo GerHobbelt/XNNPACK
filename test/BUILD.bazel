@@ -132,6 +132,7 @@ xnnpack_cxx_library(
     "f16_vexp",
     "f16_vgelu",
     "f16_vhswish",
+    "f16_vlog",
     "f16_vlrelu",
     "f16_vneg",
     "f16_vrndd",
@@ -1109,5 +1110,17 @@ xnnpack_unit_test(
     ],
     deps = [
         "//:XNNPACK",
+    ],
+)
+
+xnnpack_unit_test(
+    name = "hardware_config_reset_test",
+    srcs = ["hardware-config-reset.cc"],
+    tags = ["no_ynnpack"],
+    deps = [
+        "//:common",
+        "//src/configs:config_hdrs",
+        "//src/configs:hardware_config",
+        "//src/configs:microkernel_configs",
     ],
 )

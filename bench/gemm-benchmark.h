@@ -17,6 +17,7 @@
 #endif  // XNN_ENABLE_KLEIDIAI
 
 #include "bench/gemm.h"  // IWYU pragma: export
+#include "bench/conv.h"  // IWYU pragma: export
 #include "bench/utils.h"
 #include <benchmark/benchmark.h>
 
@@ -115,10 +116,20 @@ void GEMMBenchmark(benchmark::State& state,
 
 void GEMMBenchmark(benchmark::State& state,
                    xnn_qp8_f32_qc4w_gemm_minmax_ukernel_fn gemm,
+                   xnn_init_f32_qc4w_minmax_params_fn init_minmax_params,
+                   xnn_pack_weights_and_biases_fn pack_weights,
+                   xnn_packed_stride_weights_and_biases_fn packed_stride,
+                   ConstantOrFunction mr, ConstantOrFunction nr, size_t kr,
+                   size_t sr, ConstantOrFunction mr_packed,
+                   uint64_t arch_flags = 0);
+
+void GEMMBenchmark(benchmark::State& state,
+                   xnn_qp8_f32_qc8w_gemm_minmax_ukernel_fn gemm,
                    xnn_init_f32_minmax_params_fn init_minmax_params,
                    xnn_pack_weights_and_biases_fn pack_weights,
                    xnn_packed_stride_weights_and_biases_fn packed_stride,
-                   ConstantOrFunction mr, ConstantOrFunction nr, size_t kr, size_t sr, ConstantOrFunction mr_packed,
+                   ConstantOrFunction mr, ConstantOrFunction nr, size_t kr,
+                   size_t sr, ConstantOrFunction mr_packed,
                    uint64_t arch_flags = 0);
 
 void GEMMBenchmark(benchmark::State& state,
@@ -151,6 +162,12 @@ void GEMMBenchmark(benchmark::State& state, xnn_f16_gemm_minmax_ukernel_fn gemm,
                    xnn_pack_f16_gemm_fn pack, size_t mr, size_t nr, size_t kr,
                    size_t sr,
                    uint64_t arch_flags = 0);
+
+void IGEMMBenchmark(benchmark::State& state,
+                    xnn_f16_igemm_minmax_ukernel_fn igemm,
+                    xnn_init_f16_minmax_params_fn init_params,
+                    xnn_pack_f16_igemm_fn pack, size_t mr,
+                    size_t nr, size_t kr, size_t sr, uint64_t arch_flags = 0);
 
 #if XNN_ENABLE_KLEIDIAI
 void GEMMBenchmark(benchmark::State& state,

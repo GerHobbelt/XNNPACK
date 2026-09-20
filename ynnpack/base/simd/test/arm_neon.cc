@@ -143,6 +143,8 @@ TEST_ABS(arm_neon, s16, 8);
 TEST_ABS(arm_neon, s32, 4);
 TEST_ABS(arm_neon, f32, 4);
 
+TEST_FLOOR_LOG2(arm_neon, f32, 4);
+
 TEST_HORIZONTAL_MIN(arm_neon, u8, 16);
 TEST_HORIZONTAL_MIN(arm_neon, s8, 16);
 TEST_HORIZONTAL_MIN(arm_neon, s16, 8);
@@ -161,6 +163,7 @@ TEST_CAST(arm_neon, s32, s16x8);
 TEST_CAST(arm_neon, f32, s32x4);
 TEST_CAST(arm_neon, s32, f32x4);
 TEST_CAST(arm_neon, f32, bf16x8);
+TEST_CAST(arm_neon, bf16, f32x8);
 
 TEST_SATURATE_CAST(arm_neon, s16, s32x8);
 TEST_SATURATE_CAST(arm_neon, u8, s16x16);

@@ -22,7 +22,6 @@
 #include "src/xnnpack/common.h"
 #include "src/xnnpack/gemm.h"
 #include "src/xnnpack/hardware-config.h"
-#include "src/xnnpack/igemm.h"
 #include "src/xnnpack/microparams-init.h"
 #include "src/xnnpack/pack-lh.h"
 #include "src/xnnpack/pack.h"
@@ -337,7 +336,7 @@ std::vector<GemmTestParams> CreateTests1(
     std::string kbs = std::to_string(k_block);
     std::string kb2s = std::to_string(k_block * 2);
     std::string akbs = std::to_string(adj_k_block);
-    nr = nr * xnn_init_hardware_config()->vlenb / sizeof(int32_t);
+    nr = nr * xnn_init_hardware_config()->vlenb / sizeof(float);
     std::string nrs = std::to_string(nr);
 
     const GemmMicrokernelTester tester = GemmMicrokernelTester()

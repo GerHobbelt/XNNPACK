@@ -141,12 +141,11 @@ struct cube_root_op {
 };
 
 struct tanh_op {
-  unary_params params;
+  tanh_params params;
 
-  explicit tanh_op(const unary_params& params) : params(params) {}
+  explicit tanh_op(const unary_params& params) : params(params.tanh) {}
   float operator()(float x) const {
-    return std::tanh(x) * params.tanh.output_multiplier +
-           params.tanh.output_offset;
+    return std::tanh(x) * params.output_multiplier + params.output_offset;
   }
 };
 
@@ -156,8 +155,13 @@ struct reciprocal_square_root_op {
 };
 
 struct log_op {
-  explicit log_op(const unary_params& = {}) {}
-  float operator()(float x) const { return std::log(x); }
+  log_params params;
+
+  explicit log_op(const unary_params& params) : params(params.log) {}
+  float operator()(float x) const {
+    return std::log2(x * params.input_multiplier / std::sqrt(2.0f)) *
+           params.output_multiplier;
+  }
 };
 
 struct log1p_op {
@@ -166,11 +170,12 @@ struct log1p_op {
 };
 
 struct exp_op {
-  explicit exp_op(const unary_params& params) : params(params) {}
+  exp_params params;
+
+  explicit exp_op(const unary_params& params) : params(params.exp) {}
   float operator()(float x) const {
-    return std::exp2(params.exp.input_multiplier * x);
+    return std::exp2(params.input_multiplier * x) * params.output_multiplier;
   }
-  unary_params params;
 };
 
 struct expm1_op {
@@ -179,13 +184,13 @@ struct expm1_op {
 };
 
 struct erf_op {
-  explicit erf_op(const unary_params& params) : params(params) {}
+  erf_params params;
+
+  explicit erf_op(const unary_params& params) : params(params.erf) {}
   float operator()(float x) const {
-    return std::erf(params.erf.input_multiplier * x) *
-               params.erf.output_multiplier +
-           params.erf.output_offset;
+    return std::erf(params.input_multiplier * x) * params.output_multiplier +
+           params.output_offset;
   }
-  unary_params params;
 };
 
 struct sign_op {
@@ -195,13 +200,21 @@ struct sign_op {
 };
 
 struct sine_op {
-  explicit sine_op(const unary_params& = {}) {}
-  float operator()(float x) const { return std::sin(x); }
+  sine_params params;
+
+  explicit sine_op(const unary_params& params) : params(params.sine) {}
+  float operator()(float x) const {
+    return std::sin(x) * params.output_multiplier + params.output_offset;
+  }
 };
 
 struct cosine_op {
-  explicit cosine_op(const unary_params& = {}) {}
-  float operator()(float x) const { return std::cos(x); }
+  cosine_params params;
+
+  explicit cosine_op(const unary_params& params) : params(params.cosine) {}
+  float operator()(float x) const {
+    return std::cos(x) * params.output_multiplier + params.output_offset;
+  }
 };
 
 struct sigmoid_op {
@@ -321,7 +334,7 @@ unary_kernel_fn get_unary_kernel(ynn_unary_operator op, ynn_type a_type,
   if (a_type == type_of<type_a>() && x_type == type_of<type_x>() && \
       op == ynn_unary_##op_type &&                                  \
       is_arch_supported(arch, supported_arch_flags)) {              \
-    YNN_LOG_INFO() << "Using unary kernel " << #name;               \
+    YNN_LOG_DEBUG() << "Using unary kernel " << #name;              \
     return &name;                                                   \
   }
 
@@ -343,15 +356,31 @@ unary_params get_unary_params(ynn_unary_operator op) {
   switch (op) {
     case ynn_unary_exp:
       return unary_params{
-          .exp = exp_params{/*input_multiplier=*/static_cast<float>(
-              std::log2(std::exp(1.0)))}};
+          .exp = exp_params{
+              ._ = 0.0f,
+              .output_multiplier = 1.0f,
+              .input_multiplier = static_cast<float>(std::log2(std::exp(1.0))),
+          }};
+    case ynn_unary_log:
+      return unary_params{
+          .log = log_params{
+              ._ = 0.0f,
+              .output_multiplier = static_cast<float>(std::log(2.0)),
+              .input_multiplier = 1.4142134190e+00f,  // sqrt(2)
+          }};
     case ynn_unary_erf:
-      return unary_params{.erf = erf_params{/*output_offset=*/0.0f,
-                                            /*output_multiplier=*/1.0f,
-                                            /*input_multiplier=*/1.0f}};
+      return unary_params{.erf = erf_params{.output_offset = 0.0f,
+                                            .output_multiplier = 1.0f,
+                                            .input_multiplier = 1.0f}};
     case ynn_unary_tanh:
-      return unary_params{.tanh = tanh_params{/*output_offset=*/0.0f,
-                                              /*output_multiplier=*/1.0f}};
+      return unary_params{.tanh = tanh_params{.output_offset = 0.0f,
+                                              .output_multiplier = 1.0f}};
+    case ynn_unary_sine:
+      return unary_params{.sine = sine_params{.output_offset = 0.0f,
+                                              .output_multiplier = 1.0f}};
+    case ynn_unary_cosine:
+      return unary_params{.cosine = cosine_params{.output_offset = 0.0f,
+                                                  .output_multiplier = 1.0f}};
     case ynn_unary_poly3:
       return unary_params{.poly3 = poly3_params{/*c0=*/0.0f, /*c1=*/0.0f,
                                                 /*c2=*/0.0f, /*c3=*/0.0f}};

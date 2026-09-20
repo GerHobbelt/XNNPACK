@@ -15,6 +15,7 @@
 #include "ynnpack/base/type.h"
 #include "ynnpack/include/ynnpack.h"
 #include "ynnpack/kernels/binary/binary.h"
+#include "ynnpack/kernels/dequantize_dot/dequantize_dot.h"
 #include "ynnpack/kernels/lut/lut.h"
 #include "ynnpack/kernels/ternary/ternary.h"
 #include "ynnpack/kernels/unary/unary.h"
@@ -25,7 +26,6 @@
 #include "slinky/builder/pipeline.h"
 #include "slinky/runtime/buffer.h"
 #include "slinky/runtime/expr.h"
-#include "slinky/runtime/print.h"
 #include "slinky/runtime/stmt.h"
 
 using ynn::operator<<;  // NOLINT(misc-unused-using-decls)
@@ -44,16 +44,16 @@ auto make_unary_elementwise_impl(unary_kernel_fn kernel, unary_params params) {
 
     // We don't support broadcasting of `a` here in the innermost
     // dimension (and it would waste computation).
-    assert(is_continguous(a_dims[0], a.elem_size));
+    assert(is_contiguous(a_dims[0], a.elem_size));
 
-    const slinky::dim& x_n = x_dims[0];
-    const slinky::dim& a_m = a_dims[1];
-    const slinky::dim& x_m = x_dims[1];
+    const slinky::index_t x_n_extent = x_dims[0].extent();
+    const slinky::index_t a_m_stride = a_dims[1].stride();
+    const slinky::index_t x_m_extent = x_dims[1].extent();
+    const slinky::index_t x_m_stride = x_dims[1].stride();
 
     slinky::for_each_element(
-        [&](void* x, const void* a) {
-          kernel(x_m.extent(), x_n.extent(), a_m.stride(), a, x_m.stride(), x,
-                 &params);
+        [=, &params](void* x, const void* a) {
+          kernel(x_m_extent, x_n_extent, a_m_stride, a, x_m_stride, x, &params);
         },
         x, a);
     return 0;
@@ -70,14 +70,14 @@ auto make_lut_impl(lut_kernel_fn kernel) {
 
     // We don't support broadcasting of `a` here in the innermost
     // dimension (and it would waste computation).
-    assert(is_continguous(a_dims[0], a.elem_size));
-    assert(is_continguous(x_dims[0], x.elem_size));
+    assert(is_contiguous(a_dims[0], a.elem_size));
+    assert(is_contiguous(x_dims[0], x.elem_size));
 
-    const slinky::dim& x_n = x_dims[0];
+    const slinky::index_t x_n_extent = x_dims[0].extent();
 
     slinky::for_each_element(
-        [&](void* x, const void* a) { kernel(x_n.extent(), a, lut.base, x); },
-        x, a);
+        [=](void* x, const void* a) { kernel(x_n_extent, a, lut.base, x); }, x,
+        a);
     return 0;
   };
 }
@@ -90,17 +90,18 @@ auto make_binary_elementwise_impl(binary_kernel_fn kernel) {
 
     fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a, &b_dims[0], b);
 
-    const slinky::dim& a_n = a_dims[0];
-    const slinky::dim& b_n = b_dims[0];
-    const slinky::dim& x_n = x_dims[0];
-    const slinky::dim& a_m = a_dims[1];
-    const slinky::dim& b_m = b_dims[1];
-    const slinky::dim& x_m = x_dims[1];
+    const slinky::index_t x_m_extent = x_dims[1].extent();
+    const slinky::index_t x_n_extent = x_dims[0].extent();
+    const slinky::index_t a_m_stride = a_dims[1].stride();
+    const slinky::index_t a_n_stride = a_dims[0].stride();
+    const slinky::index_t b_m_stride = b_dims[1].stride();
+    const slinky::index_t b_n_stride = b_dims[0].stride();
+    const slinky::index_t x_m_stride = x_dims[1].stride();
 
     slinky::for_each_element(
-        [&](void* x, const void* a, const void* b) {
-          kernel(x_m.extent(), x_n.extent(), a_m.stride(), a_n.stride(), a,
-                 b_m.stride(), b_n.stride(), b, x_m.stride(), x, nullptr);
+        [=](void* x, const void* a, const void* b) {
+          kernel(x_m_extent, x_n_extent, a_m_stride, a_n_stride, a, b_m_stride,
+                 b_n_stride, b, x_m_stride, x, nullptr);
         },
         x, a, b);
     return 0;
@@ -127,38 +128,82 @@ auto make_ternary_elementwise_impl(ternary_kernel_fn kernel) {
         fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a, &b_dims[0],
                                        b, &c_dims[0], c);
 
-        const slinky::dim& a_n = a_dims[0];
-        const slinky::dim& b_n = b_dims[0];
-        const slinky::dim& c_n = c_dims[0];
-        const slinky::dim& x_n = x_dims[0];
-        const slinky::dim& a_m = a_dims[1];
-        const slinky::dim& b_m = b_dims[1];
-        const slinky::dim& c_m = c_dims[1];
-        const slinky::dim& x_m = x_dims[1];
+        const slinky::index_t x_m_extent = x_dims[1].extent();
+        const slinky::index_t x_n_extent = x_dims[0].extent();
+        const slinky::index_t a_m_stride = a_dims[1].stride();
+        const slinky::index_t a_n_stride = a_dims[0].stride();
+        const slinky::index_t b_m_stride = b_dims[1].stride();
+        const slinky::index_t b_n_stride = b_dims[0].stride();
+        const slinky::index_t c_m_stride = c_dims[1].stride();
+        const slinky::index_t c_n_stride = c_dims[0].stride();
+        const slinky::index_t x_m_stride = x_dims[1].stride();
 
         slinky::for_each_element(
-            [&](void* x, const void* a, const void* b, const void* c) {
-              kernel(x_m.extent(), x_n.extent(), a_m.stride(), a_n.stride(), a,
-                     b_m.stride(), b_n.stride(), b, c_m.stride(), c_n.stride(),
-                     c, x_m.stride(), x, nullptr);
+            [=](void* x, const void* a, const void* b, const void* c) {
+              kernel(x_m_extent, x_n_extent, a_m_stride, a_n_stride, a,
+                     b_m_stride, b_n_stride, b, c_m_stride, c_n_stride, c,
+                     x_m_stride, x, nullptr);
             },
             x, a, b, c);
         return 0;
       };
 }
 
-std::pair<float, int32_t> GetScalarQuantization(
-    const ynn_runtime& runtime, const ynn_runtime_value& value) {
-  std::pair<float, int32_t> result;
-  result.first =
-      value.scale_id != YNN_INVALID_VALUE_ID
-          ? runtime.value(value.scale_id).static_scalar_value<float>()
-          : 1.0f;
-  result.second =
-      value.zero_point_id != YNN_INVALID_VALUE_ID
-          ? runtime.value(value.zero_point_id).static_scalar_value<int32_t>()
-          : 0;
-  return result;
+auto make_dequantize_dot_impl(dequantize_dot_kernel_fn kernel,
+                              dequantize_dot_params params) {
+  return [kernel, params](slinky::raw_buffer dot, slinky::raw_buffer a_offset,
+                          slinky::raw_buffer b_offset,
+                          slinky::raw_buffer a_scale,
+                          slinky::raw_buffer b_scale, slinky::raw_buffer offset,
+                          slinky::raw_buffer output) -> slinky::index_t {
+    using slinky::index_t;
+
+    const slinky::dim& n = slice_dim0(output);
+    const slinky::in_bounds n_min{n.min()};
+    const index_t n_extent = n.extent();
+
+    assert(is_contiguous(n, output.elem_size));
+    assert(is_contiguous(dot.dim(0), dot.elem_size));
+    assert(is_broadcast(a_offset.dim(0)));
+
+    dot.slice(0, n_min);
+    a_offset.slice(0);
+    assert(is_broadcast(a_scale.dim(0)));
+    a_scale.slice(0);
+    const index_t b_offset_n_stride = slice_dim0(b_offset, n_min).stride();
+    const index_t b_scale_n_stride = slice_dim0(b_scale, n_min).stride();
+    const index_t offset_n_stride = slice_dim0(offset, n_min).stride();
+
+    // Get the m dimension. rank 1 buffers are common, so try to optimize
+    // for that case.
+    assert(is_broadcast(b_offset.dim(0)));
+    assert(is_broadcast(b_scale.dim(0)));
+    assert(is_broadcast(offset.dim(0)));
+    const slinky::dim& m = slice_dim0(output);
+    const slinky::in_bounds m_min{m.min()};
+    const index_t m_extent = m.extent();
+    const index_t m_stride = m.stride();
+    const index_t dot_m_stride = slice_dim0(dot, m_min).stride();
+    const index_t a_offset_m_stride = slice_dim0(a_offset, m_min).stride();
+    const index_t a_scale_m_stride = slice_dim0(a_scale, m_min).stride();
+    b_offset.slice(0);
+    offset.slice(0);
+    b_scale.slice(0);
+
+
+    slinky::for_each_element(
+        [=, &params](void* output, const void* dot, const void* a_offset,
+                     const void* b_offset, const void* offset,
+                     const void* a_scale, const void* b_scale) {
+          kernel(m_extent, n_extent, dot_m_stride, dot, a_offset_m_stride,
+                 a_offset, b_offset_n_stride, b_offset, offset_n_stride, offset,
+                 a_scale_m_stride, a_scale, b_scale_n_stride, b_scale, m_stride,
+                 output, &params);
+        },
+        output, dot, a_offset, b_offset, offset, a_scale, b_scale);
+
+    return 0;
+  };
 }
 
 ynn_status create_unary(const ynn_node& node, ynn_runtime& runtime,
@@ -169,24 +214,7 @@ ynn_status create_unary(const ynn_node& node, ynn_runtime& runtime,
   const unary_params& params =
       std::get<ynn_node::unary_elementwise>(node.op).params;
 
-  ynn_runtime_value& a = runtime.value(node.inputs[0]);
-  // Unary ops can't handle broadcasting. By constraining the stride of the
-  // first dimension to be 1, we force slinky to actually realize the broadcast
-  // into memory.
-  // TODO: b/488387849 - Elsewhere, we should avoid this from happening by
-  // rewriting unary(broadcast(x)) -> broadcast(unary(x)).
-  if (a.rank() > 0 && !is_one(a.extent(0))) {
-    const int elem_size = type_size_bytes(a.type);
-    slinky::expr& stride = a.buffer->dim(0).stride;
-    // Make sure that the stride is not already constrained to something else.
-    // We should never constrain the stride of dimension 0 to anything other
-    // than 0 (broadcast) or 1 element.
-    assert(
-        is_variable(stride, a.buffer->sym(), slinky::buffer_field::stride, 0) ||
-        is_constant(stride, elem_size));
-    stride = elem_size;
-  }
-
+  const ynn_runtime_value& a = runtime.value(node.inputs[0]);
   ynn_runtime_value& x = runtime.value(node.outputs[0]);
   x.make_buffer(runtime);
   std::vector<slinky::var> dims = runtime.globals.make_dims(x.rank());
@@ -335,7 +363,7 @@ void infer_shape(ynn_node& node, ynn_subgraph& subgraph) {
 
 void define_unary(ynn_subgraph& subgraph, ynn_node& node, uint32_t input_a_id,
                   uint32_t output_id, ynn_unary_operator op,
-                  unary_kernel_fn kernel, unary_params params) {
+                  unary_kernel_fn kernel, const unary_params& params) {
   // Make the node.
   node.inputs = {input_a_id};
   node.outputs = {output_id};
@@ -396,17 +424,75 @@ void define_lut(ynn_subgraph& subgraph, ynn_node& node, uint32_t input_id,
   };
 }
 
-extern "C" {
+bool define_dequantize_dot(ynn_subgraph& subgraph, ynn_node& node,
+                           ynn_type output_type, uint32_t dot_id,
+                           uint32_t a_offset_id, uint32_t b_offset_id,
+                           uint32_t a_scale_id, uint32_t b_scale_id,
+                           uint32_t offset_id, uint32_t& output_id,
+                           const dequantize_dot_params& params) {
+  dequantize_dot_kernel_fn kernel = get_dequantize_dot_kernel(output_type);
+  if (kernel == nullptr) {
+    return false;
+  }
+
+  const ynn_value& dot = subgraph.value(dot_id);
+  ynn_value& output = subgraph.get_output_value(&output_id, output_type);
+
+  // Propagate shape from dot.
+  output.extents = dot.extents;
+
+  node.inputs = {dot_id,     a_offset_id, b_offset_id,
+                 a_scale_id, b_scale_id,  offset_id};
+  node.outputs = {output_id};
+  node.op = ynn_node::dequantize_dot{params};
+
+  node.create = [kernel](const ynn_node& node, ynn_runtime& runtime) {
+    const ynn_node::dequantize_dot& op =
+        std::get<ynn_node::dequantize_dot>(node.op);
+    const ynn_runtime_value& dot = runtime.value(node.inputs[0]);
+    const ynn_runtime_value& a_offset = runtime.value(node.inputs[1]);
+    const ynn_runtime_value& b_offset = runtime.value(node.inputs[2]);
+    const ynn_runtime_value& a_scale = runtime.value(node.inputs[3]);
+    const ynn_runtime_value& b_scale = runtime.value(node.inputs[4]);
+    const ynn_runtime_value& offset = runtime.value(node.inputs[5]);
+    ynn_runtime_value& output = runtime.value(node.outputs[0]);
+
+    output.make_buffer(runtime);
+
+    std::vector<slinky::var> dims = runtime.globals.make_dims(output.rank());
+
+    slinky::box_expr bounds;
+    for (size_t i = 0; i < dims.size(); ++i) {
+      bounds.push_back(slinky::point(dims[i]));
+    }
+
+    slinky::call_stmt::attributes attrs;
+    attrs.name = "dequantize_dot";
+    attrs.allow_in_place = compute_allow_in_place(node, *runtime.subgraph);
+    auto func = slinky::func::make(make_dequantize_dot_impl(kernel, op.params),
+                                   {{dot.buffer, bounds},
+                                    {a_offset.buffer, bounds},
+                                    {b_offset.buffer, bounds},
+                                    {a_scale.buffer, bounds},
+                                    {b_scale.buffer, bounds},
+                                    {offset.buffer, bounds}},
+                                   {{output.buffer, dims}}, std::move(attrs));
+
+    auto sched = runtime.make_schedule(dims, output.buffer, node.outputs[0]);
+    func.user_data() = sched.get();
+    runtime.scheduling_info_storage.push_back(std::move(sched));
+
+    runtime.funcs.push_back(std::move(func));
+    return ynn_status_success;
+  };
+  return true;
+}
 
 ynn_status define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
                         uint32_t input_a_id, unary_params params,
                         uint32_t* output_id, uint32_t flags) {
   const ynn_value& a = subgraph->value(input_a_id);
-
-  // Propagate rank.
   ynn_value& x = subgraph->get_output_value(output_id, a);
-  x.extents.clear();
-  x.extents.resize(x.rank());
 
   // Find the kernel.
   unary_kernel_fn kernel = get_unary_kernel(op, a.type, x.type);
@@ -416,9 +502,9 @@ ynn_status define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
     if (float_kernel) {
       uint32_t a_float_id = YNN_INVALID_VALUE_ID;
       ynn_status status =
-          ynn_define_convert(subgraph, input_a_id, ynn_type_fp32,
-                             a.zero_point_id, a.scale_id, &a_float_id,
-                             /*flags=*/0);
+          ynn_define_dequantize(subgraph, input_a_id, a.zero_point_id,
+                                a.scale_id, ynn_type_fp32, &a_float_id,
+                                /*flags=*/0);
       if (status != ynn_status_success) {
         return status;
       }
@@ -430,8 +516,8 @@ ynn_status define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
         return status;
       }
 
-      return ynn_define_convert(subgraph, x_float_id, x.type, x.zero_point_id,
-                                x.scale_id, output_id, /*flags=*/0);
+      return ynn_define_quantize(subgraph, x_float_id, x.type, x.zero_point_id,
+                                 x.scale_id, output_id, /*flags=*/0);
     }
 
     YNN_LOG_ERROR() << "Unsupported unary operator " << op << " for input type "
@@ -446,6 +532,8 @@ ynn_status define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
   subgraph->add_node(std::move(node));
   return ynn_status_success;
 }
+
+extern "C" {
 
 ynn_status ynn_define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
                             uint32_t input_a_id, uint32_t* output_id,
@@ -512,141 +600,29 @@ ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
       validate_output_tensor("unary", subgraph, "output_id", output_id));
 
   const ynn_value& a = subgraph->value(input_id);
-
-  // Propagate rank.
   ynn_value& x = subgraph->get_output_value(output_id, output_type,
                                             zero_point_id, scale_id);
-  x.extents.clear();
-  x.extents.resize(x.rank());
+
+  const uint32_t x_scale_id =
+      scale_id != YNN_INVALID_VALUE_ID ? scale_id : x.scale_id;
+  const uint32_t x_zero_point_id =
+      zero_point_id != YNN_INVALID_VALUE_ID ? zero_point_id : x.zero_point_id;
 
   const bool a_is_quantized = a.scale_id != YNN_INVALID_VALUE_ID ||
                               a.zero_point_id != YNN_INVALID_VALUE_ID;
-  const bool x_is_quantized = x.scale_id != YNN_INVALID_VALUE_ID ||
-                              x.zero_point_id != YNN_INVALID_VALUE_ID;
+  const bool x_is_quantized = x_scale_id != YNN_INVALID_VALUE_ID ||
+                              x_zero_point_id != YNN_INVALID_VALUE_ID;
 
-  if (type_is_integral(x.type) && x_is_quantized) {
-    uint32_t x_scale_id = x.scale_id;
-    uint32_t x_zero_point_id = x.zero_point_id;
-    if (x.scale_id == YNN_INVALID_VALUE_ID) {
-      x_scale_id = subgraph->get_scalar_value_id(1.0f);
-    }
-    if (x.zero_point_id == YNN_INVALID_VALUE_ID) {
-      x_zero_point_id = subgraph->get_scalar_value_id(0);
-    }
-
-    ternary_op op = x.type == ynn_type_int8 ? ternary_op::quantize_int8
-                                            : ternary_op::quantize_uint8;
-    ternary_kernel_fn kernel =
-        get_ternary_kernel(op, a.type, ynn_type_fp32, ynn_type_int32, x.type);
-    if (!kernel && a.type != ynn_type_fp32) {
-      YNN_LOG_DEBUG() << "No ternary kernel for operator " << op
-                      << ", input type " << a.type << " and output type "
-                      << x.type << ", attempting to convert to fp32.";
-
-      // Try converting a to fp32 first.
-      kernel = get_ternary_kernel(op, ynn_type_fp32, ynn_type_fp32,
-                                  ynn_type_int32, x.type);
-      assert(kernel);
-      uint32_t input_float_id = YNN_INVALID_VALUE_ID;
-      ynn_status status =
-          ynn_define_convert(subgraph, input_id, ynn_type_fp32,
-                              YNN_INVALID_VALUE_ID, YNN_INVALID_VALUE_ID,
-                              &input_float_id, /*flags=*/0);
-      if (status != ynn_status_success) {
-        return status;
-      }
-      input_id = input_float_id;
-    }
-
-    ynn_node node;
-    define_ternary(*subgraph, node, input_id, x_scale_id, x_zero_point_id,
-                   *output_id, op, kernel);
-    subgraph->add_node(std::move(node));
-    return ynn_status_success;
+  if (type_is_integral(x.type) && x_is_quantized &&
+      type_is_floating_point(a.type)) {
+    return ynn_define_quantize(subgraph, input_id, x.type, x_zero_point_id,
+                               x_scale_id, output_id, flags);
   }
 
-  if (type_is_integral(a.type) && a_is_quantized) {
-    uint32_t a_scale_id = a.scale_id;
-    uint32_t a_zero_point_id = a.zero_point_id;
-    if (a.scale_id == YNN_INVALID_VALUE_ID) {
-      a_scale_id = subgraph->get_scalar_value_id(1.0f);
-    }
-    if (a.zero_point_id == YNN_INVALID_VALUE_ID) {
-      // First try to find a multiply kernel for this.
-      binary_kernel_fn kernel =
-          get_binary_kernel(ynn_binary_multiply, a.type, ynn_type_fp32, x.type);
-      if (kernel) {
-        ynn_node node;
-        define_binary(*subgraph, node, input_id, a_scale_id, *output_id,
-                      ynn_binary_multiply, kernel);
-        subgraph->add_node(std::move(node));
-        return ynn_status_success;
-      }
-
-      // Try converting from fp32.
-      kernel = get_binary_kernel(ynn_binary_multiply, a.type, ynn_type_fp32,
-                                 ynn_type_fp32);
-      if (kernel) {
-        uint32_t output_float_id = YNN_INVALID_VALUE_ID;
-        ynn_status status = ynn_define_tensor_value(
-            subgraph, ynn_type_fp32, /*rank=*/0, /*dims=*/nullptr,
-            /*data=*/nullptr, /*zero_point_id=*/YNN_INVALID_VALUE_ID,
-            /*scale_id=*/YNN_INVALID_VALUE_ID, /*flags=*/0, &output_float_id);
-        if (status != ynn_status_success) {
-          return status;
-        }
-
-        ynn_node node;
-        define_binary(*subgraph, node, input_id, a_scale_id, output_float_id,
-                      ynn_binary_multiply, kernel);
-        subgraph->add_node(std::move(node));
-        return ynn_define_convert(subgraph, output_float_id, x.type,
-                                  YNN_INVALID_VALUE_ID, YNN_INVALID_VALUE_ID,
-                                  output_id, flags);
-      }
-
-      // We didn't handle it with a multiply, try to do it with a dequantize
-      // kernel.
-      a_zero_point_id = subgraph->get_scalar_value_id(0);
-    }
-
-    ternary_kernel_fn kernel = get_ternary_kernel(
-        ternary_op::dequantize, a.type, ynn_type_int32, ynn_type_fp32, x.type);
-
-    if (kernel) {
-      ynn_node node;
-      define_ternary(*subgraph, node, input_id, a_zero_point_id, a_scale_id,
-                     *output_id, ternary_op::dequantize, kernel);
-      subgraph->add_node(std::move(node));
-      return ynn_status_success;
-    } else if (x.type != ynn_type_fp32) {
-      YNN_LOG_DEBUG()
-          << "No ternary kernel for operator dequantize, input type " << a.type
-          << ", output type " << x.type
-          << "; attempting to dequantize to fp32.";
-
-      kernel = get_ternary_kernel(ternary_op::dequantize, a.type,
-                                  ynn_type_int32, ynn_type_fp32, ynn_type_fp32);
-      assert(kernel);
-
-      uint32_t output_float_id = YNN_INVALID_VALUE_ID;
-      ynn_status status = ynn_define_tensor_value(
-          subgraph, ynn_type_fp32, /*rank=*/0, /*dims=*/nullptr,
-          /*data=*/nullptr, /*zero_point_id=*/YNN_INVALID_VALUE_ID,
-          /*scale_id=*/YNN_INVALID_VALUE_ID, /*flags=*/0, &output_float_id);
-      if (status != ynn_status_success) {
-        return status;
-      }
-
-      ynn_node node;
-      define_ternary(*subgraph, node, input_id, a_zero_point_id, a_scale_id,
-                     output_float_id, ternary_op::dequantize, kernel);
-      subgraph->add_node(std::move(node));
-
-      return ynn_define_convert(subgraph, output_float_id, x.type,
-                                YNN_INVALID_VALUE_ID, YNN_INVALID_VALUE_ID,
-                                output_id, flags);
-    }
+  if (type_is_integral(a.type) && a_is_quantized &&
+      type_is_floating_point(x.type)) {
+    return ynn_define_dequantize(subgraph, input_id, a.zero_point_id,
+                                 a.scale_id, output_type, output_id, flags);
   }
 
   // We can only look for a kernel if we don't have any quantization to handle.
@@ -659,24 +635,22 @@ ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
     // don't have a kernel for this conversion. Handle it by converting to an
     // intermediate float.
     uint32_t intermediate_id = YNN_INVALID_VALUE_ID;
-    ynn_status status = ynn_define_tensor_value(
-        subgraph, ynn_type_fp32, /*rank=*/0, /*dims=*/nullptr,
-        /*data=*/nullptr, /*zero_point_id=*/YNN_INVALID_VALUE_ID,
-        /*scale_id=*/YNN_INVALID_VALUE_ID, /*flags=*/0, &intermediate_id);
+    ynn_status status =
+        ynn_define_tensor(subgraph, ynn_type_fp32, /*rank=*/0, /*dims=*/nullptr,
+                          /*data=*/nullptr, /*flags=*/0, &intermediate_id);
     if (status != ynn_status_success) {
       return status;
     }
 
-    status = ynn_define_convert(subgraph, input_id, ynn_type_fp32,
-                                YNN_INVALID_VALUE_ID, YNN_INVALID_VALUE_ID,
-                                &intermediate_id,
-                                /*flags=*/0);
+    status = ynn_define_convert_v2(subgraph, input_id, ynn_type_fp32,
+                                   &intermediate_id,
+                                   /*flags=*/0);
     if (status != ynn_status_success) {
       return status;
     }
 
     return ynn_define_convert(subgraph, intermediate_id, x.type,
-                              x.zero_point_id, x.scale_id, output_id,
+                              x_zero_point_id, x_scale_id, output_id,
                               /*flags=*/0);
   }
 
@@ -691,6 +665,197 @@ ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
   };
   subgraph->add_node(std::move(node));
   return ynn_status_success;
+}
+
+ynn_status ynn_define_convert_v2(ynn_subgraph_t subgraph, uint32_t input_id,
+                                 ynn_type output_type, uint32_t* output_id,
+                                 uint32_t flags) {
+  return ynn_define_convert(subgraph, input_id, output_type,
+                            YNN_INVALID_VALUE_ID, YNN_INVALID_VALUE_ID,
+                            output_id, flags);
+}
+
+ynn_status ynn_define_quantize(ynn_subgraph_t subgraph, uint32_t input_id,
+                               ynn_type output_type, uint32_t zero_point_id,
+                               uint32_t scale_id, uint32_t* output_id,
+                               uint32_t flags) {
+  YNN_RETURN_IF_ERROR(validate_subgraph("quantize", subgraph));
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("quantize", subgraph, "input_id", input_id));
+  YNN_RETURN_IF_ERROR(validate_input_tensor("quantize", subgraph,
+                                            "zero_point_id", zero_point_id,
+                                            /*optional=*/true));
+  YNN_RETURN_IF_ERROR(validate_input_tensor("quantize", subgraph, "scale_id",
+                                            scale_id,
+                                            /*optional=*/true));
+  YNN_RETURN_IF_ERROR(
+      validate_output_tensor("quantize", subgraph, "output_id", output_id));
+
+  const ynn_value& a = subgraph->value(input_id);
+  ynn_value& x = subgraph->get_output_value(output_id, output_type,
+                                            zero_point_id, scale_id);
+
+  uint32_t x_scale_id =
+      scale_id != YNN_INVALID_VALUE_ID ? scale_id : x.scale_id;
+  uint32_t x_zero_point_id =
+      zero_point_id != YNN_INVALID_VALUE_ID ? zero_point_id : x.zero_point_id;
+  if (x_scale_id == YNN_INVALID_VALUE_ID &&
+      x_zero_point_id == YNN_INVALID_VALUE_ID) {
+    return ynn_define_convert_v2(subgraph, input_id, output_type, output_id,
+                                 flags);
+  }
+
+  if (x_scale_id == YNN_INVALID_VALUE_ID) {
+    x_scale_id = subgraph->get_scalar_value_id(1.0f);
+  }
+  if (x_zero_point_id == YNN_INVALID_VALUE_ID) {
+    x_zero_point_id = subgraph->get_scalar_value_id(0);
+  }
+
+  ternary_op op = x.type == ynn_type_int8 ? ternary_op::quantize_int8
+                                          : ternary_op::quantize_uint8;
+  ternary_kernel_fn kernel =
+      get_ternary_kernel(op, a.type, ynn_type_fp32, ynn_type_int32, x.type);
+  if (!kernel && a.type != ynn_type_fp32) {
+    YNN_LOG_DEBUG() << "No ternary kernel for operator " << op
+                    << ", input type " << a.type << " and output type "
+                    << x.type << ", attempting to convert to fp32.";
+
+    // Try converting a to fp32 first.
+    kernel = get_ternary_kernel(op, ynn_type_fp32, ynn_type_fp32,
+                                ynn_type_int32, x.type);
+    assert(kernel);
+    uint32_t input_float_id = YNN_INVALID_VALUE_ID;
+    ynn_status status = ynn_define_convert_v2(subgraph, input_id, ynn_type_fp32,
+                                              &input_float_id, /*flags=*/0);
+    if (status != ynn_status_success) {
+      return status;
+    }
+    input_id = input_float_id;
+  }
+
+  if (!kernel) {
+    YNN_LOG_ERROR() << "No ternary kernel found for quantize operator " << op
+                    << " with input type " << a.type << " and output type "
+                    << x.type;
+    return ynn_status_unsupported_parameter;
+  }
+
+  ynn_node node;
+  define_ternary(*subgraph, node, input_id, x_scale_id, x_zero_point_id,
+                 *output_id, op, kernel);
+  subgraph->add_node(std::move(node));
+  return ynn_status_success;
+}
+
+ynn_status ynn_define_dequantize(ynn_subgraph_t subgraph, uint32_t input_id,
+                                 uint32_t zero_point_id, uint32_t scale_id,
+                                 ynn_type output_type, uint32_t* output_id,
+                                 uint32_t flags) {
+  YNN_RETURN_IF_ERROR(validate_subgraph("dequantize", subgraph));
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("dequantize", subgraph, "input_id", input_id));
+  YNN_RETURN_IF_ERROR(validate_input_tensor("dequantize", subgraph,
+                                            "zero_point_id", zero_point_id,
+                                            /*optional=*/true));
+  YNN_RETURN_IF_ERROR(validate_input_tensor("dequantize", subgraph, "scale_id",
+                                            scale_id,
+                                            /*optional=*/true));
+  YNN_RETURN_IF_ERROR(
+      validate_output_tensor("dequantize", subgraph, "output_id", output_id));
+
+  const ynn_value& a = subgraph->value(input_id);
+  ynn_value& x = subgraph->get_output_value(output_id, output_type);
+
+  uint32_t a_scale_id =
+      scale_id != YNN_INVALID_VALUE_ID ? scale_id : a.scale_id;
+  uint32_t a_zero_point_id =
+      zero_point_id != YNN_INVALID_VALUE_ID ? zero_point_id : a.zero_point_id;
+  if (a_scale_id == YNN_INVALID_VALUE_ID &&
+      a_zero_point_id == YNN_INVALID_VALUE_ID) {
+    return ynn_define_convert_v2(subgraph, input_id, output_type, output_id,
+                                 flags);
+  }
+
+  if (a_scale_id == YNN_INVALID_VALUE_ID) {
+    a_scale_id = subgraph->get_scalar_value_id(1.0f);
+  }
+  if (a_zero_point_id == YNN_INVALID_VALUE_ID) {
+    // First try to find a multiply kernel for this.
+    binary_kernel_fn kernel =
+        get_binary_kernel(ynn_binary_multiply, a.type, ynn_type_fp32, x.type);
+    if (kernel) {
+      ynn_node node;
+      define_binary(*subgraph, node, input_id, a_scale_id, *output_id,
+                    ynn_binary_multiply, kernel);
+      subgraph->add_node(std::move(node));
+      return ynn_status_success;
+    }
+
+    // Try converting from fp32.
+    kernel = get_binary_kernel(ynn_binary_multiply, a.type, ynn_type_fp32,
+                               ynn_type_fp32);
+    if (kernel) {
+      uint32_t output_float_id = YNN_INVALID_VALUE_ID;
+      ynn_status status = ynn_define_tensor(
+          subgraph, ynn_type_fp32, /*rank=*/0, /*dims=*/nullptr,
+          /*data=*/nullptr, /*flags=*/0, &output_float_id);
+      if (status != ynn_status_success) {
+        return status;
+      }
+
+      ynn_node node;
+      define_binary(*subgraph, node, input_id, a_scale_id, output_float_id,
+                    ynn_binary_multiply, kernel);
+      subgraph->add_node(std::move(node));
+      return ynn_define_convert_v2(subgraph, output_float_id, x.type, output_id,
+                                   flags);
+    }
+
+    // We didn't handle it with a multiply, try to do it with a dequantize
+    // kernel.
+    a_zero_point_id = subgraph->get_scalar_value_id(0);
+  }
+
+  ternary_kernel_fn kernel = get_ternary_kernel(
+      ternary_op::dequantize, a.type, ynn_type_int32, ynn_type_fp32, x.type);
+
+  if (kernel) {
+    ynn_node node;
+    define_ternary(*subgraph, node, input_id, a_zero_point_id, a_scale_id,
+                   *output_id, ternary_op::dequantize, kernel);
+    subgraph->add_node(std::move(node));
+    return ynn_status_success;
+  } else if (x.type != ynn_type_fp32) {
+    YNN_LOG_DEBUG() << "No ternary kernel for operator dequantize, input type "
+                    << a.type << ", output type " << x.type
+                    << "; attempting to dequantize to fp32.";
+
+    kernel = get_ternary_kernel(ternary_op::dequantize, a.type, ynn_type_int32,
+                                ynn_type_fp32, ynn_type_fp32);
+    assert(kernel);
+
+    uint32_t output_float_id = YNN_INVALID_VALUE_ID;
+    ynn_status status =
+        ynn_define_tensor(subgraph, ynn_type_fp32, /*rank=*/0, /*dims=*/nullptr,
+                          /*data=*/nullptr, /*flags=*/0, &output_float_id);
+    if (status != ynn_status_success) {
+      return status;
+    }
+
+    ynn_node node;
+    define_ternary(*subgraph, node, input_id, a_zero_point_id, a_scale_id,
+                   output_float_id, ternary_op::dequantize, kernel);
+    subgraph->add_node(std::move(node));
+
+    return ynn_define_convert_v2(subgraph, output_float_id, x.type, output_id,
+                                 flags);
+  } else {
+    YNN_LOG_ERROR() << "No ternary kernel found for dequantize operator with "
+                       "input type "
+                    << a.type << " and output type " << x.type;
+    return ynn_status_unsupported_parameter;
+  }
 }
 
 ynn_status ynn_define_binary(ynn_subgraph_t subgraph, ynn_binary_operator op,
@@ -711,8 +876,6 @@ ynn_status ynn_define_binary(ynn_subgraph_t subgraph, ynn_binary_operator op,
       validate_output_tensor("binary", subgraph, "output_id", output_id));
   const ynn_value& a = subgraph->value(input_a_id);
   const ynn_value& b = subgraph->value(input_b_id);
-
-  // Propagate rank.
   ynn_value& x = subgraph->get_output_value(output_id, a);
 
   // Find the kernel.
@@ -733,18 +896,18 @@ ynn_status ynn_define_binary(ynn_subgraph_t subgraph, ynn_binary_operator op,
     if (!(a.type == ynn_type_fp32 && b.type == ynn_type_fp32)) {
       uint32_t a_fp32_id = YNN_INVALID_VALUE_ID;
       if (a.type != ynn_type_fp32) {
-        ynn_status status = ynn_define_convert(
-            subgraph, input_a_id, ynn_type_fp32, YNN_INVALID_VALUE_ID,
-            YNN_INVALID_VALUE_ID, &a_fp32_id, /*flags=*/0);
+        ynn_status status = ynn_define_dequantize(
+            subgraph, input_a_id, a.zero_point_id, a.scale_id, ynn_type_fp32,
+            &a_fp32_id, /*flags=*/0);
         if (status != ynn_status_success) return status;
       } else {
         a_fp32_id = input_a_id;
       }
       uint32_t b_fp32_id = YNN_INVALID_VALUE_ID;
       if (b.type != ynn_type_fp32) {
-        ynn_status status = ynn_define_convert(
-            subgraph, input_b_id, ynn_type_fp32, YNN_INVALID_VALUE_ID,
-            YNN_INVALID_VALUE_ID, &b_fp32_id, /*flags=*/0);
+        ynn_status status = ynn_define_dequantize(
+            subgraph, input_b_id, b.zero_point_id, b.scale_id, ynn_type_fp32,
+            &b_fp32_id, /*flags=*/0);
         if (status != ynn_status_success) return status;
       } else {
         b_fp32_id = input_b_id;
@@ -759,8 +922,8 @@ ynn_status ynn_define_binary(ynn_subgraph_t subgraph, ynn_binary_operator op,
                                               b_fp32_id, &x_fp32_id, flags);
         if (status != ynn_status_success) return status;
 
-        return ynn_define_convert(subgraph, x_fp32_id, x.type, x.zero_point_id,
-                                  x.scale_id, output_id, /*flags=*/0);
+        return ynn_define_quantize(subgraph, x_fp32_id, x.type, x.zero_point_id,
+                                   x.scale_id, output_id, /*flags=*/0);
       }
     }
 

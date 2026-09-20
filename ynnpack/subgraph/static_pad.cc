@@ -16,6 +16,7 @@
 #include "ynnpack/subgraph/slinky.h"
 #include "ynnpack/subgraph/subgraph.h"
 #include "slinky/builder/pipeline.h"
+#include "slinky/builder/simplify.h"
 #include "slinky/runtime/buffer.h"
 #include "slinky/runtime/expr.h"
 
@@ -62,9 +63,10 @@ ynn_status ynn_define_static_pad(ynn_subgraph_t subgraph, size_t num_axes,
 
   for (const ynn_node::static_pad::padding& p : op.paddings) {
     if ((p.pre_padding + p.post_padding) != 0) {
-      output.extents[p.axis] = output.extent(p.axis) +
-                               static_cast<slinky::index_t>(p.pre_padding) +
-                               static_cast<slinky::index_t>(p.post_padding);
+      output.extents[p.axis] =
+          slinky::simplify(output.extent(p.axis) +
+                           (static_cast<slinky::index_t>(p.pre_padding) +
+                            static_cast<slinky::index_t>(p.post_padding)));
     }
   }
 
@@ -110,13 +112,6 @@ ynn_status ynn_define_static_pad(ynn_subgraph_t subgraph, size_t num_axes,
                                   {output.buffer, std::move(dims)});
     }
 
-    auto sched = std::make_unique<ynn::scheduling_info>();
-    // Store at the innermost level.
-    ynn::scheduled_buffer sched_output_buffer = {output.buffer, 0};
-    sched->scheduled_buffers.push_back(std::move(sched_output_buffer));
-
-    f.user_data() = sched.get();
-    runtime.scheduling_info_storage.push_back(std::move(sched));
     runtime.funcs.push_back(std::move(f));
 
     return ynn_status_success;

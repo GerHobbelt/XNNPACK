@@ -30,6 +30,7 @@
 #include "ynnpack/subgraph/elementwise.h"
 #include "ynnpack/subgraph/fusion_lut.h"
 #include "ynnpack/subgraph/fusion_types.h"
+#include "ynnpack/subgraph/gather.h"
 #include "ynnpack/subgraph/reduce.h"
 #include "ynnpack/subgraph/static_transpose.h"
 #include "ynnpack/subgraph/stencil_copy.h"
@@ -320,6 +321,8 @@ struct ternary_rewrite {
   int a = 0;
   int b = 1;
   int c = 2;
+  // Which operands can be commuted with any other operand in the set.
+  int commutative_set = 0;
   // If this rewrite requires the inner binary op to appear as operand 0 or 1 of
   // the outer binary op, this optional should be set to that index.
   std::optional<int> inner_operand = std::nullopt;
@@ -328,16 +331,20 @@ struct ternary_rewrite {
 ternary_rewrite get_ternary_rewrite(ynn_binary_operator outer,
                                     ynn_binary_operator inner) {
   if (outer == ynn_binary_add && inner == ynn_binary_multiply) {
-    return {ternary_op::multiply_add, /*a=*/0, /*b=*/1, /*c=*/2};
+    return {ternary_op::multiply_add, /*a=*/0, /*b=*/1, /*c=*/2,
+            /*commutative_set=*/0b011};
   } else if (outer == ynn_binary_multiply && inner == ynn_binary_multiply) {
-    // TODO: b/504634617 - Our ternary multiply with mixed types assumes this
-    // order. We should generalize this to allow searching for kernels with
-    // operands in any order (or canonicalize based on type).
-    return {ternary_op::multiply, /*a=*/2, /*b=*/0, /*c=*/1};
+    return {ternary_op::multiply, /*a=*/0, /*b=*/1, /*c=*/2,
+            /*commutative_set=*/0b111};
   } else if (outer == ynn_binary_min && inner == ynn_binary_max) {
-    return {ternary_op::clamp, /*a=*/0, /*b=*/1, /*c=*/2};
+    return {ternary_op::clamp, /*a=*/0, /*b=*/1, /*c=*/2,
+            /*commutative_set=*/0b011};
   } else if (outer == ynn_binary_subtract && inner == ynn_binary_multiply) {
-    return {ternary_op::subtract_multiply, /*a=*/2, /*b=*/0, /*c=*/1,
+    return {ternary_op::subtract_multiply,
+            /*a=*/2,
+            /*b=*/0,
+            /*c=*/1,
+            /*commutative_set=*/0b110,
             /*inner_operand=*/1};
   } else {
     return {};
@@ -381,21 +388,38 @@ bool rewrite_ternary(ynn_subgraph& subgraph, ynn_node& node,
         node.inputs[1 - i],
     };
 
+    const uint32_t input_ids[] = {
+        ops[r.a],
+        ops[r.b],
+        ops[r.c],
+    };
+
     // This sequence of binary ops matches. Do we have a kernel for this case?
-    const ynn_value& a = subgraph.value(ops[r.a]);
-    const ynn_value& b = subgraph.value(ops[r.b]);
-    const ynn_value& c = subgraph.value(ops[r.c]);
-    const ynn_value& x = subgraph.value(node.outputs[0]);
-    const ynn::ternary_kernel_fn kernel =
-        ynn::get_ternary_kernel(r.op, a.type, b.type, c.type, x.type);
-    if (kernel != nullptr) {
-      // Yes we do. Rewrite this to a ternary op.
-      YNN_LOG_DEBUG() << "Rewriting " << to_string(outer->op) << "("
-                      << to_string(inner) << "(a, b), c) to " << to_string(r.op)
-                      << "(a, b, c)";
-      ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id, r.op, kernel);
-      return true;
-    }
+    int perm[3] = {0, 1, 2};
+    do {
+      if (any_n(3, [&](int i) {
+            return perm[i] != i && (r.commutative_set & (1 << i)) == 0;
+          })) {
+        // We commuted an operand we aren't allowed to commute.
+        continue;
+      }
+
+      const ynn_value& a = subgraph.value(input_ids[perm[0]]);
+      const ynn_value& b = subgraph.value(input_ids[perm[1]]);
+      const ynn_value& c = subgraph.value(input_ids[perm[2]]);
+      const ynn_value& x = subgraph.value(node.outputs[0]);
+      const ynn::ternary_kernel_fn kernel =
+          ynn::get_ternary_kernel(r.op, a.type, b.type, c.type, x.type);
+      if (kernel != nullptr) {
+        // Yes we do. Rewrite this to a ternary op.
+        YNN_LOG_DEBUG() << "Rewriting " << to_string(outer->op) << "("
+                        << to_string(inner) << "(a, b), c) to "
+                        << to_string(r.op) << "(a, b, c)";
+        ynn::define_ternary(subgraph, node, a.id, b.id, c.id, x.id, r.op,
+                            kernel);
+        return true;
+      }
+    } while (std::next_permutation(perm, perm + 3));
   }
   return false;
 }
@@ -2034,6 +2058,110 @@ bool rewrite_transpose_broadcast(ynn_subgraph& subgraph, ynn_node& node,
   return true;
 }
 
+bool is_constant_value(const ynn_subgraph& subgraph, uint32_t value_id,
+                       const subgraph_analysis& analysis) {
+  if (value_id == YNN_INVALID_VALUE_ID) return false;
+  const ynn_value& value = subgraph.value(value_id);
+  if (value.is_static()) return true;
+  if (value.is_external()) return false;
+  const ynn_node* producer = analysis.producer_of(value_id);
+  if (!producer) return false;
+  for (uint32_t input_id : producer->inputs) {
+    if (input_id != YNN_INVALID_VALUE_ID &&
+        !is_constant_value(subgraph, input_id, analysis)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+// Rewrite pack_b(gather(w, index, axes)) to
+// gather(pack_b(w), expand_dims(index), axes + 2)
+// where w is a constant tensor and all axes in gather are >= 2 (batch
+// dimensions).
+bool rewrite_pack_b_gather(ynn_subgraph& subgraph, ynn_node& node,
+                           subgraph_analysis& analysis) {
+  if (!std::holds_alternative<ynn_node::pack_b>(node.op)) return false;
+
+  ynn_node* producer = analysis.producer_of(node.inputs[0]);
+  if (!producer) return false;
+
+  const ynn_node::gather* gather_op =
+      std::get_if<ynn_node::gather>(&producer->op);
+  if (!gather_op) return false;
+
+  // Only rewrite if we won't break other consumers of the gather.
+  if (analysis.consumers[producer->outputs[0]].size() != 1 ||
+      subgraph.value(producer->outputs[0]).is_external_output()) {
+    return false;
+  }
+
+  // Check if gather axes are all >= 2 (batch dimensions in Slinky).
+  if (std::any_of(gather_op->axes.begin(), gather_op->axes.end(),
+                  [](int32_t axis) { return axis < 2; })) {
+    return false;
+  }
+
+  uint32_t w_id = producer->inputs[0];
+  uint32_t index_id = producer->inputs[1];
+  const ynn_value& w = subgraph.value(w_id);
+
+  // We only rewrite if the weights input is constant (so pack_b can be constant
+  // folded).
+  if (!is_constant_value(subgraph, w_id, analysis)) return false;
+
+  uint32_t packed_b_id = node.outputs[0];
+  const ynn_value& packed_b = subgraph.value(packed_b_id);
+
+  YNN_LOG_DEBUG()
+      << "Rewriting pack_b(gather(w, index)) to gather(pack_b(w), index)";
+
+  // 1. Shift gather axes by +2 (since pack_b expands dims 0, 1 into dims 0, 1,
+  // 2, 3)
+  std::vector<int32_t> new_axes = gather_op->axes;
+  for (int32_t& axis : new_axes) {
+    axis += 2;
+  }
+
+  // 2. Create a new value for packed_w
+  ynn_value& packed_w = subgraph.new_internal_value();
+  packed_w.type = w.type;
+  assert(packed_b.rank() >= 4);
+  packed_w.extents = {packed_b.extents[0], packed_b.extents[1],
+                      packed_b.extents[2], packed_b.extents[3]};
+  for (size_t d = 2; d < w.rank(); ++d) {
+    packed_w.extents.push_back(w.extents[d]);
+  }
+  uint32_t packed_w_id = packed_w.id;
+
+  // 3. Redefine producer (the old gather node) as pack_b(w)
+  producer->checks.clear();
+  producer->inputs = {w_id};
+  producer->outputs = {packed_w_id};
+  producer->op = ynn_node::pack_b{};
+  producer->create = node.create;
+
+  // 4. Expand index dimensions by inserting 2 unit dimensions at dims 0, 1 so
+  // that index batch dimensions align with packed_w batch dimensions (shifted
+  // by +2).
+  uint32_t new_index_id = YNN_INVALID_VALUE_ID;
+  ynn_node expand_node;
+  define_static_expand_dims(subgraph, expand_node, index_id, &new_index_id,
+                            /*new_axes=*/0b11);
+  subgraph.add_node(std::move(expand_node));
+
+  // 5. Redefine node (the old pack_b node) as gather(packed_w, new_index,
+  // new_axes)
+  node.checks.clear();
+  uint32_t output_id = packed_b_id;
+  define_gather(subgraph, node, std::move(new_axes), packed_b.rank(),
+                packed_w_id, new_index_id, output_id);
+
+  subgraph.topological_sort();
+  analysis.invalidate();
+  return true;
+}
+
 // Rewrites sum(a * b) to dot(a, b).
 // dot(a, b) is sum(a(., k1, k2, k3, i, ...) * b(j, k1, k2, k3, ., ...)) where .
 // indicates a new dimension. This rewrite looks for sums that can be transposed
@@ -2375,6 +2503,7 @@ ynn_status ynn_subgraph::fusion() {
                 ynn::rewrite_reduce_sum_of_squared(*this, node, analysis) ||
                 ynn::rewrite_reduce_convert(*this, node, analysis) ||
                 ynn::rewrite_reduce_static_transpose(*this, node, analysis) ||
+                ynn::rewrite_pack_b_gather(*this, node, analysis) ||
                 ynn::rewrite_fast_math(*this, node, analysis) ||
                 ynn::rewrite_requantize_quantize(*this, node, analysis) ||
                 false;

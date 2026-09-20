@@ -18,6 +18,7 @@
 #include "ynnpack/subgraph/runtime.h"
 #include "ynnpack/subgraph/test/scheduler.h"
 #include "ynnpack/subgraph/test/subgraph_builder.h"
+#include "slinky/builder/simplify.h"
 
 namespace ynn {
 namespace {

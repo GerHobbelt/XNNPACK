@@ -8,6 +8,9 @@ YNN_DOT_KERNEL(arch_flag::amxbf16, dot_bf16_bf16_fp32_16x64x32_16x16x2_amxbf16,
 YNN_DOT_KERNEL(arch_flag::amxbf16, dot_bf16_bf16_fp32_32x32x32_16x16x2_amxbf16,
                32, 32, 32, 16, 16, 2,
                /*flags=*/0, bfloat16, bfloat16, float)
+YNN_DOT_KERNEL(arch_flag::amxbf16, dot_bf16_bf16_fp32_32x48x32_16x16x2_amxbf16,
+               32, 48, 32, 16, 16, 2,
+               /*flags=*/0, bfloat16, bfloat16, float)
 #endif  // YNN_ARCH_X86_AMXBF16
 #ifdef YNN_ARCH_X86_AMXFP16
 YNN_DOT_KERNEL(arch_flag::amxfp16, dot_fp16_fp16_fp32_16x64x32_16x16x2_amxfp16,
@@ -47,6 +50,7 @@ YNN_DOT_KERNEL(arch_flag::amxint8, dot_uint8_int8_int32_32x32x64_16x16x4_amxint8
 #include "ynnpack/kernels/dot/x86_avx512_fp32_k2.inc"
 #include "ynnpack/kernels/dot/x86_avx512_fp32_k4.inc"
 #include "ynnpack/kernels/dot/x86_avx512_fp64.inc"
+#include "ynnpack/kernels/dot/x86_avx512_int8_int8_int32_symmetric_b.inc"
 #include "ynnpack/kernels/dot/x86_avx512_int8_int8_int32.inc"
 #include "ynnpack/kernels/dot/x86_avx512_int8_int8_int32_k1.inc"
 #include "ynnpack/kernels/dot/x86_avx512_int8_int8_int32_k16.inc"
@@ -124,6 +128,14 @@ YNN_DOT_KERNEL(arch_flag::sme, dot_int8_int8_int32_sme,
                sme_vl(int32_t{}), 4 * sme_vl(int32_t{}), 4, 1, sme_vl(int32_t{}), 4,
                dot_flag::transpose_a | dot_flag::consistent_arithmetic,
                int8_t, int8_t, int32_t)
+YNN_DOT_KERNEL(arch_flag::sme, dot_int8_int4_int32_sme,
+               sme_vl(int32_t{}), 4 * sme_vl(int32_t{}), 4, 1, sme_vl(int32_t{}), 4,
+               dot_flag::transpose_a | dot_flag::consistent_arithmetic,
+               int8_t, int4x2, int32_t)
+YNN_DOT_KERNEL(arch_flag::sme, dot_int8_int2_int32_sme,
+               sme_vl(int32_t{}), 4 * sme_vl(int32_t{}), 4, 1, sme_vl(int32_t{}), 4,
+               dot_flag::transpose_a | dot_flag::consistent_arithmetic,
+               int8_t, int2x4, int32_t)
 #endif  // YNN_ARCH_ARM64_SME
 #endif  // YNN_DISABLE_SME
 

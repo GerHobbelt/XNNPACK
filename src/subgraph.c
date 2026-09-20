@@ -1,5 +1,7 @@
 // Copyright 2020-2025 Google LLC
 //
+// Copyright 2026 Arm Limited and/or its affiliates <open-source-office@arm.com>
+//
 // This source code is licensed under the BSD-style license found in the
 // LICENSE file in the root directory of this source tree.
 
@@ -2346,6 +2348,11 @@ static bool convert_gemm_to_qduint8(
           XNN_UNREACHABLE;
       }
     }
+  } else if (input_datatype == xnn_datatype_bf16) {
+    if (consumer_weights_type == xnn_datatype_qbint4) {
+      original_config = xnn_init_qd8_bf16_qb4w_gemm_config();
+      unsigned_config = xnn_init_qdu8_bf16_qb4w_gemm_config();
+    }
   }
   // If the `qduint8` config is better than the `qdint8` config, use it
   // instead.
@@ -3205,7 +3212,7 @@ static void propagate_constants(xnn_subgraph_t subgraph, uint32_t node_id) {
 
         // The following ops preserve only ones.
         case xnn_unary_reciprocal_square_root:
-          output_value->flags |= (input_value->flags & XNN_VALUE_FLAG_IS_ZERO);
+          output_value->flags |= (input_value->flags & XNN_VALUE_FLAG_IS_ONE);
           break;
 
         // The following ops flip zeros to ones.
@@ -3345,6 +3352,13 @@ static void propagate_constants(xnn_subgraph_t subgraph, uint32_t node_id) {
           break;
 
         case xnn_binary_modulus:
+          // fmod(0, b) == 0, but fmod(1, b) is not 1 in general (e.g. fmod(1,1)==0),
+          // so modulus preserves only zeros, unlike prelu below.
+          if (a_is_zero) {
+            output_value->flags |= XNN_VALUE_FLAG_IS_ZERO;
+          }
+          break;
+
         case xnn_binary_prelu:
           if (a_is_zero) {
             output_value->flags |= XNN_VALUE_FLAG_IS_ZERO;
@@ -3991,10 +4005,26 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph,
             }
             break;
           case xnn_datatype_qint8:
-            if (input_datatype == output_datatype &&
-                kernel_datatype == xnn_datatype_qcint8) {
-              if ((gemm_config = xnn_init_pqs8_qc8w_gemm_config())) {
-                assumed_datatype = xnn_datatype_pqint8;
+            if (input_datatype == output_datatype) {
+              switch (kernel_datatype) {
+                case xnn_datatype_qcint4:
+                  if ((kernel_value->quantization.zero_point == 0 ||
+                       kernel_value->quantization.zero_point == 8) &&
+                      node->type == xnn_node_type_fully_connected &&
+                      (optimization_flags &
+                       XNN_FLAG_NO_INLINED_LHS_PACKING) == 0 &&
+                      (node->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) == 0 &&
+                      (gemm_config = xnn_init_pqs8_qc4w_gemm_config())) {
+                    assumed_datatype = xnn_datatype_pqint8;
+                  }
+                  break;
+                case xnn_datatype_qcint8:
+                  if ((gemm_config = xnn_init_pqs8_qc8w_gemm_config())) {
+                    assumed_datatype = xnn_datatype_pqint8;
+                  }
+                  break;
+                default:
+                  break;
               }
             }
             break;
@@ -4002,7 +4032,25 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph,
             // We may inline the `qdint8` packing regardless of whether we have
             // a specialized `qpint8` kernel or not.
             assumed_datatype = xnn_datatype_qdint8;
-            if (output_datatype == xnn_datatype_fp32) {
+            if (output_datatype == xnn_datatype_fp16) {
+              // The QP8/F16 packer consumes the convert's original FP16 input.
+              if (input_value->producer != XNN_INVALID_NODE_ID) {
+                const struct xnn_node* producer =
+                    &subgraph->nodes[input_value->producer];
+                const bool converts_from_fp16 =
+                    producer->type == xnn_node_type_convert &&
+                    subgraph->values[producer->inputs[0]].datatype ==
+                        xnn_datatype_fp16;
+                const bool has_qc8w_weights =
+                    kernel_datatype == xnn_datatype_qcint8 &&
+                    (node->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) == 0;
+                if (converts_from_fp16 && has_qc8w_weights &&
+                    (gemm_config = xnn_init_qp8_f16_qc8w_gemm_config()) !=
+                        NULL) {
+                  assumed_datatype = xnn_datatype_qpint8;
+                }
+              }
+            } else if (output_datatype == xnn_datatype_fp32) {
               switch (kernel_datatype) {
                 case xnn_datatype_qbint4:
                   // The qp8_f32_qb4w kernels only support unsigned 4-bit
@@ -4012,6 +4060,37 @@ enum xnn_status xnn_subgraph_optimize_packed_lhs(xnn_subgraph_t subgraph,
                     assumed_datatype = xnn_datatype_qpint8;
                   }
                   break;
+                case xnn_datatype_qcint2: {
+                  bool zero_points_are_zero = true;
+                  const float* zero_points =
+                      kernel_value->quantization.channelwise_zero_point;
+                  if (zero_points == NULL) {
+                    zero_points_are_zero =
+                        kernel_value->quantization.zero_point == 0;
+                  } else {
+                    const size_t channels = kernel_value->shape.dim[
+                        kernel_value->quantization.channel_dimension];
+                    for (size_t channel = 0; channel < channels; channel++) {
+                      if (zero_points[channel] != 0.0f) {
+                        zero_points_are_zero = false;
+                        break;
+                      }
+                    }
+                  }
+                  const size_t input_channels = input_value->shape.dim[
+                      input_value->shape.num_dims - 1];
+                  if (node->type == xnn_node_type_fully_connected &&
+                      (optimization_flags &
+                       XNN_FLAG_NO_INLINED_LHS_PACKING) == 0 &&
+                      (node->flags & XNN_FLAG_TRANSPOSE_WEIGHTS) == 0 &&
+                      input_channels != 0 && input_channels % 32 == 0 &&
+                      zero_points_are_zero &&
+                      (gemm_config =
+                           xnn_init_qp8_f32_qc2w_gemm_config())) {
+                    assumed_datatype = xnn_datatype_qpint8;
+                  }
+                  break;
+                }
                 case xnn_datatype_qcint4:
                   if ((gemm_config = xnn_init_qp8_f32_qc4w_gemm_config())) {
                     assumed_datatype = xnn_datatype_qpint8;

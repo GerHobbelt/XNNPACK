@@ -35,29 +35,29 @@ namespace ynn {
 namespace {
 
 // Call a unary kernel.
-auto make_unary_elementwise_impl(unary_kernel_fn kernel) {
-  return
-      [kernel](slinky::raw_buffer a, slinky::raw_buffer x) -> slinky::index_t {
-        slinky::dim a_dims[2], x_dims[2];
+auto make_unary_elementwise_impl(unary_kernel_fn kernel, unary_params params) {
+  return [kernel, params](slinky::raw_buffer a,
+                          slinky::raw_buffer x) -> slinky::index_t {
+    slinky::dim a_dims[2], x_dims[2];
 
-        fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a);
+    fuse_and_slice_leading_dims<2>(&x_dims[0], x, &a_dims[0], a);
 
-        // We don't support broadcasting of `a` here in the innermost
-        // dimension (and it would waste computation).
-        assert(is_continguous(a_dims[0], a.elem_size));
+    // We don't support broadcasting of `a` here in the innermost
+    // dimension (and it would waste computation).
+    assert(is_continguous(a_dims[0], a.elem_size));
 
-        const slinky::dim& x_n = x_dims[0];
-        const slinky::dim& a_m = a_dims[1];
-        const slinky::dim& x_m = x_dims[1];
+    const slinky::dim& x_n = x_dims[0];
+    const slinky::dim& a_m = a_dims[1];
+    const slinky::dim& x_m = x_dims[1];
 
-        slinky::for_each_element(
-            [&](void* x, const void* a) {
-              kernel(x_m.extent(), x_n.extent(), a_m.stride(), a, x_m.stride(),
-                     x);
-            },
-            x, a);
-        return 0;
-      };
+    slinky::for_each_element(
+        [&](void* x, const void* a) {
+          kernel(x_m.extent(), x_n.extent(), a_m.stride(), a, x_m.stride(), x,
+                 &params);
+        },
+        x, a);
+    return 0;
+  };
 }
 
 // Call a lut kernel.
@@ -100,7 +100,7 @@ auto make_binary_elementwise_impl(binary_kernel_fn kernel) {
     slinky::for_each_element(
         [&](void* x, const void* a, const void* b) {
           kernel(x_m.extent(), x_n.extent(), a_m.stride(), a_n.stride(), a,
-                 b_m.stride(), b_n.stride(), b, x_m.stride(), x);
+                 b_m.stride(), b_n.stride(), b, x_m.stride(), x, nullptr);
         },
         x, a, b);
     return 0;
@@ -140,7 +140,7 @@ auto make_ternary_elementwise_impl(ternary_kernel_fn kernel) {
             [&](void* x, const void* a, const void* b, const void* c) {
               kernel(x_m.extent(), x_n.extent(), a_m.stride(), a_n.stride(), a,
                      b_m.stride(), b_n.stride(), b, c_m.stride(), c_n.stride(),
-                     c, x_m.stride(), x);
+                     c, x_m.stride(), x, nullptr);
             },
             x, a, b, c);
         return 0;
@@ -165,6 +165,9 @@ ynn_status create_unary(const ynn_node& node, ynn_runtime& runtime,
                         unary_kernel_fn kernel) {
   assert(node.inputs.size() == 1);
   assert(node.outputs.size() == 1);
+
+  const unary_params& params =
+      std::get<ynn_node::unary_elementwise>(node.op).params;
 
   ynn_runtime_value& a = runtime.value(node.inputs[0]);
   // Unary ops can't handle broadcasting. By constraining the stride of the
@@ -191,11 +194,11 @@ ynn_status create_unary(const ynn_node& node, ynn_runtime& runtime,
 
   slinky::call_stmt::attributes attrs;
   attrs.name = to_string(std::get<ynn_node::unary_elementwise>(node.op).op);
-  attrs.allow_in_place = compute_allow_in_place(node, runtime.subgraph);
+  attrs.allow_in_place = compute_allow_in_place(node, *runtime.subgraph);
 
-  slinky::func func = slinky::func::make(make_unary_elementwise_impl(kernel),
-                                         {{a.buffer, std::move(bounds)}},
-                                         {{x.buffer, dims}}, std::move(attrs));
+  slinky::func func = slinky::func::make(
+      make_unary_elementwise_impl(kernel, params),
+      {{a.buffer, std::move(bounds)}}, {{x.buffer, dims}}, std::move(attrs));
 
   auto sched = runtime.make_schedule(dims, x.buffer, node.outputs[0]);
   func.user_data() = sched.get();
@@ -223,7 +226,7 @@ ynn_status create_lut(const ynn_node& node, ynn_runtime& runtime,
 
   slinky::call_stmt::attributes attrs;
   attrs.name = "lut";
-  attrs.allow_in_place = compute_allow_in_place(node, runtime.subgraph);
+  attrs.allow_in_place = compute_allow_in_place(node, *runtime.subgraph);
 
   auto func = slinky::func::make(
       make_lut_impl(kernel),
@@ -251,7 +254,7 @@ ynn_status create_binary(const ynn_node& node, ynn_runtime& runtime,
 
   slinky::call_stmt::attributes attrs;
   attrs.name = to_string(std::get<ynn_node::binary_elementwise>(node.op).op);
-  attrs.allow_in_place = compute_allow_in_place(node, runtime.subgraph);
+  attrs.allow_in_place = compute_allow_in_place(node, *runtime.subgraph);
 
   // Make the dims and bounds for this operation (does not depend on the
   // specific operation.)
@@ -287,7 +290,7 @@ ynn_status create_ternary(const ynn_node& node, ynn_runtime& runtime,
 
   slinky::call_stmt::attributes attrs;
   attrs.name = to_string(std::get<ynn_node::ternary_elementwise>(node.op).op);
-  attrs.allow_in_place = compute_allow_in_place(node, runtime.subgraph);
+  attrs.allow_in_place = compute_allow_in_place(node, *runtime.subgraph);
 
   // Make the dims and bounds for this operation (does not depend on the
   // specific operation.)
@@ -332,11 +335,11 @@ void infer_shape(ynn_node& node, ynn_subgraph& subgraph) {
 
 void define_unary(ynn_subgraph& subgraph, ynn_node& node, uint32_t input_a_id,
                   uint32_t output_id, ynn_unary_operator op,
-                  unary_kernel_fn kernel) {
+                  unary_kernel_fn kernel, unary_params params) {
   // Make the node.
   node.inputs = {input_a_id};
   node.outputs = {output_id};
-  node.op = ynn_node::unary_elementwise{op};
+  node.op = ynn_node::unary_elementwise{op, params};
   infer_shape(node, subgraph);
   node.create = [kernel](const ynn_node& node, ynn_runtime& runtime) {
     return create_unary(node, runtime, kernel);
@@ -395,26 +398,9 @@ void define_lut(ynn_subgraph& subgraph, ynn_node& node, uint32_t input_id,
 
 extern "C" {
 
-ynn_status ynn_define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
-                            uint32_t input_a_id, uint32_t* output_id,
-                            uint32_t flags) {
-  // Validate arguments.
-  assert(subgraph);
-  if (op == ynn_unary_invalid) {
-    YNN_LOG_ERROR() << "invalid unary operator of input " << input_a_id;
-    return ynn_status_invalid_parameter;
-  }
-  assert(subgraph->is_valid_value(input_a_id));
-  assert(output_id);
-
-  if (op == ynn_unary_convert) {
-    assert(*output_id != YNN_INVALID_VALUE_ID);
-
-    const ynn_value& x = subgraph->value(*output_id);
-    return ynn_define_convert(subgraph, input_a_id, x.type, x.zero_point_id,
-                              x.scale_id, output_id, flags);
-  }
-
+ynn_status define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
+                        uint32_t input_a_id, unary_params params,
+                        uint32_t* output_id, uint32_t flags) {
   const ynn_value& a = subgraph->value(input_a_id);
 
   // Propagate rank.
@@ -438,7 +424,8 @@ ynn_status ynn_define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
       }
 
       uint32_t x_float_id = YNN_INVALID_VALUE_ID;
-      status = ynn_define_unary(subgraph, op, a_float_id, &x_float_id, flags);
+      status =
+          define_unary(subgraph, op, a_float_id, params, &x_float_id, flags);
       if (status != ynn_status_success) {
         return status;
       }
@@ -454,19 +441,75 @@ ynn_status ynn_define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
 
   // Make the node.
   ynn_node node;
-  ynn::define_unary(*subgraph, node, input_a_id, *output_id, op, kernel);
+  ynn::define_unary(*subgraph, node, input_a_id, *output_id, op, kernel,
+                    params);
   subgraph->add_node(std::move(node));
   return ynn_status_success;
+}
+
+ynn_status ynn_define_unary(ynn_subgraph_t subgraph, ynn_unary_operator op,
+                            uint32_t input_a_id, uint32_t* output_id,
+                            uint32_t flags) {
+  YNN_RETURN_IF_ERROR(validate_subgraph("unary", subgraph));
+  if (op == ynn_unary_invalid) {
+    YNN_LOG_ERROR() << "invalid unary operator of input " << input_a_id;
+    return ynn_status_invalid_parameter;
+  }
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("unary", subgraph, "input_a_id", input_a_id));
+  YNN_RETURN_IF_ERROR(
+      validate_output_tensor("unary", subgraph, "output_id", output_id));
+
+  if (op == ynn_unary_convert) {
+    if (*output_id == YNN_INVALID_VALUE_ID) {
+      YNN_LOG_ERROR() << "For node `unary` with operator `ynn_unary_convert`, "
+                         "output_id must be valid";
+      return ynn_status_invalid_parameter;
+    }
+
+    const ynn_value& x = subgraph->value(*output_id);
+    return ynn_define_convert(subgraph, input_a_id, x.type, x.zero_point_id,
+                              x.scale_id, output_id, flags);
+  }
+
+  return define_unary(subgraph, op, input_a_id, get_unary_params(op), output_id,
+                      flags);
+}
+
+ynn_status ynn_define_unary_polynomial(ynn_subgraph_t subgraph,
+                                       uint32_t input_id, size_t degree,
+                                       const float* coefficients,
+                                       uint32_t* output_id, uint32_t flags) {
+  YNN_RETURN_IF_ERROR(validate_subgraph("unary_polynomial", subgraph));
+  YNN_RETURN_IF_ERROR(validate_input_tensor("unary_polynomial", subgraph,
+                                            "input_id", input_id));
+  YNN_RETURN_IF_ERROR(validate_output_tensor("unary_polynomial", subgraph,
+                                             "output_id", output_id));
+
+  if (degree > 3) {
+    YNN_LOG_ERROR() << "Only degree 3 polynomials are supported.";
+    return ynn_status_unsupported_parameter;
+  }
+
+  unary_params params;
+  params.poly3.c0 = coefficients[0];
+  params.poly3.c1 = 1 <= degree ? coefficients[1] : 0.0f;
+  params.poly3.c2 = 2 <= degree ? coefficients[2] : 0.0f;
+  params.poly3.c3 = 3 <= degree ? coefficients[3] : 0.0f;
+
+  return define_unary(subgraph, ynn_unary_poly3, input_id, params, output_id,
+                      flags);
 }
 
 ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
                               ynn_type output_type, uint32_t zero_point_id,
                               uint32_t scale_id, uint32_t* output_id,
                               uint32_t flags) {
-  // Validate arguments.
-  assert(subgraph);
-  assert(subgraph->is_valid_value(input_id));
-  assert(output_id);
+  YNN_RETURN_IF_ERROR(validate_subgraph("unary", subgraph));
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("unary", subgraph, "input_id", input_id));
+  YNN_RETURN_IF_ERROR(
+      validate_output_tensor("unary", subgraph, "output_id", output_id));
 
   const ynn_value& a = subgraph->value(input_id);
 
@@ -641,7 +684,7 @@ ynn_status ynn_define_convert(ynn_subgraph_t subgraph, uint32_t input_id,
   ynn_node node;
   node.inputs = {input_id};
   node.outputs = {*output_id};
-  node.op = ynn_node::unary_elementwise{ynn_unary_convert};
+  node.op = ynn_node::unary_elementwise{ynn_unary_convert, unary_params{}};
   infer_shape(node, *subgraph);
   node.create = [kernel](const ynn_node& node, ynn_runtime& runtime) {
     return create_unary(node, runtime, kernel);
@@ -654,15 +697,18 @@ ynn_status ynn_define_binary(ynn_subgraph_t subgraph, ynn_binary_operator op,
                              uint32_t input_a_id, uint32_t input_b_id,
                              uint32_t* output_id, uint32_t flags) {
   // Validate arguments.
-  assert(subgraph);
+  YNN_RETURN_IF_ERROR(validate_subgraph("binary", subgraph));
   if (op == ynn_binary_invalid) {
-    YNN_LOG_ERROR() << "invalid binary operator of inputs " << input_a_id
-                    << ", " << input_b_id;
+    YNN_LOG_ERROR() << "For node `binary`, invalid binary operator of inputs "
+                    << input_a_id << ", " << input_b_id;
     return ynn_status_invalid_parameter;
   }
-  assert(subgraph->is_valid_value(input_a_id));
-  assert(subgraph->is_valid_value(input_b_id));
-  assert(output_id);
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("binary", subgraph, "input_a_id", input_a_id));
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("binary", subgraph, "input_b_id", input_b_id));
+  YNN_RETURN_IF_ERROR(
+      validate_output_tensor("binary", subgraph, "output_id", output_id));
   const ynn_value& a = subgraph->value(input_a_id);
   const ynn_value& b = subgraph->value(input_b_id);
 
@@ -734,24 +780,26 @@ ynn_status ynn_define_binary(ynn_subgraph_t subgraph, ynn_binary_operator op,
 ynn_status ynn_define_lut(ynn_subgraph_t subgraph, uint32_t input_id,
                           uint32_t lut_id, uint32_t* output_id,
                           uint32_t flags) {
-  assert(subgraph);
-  assert(subgraph->is_valid_value(input_id));
-  assert(subgraph->is_valid_value(lut_id));
-  assert(output_id);
+  YNN_RETURN_IF_ERROR(validate_subgraph("lut", subgraph));
+  YNN_RETURN_IF_ERROR(
+      validate_input_tensor("lut", subgraph, "input_id", input_id));
+  YNN_RETURN_IF_ERROR(validate_input_tensor("lut", subgraph, "lut_id", lut_id));
+  YNN_RETURN_IF_ERROR(
+      validate_output_tensor("lut", subgraph, "output_id", output_id));
 
   const ynn_value& a = subgraph->value(input_id);
   const ynn_value& lut = subgraph->value(lut_id);
 
   if (!ynn::type_is_integral(a.type)) {
-    YNN_LOG_ERROR() << "Input must be integral, got " << a.type;
+    YNN_LOG_ERROR() << "For node `lut`, input must be integral, got " << a.type;
     return ynn_status_invalid_parameter;
   }
   if (!ynn::type_is_integral(lut.type)) {
-    YNN_LOG_ERROR() << "lut input must be uint8 or int8, got " << lut.type;
+    YNN_LOG_ERROR() << "For node `lut`, lut must be integral, got " << lut.type;
     return ynn_status_invalid_parameter;
   }
   if (lut.rank() != 1) {
-    YNN_LOG_ERROR() << "lut input must be 1D, got " << lut.rank();
+    YNN_LOG_ERROR() << "For node `lut`, lut must be 1D, got " << lut.rank();
     return ynn_status_invalid_parameter;
   }
 

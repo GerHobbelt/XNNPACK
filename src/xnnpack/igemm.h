@@ -1246,6 +1246,13 @@ DECLARE_QU8_IGEMM_MINMAX_UKERNEL_FUNCTION(
 DECLARE_QU8_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qu8_igemm_minmax_fp32_ukernel_4x4__scalar_lrintf)
 
+DECLARE_QU8_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qu8_igemm_minmax_fp32_ukernel_1x1v__rvv)
+DECLARE_QU8_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qu8_igemm_minmax_fp32_ukernel_4x1v__rvv)
+DECLARE_QU8_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qu8_igemm_minmax_fp32_ukernel_7x1v__rvv)
+
 #define DECLARE_QD8_F16_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(fn_name)          \
   XNN_INTERNAL void fn_name(                                                 \
       size_t mr, size_t nc, size_t kc, size_t ks, const int8_t** a,          \
@@ -1417,6 +1424,13 @@ DECLARE_QD8_F16_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f16_qc8w_igemm_minmax_ukernel_16x64c4__avx512amx)
 DECLARE_QD8_F16_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f16_qc8w_igemm_minmax_ukernel_16x64c4__avx512amx_prfm)
+
+DECLARE_QD8_F16_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f16_qc8w_igemm_minmax_ukernel_1x2v__rvvfp16arith)
+DECLARE_QD8_F16_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f16_qc8w_igemm_minmax_ukernel_4x2v__rvvfp16arith)
+DECLARE_QD8_F16_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f16_qc8w_igemm_minmax_ukernel_7x2v__rvvfp16arith)
 
 #define DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(fn_name)          \
   XNN_INTERNAL void fn_name(                                                 \
@@ -1612,6 +1626,16 @@ DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_4x16c4__wasmusdot_u2)
 
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x16c4__wasmsdot)
+DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f32_qc8w_igemm_minmax_ukernel_4x16c4__wasmsdot)
+
+DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x16c4__wasmsdot_u2)
+DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f32_qc8w_igemm_minmax_ukernel_4x16c4__wasmsdot_u2)
+
+DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c2__wasmsimd_dot16x2_ld64)
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c2__wasmsimd_dot16x2_ld128)
@@ -1623,6 +1647,8 @@ DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c8__wasmsimd_dot16x2_ld64)
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c8__wasmsimd_dot16x2_ld128)
+DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x16c2s2__wasmsimd_dot16x2)
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_2x4c2__wasmsimd_dot16x2_ld64)
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
@@ -1659,6 +1685,8 @@ DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_4x4c8__wasmsimd_dot16x2_ld64)
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_4x4c8__wasmsimd_dot16x2_ld128)
+DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
+    xnn_qd8_f32_qc8w_igemm_minmax_ukernel_4x16c2s2__wasmsimd_dot16x2)
 
 DECLARE_QD8_F32_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qd8_f32_qc8w_igemm_minmax_ukernel_1x4c8__avx_ld64)
@@ -2825,11 +2853,11 @@ DECLARE_QS8_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_5x8c8__avxvnniint8_prfm)
 
 DECLARE_QS8_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
-    xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x4v__rvv)
+    xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x1v__rvv)
 DECLARE_QS8_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
-    xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_4x4v__rvv)
+    xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_4x1v__rvv)
 DECLARE_QS8_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
-    xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_7x4v__rvv)
+    xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_7x1v__rvv)
 
 DECLARE_QS8_QC8W_IGEMM_MINMAX_UKERNEL_FUNCTION(
     xnn_qs8_qc8w_igemm_minmax_fp32_ukernel_1x32c4__hvx)

@@ -8,6 +8,7 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=invalid-name
 
+from ynnpack.kernels.dot.generator.dot_base import generate_dot_kernels
 from ynnpack.kernels.dot.generator.x86 import x86_avx
 from ynnpack.kernels.dot.generator.x86 import x86_avx512
 
@@ -26,7 +27,7 @@ class x86_avx2_fp32_k2(x86_avx):
     return super().header() + """
 namespace {
 
-YNN_INTRINSIC __m256 unaligned_load_broadcast_x2(const float* ptr) {
+YNN_INTRINSIC __m256 unaligned_load_broadcast_f32x2(const float* ptr) {
     double value;
     memcpy(&value, ptr, sizeof(value));
     return _mm256_castpd_ps(_mm256_set1_pd(value));
@@ -41,13 +42,14 @@ YNN_INTRINSIC __m256 unaligned_load_broadcast_x2(const float* ptr) {
   def finalize_c_tile(self, i, j):
     if j % 8 != 0:
       return ""
+    c_ij = f"c_{i}_{j}"
+    mm = self._mm()
     if j + 4 < self.block_shape[1]:
-      result = f"c_{i}_{j} = _mm256_hadd_ps(c_{i}_{j}, c_{i}_{j+4});\n"
+      result = f"{c_ij} = {mm}_hadd_ps({c_ij}, c_{i}_{j+4});\n"
     else:
-      result = f"c_{i}_{j} = _mm256_hadd_ps(c_{i}_{j}, _mm256_setzero_ps());\n"
+      result = f"{c_ij} = {mm}_hadd_ps({c_ij}, {mm}_setzero_ps());\n"
     result += (
-        f"c_{i}_{j} ="
-        f" _mm256_castsi256_ps(_mm256_permute4x64_epi64(_mm256_castps_si256(c_{i}_{j}),"
+        f"{c_ij} = {mm}_castpd_ps({mm}_permute4x64_pd({mm}_castps_pd({c_ij}),"
         " 216));\n"
     )
     return result
@@ -59,18 +61,16 @@ YNN_INTRINSIC __m256 unaligned_load_broadcast_x2(const float* ptr) {
     return super().store_c_tile(i, j) if j % 8 == 0 else ""
 
   def load_a_tile(self, i, k):
-    return (
-        f"__m256 a_{i}_{k} = unaligned_load_broadcast_x2({self.a_ptr(i, k)});\n"
-    )
+    a_ptr = self.a_ptr(i, k)
+    return f"__m256 a_{i}_{k} = unaligned_load_broadcast_f32x2({a_ptr});\n"
 
   def load_b_tile(self, k, j):
     return f"__m256 b_{k}_{j} = _mm256_load_ps({self.b_ptr(k, j)});\n"
 
   def product(self, i, j, k):
-    return (
-        f"c_{i}_{j} = _mm256_add_ps(c_{i}_{j}, _mm256_mul_ps(a_{i}_{k},"
-        f" b_{k}_{j}));\n"
-    )
+    c_ij = f"c_{i}_{j}"
+    mm = self._mm()
+    return f"{c_ij} = {mm}_add_ps({c_ij}, {mm}_mul_ps(a_{i}_{k}, b_{k}_{j}));\n"
 
 
 class x86_avx2_fma3_fp32_k2(x86_avx2_fp32_k2):
@@ -95,7 +95,7 @@ class x86_avx512_fp32_k2(x86_avx512):
     return super().header() + """
 namespace {
 
-YNN_INTRINSIC __m512 unaligned_load_broadcast_x2(const float* ptr) {
+YNN_INTRINSIC __m512 unaligned_load_broadcast_f32x2(const float* ptr) {
     double value;
     memcpy(&value, ptr, sizeof(value));
     return _mm512_castpd_ps(_mm512_set1_pd(value));
@@ -139,12 +139,68 @@ c_{i}_{j} = _mm512_permutexvar_ps({even}, c_{i}_{j});
     return super().store_c_tile(i, j) if j % 16 == 0 else ""
 
   def load_a_tile(self, i, k):
-    return (
-        f"__m512 a_{i}_{k} = unaligned_load_broadcast_x2({self.a_ptr(i, k)});\n"
-    )
+    a_ptr = self.a_ptr(i, k)
+    return f"__m512 a_{i}_{k} = unaligned_load_broadcast_f32x2({a_ptr});\n"
 
   def load_b_tile(self, k, j):
     return f"__m512 b_{k}_{j} = _mm512_load_ps({self.b_ptr(k, j)});\n"
 
   def product(self, i, j, k):
     return f"c_{i}_{j} = _mm512_fmadd_ps(a_{i}_{k}, b_{k}_{j}, c_{i}_{j});\n"
+
+
+generate_dot_kernels(
+    x86_avx2_fp32_k2(),
+    [
+        (1, 16, 2),
+        (2, 16, 2),
+        (3, 8, 2),
+        (4, 8, 2),
+        (5, 8, 2),
+        (6, 8, 2),
+        (4, 4, 2),
+        (5, 4, 2),
+        (6, 4, 2),
+        (8, 4, 2),
+    ],
+)
+
+generate_dot_kernels(
+    x86_avx2_fma3_fp32_k2(),
+    [
+        (1, 16, 2),
+        (2, 16, 2),
+        (3, 8, 2),
+        (4, 8, 2),
+        (5, 8, 2),
+        (6, 8, 2),
+        (4, 4, 2),
+        (5, 4, 2),
+        (6, 4, 2),
+        (8, 4, 2),
+    ],
+)
+
+generate_dot_kernels(
+    x86_avx512_fp32_k2(),
+    [
+        (1, 32, 2),
+        (2, 32, 2),
+        (3, 32, 2),
+        (4, 32, 2),
+        (5, 32, 2),
+        # The kernels which are commented out should be good, but for some
+        # reason they don't perform well. They don't seem to spill, so keeping
+        # them until we understand why are they slower.
+        # (6, 32, 2),
+        (4, 16, 2),
+        # (5, 16, 2),
+        # (6, 16, 2),
+        # (8, 16, 2),
+        # (10, 16, 2),
+        (4, 8, 2),
+        (8, 8, 2),
+        # (12, 8, 2),
+        # (16, 8, 2),
+    ],
+)

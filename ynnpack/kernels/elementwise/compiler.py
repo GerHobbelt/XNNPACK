@@ -23,11 +23,10 @@ class Type:
     return hash((self.type_class, self.size, self.lanes))
 
   def __eq__(self, other):
-    return (self.type_class, self.size, self.lanes) == (
+    return (self.type_class, self.size) == (
         other.type_class,
         other.size,
-        other.lanes,
-    )
+    ) and ((self.lanes == other.lanes) or other.lanes == 0 or self.lanes == 0)
 
   def is_int(self):
     return self.type_class == "int"
@@ -70,10 +69,18 @@ class Type:
     if self.size == 0:
       result += "ssize_t" if self.is_int() else "size_t"
     else:
-      result += self.type_class + str(self.size)
+      if self.type_class == "float" and self.size == 16:
+        result += "half"
+      elif self.type_class == "float" and self.size == 32:
+        result += "float"
+      elif self.type_class == "bfloat" and self.size == 16:
+        result += "bfloat16"
+      else:
+        result += self.type_class + str(self.size)
       if self.lanes > 1:
         result += "x" + str(self.lanes)
-      result += "_t"
+      if self.is_int() or self.is_uint() or self.lanes > 1:
+        result += "_t"
     while indirection > 0:
       result += "*"
       indirection -= 1
@@ -98,10 +105,6 @@ class Type:
       return float("inf")
     else:
       assert False
-
-
-def Index():
-  return Type("size_t", 0, 0)
 
 
 def Int(size=0, lanes=1):
@@ -305,7 +308,6 @@ class Op(Value):
     return self.name == other.name and self.ty == other.ty
 
   def with_lanes(self, lanes):
-    assert self.name != "combine" and self.name != "slice", self
     return Op(
         self.ty.with_lanes(lanes),
         self.name,
@@ -346,17 +348,16 @@ class Var(Value):
 class Load(Value):
   """A load node."""
 
-  def __init__(self, ty, index, offset_elements):
+  def __init__(self, ty, index):
     Value.__init__(self, ty)
     self.name = "load"
     self.index = index
-    self.offset_elements = offset_elements
 
   def __repr__(self):
-    return f"load<{self.ty}>({self.index}, {self.offset_elements})"
+    return f"load<{self.ty}>({self.index})"
 
   def with_lanes(self, lanes):
-    return Load(self.ty.with_lanes(lanes), self.index, self.offset_elements)
+    return Load(self.ty.with_lanes(lanes), self.index)
 
   def compare(self, other):
     if type(self) is not type(other):
@@ -364,7 +365,6 @@ class Load(Value):
 
     return (
         self.index == other.index
-        and self.offset_elements == other.offset_elements
         and self.ty == other.ty
     )
 
@@ -488,15 +488,15 @@ def widening_mul(x, y):
 
 # Computes saturating_narrow(widen(x) + widen(y))
 @intrinsic
-def saturating_add(x, y):
+def add_sat(x, y):
   assert x.ty == y.ty
-  return Op(x.ty, "saturating_add", [x, y])
+  return Op(x.ty, "add_sat", [x, y])
 
 
 @intrinsic
-def saturating_sub(x, y):
+def sub_sat(x, y):
   assert x.ty == y.ty
-  return Op(x.ty, "saturating_sub", [x, y])
+  return Op(x.ty, "sub_sat", [x, y])
 
 
 # Computes x * y + z
@@ -571,6 +571,13 @@ def select(cond, x, y):
   return Op(x.ty, "select", [cond, x, y])
 
 
+@intrinsic
+def select_greater_than(a, b, x, y):
+  assert x.ty == y.ty
+  a_pr, b_pr = promote_types(a, b)
+  return Op(x.ty, "select_greater_than", [a_pr, b_pr, x, y])
+
+
 # We assume that cond produces a mask.
 def lower_select(cond, x, y):
   if x.ty.is_float():
@@ -585,8 +592,8 @@ def lower_select(cond, x, y):
     return (x & cond) | (y & ~cond)
 
 
-def load(x, offset_index=0):
-  return Load(x.ty, x, offset_index)
+def load(x):
+  return Load(x.ty, x)
 
 
 def store(value, to):
@@ -599,10 +606,6 @@ def lower_widening_sub(x, y):
 
 def lower_widening_mul(x, y):
   return widen(x) * widen(y)
-
-
-def lower_saturating_add(x, y):
-  return saturating_narrow(widen(x) + widen(y))
 
 
 def lower_multiply_add(x, y, z):
@@ -629,26 +632,11 @@ def broadcast(x, lanes):
   return Op(x.ty.with_lanes(lanes), "broadcast", [x])
 
 
-def combine_vectors(args):
-  total_lanes = 0
-  for arg in args:
-    assert arg.ty == args[0].ty
-    total_lanes += arg.ty.lanes
-
-  return Op(args[0].ty.with_lanes(total_lanes), "combine", args)
-
-
-def slice_vector(arg, index, total):
-  sliced_ty = arg.ty.with_lanes(arg.ty.lanes // total)
-  return Op(sliced_ty, "slice", [arg, i32(index), i32(total)])
-
-
 # Would it be bad if instead of using a map we looked up in a global namespace
 # if there is a function called "lower" + op.name?
 lowering_funcs = {
     "widening_sub": lower_widening_sub,
     "widening_mul": lower_widening_mul,
-    "saturating_add": lower_saturating_add,
     "select_bits": lower_select_bits,
     "select": lower_select,
     "multiply_add": lower_multiply_add,
@@ -713,6 +701,13 @@ class BroadcastMode(enum.Enum):
   AUTO = 5
 
 
+class Scalar:
+
+  def __init__(self, name, ty):
+    self.name = name
+    self.ty = ty
+
+
 class Buffer:
 
   def __init__(
@@ -725,6 +720,8 @@ class Buffer:
 
 
 buffer_args = []
+scalar_args = []
+
 op_name = "unknown"
 code = ""
 
@@ -735,6 +732,8 @@ header = """
 #include <cstddef>
 #include <cstring>
 #include <cstdio>
+
+#include "ynnpack/base/simd/vec.h"
 
 #if !defined(__has_attribute)
 #define YNN_COMPILER_HAS_ATTRIBUTE(x) 0
@@ -760,17 +759,6 @@ header = """
 
 namespace ynn {
 namespace {
-
-template <typename T>
-YNN_INTRINSIC T* offset_bytes(T* ptr, std::ptrdiff_t offset) {
-  return reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(ptr) + offset);
-}
-
-template <typename T>
-YNN_INTRINSIC const T* offset_bytes(const T* ptr, std::ptrdiff_t offset) {
-  return reinterpret_cast<const T*>(reinterpret_cast<const uint8_t*>(ptr) +
-                                    offset);
-}
 
 YNN_INTRINSIC std::size_t min(std::size_t a, std::size_t b) {
   return a < b ? a : b;
@@ -806,18 +794,38 @@ YNN_INTRINSIC T truediv(T a, T b) {
     return a / b;
 }
 
+template <typename T>
+YNN_INTRINSIC T select_greater_than(T a, T b, T c, T d) {
+    return a > b ? c : d;
+}
+
+template <typename T>
+YNN_INTRINSIC simd::vec<T, 1> select_greater_than(simd::vec<T, 1> a, simd::vec<T, 1> b, simd::vec<T, 1> c, simd::vec<T, 1> d) {
+    return a.v > b.v ? c : d;
+}
+
+template <typename T, size_t N>
+YNN_INTRINSIC simd::vec<T, N> select_greater_than(simd::vec<T, N> a, simd::vec<T, N> b, simd::vec<T, N> c, simd::vec<T, N> d) {
+    return simd::vec<T, N>(select_greater_than(a.lo(), b.lo(), c.lo(), d.lo()),
+                           select_greater_than(a.hi(), b.hi(), c.hi(), d.hi()));
+}
+
 } // namespace
 } // namespace ynn
 
 """
 
 
-def scalar(name, ty):
+def params(*ps):
+  """Decorator to add scalar parameters to the function."""
   def actual_decorator(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
+      assert len(ps) > 0
+      scalar_args.extend(ps)
       # fn_args.append((name, ty, 0))
-      args += (Var(name, ty),)
+      for p in ps:
+        args += (Var(p.name, p.ty),)
       return func(*args, **kwargs)
 
     return wrapper
@@ -918,7 +926,7 @@ def rewrite(pattern, replacement, expr):
   matches = []
   matched = match(pattern, expr, matches)
   if matched:
-    return Op(replacement.ty, replacement.name, matches)
+    return Op(expr.ty, replacement.name, matches)
   else:
     return None
 
@@ -944,17 +952,6 @@ class Target:
   def __init__(self):
     self.indent_level = 0
     self.patterns = []
-    self.types = {
-        Int(8, 1): "int8_t",
-        Int(16, 1): "int16_t",
-        Int(32, 1): "int32_t",
-        UInt(8, 1): "uint8_t",
-        UInt(16, 1): "uint16_t",
-        UInt(32, 1): "uint32_t",
-        Float(16, 1): "half",
-        Float(32, 1): "float",
-        BFloat(16, 1): "bfloat16",
-    }
     self.features = []
     self.vector_bits = 0
     self.tail_strategy = TailStrategy.SCALAR
@@ -972,33 +969,38 @@ class Target:
         "sqrt",
         "reinterpret_cast",
         "cast",
+        "add_sat",
+        "sub_sat",
+        "saturating_cast",
+        "saturating_rounding_cast",
+        "fma",
+        "select_greater_than",
     }
     self.infix_ops = {
         "add": "+",
         "sub": "-",
         "mul": "*",
+        "truediv": "/",
         "bitwise_and": "&",
         "bitwise_or": "|",
         "bitwise_xor": "^",
+        "logical_shift_left": "<<",
     }
 
   def indent(self):
     return "  " * self.indent_level
-
-  def get_natural_lanes_num(self, ty):
-    """Returns a number of lanes of the widest type registered in target's types list which also matches class and size of the type."""
-    lanes = 1
-    for t in self.types:
-      if t.type_class == ty.type_class and t.size == ty.size:
-        lanes = builtins.max(lanes, t.lanes)
-
-    return lanes
 
   def as_buffer(self, arg, buffers):
     b = None
     if isinstance(arg, Var):
       b = next((buf for buf in buffers if buf.name == arg.name), None)
     return b
+
+  def is_scalar_arg(self, arg):
+    s = None
+    if isinstance(arg, Var):
+      s = next((s for s in scalar_args if s.name == arg.name), None)
+    return s
 
   def compute_all_features(self, features, implied_features, all_features):
     for feature in features:
@@ -1021,8 +1023,11 @@ class Target:
       return ""
     return ".v"
 
-  def legalize_type(self, ty, is_const=True):
-    return self.types.get(ty, ty.to_c_decl(is_const))
+  def legalize_type(self, ty, is_const=False):
+    if ty.lanes == 1:
+      return ty.to_c_decl(is_const)
+    else:
+      return f"simd::vec<{ty.scalar().to_c_decl(is_const)}, {ty.lanes}>"
 
   def legalize_op(self, op):
     """Legalizes an operator."""
@@ -1036,8 +1041,10 @@ class Target:
           f"bit_cast<{self.legalize_type(op.ty)},"
           f" {self.legalize_type(op.args[0].ty)}>"
       )
-    elif op.name == "cast":
-      return "convert"
+    elif op.name == "saturating_cast":
+      return "simd::saturate_cast"
+    elif op.name == "saturating_rounding_cast":
+      return "round_float_to_int"
     elif op.name == "min" or op.name == "max":
       return f"simd::{op.name}"
     return op.name
@@ -1066,100 +1073,6 @@ class Target:
 
     cache[expr] = v
     return v
-
-  def slice_wide_types(self, expr, cache):
-    """Recursively iterate over the expression and slice it into chunks matching the target platform vector size."""
-    if expr in cache:
-      return cache[expr]
-
-    if isinstance(expr, Var) or isinstance(expr, Constant):
-      v = expr
-    else:
-      natural_lanes = self.get_natural_lanes_num(expr.ty)
-      # If the number of lanes is less than what hardware vector has there is
-      # nothing to slice.
-      slices_num = builtins.max(expr.ty.lanes // natural_lanes, 1)
-
-      args = []
-      if not isinstance(expr, Load):
-        for arg in expr.args:
-          if isinstance(arg, Op) and arg.name == "broadcast":
-            args.append(arg)
-          else:
-            args.append(self.slice_wide_types(arg, cache))
-
-      if slices_num != 1:
-        op_slices = []
-        if isinstance(expr, Load):
-          for slice_index in range(slices_num):
-            op_slices.append(
-                Load(
-                    expr.ty.with_lanes(natural_lanes),
-                    expr.index,
-                    expr.offset_elements + natural_lanes * slice_index,
-                )
-            )
-        else:
-          for slice_index in range(slices_num):
-            op_slices.append(
-                Op(
-                    expr.ty.with_lanes(natural_lanes),
-                    expr.name,
-                    [
-                        slice_vector(arg, slice_index, slices_num)
-                        for arg in args
-                    ],
-                )
-            )
-
-        v = combine_vectors(op_slices)
-      else:
-        if isinstance(expr, Load):
-          v = expr
-        else:
-          v = Op(
-              expr.ty,
-              expr.name,
-              args,
-          )
-
-    cache[expr] = v
-    return v
-
-  def optimize_slices(self, expr, cache):
-    """Recursively iterate over the expression and optimize slices/combines."""
-    if expr in cache:
-      return cache[expr]
-
-    if isinstance(expr, Op):
-      args = [self.optimize_slices(arg, cache) for arg in expr.args]
-      if expr.name == "slice":
-        if isinstance(args[0], Op) and args[0].name == "combine":
-          comb = args[0]
-          slice_index = args[1].value
-          total_slices = args[2].value
-          if len(comb.args) == total_slices:
-            mutated = comb.args[slice_index]
-            cache[expr] = mutated
-            return mutated
-          elif len(comb.args) % total_slices == 0:
-            num = len(comb.args) // total_slices
-            mutated = combine_vectors(
-                comb.args[slice_index * num : (slice_index + 1) * num]
-            )
-            cache[expr] = mutated
-            return mutated
-
-        elif isinstance(args[0], Op) and args[0].name == "broadcast":
-          bc = args[0]
-          mutated = broadcast(bc.args[0], expr.ty.lanes)
-          cache[expr] = mutated
-          return mutated
-      mutated = Op(expr.ty, expr.name, args)
-      cache[expr] = mutated
-      return mutated
-    else:
-      return expr
 
   def pattern_match(self, expr, cache):
     """Recursively iterate over the expression and try to find patterns to replace."""
@@ -1264,6 +1177,8 @@ class Target:
         f" base_{args[-1].name}"
     )
 
+    arity = self.get_arity_string(args)
+    args_str.append(f"{self.indent()}const {arity}_params* params")
     self.result += ",\n".join(args_str)
     self.result += ") {\n"
 
@@ -1280,6 +1195,7 @@ class Target:
       increment,
       emit_loop,
       buffers,
+      tile_width,
       prefix_before,
       prefix_after,
   ):
@@ -1325,9 +1241,8 @@ class Target:
               f" stride_{b.name}_m;\n"
           )
 
-        broadcast_lanes = self.vector_bits // b.ty.size
         broadcast_op = self.pattern_match(
-            broadcast(Var(b.name, b.ty.with_lanes(1)), broadcast_lanes),
+            broadcast(Var(b.name, b.ty.with_lanes(1)), tile_width),
             {},
         )
         self.result += (
@@ -1348,10 +1263,14 @@ class Target:
         for i in range(increment):
           self.result += (
               f"{self.indent()}{b.name}_broadcasted[{i}] ="
-              f" {self.legalize_op(broadcast_op)}(((const"
+              f" {self.legalize_op(broadcast_op)}((("
               f" {self.legalize_type(b.ty, True)}*)offset_bytes({prefix_after}{b.name},"
-              f" min({i}, m - i - 1) * stride_{b.name}_m))[0]);\n"
           )
+          if i > 0:
+            self.result += f" min({i}, m - i - 1) * stride_{b.name}_m"
+          else:
+            self.result += " 0"
+          self.result += "))[0]);\n"
 
         if b.broadcast_mode == BroadcastMode.LOCAL_VAR:
           self.result += (
@@ -1391,29 +1310,31 @@ class Target:
           f" {self.legalize_op(v)}({v.args[0]});\n"
       )
 
-  def emit_op(
-      self,
-      i,
-      j,
-      k,
-      is_rem_width,
-      buffers,
-      constants,
-      op_natural_vector_size,
-      output_lanes,
-  ):
+  def emit_scalar_arguments(self, scalars, tile_width):
+    """Emits scalar arguments."""
+
+    if scalars:
+      self.result += f"{self.indent()}assert(params != nullptr);\n"
+
+    for s in scalars:
+      self.result += (
+          f"{self.indent()}const"
+          f" {self.legalize_type(s.ty.with_lanes(tile_width))} {s.name} ="
+          f" {self.legalize_op(broadcast(Constant(s.ty, 0), tile_width))}(reinterpret_cast<const"
+          f" {op_name}_params*>(params)->{s.name});\n"
+      )
+
+  def emit_op(self, i, j, is_rem_width, buffers, constants, tile_width):
     """Emits a single operation."""
     op = i[1]
     self.result += self.indent()
     result_type = ""
     if i[0] is not None:
-      result_type = self.legalize_type(op.ty.with_lanes(op_natural_vector_size))
-      self.result += f"{result_type} {i[0]}_{j}_{k}"
+      result_type = self.legalize_type(op.ty.with_lanes(tile_width))
+      self.result += f"{result_type} {i[0]}_{j}"
 
     is_load = isinstance(op, Load)
     is_store = isinstance(op, Op) and op.name == "store"
-
-    offset = op.offset_elements if is_load else 0
 
     str_args = []
 
@@ -1437,7 +1358,7 @@ class Target:
         t = self.legalize_type(b.ty, False)
         if is_load:
           t = "const " + t
-        row_offset = ""
+        row_offset = "0"
         stride_n = ""
         if b.broadcast_mode == BroadcastMode.NONE:
           # If there is no broadcasting for this b we can just use
@@ -1449,26 +1370,22 @@ class Target:
           # Only add stride if this is not the first row of the tile.
           if b.is_const and b.broadcast_mode == BroadcastMode.LOCAL_VAR:
             row_offset = (
-                f" + stride_{arg.name}_m_broadcasted * min({j}, m - i - 1)"
+                f"stride_{arg.name}_m_broadcasted * min({j}, m - i - 1)"
             )
           else:
-            row_offset = f" + stride_{arg.name}_m * min({j}, m - i - 1)"
+            row_offset = f"stride_{arg.name}_m * min({j}, m - i - 1)"
         str_args.append(
-            f"({t}*)offset_bytes({arg.name}, {stride_n} *"
-            f" ({k * output_lanes}{row_offset} + {offset}))"
+            f"({t}*)offset_bytes({arg.name}, {stride_n} * ({row_offset}))"
         )
       else:
         if isinstance(arg, Constant):
           str_args.append(f"{arg}")
-        elif isinstance(arg, Var) and arg in constants:
+        elif isinstance(arg, Var) and (
+            arg in constants or (self.is_scalar_arg(arg) is not None)
+        ):
           str_args.append(f"{arg}{self.simd_suffix(op)}")
         else:
-          str_args.append(f"{arg}_{j}_{k}{self.simd_suffix(op)}")
-
-    lanes = (
-        f"min({op_natural_vector_size}, (size_t)std::max<int>(j -"
-        f" {k * output_lanes} - {offset}, 0))"
-    )
+          str_args.append(f"{arg}_{j}{self.simd_suffix(op)}")
 
     if not is_store:
       self.result += " = "
@@ -1477,18 +1394,22 @@ class Target:
     if is_load:
       mem_op = "simd::load"
       if is_rem_width:
-        str_args.append(lanes)
+        str_args.append("j")
         str_args.append(f"simd::undef<{op.ty.lanes}>()")
       else:
         str_args.append(f"{self.legalize_type(op.ty)}::N")
     elif is_store:
       mem_op = "simd::store"
       if is_rem_width:
-        str_args.append(lanes)
+        str_args.append("j")
     elif op.name in self.infix_ops:
       pass
     else:
-      if op.name == "cast":
+      if (
+          op.name == "cast"
+          or op.name == "saturating_cast"
+          or op.name == "saturating_rounding_cast"
+      ):
         str_args.append(f"{self.legalize_type(op.ty.scalar())}{{}}")
       mem_op = self.legalize_op(op)
 
@@ -1504,8 +1425,7 @@ class Target:
       ops,
       rows_num,
       is_rem_width,
-      output_vector_num,
-      output_lanes,
+      tile_width,
       buffers,
       constants,
       step,
@@ -1513,22 +1433,7 @@ class Target:
     """Emits the body of the innermost loop."""
     for op in ops:
       for j in range(rows_num):
-        op_natural_vector_size = (
-            1
-            if is_rem_width and self.tail_strategy == TailStrategy.SCALAR
-            else op[1].ty.lanes
-        )
-        for k in range(output_vector_num):
-          self.emit_op(
-              op,
-              j,
-              k,
-              is_rem_width,
-              buffers,
-              constants,
-              op_natural_vector_size,
-              output_lanes,
-          )
+        self.emit_op(op, j, is_rem_width, buffers, constants, tile_width)
 
     if not is_rem_width:
       self.advance_pointers(buffers, "n", step)
@@ -1538,7 +1443,6 @@ class Target:
       ops,
       constants,
       buffers,
-      natural_lanes,
       tile_height,
       tile_width,
   ):
@@ -1554,6 +1458,7 @@ class Target:
           tile_height if not is_rem_height else 1,
           True,
           buffers,
+          tile_width,
           "base_",
           "",
       )
@@ -1573,21 +1478,16 @@ class Target:
             step,
             emit_loop,
             buffers,
+            tile_width,
             "",
             "",
-        )
-        output_vector_num = (
-            1
-            if is_rem_width and self.tail_strategy == TailStrategy.SCALAR
-            else tile_width // natural_lanes
         )
 
         self.emit_inner_loop_body(
             ops,
             rows_num,
             is_rem_width,
-            output_vector_num,
-            natural_lanes,
+            tile_width,
             buffers,
             constants,
             step,
@@ -1619,7 +1519,6 @@ class Target:
       ops,
       constants,
       buffers,
-      natural_lanes,
       tile_height,
       tile_width,
   ):
@@ -1637,7 +1536,6 @@ class Target:
             ops,
             constants,
             new_buffers,
-            natural_lanes,
             tile_height,
             tile_width,
         )
@@ -1651,7 +1549,6 @@ class Target:
             ops,
             constants,
             new_buffers,
-            natural_lanes,
             tile_height,
             tile_width,
         )
@@ -1666,7 +1563,6 @@ class Target:
         ops,
         constants,
         buffers,
-        natural_lanes,
         tile_height,
         tile_width,
     )
@@ -1679,31 +1575,28 @@ class Target:
 
     ast = copy.deepcopy(func.value)
 
-    natural_lanes = self.get_natural_lanes_num(func.value.ty)
-    ast = self.vectorize(ast, natural_lanes, {})
-    ast = self.slice_wide_types(ast, {})
-    ast = self.optimize_slices(ast, {})
-    ast = self.pattern_match(ast, {})
-
-    constants = {}
-    ast = self.lift_constants(ast, constants)
-
-    values = {}
-    ops = []
-    self.linearize(ast, ops, values)
-
-    ops.append((
-        None,
-        Op(
-            func.value.ty.with_lanes(natural_lanes),
-            "store",
-            [func.to, values[ast]],
-        ),
-    ))
-
     for tile in tile_shapes:
       tile_width = tile[1]
       tile_height = tile[0]
+
+      ast = self.vectorize(ast, tile_width, {})
+      ast = self.pattern_match(ast, {})
+
+      constants = {}
+      ast = self.lift_constants(ast, constants)
+
+      values = {}
+      ops = []
+      self.linearize(ast, ops, values)
+
+      ops.append((
+          None,
+          Op(
+              func.value.ty.with_lanes(tile_width),
+              "store",
+              [func.to, values[ast]],
+          ),
+      ))
 
       self.begin_function(
           name,
@@ -1714,12 +1607,12 @@ class Target:
         self.emit_asserts(buffers)
 
       self.emit_constants(constants)
+      self.emit_scalar_arguments(scalar_args, tile_width)
 
       self.handle_specialize(
           ops,
           constants,
           buffer_args,
-          natural_lanes,
           tile_height,
           tile_width,
       )
@@ -1735,9 +1628,20 @@ class Target:
   def arch_string(self):
     return "x86_" + "_".join([i.lower() for i in self.features])
 
+  def get_arity_string(self, buffers):
+    if len(buffers) == 4:
+      return "ternary"
+    elif len(buffers) == 3:
+      return "binary"
+    elif len(buffers) == 2:
+      return "unary"
+    else:
+      assert False, "Unsupported number of buffers."
+
   def compile_function(self, name, fn, tile_shapes):
     self.result = ""
     buffer_args.clear()
+    scalar_args.clear()
     global op_name
     op_name = "unknown"
     result = fn()
@@ -1758,12 +1662,8 @@ class Target:
     )
 
     src = '#include "ynnpack/kernels/'
-    if len(buffer_args) == 4:
-      src += "ternary/ternary.h"
-    elif len(buffer_args) == 3:
-      src += "binary/binary.h"
-    elif len(buffer_args) == 2:
-      src += "unary/unary.h"
+    arity = self.get_arity_string(buffer_args)
+    src += f"{arity}/{arity}.h"
     src += '"\n'
     src += "namespace ynn {\n"
     src += self.compile(func_name, buffer_args, result, tile_shapes)
@@ -1780,52 +1680,3 @@ class Target:
     )
 
     return src, inc
-
-
-# Placeholders used for pattern matching.
-i8_a = Var("a", Int(8))
-i8_b = Var("b", Int(8))
-u8_a = Var("a", UInt(8))
-u8_b = Var("b", UInt(8))
-i16_a = Var("a", Int(16))
-i16_b = Var("b", Int(16))
-u16_a = Var("a", UInt(16))
-u16_b = Var("b", UInt(16))
-i32_a = Var("a", Int(32))
-i32_b = Var("b", Int(32))
-u32_a = Var("a", UInt(32))
-u32_b = Var("b", UInt(32))
-f16_a = Var("a", Float(16))
-f16_b = Var("b", Float(16))
-f32_a = Var("a", Float(32))
-f32_b = Var("b", Float(32))
-f32_c = Var("c", Float(32))
-f32_d = Var("d", Float(32))
-bf16_a = Var("a", BFloat(16))
-bf16_b = Var("b", BFloat(16))
-
-
-class Rule:
-  # The first argument to the result should be split into the low and high parts.
-  split_operand_0_lo_hi = 1
-
-  def __init__(self, pattern, result, features=[], flags=0):
-    self.pattern = pattern
-    self.result = result
-    self.features = features
-    self.flags = flags
-
-  def __str__(self):
-    return f"{self.pattern} -> {self.result} ({', '.join(self.features)})"
-
-  def __repr__(self):
-    return str(self)
-
-  def vectorize(self, vector_bits):
-
-    return Rule(
-        self.pattern.with_lanes(vector_bits // (self.pattern.ty.size)),
-        self.result.with_lanes(vector_bits // (self.result.ty.size)),
-        self.features,
-        self.flags,
-    )

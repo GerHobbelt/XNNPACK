@@ -264,6 +264,11 @@ _YNN_PARAMS_FOR_ARCH = {
         "arch_copts": ["-mhvx"],
         "arch_flag": "hvx",
     },
+    "wasm_simd128": {
+        "cond": "//ynnpack:ynn_enable_wasm_simd128",
+        "arch_copts": ["-msimd128"],
+        "arch_flag": "wasm_simd128",
+    },
 }
 
 def ynn_if_arch(arch, if_true, if_false = []):
@@ -359,7 +364,7 @@ def ynn_cc_library(
                 "-use_header_modules",
             ] + kwargs.get("features", []),
             # Don't build this target unless explicitly requested.
-            tags = ["manual"],
+            tags = ["manual", "notap"],
             **kwargs
         )
 
@@ -388,6 +393,25 @@ def ynn_generate_src_hdr(
         name = name,
         outs = [output_src, output_hdr],
         cmd = "$(location " + generator + ") " + "$(location " + output_src + ") " + "$(location " + output_hdr + ") " + " ".join(generator_args),
+        tools = [generator],
+        **kwargs
+    )
+
+    generated_file(
+        scopes = ["presubmit", "codesearch"],
+        wrapped_target = name,
+    )
+
+def ynn_generate_srcs(
+        name,
+        generator,
+        output_srcs,
+        **kwargs):
+    """Generates source files from a generator script."""
+    native.genrule(
+        name = name,
+        outs = output_srcs,
+        cmd = "$(location " + generator + ") " + " ".join(["$(location " + i + ")" for i in output_srcs]),
         tools = [generator],
         **kwargs
     )

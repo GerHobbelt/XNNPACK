@@ -39,9 +39,9 @@ cc_library(
     hdrs = ["matchers.h"],
     deps = [
         "//ynnpack:ynnpack_h",
+        "//ynnpack/base",
         "//ynnpack/subgraph",
         "@com_google_googletest//:gtest",
-        "@slinky//slinky/base",
     ],
 )
 
@@ -122,7 +122,7 @@ cc_test(
     srcs = ["dot.cc"],
     linkopts = ynn_binary_linkopts(),
     malloc = ynn_binary_malloc(),
-    shard_count = 18,
+    shard_count = 24,
     deps = TEST_DEPS,
 )
 
@@ -138,6 +138,16 @@ cc_test(
     malloc = ynn_binary_malloc(),
     deps = TEST_DEPS + [
         "//ynnpack/kernels/ternary",
+        "//ynnpack/subgraph",
+    ],
+)
+
+cc_test(
+    name = "gelu",
+    srcs = ["gelu.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = TEST_DEPS + [
         "//ynnpack/subgraph",
     ],
 )
@@ -194,8 +204,10 @@ cc_test(
     "static_pad",
     "static_reshape",
     "static_slice",
+    "slice_like",
     "static_transpose",
     "stencil_copy",
+    "polynomial",
 ]]
 
 cc_test(

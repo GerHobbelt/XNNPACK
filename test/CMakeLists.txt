@@ -340,9 +340,11 @@ FOREACH(TEST ${MICROKERNEL_VBINARY_UNIT_TESTS})
 ENDFOREACH()
 
 SET(MICROKERNEL_VCVT_TESTS
+    bf16-f32-vcvt
     f16-f32-vcvt
     f16-qs8-vcvt
     f16-qu8-vcvt
+    f32-bf16-vcvt
     f32-f16-vcvt
     f32-qs8-vcvt
     f32-qu8-vcvt
@@ -460,6 +462,12 @@ TARGET_LINK_LIBRARIES(fingerprint-cache-test PRIVATE
   xnnpack-fingerprint-id)
 ADD_TEST(NAME fingerprint-cache-test COMMAND fingerprint-cache-test)
 SET_TARGET_PROPERTIES(fingerprint-cache-test PROPERTIES CXX_EXTENSIONS YES)
+
+ADD_EXECUTABLE(polyfill-test polyfill.cc)
+TARGET_LINK_LIBRARIES(polyfill-test PRIVATE
+  xnnpack-test)
+ADD_TEST(NAME polyfill-test COMMAND polyfill-test)
+SET_TARGET_PROPERTIES(polyfill-test PROPERTIES CXX_EXTENSIONS YES)
 
 IF(XNNPACK_BUILD_LIBRARY)
   ADD_EXECUTABLE(weights-cache-test weights-cache.cc)

@@ -8,6 +8,7 @@
 # pylint: disable=missing-class-docstring
 # pylint: disable=invalid-name
 
+from ynnpack.kernels.dot.generator.dot_base import generate_dot_kernels
 from ynnpack.kernels.dot.generator.x86 import x86_avx512
 
 
@@ -22,11 +23,6 @@ class x86_avx512_fp32_k4(x86_avx512):
   def header(self):
     return super().header() + """
 namespace {
-
-YNN_INTRINSIC __m512 unaligned_load_broadcast_x4(const float* ptr) {
-    __m128 value = _mm_loadu_ps(ptr);
-    return _mm512_broadcast_f32x4(value);
-}
 
 YNN_INTRINSIC __m512 odd_to_even(__m512 x) {
   return _mm512_castsi512_ps(_mm512_srli_epi64(_mm512_castps_si512(x), 32));
@@ -94,12 +90,29 @@ c_{i+0}_{j} = _mm512_permutexvar_ps({even}, c_{i+0}_{j});
     return super().store_c_tile(i, j) if j % 16 == 0 else ""
 
   def load_a_tile(self, i, k):
-    return (
-        f"__m512 a_{i}_{k} = unaligned_load_broadcast_x4({self.a_ptr(i, k)});\n"
-    )
+    a_ptr = self.a_ptr(i, k)
+    a_ik = f"a_{i}_{k}"
+    return f"__m512 {a_ik} = _mm512_broadcast_f32x4(_mm_loadu_ps({a_ptr}));\n"
 
   def load_b_tile(self, k, j):
     return f"__m512 b_{k}_{j} = _mm512_load_ps({self.b_ptr(k, j)});\n"
 
   def product(self, i, j, k):
     return f"c_{i}_{j} = _mm512_fmadd_ps(a_{i}_{k}, b_{k}_{j}, c_{i}_{j});\n"
+
+
+generate_dot_kernels(
+    x86_avx512_fp32_k4(),
+    [
+        (1, 32, 4),
+        (2, 32, 4),
+        (3, 16, 4),
+        (4, 16, 4),
+        (5, 16, 4),
+        (2, 8, 4),
+        (4, 8, 4),
+        (6, 8, 4),
+        (4, 4, 4),
+        (8, 4, 4),
+    ],
+)

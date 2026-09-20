@@ -260,6 +260,8 @@ struct ynn_node {
           return a.params.tanh == b.params.tanh;
         case ynn_unary_poly3:
           return a.params.poly3 == b.params.poly3;
+        case ynn_unary_rsqrt:
+          return a.params.rsqrt == b.params.rsqrt;
         default:
           break;
       }
@@ -281,6 +283,8 @@ struct ynn_node {
           return a.params.tanh < b.params.tanh;
         case ynn_unary_poly3:
           return a.params.poly3 < b.params.poly3;
+        case ynn_unary_rsqrt:
+          return a.params.rsqrt < b.params.rsqrt;
         default:
           break;
       }
@@ -505,11 +509,12 @@ struct ynn_node {
   };
   struct iota {
     ynn::iota_params params;
+    bool less_zero = false;
     friend bool operator==(const iota& a, const iota& b) {
-      return a.params == b.params;
+      return a.params == b.params && a.less_zero == b.less_zero;
     }
     friend bool operator<(const iota& a, const iota& b) {
-      return a.params < b.params;
+      return std::tie(a.params, a.less_zero) < std::tie(b.params, b.less_zero);
     }
   };
   struct pack_b {
@@ -659,6 +664,9 @@ struct ynn_subgraph : public ynn::ref_counted<ynn_subgraph> {
   // Find the node that produces `id`.
   const ynn_node* get_producer(uint32_t id) const;
   ynn_node* get_producer(uint32_t id);
+
+  // Returns the number of nodes that consume `id`.
+  size_t count_consumers(uint32_t id) const;
 
   // If `output_id` is `YNN_INVALID_VALUE_ID`, makes a new value like
   // `template_value`, and updates `output_id` with the new value ID.

@@ -556,6 +556,13 @@ absl::Status OpMixin<CastOperation, XnnpackMixinTag>::ToXnnpack(
   return AddUnaryNode(xnn_unary_convert, io, ctx, op_name);
 }
 
+absl::Status OpMixin<DequantizeOperation, XnnpackMixinTag>::ToXnnpack(
+    const graph::Operation& op, XnnpackBuildContext& ctx) const {
+  const absl::string_view op_name = op.GetName();
+  LRT_TENSOR_ASSIGN_OR_RETURN(auto io, PrepareUnaryIO(op, ctx, op_name));
+  return AddUnaryNode(xnn_unary_convert, io, ctx, op_name);
+}
+
 absl::Status OpMixin<SinOperation, XnnpackMixinTag>::ToXnnpack(
     const graph::Operation& op, XnnpackBuildContext& ctx) const {
   const absl::string_view op_name = op.GetName();
@@ -1851,3 +1858,18 @@ absl::Status OpMixin<RopeOperation, XnnpackMixinTag>::ToXnnpack(
   return absl::OkStatus();
 }
 }  // namespace litert::tensor::graph
+
+namespace litert::tensor {
+
+absl::Status XnnpackBuildContext::AliasValue(const graph::Tensor& source,
+                                             const graph::Tensor& target) {
+  LRT_TENSOR_RETURN_IF_ERROR(DefineValue(target).status());
+  tensor_index_[source] = tensor_index_[target];
+  return absl::OkStatus();
+}
+
+void XnnpackBuildContext::RemoveTensor(const graph::Tensor& tensor) {
+  tensor_index_.erase(tensor);
+}
+
+}  // namespace litert::tensor

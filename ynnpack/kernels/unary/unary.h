@@ -88,8 +88,22 @@ struct affine_output_params {
 
 using tanh_params = affine_output_params;
 using approx_tanh_params = tanh_params;
-using sine_params = affine_output_params;
-using cosine_params = affine_output_params;
+using sin_params = affine_output_params;
+using cos_params = affine_output_params;
+
+struct rsqrt_params {
+  real input_offset;
+  real input_multiplier;
+
+  friend bool operator==(const rsqrt_params& a, const rsqrt_params& b) {
+    return std::tie(a.input_multiplier, a.input_offset) ==
+           std::tie(b.input_multiplier, b.input_offset);
+  }
+  friend bool operator<(const rsqrt_params& a, const rsqrt_params& b) {
+    return std::tie(a.input_multiplier, a.input_offset) <
+           std::tie(b.input_multiplier, b.input_offset);
+  }
+};
 
 struct poly3_params {
   real c0, c1, c2, c3;
@@ -107,6 +121,7 @@ union unary_params {
   expm1_params expm1;
   log_params log;
   log1p_params log1p;
+  rsqrt_params rsqrt;
 
   // All of these params have the first two params a, b, such that they form
   // output offset and output scale parameters, respectively. We use this fact
@@ -115,8 +130,8 @@ union unary_params {
   approx_erf_params approx_erf;
   approx_tanh_params approx_tanh;
   tanh_params tanh;
-  sine_params sine;
-  cosine_params cosine;
+  sin_params sin;
+  cos_params cos;
   poly3_params poly3;
 };
 

@@ -76,7 +76,8 @@ XnnpackRunner::XnnpackRunner(std::unique_ptr<XnnpackGraph> graph)
 
 // Sets the input data for a given tensor.
 absl::Status XnnpackRunner::SetInput(const TensorHandle& tensor,
-                                     absl::Span<const std::byte> data) {
+                                     absl::Span<const std::byte> data,
+                                     const bool copy_data) {
   LRT_TENSOR_ASSIGN_OR_RETURN(size_t index, graph_->Lookup(tensor));
   XnnpackValue& value = graph_->mutable_values()[index];
   // Check if the tensor is marked as an external input.
@@ -88,7 +89,11 @@ absl::Status XnnpackRunner::SetInput(const TensorHandle& tensor,
         absl::StrCat("Mismatched input size: expected ", ByteSize(value.info),
                      ", got ", data.size()));
   }
-  external_buffers_[value.id].SetExternalView(data);
+  if (!copy_data) {
+    external_buffers_[value.id].SetExternalView(data);
+  } else {
+    external_buffers_[value.id].SetOwnedBuffer(data);
+  }
   return absl::OkStatus();
 }
 
@@ -136,9 +141,7 @@ absl::Status XnnpackRunner::WriteInput(const TensorHandle& tensor,
   return absl::OkStatus();
 }
 
-// Runs the XNNPACK graph.
-absl::Status XnnpackRunner::Run() {
-  // Create the XNNPACK runtime if it doesn't exist.
+absl::Status XnnpackRunner::PrepareRuntime() {
   if (runtime_ == nullptr) {
     if (num_threads_ > 1) {
       threadpool_.reset(pthreadpool_create(num_threads_));
@@ -150,6 +153,12 @@ absl::Status XnnpackRunner::Run() {
                               /*flags=*/0, &raw_runtime));
     runtime_.reset(raw_runtime);
   }
+  return absl::OkStatus();
+}
+
+// Runs the XNNPACK graph.
+absl::Status XnnpackRunner::Run() {
+  LRT_TENSOR_RETURN_IF_ERROR(PrepareRuntime());
 
   // Reshape external inputs to match the current host-side tensor shapes.
   for (XnnpackValue& value : graph_->mutable_values()) {

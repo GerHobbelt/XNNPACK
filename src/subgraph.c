@@ -2213,6 +2213,10 @@ void xnn_subgraph_clean_up(xnn_subgraph_t subgraph) {
   uint32_t* nodes_map =
       xnn_allocate_memory(sizeof(uint32_t) * subgraph->num_nodes +
                           sizeof(bool) * subgraph->num_values);
+  if (nodes_map == NULL) {
+    xnn_log_error("failed to allocate nodes_map scratch buffer");
+    return;
+  }
   bool* values_ready = (bool*)&nodes_map[subgraph->num_nodes];
   for (uint32_t i = 0; i < subgraph->num_values; i++) {
     struct xnn_value* value = &subgraph->values[i];
@@ -4242,6 +4246,15 @@ static bool is_qs8_to_f32_dequant(const struct xnn_subgraph* subgraph,
 }
 
 static bool rewrite_dequant_bmm_at(xnn_subgraph_t subgraph, uint32_t node_id) {
+  // Only batch-matrix-multiply nodes are rewritten here. Check the node type
+  // *before* reserving any space: reserving may reallocate the subgraph's node
+  // and value arrays, and some callers optimize a fixed-capacity scratch
+  // subgraph whose `nodes`/`values` storage is not heap-allocated and must not
+  // be reallocated (see `xnn_subgraph_fuse_unary_quantized_into_lut`).
+  if (subgraph->nodes[node_id].type != xnn_node_type_batch_matrix_multiply) {
+    return false;
+  }
+
   // Reserve space upfront (we'll add 1 value + 1 node) so the later
   // `xnn_subgraph_new_internal_value` / `xnn_subgraph_new_node` calls do not
   // each trigger an additional reallocation or invalidate pointers.
@@ -4251,10 +4264,6 @@ static bool rewrite_dequant_bmm_at(xnn_subgraph_t subgraph, uint32_t node_id) {
   }
 
   struct xnn_node* node = &subgraph->nodes[node_id];
-  if (node->type != xnn_node_type_batch_matrix_multiply) {
-    return false;
-  }
-
   const uint32_t input_a_id = node->inputs[0];
   const uint32_t input_b_id = node->inputs[1];
   const uint32_t output_id = node->outputs[0];
@@ -4485,6 +4494,10 @@ static void replace_in_set(uint32_t* set, uint32_t size, uint32_t old_value,
 void xnn_subgraph_rewrite_ssa(xnn_subgraph_t subgraph) {
   bool* values_written =
       (bool*)xnn_allocate_memory(sizeof(bool) * subgraph->num_values);
+  if (values_written == NULL) {
+    xnn_log_error("failed to allocate values_written scratch buffer");
+    return;
+  }
   for (uint32_t i = 0; i < subgraph->num_values; i++) {
     values_written[i] = false;
   }

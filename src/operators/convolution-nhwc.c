@@ -563,7 +563,14 @@ struct convolution2d_nhwc_variant {
 static enum xnn_status select_microkernel_type(
     const struct convolution2d_nhwc_variant* variant,
     struct convolution2d_nhwc_context* context) {
-  const size_t kernel_size = context->kernel_height * context->kernel_width;
+  size_t kernel_size;
+  if (!xnn_safe_mul(context->kernel_height, context->kernel_width, &kernel_size)) {
+    xnn_log_error(
+        "failed to create %s operator: kernel size (%" PRIu32 "x%" PRIu32 ") overflows size_t",
+        xnn_operator_type_to_string(context->operator_type),
+        context->kernel_width, context->kernel_height);
+    return xnn_status_unsupported_parameter;
+  }
   const bool unit_subsampling = (context->subsampling_width | context->subsampling_height) == 1;
   const bool any_padding = (context->input_padding_left | context->input_padding_top |
                             context->input_padding_right | context->input_padding_bottom) != 0;
@@ -737,7 +744,14 @@ static enum xnn_status create_convolution2d_nhwc(
 
   convolution_op->weights_cache = context->weights_cache;
 
-  const size_t kernel_size = context->kernel_height * context->kernel_width;
+  size_t kernel_size;
+  if (!xnn_safe_mul(context->kernel_height, context->kernel_width, &kernel_size)) {
+    xnn_log_error(
+        "failed to create %s operator: kernel size (%" PRIu32 "x%" PRIu32 ") overflows size_t",
+        xnn_operator_type_to_string(context->operator_type),
+        context->kernel_width, context->kernel_height);
+    goto error;
+  }
 
   size_t zero_size = 0;
   switch (context->microkernel_type) {
@@ -1167,9 +1181,12 @@ static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_qu8(
     return xnn_status_unsupported_hardware;
   }
 
+  size_t kernel_size;
+  if (!xnn_safe_mul(context->kernel_height, context->kernel_width, &kernel_size)) {
+    return xnn_status_unsupported_parameter;
+  }
   context->dwconv_ukernel =
-      find_dwconv_ukernel(context->kernel_height * context->kernel_width,
-                          dwconv_config, XNN_MAX_QU8_DWCONV_UKERNELS);
+      find_dwconv_ukernel(kernel_size, dwconv_config, XNN_MAX_QU8_DWCONV_UKERNELS);
   if XNN_LIKELY (context->dwconv_ukernel != NULL) {
     context->dwconv_ukernel->init.qu8(
         &context->dwconv_params.qu8, context->kernel_zero_point,
@@ -1193,9 +1210,12 @@ static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_qs8_qc8w(
     return xnn_status_unsupported_hardware;
   }
 
+  size_t kernel_size;
+  if (!xnn_safe_mul(context->kernel_height, context->kernel_width, &kernel_size)) {
+    return xnn_status_unsupported_parameter;
+  }
   context->dwconv_ukernel =
-      find_dwconv_ukernel(context->kernel_height * context->kernel_width,
-                          dwconv_config, XNN_MAX_QC8_DWCONV_UKERNELS);
+      find_dwconv_ukernel(kernel_size, dwconv_config, XNN_MAX_QC8_DWCONV_UKERNELS);
   if XNN_LIKELY (context->dwconv_ukernel != NULL) {
     context->dwconv_ukernel->init.qs8_qc8w(
         &context->dwconv_params.qs8_qc8w, context->output_zero_point,
@@ -1216,9 +1236,12 @@ static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_f16(
         xnn_operator_type_to_string(context->operator_type));
     return xnn_status_unsupported_hardware;
   }
+  size_t kernel_size;
+  if (!xnn_safe_mul(context->kernel_height, context->kernel_width, &kernel_size)) {
+    return xnn_status_unsupported_parameter;
+  }
   context->dwconv_ukernel =
-      find_dwconv_ukernel(context->kernel_height * context->kernel_width,
-                          dwconv_config, XNN_MAX_F16_DWCONV_UKERNELS);
+      find_dwconv_ukernel(kernel_size, dwconv_config, XNN_MAX_F16_DWCONV_UKERNELS);
   if XNN_LIKELY (context->dwconv_ukernel != NULL) {
     context->dwconv_ukernel->init.f16(&context->dwconv_params.f16,
                                       context->fp16_output_min,
@@ -1239,9 +1262,12 @@ static XNN_NO_SANITIZE_FUNCTION enum xnn_status init_dwconv_params_f32(
         xnn_operator_type_to_string(context->operator_type));
     return xnn_status_unsupported_hardware;
   }
+  size_t kernel_size;
+  if (!xnn_safe_mul(context->kernel_height, context->kernel_width, &kernel_size)) {
+    return xnn_status_unsupported_parameter;
+  }
   context->dwconv_ukernel =
-      find_dwconv_ukernel(context->kernel_height * context->kernel_width,
-                          dwconv_config, XNN_MAX_F32_DWCONV_UKERNELS);
+      find_dwconv_ukernel(kernel_size, dwconv_config, XNN_MAX_F32_DWCONV_UKERNELS);
   if XNN_LIKELY (context->dwconv_ukernel != NULL) {
     context->dwconv_ukernel->init.f32(&context->dwconv_params.f32,
                                       context->output_min, context->output_max);
@@ -1775,6 +1801,13 @@ static struct fingerprint_buffers generate_fingerprint_data(
       kernel_scale_size * sizeof(float) +
       XNN_ALLOCATION_ALIGNMENT * 3;
   uint8_t* buffer = xnn_allocate_simd_memory(bytes);
+  if (!buffer) {
+    xnn_log_error(
+        "Could not allocate %zu bytes when generating convolution 2D NHWC "
+        "fingerprint data",
+        bytes);
+    return (struct fingerprint_buffers){0};
+  }
   fill_fingerprint_buffer(buffer, bytes);
   struct fingerprint_buffers data = {
     .data = buffer,
@@ -1890,6 +1923,10 @@ enum xnn_status xnn_fingerprint_convolution2d_nhwc(
     return f_context.status;
   }
   struct fingerprint_buffers data = generate_fingerprint_data(variant, &context);
+  if (!data.data) {
+    finalize_fingerprint_context(&f_context);
+    return xnn_status_out_of_memory;
+  }
   context.kernel = data.kernel;
   context.bias = data.bias;
   context.kernel_scale = data.kernel_scale;
@@ -2269,8 +2306,16 @@ enum xnn_status xnn_create_convolution2d_nhwc_f16(
   const void* bias_to_use = bias;
   void* allocated_bias = NULL;
   if (bias != NULL && (flags & XNN_FLAG_FP32_STATIC_BIASES)) {
-    const size_t bias_size = groups * group_output_channels;
-    allocated_bias = xnn_allocate_memory(bias_size * sizeof(xnn_float16));
+    size_t bias_size;
+    size_t bias_bytes;
+    if (!xnn_safe_mul(groups, group_output_channels, &bias_size) ||
+        !xnn_safe_mul(bias_size, sizeof(xnn_float16), &bias_bytes)) {
+      xnn_log_error(
+          "failed to create %s operator: bias size overflows size_t",
+          xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_f16));
+      return xnn_status_invalid_parameter;
+    }
+    allocated_bias = xnn_allocate_memory(bias_bytes);
     if (allocated_bias == NULL) {
       return xnn_status_out_of_memory;
     }
@@ -2368,8 +2413,16 @@ enum xnn_status xnn_create_convolution2d_nhwc_pf16(
   const void* bias_to_use = bias;
   void* allocated_bias = NULL;
   if (bias != NULL && (flags & XNN_FLAG_FP32_STATIC_BIASES)) {
-    const size_t bias_size = groups * group_output_channels;
-    allocated_bias = xnn_allocate_memory(bias_size * sizeof(xnn_float16));
+    size_t bias_size;
+    size_t bias_bytes;
+    if (!xnn_safe_mul(groups, group_output_channels, &bias_size) ||
+        !xnn_safe_mul(bias_size, sizeof(xnn_float16), &bias_bytes)) {
+      xnn_log_error(
+          "failed to create %s operator: bias size overflows size_t",
+          xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_pf16));
+      return xnn_status_invalid_parameter;
+    }
+    allocated_bias = xnn_allocate_memory(bias_bytes);
     if (allocated_bias == NULL) {
       return xnn_status_out_of_memory;
     }
@@ -2473,11 +2526,23 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32_f16(
     float output_min, float output_max, uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* convolution_op_out) {
   // Convert the `f16` kernel and bias to `f32` in temporary buffers.
-  const size_t num_kernel_entries = groups * group_input_channels *
-                                    group_output_channels * kernel_width *
-                                    kernel_height;
-  float* fp32_kernel_buffer =
-      (float*)xnn_allocate_memory(num_kernel_entries * sizeof(float));
+  size_t num_kernel_entries;
+  size_t kernel_bytes;
+  if (!xnn_safe_mul(groups, group_input_channels, &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, group_output_channels,
+                    &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, kernel_width, &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, kernel_height, &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, sizeof(float), &kernel_bytes)) {
+    xnn_log_error(
+        "failed to create %s operator: kernel size overflows size_t",
+        xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_f32));
+    return xnn_status_invalid_parameter;
+  }
+  float* fp32_kernel_buffer = (float*)xnn_allocate_memory(kernel_bytes);
+  if (fp32_kernel_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   const void* bias_buffer = NULL;
   float* fp32_bias_buffer = NULL;
   const xnn_float16* f16_kernel = (const xnn_float16*)kernel;
@@ -2486,10 +2551,23 @@ enum xnn_status xnn_create_convolution2d_nhwc_f32_f16(
     fp32_kernel_buffer[i] = xnn_float16_to_float(f16_kernel[i]);
   }
   if (bias && !(flags & XNN_FLAG_FP32_STATIC_BIASES)) {
-    fp32_bias_buffer = (float*)xnn_allocate_memory(
-        groups * group_output_channels * sizeof(float));
+    size_t bias_size;
+    size_t bias_bytes;
+    if (!xnn_safe_mul(groups, group_output_channels, &bias_size) ||
+        !xnn_safe_mul(bias_size, sizeof(float), &bias_bytes)) {
+      xnn_log_error(
+          "failed to create %s operator: bias size overflows size_t",
+          xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_f32));
+      xnn_release_memory(fp32_kernel_buffer);
+      return xnn_status_invalid_parameter;
+    }
+    fp32_bias_buffer = (float*)xnn_allocate_memory(bias_bytes);
+    if (fp32_bias_buffer == NULL) {
+      xnn_release_memory(fp32_kernel_buffer);
+      return xnn_status_out_of_memory;
+    }
     bias_buffer = fp32_bias_buffer;
-    for (size_t i = 0; i < groups * group_output_channels; ++i) {
+    for (size_t i = 0; i < bias_size; ++i) {
       fp32_bias_buffer[i] = xnn_float16_to_float(f16_bias[i]);
     }
   } else {
@@ -2552,11 +2630,23 @@ enum xnn_status xnn_create_convolution2d_nhwc_pf32_f16(
   }
 
   // Convert the `f16` kernel and bias to `f32` in temporary buffers.
-  const size_t num_kernel_entries = groups * group_input_channels *
-                                    group_output_channels * kernel_width *
-                                    kernel_height;
-  float* fp32_kernel_buffer =
-      (float*)xnn_allocate_memory(num_kernel_entries * sizeof(float));
+  size_t num_kernel_entries;
+  size_t kernel_bytes;
+  if (!xnn_safe_mul(groups, group_input_channels, &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, group_output_channels,
+                    &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, kernel_width, &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, kernel_height, &num_kernel_entries) ||
+      !xnn_safe_mul(num_kernel_entries, sizeof(float), &kernel_bytes)) {
+    xnn_log_error(
+        "failed to create %s operator: kernel size overflows size_t",
+        xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_pf32));
+    return xnn_status_invalid_parameter;
+  }
+  float* fp32_kernel_buffer = (float*)xnn_allocate_memory(kernel_bytes);
+  if (fp32_kernel_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   const void* bias_buffer = NULL;
   float* fp32_bias_buffer = NULL;
   const xnn_float16* f16_kernel = (const xnn_float16*)kernel;
@@ -2565,10 +2655,23 @@ enum xnn_status xnn_create_convolution2d_nhwc_pf32_f16(
     fp32_kernel_buffer[i] = xnn_float16_to_float(f16_kernel[i]);
   }
   if (bias && !(flags & XNN_FLAG_FP32_STATIC_BIASES)) {
-    fp32_bias_buffer = (float*)xnn_allocate_memory(
-        groups * group_output_channels * sizeof(float));
+    size_t bias_size;
+    size_t bias_bytes;
+    if (!xnn_safe_mul(groups, group_output_channels, &bias_size) ||
+        !xnn_safe_mul(bias_size, sizeof(float), &bias_bytes)) {
+      xnn_log_error(
+          "failed to create %s operator: bias size overflows size_t",
+          xnn_operator_type_to_string(xnn_operator_type_convolution_nhwc_pf32));
+      xnn_release_memory(fp32_kernel_buffer);
+      return xnn_status_invalid_parameter;
+    }
+    fp32_bias_buffer = (float*)xnn_allocate_memory(bias_bytes);
+    if (fp32_bias_buffer == NULL) {
+      xnn_release_memory(fp32_kernel_buffer);
+      return xnn_status_out_of_memory;
+    }
     bias_buffer = fp32_bias_buffer;
-    for (size_t i = 0; i < groups * group_output_channels; ++i) {
+    for (size_t i = 0; i < bias_size; ++i) {
       fp32_bias_buffer[i] = xnn_float16_to_float(f16_bias[i]);
     }
   } else {
@@ -2648,7 +2751,10 @@ static enum xnn_status reshape_igemm(
   const size_t groups = convolution_op->convolution_op->groups;
   const size_t kernel_height = convolution_op->convolution_op->kernel_height;
   const size_t kernel_width = convolution_op->convolution_op->kernel_width;
-  const size_t kernel_size = kernel_height * kernel_width;
+  size_t kernel_size;
+  if (!xnn_safe_mul(kernel_height, kernel_width, &kernel_size)) {
+    return xnn_status_out_of_memory;
+  }
   const size_t output_height = convolution_op->convolution_op->output_height;
   const size_t output_width = convolution_op->convolution_op->output_width;
   const size_t output_size = output_height * output_width;
@@ -2947,7 +3053,10 @@ static enum xnn_status reshape_dwconv(
   const size_t input_width = convolution_op->convolution_op->input_width;
   const size_t kernel_height = convolution_op->convolution_op->kernel_height;
   const size_t kernel_width = convolution_op->convolution_op->kernel_width;
-  const size_t kernel_size = kernel_height * kernel_width;
+  size_t kernel_size;
+  if (!xnn_safe_mul(kernel_height, kernel_width, &kernel_size)) {
+    return xnn_status_out_of_memory;
+  }
   const size_t output_height = convolution_op->convolution_op->output_height;
   const size_t output_width = convolution_op->convolution_op->output_width;
   const size_t step_width =
@@ -3237,13 +3346,13 @@ static enum xnn_status reshape_convolution2d_nhwc(
         compute_output_dimension_with_tf_same_padding(
             input_width, convolution_op->convolution_op->stride_width);
 
-    const uint32_t effective_kernel_height =
-        (convolution_op->convolution_op->kernel_height - 1) *
-            convolution_op->convolution_op->dilation_height +
+    const size_t effective_kernel_height =
+        (size_t) (convolution_op->convolution_op->kernel_height - 1) *
+            (size_t) convolution_op->convolution_op->dilation_height +
         1;
-    const uint32_t effective_kernel_width =
-        (convolution_op->convolution_op->kernel_width - 1) *
-            convolution_op->convolution_op->dilation_width +
+    const size_t effective_kernel_width =
+        (size_t) (convolution_op->convolution_op->kernel_width - 1) *
+            (size_t) convolution_op->convolution_op->dilation_width +
         1;
     const size_t total_padding_height =
         doz((convolution_op->convolution_op->output_height - 1) *
@@ -3272,11 +3381,11 @@ static enum xnn_status reshape_convolution2d_nhwc(
     const size_t padded_input_width = convolution_op->convolution_op->padding_left +
         input_width + convolution_op->convolution_op->padding_right;
     const size_t effective_kernel_height =
-        (convolution_op->convolution_op->kernel_height - 1) *
-            convolution_op->convolution_op->dilation_height + 1;
+        (size_t) (convolution_op->convolution_op->kernel_height - 1) *
+            (size_t) convolution_op->convolution_op->dilation_height + 1;
     const size_t effective_kernel_width =
-        (convolution_op->convolution_op->kernel_width - 1) *
-            convolution_op->convolution_op->dilation_width + 1;
+        (size_t) (convolution_op->convolution_op->kernel_width - 1) *
+            (size_t) convolution_op->convolution_op->dilation_width + 1;
     if (padded_input_height < effective_kernel_height ||
         padded_input_width < effective_kernel_width) {
       xnn_log_error(
@@ -3348,9 +3457,16 @@ enum xnn_status reshape_convolution2d_nhwc_qx8_f16_qc8w(
             convolution_op->convolution_op->zero_buffers[i]);
       }
     }
-    convolution_op->convolution_op->zero_buffers =
-        xnn_reallocate_memory(convolution_op->convolution_op->zero_buffers,
-                              batch_size * sizeof(void*));
+    void** new_zero_buffers = xnn_reallocate_memory(
+        convolution_op->convolution_op->zero_buffers,
+        batch_size * sizeof(void*));
+    if (new_zero_buffers == NULL) {
+      xnn_log_error(
+          "failed to reallocate %zu bytes for zero_buffers",
+          batch_size * sizeof(void*));
+      return xnn_status_out_of_memory;
+    }
+    convolution_op->convolution_op->zero_buffers = new_zero_buffers;
     convolution_op->convolution_op->zero_buffers[0] =
         convolution_op->zero_buffer;
     for (size_t i = 1; i < batch_size; ++i) {
@@ -3410,9 +3526,16 @@ enum xnn_status reshape_convolution2d_nhwc_qx8_f32_qc8w(
             convolution_op->convolution_op->zero_buffers[i]);
       }
     }
-    convolution_op->convolution_op->zero_buffers =
-        xnn_reallocate_memory(convolution_op->convolution_op->zero_buffers,
-                              batch_size * sizeof(void*));
+    void** new_zero_buffers = xnn_reallocate_memory(
+        convolution_op->convolution_op->zero_buffers,
+        batch_size * sizeof(void*));
+    if (new_zero_buffers == NULL) {
+      xnn_log_error(
+          "failed to reallocate %zu bytes for zero_buffers",
+          batch_size * sizeof(void*));
+      return xnn_status_out_of_memory;
+    }
+    convolution_op->convolution_op->zero_buffers = new_zero_buffers;
     convolution_op->convolution_op->zero_buffers[0] =
         convolution_op->zero_buffer;
     for (size_t i = 1; i < batch_size; ++i) {

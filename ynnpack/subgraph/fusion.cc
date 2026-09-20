@@ -31,7 +31,6 @@
 #include "ynnpack/subgraph/fusion_lut.h"
 #include "ynnpack/subgraph/fusion_types.h"
 #include "ynnpack/subgraph/reduce.h"
-#include "ynnpack/subgraph/static_slice.h"
 #include "ynnpack/subgraph/static_transpose.h"
 #include "ynnpack/subgraph/stencil_copy.h"
 #include "ynnpack/subgraph/subgraph.h"
@@ -70,17 +69,84 @@ bool is_square_node(const ynn_node& node) {
 
 struct scalar_arithmetic {
   // This represents an operation a*x + b
+  ynn_node* producer = nullptr;
   uint32_t x_id = YNN_INVALID_VALUE_ID;
   real a = 1.0;
   real b = 0.0;
+  ynn_node* consumer = nullptr;
 };
+
+// These nodes do not change the value of any element in a value.
+bool is_layout_transform(const ynn_node& node) {
+  return std::holds_alternative<ynn_node::broadcast_like>(node.op) ||
+         std::holds_alternative<ynn_node::copy>(node.op) ||
+         std::holds_alternative<ynn_node::gather>(node.op) ||
+         std::holds_alternative<ynn_node::split_dim>(node.op) ||
+         std::holds_alternative<ynn_node::fuse_dim>(node.op) ||
+         std::holds_alternative<ynn_node::fuse_dims>(node.op) ||
+         std::holds_alternative<ynn_node::split_dims>(node.op) ||
+         std::holds_alternative<ynn_node::static_reshape>(node.op) ||
+         std::holds_alternative<ynn_node::static_broadcast>(node.op) ||
+         std::holds_alternative<ynn_node::static_slice>(node.op) ||
+         std::holds_alternative<ynn_node::static_transpose>(node.op);
+}
 
 // If `node` is a linear expression of scalar constants, returns
 // `scalar_arithmetic` describing the operation.
 std::optional<scalar_arithmetic> is_scalar_arithmetic(
-    const ynn_subgraph& subgraph, const ynn_node& node) {
+    const ynn_subgraph& subgraph, subgraph_analysis& analysis, ynn_node& node) {
+  if (is_layout_transform(node)) {
+    // If this is a layout transform, scalar arithmetic is invariant, so we can
+    // skip it.
+    ynn_node* producer = analysis.producer_of(node.inputs[0]);
+    if (!producer) return std::nullopt;
+    uint32_t output_id = producer->outputs[0];
+    if (analysis.consumers[output_id].size() != 1 ||
+        subgraph.value(output_id).is_external_output()) {
+      return std::nullopt;
+    }
+    return is_scalar_arithmetic(subgraph, analysis, *producer);
+  }
+  if (const auto* ternary =
+          std::get_if<ynn_node::ternary_elementwise>(&node.op)) {
+    auto a = subgraph.value(node.inputs[0]).as_scalar();
+    auto b = subgraph.value(node.inputs[1]).as_scalar();
+    auto c = subgraph.value(node.inputs[2]).as_scalar();
+
+    if (ternary->op == ternary_op::multiply_add) {
+      if (!a && b && c) {
+        return scalar_arithmetic{&node, node.inputs[0], *b, *c};
+      }
+      if (a && !b && c) {
+        return scalar_arithmetic{&node, node.inputs[1], *a, *c};
+      }
+      if (a && b && !c) {
+        return scalar_arithmetic{&node, node.inputs[2], 1.0, (*a) * (*b)};
+      }
+    } else if (ternary->op == ternary_op::subtract_multiply) {
+      if (!a && b && c) {
+        return scalar_arithmetic{&node, node.inputs[0], -*b, *c};
+      }
+      if (a && !b && c) {
+        return scalar_arithmetic{&node, node.inputs[1], -*a, *c};
+      }
+      if (a && b && !c) {
+        return scalar_arithmetic{&node, node.inputs[2], 1.0, -(*a) * (*b)};
+      }
+    } else if (ternary->op == ternary_op::multiply) {
+      if (!a && b && c) {
+        return scalar_arithmetic{&node, node.inputs[0], (*b) * (*c), 0.0};
+      }
+      if (a && !b && c) {
+        return scalar_arithmetic{&node, node.inputs[1], (*a) * (*c), 0.0};
+      }
+      if (a && b && !c) {
+        return scalar_arithmetic{&node, node.inputs[2], (*a) * (*b), 0.0};
+      }
+    }
+  }
   if (is_unary_node(node, ynn_unary_negate)) {
-    return scalar_arithmetic{node.inputs[0], -1.0, 0.0};
+    return scalar_arithmetic{&node, node.inputs[0], -1.0, 0.0};
   }
   const ynn_node::binary_elementwise* binary =
       std::get_if<ynn_node::binary_elementwise>(&node.op);
@@ -89,13 +155,13 @@ std::optional<scalar_arithmetic> is_scalar_arithmetic(
   if (const auto b = subgraph.value(node.inputs[1]).as_scalar()) {
     switch (binary->op) {
       case ynn_binary_add:
-        return scalar_arithmetic{node.inputs[0], 1.0, *b};
+        return scalar_arithmetic{&node, node.inputs[0], 1.0, *b};
       case ynn_binary_subtract:
-        return scalar_arithmetic{node.inputs[0], 1.0, -*b};
+        return scalar_arithmetic{&node, node.inputs[0], 1.0, -*b};
       case ynn_binary_multiply:
-        return scalar_arithmetic{node.inputs[0], *b, 0.0};
+        return scalar_arithmetic{&node, node.inputs[0], *b, 0.0};
       case ynn_binary_divide:
-        return scalar_arithmetic{node.inputs[0], 1.0 / *b, 0.0};
+        return scalar_arithmetic{&node, node.inputs[0], 1.0 / *b, 0.0};
       default:
         return std::nullopt;
     }
@@ -104,11 +170,11 @@ std::optional<scalar_arithmetic> is_scalar_arithmetic(
   if (const auto a = subgraph.value(node.inputs[0]).as_scalar()) {
     switch (binary->op) {
       case ynn_binary_add:
-        return scalar_arithmetic{node.inputs[1], 1.0, *a};
+        return scalar_arithmetic{&node, node.inputs[1], 1.0, *a};
       case ynn_binary_subtract:
-        return scalar_arithmetic{node.inputs[1], -1.0, *a};
+        return scalar_arithmetic{&node, node.inputs[1], -1.0, *a};
       case ynn_binary_multiply:
-        return scalar_arithmetic{node.inputs[1], *a, 0.0};
+        return scalar_arithmetic{&node, node.inputs[1], *a, 0.0};
       default:
         return std::nullopt;
     }
@@ -150,7 +216,7 @@ bool replace_uses(subgraph_analysis& analysis, ynn_subgraph& subgraph,
   }
 }
 
-// Rewrite divide(x, sqrt(y)) to multiply(x, reciprocal_square_root(y))
+// Rewrite divide(x, sqrt(y)) to multiply(x, rsqrt(y))
 bool rewrite_divide_sqrt(ynn_subgraph& subgraph, ynn_node& node,
                          subgraph_analysis& analysis) {
   if (!is_binary_node(node, ynn_binary_divide)) {
@@ -158,7 +224,7 @@ bool rewrite_divide_sqrt(ynn_subgraph& subgraph, ynn_node& node,
   }
 
   ynn_node* producer = analysis.producer_of(node.inputs[1]);
-  if (!producer || !is_unary_node(*producer, ynn_unary_square_root)) {
+  if (!producer || !is_unary_node(*producer, ynn_unary_sqrt)) {
     // The denominator of the divide is not a square root.
     return false;
   }
@@ -175,19 +241,74 @@ bool rewrite_divide_sqrt(ynn_subgraph& subgraph, ynn_node& node,
   const ynn_value& y = subgraph.value(producer->inputs[0]);
   const ynn_value& output = subgraph.value(node.outputs[0]);
 
-  const ynn::unary_kernel_fn rsqrt_kernel = ynn::get_unary_kernel(
-      ynn_unary_reciprocal_square_root, y.type, sqrt_y.type);
+  const ynn::unary_kernel_fn rsqrt_kernel =
+      ynn::get_unary_kernel(ynn_unary_rsqrt, y.type, sqrt_y.type);
   const ynn::binary_kernel_fn multiply_kernel = ynn::get_binary_kernel(
       ynn_binary_multiply, x.type, sqrt_y.type, output.type);
 
   if (rsqrt_kernel != nullptr && multiply_kernel != nullptr) {
     YNN_LOG_DEBUG() << "Rewriting x/sqrt(y) to x*rsqrt(y)";
-    ynn::define_unary(subgraph, *producer, y.id, sqrt_y.id,
-                      ynn_unary_reciprocal_square_root, rsqrt_kernel);
+    ynn::define_unary(subgraph, *producer, y.id, sqrt_y.id, ynn_unary_rsqrt,
+                      rsqrt_kernel);
     ynn::define_binary(subgraph, node, x.id, sqrt_y.id, output.id,
                        ynn_binary_multiply, multiply_kernel);
     return true;
   }
+  return false;
+}
+
+// Rewrite x * (1/y) to x / y
+bool rewrite_multiply_reciprocal(ynn_subgraph& subgraph, ynn_node& node,
+                                 subgraph_analysis& analysis) {
+  if (!is_binary_node(node, ynn_binary_multiply)) {
+    return false;
+  }
+
+  // Check if a value is 1/y.
+  // Returns the value ID of y if it is 1/y, otherwise returns
+  // YNN_INVALID_VALUE_ID.
+  auto get_reciprocal_denominator = [&](uint32_t value_id) -> uint32_t {
+    ynn_node* producer = analysis.producer_of(value_id);
+    if (!producer || !is_binary_node(*producer, ynn_binary_divide)) {
+      return YNN_INVALID_VALUE_ID;
+    }
+    const ynn_value& numerator = subgraph.value(producer->inputs[0]);
+    std::optional<ynn::real> scalar = numerator.as_scalar();
+    if (scalar && *scalar == 1.0) {
+      if (analysis.consumers[producer->outputs[0]].size() == 1 &&
+          !subgraph.value(producer->outputs[0]).is_external_output()) {
+        return producer->inputs[1];
+      }
+    }
+    return YNN_INVALID_VALUE_ID;
+  };
+
+  uint32_t y_id = get_reciprocal_denominator(node.inputs[1]);
+  uint32_t x_id = node.inputs[0];
+  if (y_id == YNN_INVALID_VALUE_ID) {
+    y_id = get_reciprocal_denominator(node.inputs[0]);
+    x_id = node.inputs[1];
+  }
+
+  if (y_id == YNN_INVALID_VALUE_ID) {
+    return false;
+  }
+
+  // We found x * (1/y). Rewrite to x / y.
+  const ynn_value& x = subgraph.value(x_id);
+  const ynn_value& y = subgraph.value(y_id);
+  const ynn_value& output = subgraph.value(node.outputs[0]);
+
+  const ynn::binary_kernel_fn divide_kernel =
+      ynn::get_binary_kernel(ynn_binary_divide, x.type, y.type, output.type);
+
+  if (divide_kernel != nullptr) {
+    YNN_LOG_DEBUG() << "Rewriting x * (1/y) to x / y";
+    ynn::define_binary(subgraph, node, x.id, y.id, output.id, ynn_binary_divide,
+                       divide_kernel);
+    return true;
+  }
+
   return false;
 }
 
@@ -438,6 +559,48 @@ bool rewrite_negate_multiply(ynn_subgraph& subgraph, ynn_node& node,
                           ynn::ternary_op::subtract_multiply, kernel);
       return true;
     }
+  }
+  return false;
+}
+
+// Rewrite exp(subtract(a, b)) to exp_subtract(a, b)
+bool rewrite_exp_subtract(ynn_subgraph& subgraph, ynn_node& node,
+                          subgraph_analysis& analysis) {
+  if ((subgraph.flags & YNN_FLAG_CONSISTENT_ARITHMETIC) != 0) {
+    // We don't try to maintain fma consistency for binary ops.
+    return false;
+  }
+  const ynn_node::unary_elementwise* unary =
+      std::get_if<ynn_node::unary_elementwise>(&node.op);
+  if (!unary || unary->op != ynn_unary_exp ||
+      unary->params.exp.input_multiplier != 1.0f ||
+      unary->params.exp.output_multiplier != 1.0f) {
+    return false;
+  }
+
+  ynn_node* producer = analysis.producer_of(node.inputs[0]);
+  if (!producer || !is_binary_node(*producer, ynn_binary_subtract)) {
+    return false;
+  }
+
+  if (analysis.consumers[producer->outputs[0]].size() != 1 ||
+      subgraph.value(producer->outputs[0]).is_external_output()) {
+    return false;
+  }
+
+  const ynn_value& a = subgraph.value(producer->inputs[0]);
+  const ynn_value& b = subgraph.value(producer->inputs[1]);
+  const ynn_value& output = subgraph.value(node.outputs[0]);
+
+  const ynn::binary_kernel_fn kernel = ynn::get_binary_kernel(
+      ynn_binary_exp_subtract, a.type, b.type, output.type);
+  if (kernel != nullptr) {
+    YNN_LOG_DEBUG() << "Rewriting exp(subtract(a, b)) to exp_subtract(a, b)";
+    ynn::define_binary(subgraph, node, a.id, b.id, output.id,
+                       ynn_binary_exp_subtract, kernel);
+    producer->invalidate();
+    analysis.invalidate();
+    return true;
   }
   return false;
 }
@@ -1334,7 +1497,7 @@ bool rewrite_ternary_convert(ynn_subgraph& subgraph, ynn_node& node,
     const ynn_value& tc = subgraph.value(test_ids[2]);
 
     kernel = ynn::get_ternary_kernel(ternary->op, ta.type, tb.type, tc.type,
-                                      output.type);
+                                     output.type);
     if (kernel != nullptr) {
       YNN_LOG_DEBUG() << "Rewriting " << to_string(ternary->op)
                       << "(convert(x), ...) to " << to_string(ternary->op)
@@ -1348,7 +1511,7 @@ bool rewrite_ternary_convert(ynn_subgraph& subgraph, ynn_node& node,
   return false;
 }
 
-// Rewrite f(x * C) to fold the arithmetic into the params.
+// Rewrite f(x * A + B) to fold the arithmetic into the params.
 bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
                       subgraph_analysis& analysis) {
   ynn_node::unary_elementwise* unary =
@@ -1363,6 +1526,7 @@ bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
     case ynn_unary_log1p:
     case ynn_unary_erf:
     case ynn_unary_approx_erf:
+    case ynn_unary_rsqrt:
       break;
     default:
       return false;
@@ -1372,13 +1536,19 @@ bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
   if (!producer) {
     return false;
   }
-  if (auto mul = is_scalar_arithmetic(subgraph, *producer)) {
+  if (auto mul = is_scalar_arithmetic(subgraph, analysis, *producer)) {
     if (mul->b != 0.0f) {
-      // We can't handle addition here.
-      return false;
+      switch (unary->op) {
+        case ynn_unary_rsqrt:
+          break;
+        default:
+          // We can't handle addition here.
+          return false;
+      }
     }
 
-    ynn_type input_type = subgraph.value(mul->x_id).type;
+    uint32_t x_id = mul->x_id;
+    ynn_type input_type = subgraph.value(x_id).type;
     ynn_type folded_type = subgraph.value(node.inputs[0]).type;
 
     unary_kernel_fn convert_kernel = nullptr;
@@ -1400,15 +1570,26 @@ bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
       unary->params.exp.input_multiplier *= mul->a;
     } else if (unary->op == ynn_unary_approx_erf) {
       unary->params.approx_erf.input_multiplier *= mul->a;
+    } else if (unary->op == ynn_unary_rsqrt) {
+      unary->params.rsqrt.input_offset +=
+          mul->b * unary->params.rsqrt.input_multiplier;
+      unary->params.rsqrt.input_multiplier *= mul->a;
     } else {
       unary->params.erf.input_multiplier *= mul->a;
     }
 
+    // We folded the scalar arithmetic. We need to skip the scalar arithmetic
+    // nodes. This may not be the immediate producers of this op.
+    uint32_t output_id = mul->producer->outputs[0];
     if (input_type != folded_type) {
-      define_unary(subgraph, *producer, mul->x_id, producer->outputs[0],
-                   ynn_unary_convert, convert_kernel);
+      define_unary(subgraph, *mul->producer, x_id, output_id, ynn_unary_convert,
+                   convert_kernel);
     } else {
-      node.inputs[0] = mul->x_id;
+      ynn_node* consumer = &node;
+      if (producer != mul->producer) {
+        consumer = analysis.consumers[output_id].front();
+      }
+      consumer->inputs[0] = x_id;
     }
 
     analysis.invalidate();
@@ -1420,7 +1601,7 @@ bool fold_unary_input(ynn_subgraph& subgraph, ynn_node& node,
 // Rewrite f(x) * A + B to fold the arithmetic into the params
 bool fold_unary_output(ynn_subgraph& subgraph, ynn_node& node,
                        subgraph_analysis& analysis) {
-  auto scalar_arithmetic = is_scalar_arithmetic(subgraph, node);
+  auto scalar_arithmetic = is_scalar_arithmetic(subgraph, analysis, node);
   if (!scalar_arithmetic) return false;
 
   ynn_node* producer = analysis.producer_of(scalar_arithmetic->x_id);
@@ -1444,8 +1625,8 @@ bool fold_unary_output(ynn_subgraph& subgraph, ynn_node& node,
     case ynn_unary_approx_erf:
     case ynn_unary_tanh:
     case ynn_unary_approx_tanh:
-    case ynn_unary_sine:
-    case ynn_unary_cosine:
+    case ynn_unary_sin:
+    case ynn_unary_cos:
     case ynn_unary_poly3:
       break;
     default:
@@ -1492,7 +1673,7 @@ bool fold_iota_output(ynn_subgraph& subgraph, ynn_node& node,
                       subgraph_analysis& analysis) {
   // iota supports dynamic begin/stride values too, so we could also fold non-
   // constant arithmetic into it, but it's messier to do that...
-  auto scalar_arithmetic = is_scalar_arithmetic(subgraph, node);
+  auto scalar_arithmetic = is_scalar_arithmetic(subgraph, analysis, node);
   if (!scalar_arithmetic) return false;
 
   ynn_node* producer = analysis.producer_of(scalar_arithmetic->x_id);
@@ -2168,11 +2349,13 @@ ynn_status ynn_subgraph::fusion() {
                 ynn::fold_unary_output(*this, node, analysis) ||
                 ynn::fold_iota_output(*this, node, analysis) ||
                 ynn::rewrite_binary(*this, node, analysis) ||
+                ynn::rewrite_exp_subtract(*this, node, analysis) ||
                 ynn::rewrite_reduce_binary_identity(*this, node, analysis) ||
                 ynn::rewrite_expand_dims_reduce(*this, node, analysis) ||
                 ynn::rewrite_reshape(*this, node, analysis) ||
                 ynn::rewrite_transpose_transpose(*this, node, analysis) ||
                 ynn::rewrite_divide_sqrt(*this, node, analysis) ||
+                ynn::rewrite_multiply_reciprocal(*this, node, analysis) ||
                 ynn::rewrite_sum_to_dot(*this, node, analysis) ||
                 ynn::rewrite_ternary(*this, node, analysis) ||
                 ynn::rewrite_binary_convert(*this, node, analysis) ||

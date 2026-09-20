@@ -271,12 +271,28 @@ OpAction GetOpActionFp16(const xnn_subgraph_t subgraph, const xnn_node& node) {
 // Is this op supported when bf16 hardware is missing (allow-list).
 //
 // bf16 has very few native microkernels, so most ops fall back to fp32. The
-// notable exceptions are the bf16 GEMM (bf16 x bf16 -> fp32) and the bf16
-// reductions, which are kept native when their configs are available.
+// notable exceptions are the bf16 GEMM (bf16 x bf16 -> fp32), reductions, and
+// selected unary operators, which are kept native when their configs are
+// available.
 OpAction GetOpActionBf16(const xnn_subgraph_t subgraph, const xnn_node& node) {
   switch (node.type) {
     case xnn_node_type_unary_elementwise:
       switch (node.unary_operator) {
+        case xnn_unary_reciprocal_square_root:
+          if (IsValid(xnn_init_bf16_rsqrt_config())) {
+            return OpAction::kTransparent;
+          }
+          break;
+        case xnn_unary_sigmoid:
+          if (IsValid(xnn_init_bf16_sigmoid_config())) {
+            return OpAction::kTransparent;
+          }
+          break;
+        case xnn_unary_square:
+          if (IsValid(xnn_init_bf16_sqr_config())) {
+            return OpAction::kTransparent;
+          }
+          break;
         case xnn_unary_convert: {
           const xnn_value& output = subgraph->values[node.outputs[0]];
           const xnn_value& input = subgraph->values[node.inputs[0]];
@@ -639,6 +655,14 @@ xnn_status FallbackToFp32(xnn_subgraph_t subgraph, int optimization_flags,
           fp32_value.to_fp32_fallback.original_data = fp32_value.data;
           fp32_value.data =
               xnn_allocate_zero_memory(fp32_value.size + XNN_EXTRA_BYTES);
+          if (fp32_value.data == nullptr) {
+            xnn_log_error(
+                "failed to allocate %zu bytes for %s fp32 fallback output "
+                "buffer",
+                fp32_value.size + XNN_EXTRA_BYTES,
+                xnn_datatype_to_string(from_dt));
+            return xnn_status_out_of_memory;
+          }
           fp32_value.flags |= XNN_VALUE_FLAG_NEEDS_CLEANUP;
         } else {
           fp32_value.allocation_type = xnn_allocation_type_workspace;
@@ -702,6 +726,14 @@ xnn_status FallbackToFp32(xnn_subgraph_t subgraph, int optimization_flags,
             // inserting a convert node.
             fp32_value.data =
                 xnn_allocate_zero_memory(fp32_value.size + XNN_EXTRA_BYTES);
+            if (fp32_value.data == nullptr) {
+              xnn_log_error(
+                  "failed to allocate %zu bytes for %s fp32 fallback static "
+                  "conversion buffer",
+                  fp32_value.size + XNN_EXTRA_BYTES,
+                  xnn_datatype_to_string(from_dt));
+              return xnn_status_out_of_memory;
+            }
             fp32_value.flags |= XNN_VALUE_FLAG_NEEDS_CLEANUP;
             fp32_value.to_fp32_fallback.original_data = value.data;
             xnn_run_unary_elementwise_nc(

@@ -88,7 +88,9 @@ enum ynn_type {
 #define YNN_VALUE_FLAG_EXTERNAL_OUTPUT (1 << 1)
 #define YNN_VALUE_FLAG_COPY_DATA (1 << 2)
 #define YNN_VALUE_FLAG_NO_EXCESS_PRECISION (1 << 3)
-#define YNN_VALUE_FLAG_COPY_DATA_FP32 (1 << 4)
+#define YNN_VALUE_FLAG_DATA_IS_FP32 (1 << 4)
+#define YNN_VALUE_FLAG_COPY_DATA_FP32 \
+  (YNN_VALUE_FLAG_COPY_DATA | YNN_VALUE_FLAG_DATA_IS_FP32)
 
 // Define a new tensor in a subgraph.
 //
@@ -134,6 +136,9 @@ enum ynn_status ynn_define_tensor(ynn_subgraph_t subgraph, enum ynn_type type,
 // `stride_id` is a 1D tensor with extent `rank`, where element i indicates the
 // step between output elements in dimension i.
 //
+// If `YNN_NODE_FLAG_LESS_ZERO` is set, the result will be 1 if the result is
+// less than 0, or 0 otherwise.
+//
 // The ID of the new tensor will be stored in `output_id`. If `*output_id` is
 // not `YNN_INVALID_VALUE_ID`, it must be a valid ID of a tensor previously
 // defined by `ynn_define_tensor`.
@@ -148,6 +153,8 @@ enum ynn_status ynn_define_iota(ynn_subgraph_t subgraph, enum ynn_type type,
 #define YNN_NODE_FLAG_RESHAPE_1D (1 << 0)
 #define YNN_NODE_FLAG_UNIQUE_DIMS (1 << 1)
 #define YNN_NODE_FLAG_NO_EXCESS_PRECISION (1 << 2)
+#define YNN_NODE_FLAG_LESS_ZERO (1 << 3)
+#define YNN_NODE_FLAG_SYMMETRIC_B (1 << 4)
 
 enum ynn_unary_operator {
   ynn_unary_invalid = 0,
@@ -155,8 +162,8 @@ enum ynn_unary_operator {
   ynn_unary_abs = 1,
   ynn_unary_ceil = 2,
   ynn_unary_convert = 3,
-  ynn_unary_cosine = 4,
-  ynn_unary_cube_root = 5,
+  ynn_unary_cos = 4,
+  ynn_unary_cbrt = 5,
   ynn_unary_erf = 6,
   ynn_unary_exp = 7,
   ynn_unary_expm1 = 8,
@@ -165,21 +172,30 @@ enum ynn_unary_operator {
   ynn_unary_log = 11,
   ynn_unary_log1p = 12,
   ynn_unary_negate = 13,
-  ynn_unary_reciprocal_square_root = 14,
+  ynn_unary_rsqrt = 14,
   ynn_unary_round = 15,
   ynn_unary_sigmoid = 16,
   ynn_unary_sign = 17,
-  ynn_unary_sine = 18,
+  ynn_unary_sin = 18,
   ynn_unary_square = 19,
-  ynn_unary_square_root = 20,
+  ynn_unary_sqrt = 20,
   ynn_unary_tanh = 21,
   ynn_unary_poly3 = 22,
   ynn_unary_round_to_bf16 = 23,
   ynn_unary_approx_erf = 24,
   ynn_unary_approx_tanh = 25,
+  ynn_unary_tan = 26,
 
   // Internal use only
   ynn_unary_requantize_to_uint8,
+
+  // For backwards compatibility
+  ynn_unary_cosine = ynn_unary_cos,
+  ynn_unary_sine = ynn_unary_sin,
+  ynn_unary_tangent = ynn_unary_tan,
+  ynn_unary_square_root = ynn_unary_sqrt,
+  ynn_unary_reciprocal_square_root = ynn_unary_rsqrt,
+  ynn_unary_cube_root = ynn_unary_cbrt,
 };
 
 // Defines a unary operation of a single input to a single output.
@@ -261,6 +277,9 @@ enum ynn_binary_operator {
   ynn_binary_pow = 8,
   ynn_binary_squared_difference = 9,
   ynn_binary_subtract = 10,
+
+  // Internal use only
+  ynn_binary_exp_subtract,
 };
 
 // Defines a binary operation of two inputs to a single output. The two inputs
@@ -398,12 +417,17 @@ enum ynn_status ynn_define_slice_like(ynn_subgraph_t subgraph, size_t num_axes,
                                       uint32_t template_id, uint32_t* output_id,
                                       uint32_t flags);
 
-// Copy the input to the output, using a permutation to select the dimensions of
-// the input. Dimensions can be removed (by not including the dimension in the
-// permutation) or added (by using a dimension that is larger than the rank of
-// the input).
+// Copy the input to the output, using a permutation `axes` to select the
+// dimensions of the input. Dimensions can be removed (by not including the
+// dimension in the permutation) or added (by using a dimension that is larger
+// than the rank of the input).
+//
+// If `YNN_NODE_FLAG_KEEP_DIMS` is set, `num_axes` specifies the number of
+// dimensions in `axes` to reorder. The specified dimensions are reordered among
+// their positions in the input tensor, and all other dimensions are left in
+// place. The output tensor has the same rank as the input tensor.
 enum ynn_status ynn_define_static_transpose(
-    ynn_subgraph_t subgraph, size_t rank, const int32_t* permutation,
+    ynn_subgraph_t subgraph, size_t num_axes, const int32_t* axes,
     uint32_t input_id, uint32_t* output_id, uint32_t flags);
 
 // Copies from `input_id` (when not in the padded area) or `padding_id` (when in
@@ -470,6 +494,9 @@ enum ynn_status ynn_define_stencil_copy(
 // - product: 1
 // - min: (max value of type of `input_a_id`)
 // - max: (min value of type of `input_a_id`)
+//
+// If the `YNN_NODE_FLAG_SYMMETRIC_B` flag is set, this operation will assume
+// that `input_b_id` can be negated without overflow.
 enum ynn_status ynn_define_dot(ynn_subgraph_t subgraph, size_t num_k_dims,
                                uint32_t input_a_id, uint32_t input_b_id,
                                uint32_t input_c_id, uint32_t* output_id,

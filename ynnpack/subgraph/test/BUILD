@@ -142,6 +142,21 @@ cc_test(
 )
 
 cc_test(
+    name = "dot_scheduling",
+    srcs = ["dot_scheduling.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    tags = [
+        "noemulator",
+        "nowasm",  # b/525770952
+    ],
+    deps = TEST_DEPS + [
+        "//ynnpack/subgraph",
+        "@slinky//slinky/runtime",
+    ],
+)
+
+cc_test(
     name = "fusion",
     srcs = [
         "fusion_copy.cc",
@@ -183,6 +198,14 @@ cc_test(
 cc_test(
     name = "eliminate_common_subgraphs",
     srcs = ["eliminate_common_subgraphs.cc"],
+    linkopts = ynn_binary_linkopts(),
+    malloc = ynn_binary_malloc(),
+    deps = TEST_DEPS + ["//ynnpack/subgraph"],
+)
+
+cc_test(
+    name = "dynamically_quantized_dot",
+    srcs = ["dynamically_quantized_dot.cc"],
     linkopts = ynn_binary_linkopts(),
     malloc = ynn_binary_malloc(),
     deps = TEST_DEPS + ["//ynnpack/subgraph"],
@@ -283,6 +306,7 @@ cc_test(
         ":scheduler",
         "//ynnpack",
         "//ynnpack/base",
+        "//ynnpack/base/test:util",
         "@com_google_benchmark//:benchmark",
     ],
 )
@@ -335,10 +359,9 @@ cc_test(
     linkopts = ynn_binary_linkopts(),
     malloc = ynn_binary_malloc(),
     deps = [
-        ":subgraph_builder",
+        ":scheduler",
         "//ynnpack",
         "//ynnpack/base",
-        "//ynnpack/base/test:tensor",
     ] + ynn_benchmark_deps(),
 )
 

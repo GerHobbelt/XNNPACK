@@ -1636,6 +1636,13 @@ static enum xnn_status generate_fingerprint_data(const struct fc_variant* varian
   const size_t bytes = weights_bytes + bias_bytes + kernel_scale_bytes +
                        kernel_zero_points_bytes + 4 * XNN_ALLOCATION_ALIGNMENT;
   uint8_t* buffer = xnn_allocate_simd_memory(bytes);
+  if (!buffer) {
+    xnn_log_error(
+        "Could not allocate %zu bytes when generating fully connected "
+        "fingerprint data",
+        bytes);
+    return xnn_status_out_of_memory;
+  }
   fill_fingerprint_buffer(buffer, bytes);
   context->fingerprint_data_to_release = buffer;
   context->input_channels = input_channels;
@@ -1946,10 +1953,30 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f16_qb4w_f16_scales(
     float output_min, float output_max, uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* fully_connected_op_out) {
   enum xnn_status status = xnn_status_success;
-  const size_t num_blocks =
-      (input_channels + block_size - 1) / block_size * output_channels;
+  if (block_size == 0) {
+    xnn_log_error("failed to create %s operator: block size must be non-zero",
+                  xnn_operator_type_to_string(
+                      xnn_operator_type_fully_connected_nc_qd8_f16_qb4w));
+    return xnn_status_invalid_parameter;
+  }
+  const size_t blocks_per_output = divide_round_up(input_channels, block_size);
+  size_t num_blocks = 0;
+  size_t scale_buffer_size = 0;
+  if (!xnn_safe_mul(blocks_per_output, output_channels, &num_blocks) ||
+      !xnn_safe_mul(num_blocks, sizeof(xnn_bfloat16), &scale_buffer_size)) {
+    xnn_log_error(
+        "failed to create %s operator with %zu input channels, %zu output "
+        "channels, and block size %zu: scale buffer size overflows size_t",
+        xnn_operator_type_to_string(
+            xnn_operator_type_fully_connected_nc_qd8_f16_qb4w),
+        input_channels, output_channels, block_size);
+    return xnn_status_invalid_parameter;
+  }
   xnn_bfloat16* bf16_scale_buffer =
-      (xnn_bfloat16*)xnn_allocate_memory(num_blocks * sizeof(xnn_bfloat16));
+      (xnn_bfloat16*)xnn_allocate_memory(scale_buffer_size);
+  if (bf16_scale_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   for (size_t i = 0; i < num_blocks; ++i) {
     bf16_scale_buffer[i] = xnn_bfloat16_from_float(
         xnn_float16_to_float(((const xnn_float16*)kernel_scale)[i]));
@@ -2177,10 +2204,30 @@ enum xnn_status xnn_create_fully_connected_nc_qp8_f32_qb4w_f16_scales(
     float output_min, float output_max, uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* fully_connected_op_out) {
   enum xnn_status status = xnn_status_success;
-  const size_t num_blocks =
-      (input_channels + block_size - 1) / block_size * output_channels;
+  if (block_size == 0) {
+    xnn_log_error("failed to create %s operator: block size must be non-zero",
+                  xnn_operator_type_to_string(
+                      xnn_operator_type_fully_connected_nc_qp8_f32_qb4w));
+    return xnn_status_invalid_parameter;
+  }
+  const size_t blocks_per_output = divide_round_up(input_channels, block_size);
+  size_t num_blocks = 0;
+  size_t scale_buffer_size = 0;
+  if (!xnn_safe_mul(blocks_per_output, output_channels, &num_blocks) ||
+      !xnn_safe_mul(num_blocks, sizeof(xnn_bfloat16), &scale_buffer_size)) {
+    xnn_log_error(
+        "failed to create %s operator with %zu input channels, %zu output "
+        "channels, and block size %zu: scale buffer size overflows size_t",
+        xnn_operator_type_to_string(
+            xnn_operator_type_fully_connected_nc_qp8_f32_qb4w),
+        input_channels, output_channels, block_size);
+    return xnn_status_invalid_parameter;
+  }
   xnn_bfloat16* bf16_scale_buffer =
-      (xnn_bfloat16*)xnn_allocate_memory(num_blocks * sizeof(xnn_bfloat16));
+      (xnn_bfloat16*)xnn_allocate_memory(scale_buffer_size);
+  if (bf16_scale_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   for (size_t i = 0; i < num_blocks; ++i) {
     bf16_scale_buffer[i] = xnn_bfloat16_from_float(
         xnn_float16_to_float(((const xnn_float16*)kernel_scale)[i]));
@@ -2227,10 +2274,30 @@ enum xnn_status xnn_create_fully_connected_nc_qd8_f32_qb4w_f16_scales(
     const xnn_float16* kernel_scale, const void* kernel, const float* bias,
     float output_min, float output_max, uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* fully_connected_op_out) {
-  const size_t num_blocks =
-      (input_channels + block_size - 1) / block_size * output_channels;
+  if (block_size == 0) {
+    xnn_log_error("failed to create %s operator: block size must be non-zero",
+                  xnn_operator_type_to_string(
+                      xnn_operator_type_fully_connected_nc_qd8_f32_qb4w));
+    return xnn_status_invalid_parameter;
+  }
+  const size_t blocks_per_output = divide_round_up(input_channels, block_size);
+  size_t num_blocks = 0;
+  size_t scale_buffer_size = 0;
+  if (!xnn_safe_mul(blocks_per_output, output_channels, &num_blocks) ||
+      !xnn_safe_mul(num_blocks, sizeof(xnn_bfloat16), &scale_buffer_size)) {
+    xnn_log_error(
+        "failed to create %s operator with %zu input channels, %zu output "
+        "channels, and block size %zu: scale buffer size overflows size_t",
+        xnn_operator_type_to_string(
+            xnn_operator_type_fully_connected_nc_qd8_f32_qb4w),
+        input_channels, output_channels, block_size);
+    return xnn_status_invalid_parameter;
+  }
   xnn_bfloat16* bf16_scale_buffer =
-      (xnn_bfloat16*)xnn_allocate_memory(num_blocks * sizeof(xnn_bfloat16));
+      (xnn_bfloat16*)xnn_allocate_memory(scale_buffer_size);
+  if (bf16_scale_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   for (size_t i = 0; i < num_blocks; ++i) {
     bf16_scale_buffer[i] =
         xnn_bfloat16_from_float(xnn_float16_to_float(kernel_scale[i]));
@@ -2276,10 +2343,30 @@ enum xnn_status xnn_create_fully_connected_nc_qdu8_f32_qb4w_f16_scales(
     const xnn_float16* kernel_scale, const void* kernel, const float* bias,
     float output_min, float output_max, uint32_t flags,
     xnn_weights_cache_t weights_cache, xnn_operator_t* fully_connected_op_out) {
-  const size_t num_blocks =
-      (input_channels + block_size - 1) / block_size * output_channels;
+  if (block_size == 0) {
+    xnn_log_error("failed to create %s operator: block size must be non-zero",
+                  xnn_operator_type_to_string(
+                      xnn_operator_type_fully_connected_nc_qdu8_f32_qb4w));
+    return xnn_status_invalid_parameter;
+  }
+  const size_t blocks_per_output = divide_round_up(input_channels, block_size);
+  size_t num_blocks = 0;
+  size_t scale_buffer_size = 0;
+  if (!xnn_safe_mul(blocks_per_output, output_channels, &num_blocks) ||
+      !xnn_safe_mul(num_blocks, sizeof(xnn_bfloat16), &scale_buffer_size)) {
+    xnn_log_error(
+        "failed to create %s operator with %zu input channels, %zu output "
+        "channels, and block size %zu: scale buffer size overflows size_t",
+        xnn_operator_type_to_string(
+            xnn_operator_type_fully_connected_nc_qdu8_f32_qb4w),
+        input_channels, output_channels, block_size);
+    return xnn_status_invalid_parameter;
+  }
   xnn_bfloat16* bf16_scale_buffer =
-      (xnn_bfloat16*)xnn_allocate_memory(num_blocks * sizeof(xnn_bfloat16));
+      (xnn_bfloat16*)xnn_allocate_memory(scale_buffer_size);
+  if (bf16_scale_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   for (size_t i = 0; i < num_blocks; ++i) {
     bf16_scale_buffer[i] =
         xnn_bfloat16_from_float(xnn_float16_to_float(kernel_scale[i]));
@@ -2395,6 +2482,9 @@ enum xnn_status xnn_create_fully_connected_nc_f32_f16(
     xnn_weights_cache_t weights_cache, xnn_operator_t* fully_connected_op_out) {
   float* fp32_kernel_buffer = (float*)xnn_allocate_memory(
       input_channels * output_channels * sizeof(float));
+  if (fp32_kernel_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   float* fp32_bias_buffer = NULL;
   float* fp32_bias_buffer_to_release = NULL;
   const xnn_float16* f16_kernel = (const xnn_float16*)kernel;
@@ -2405,6 +2495,10 @@ enum xnn_status xnn_create_fully_connected_nc_f32_f16(
   if (bias && !(flags & XNN_FLAG_FP32_STATIC_BIASES)) {
     fp32_bias_buffer_to_release =
         (float*)xnn_allocate_memory(output_channels * sizeof(float));
+    if (fp32_bias_buffer_to_release == NULL) {
+      xnn_release_memory(fp32_kernel_buffer);
+      return xnn_status_out_of_memory;
+    }
     fp32_bias_buffer = fp32_bias_buffer_to_release;
     for (size_t i = 0; i < output_channels; ++i) {
       fp32_bias_buffer[i] = xnn_float16_to_float(f16_bias[i]);
@@ -2443,6 +2537,9 @@ enum xnn_status xnn_create_fully_connected_nc_pf32_f16(
     xnn_weights_cache_t weights_cache, xnn_operator_t* fully_connected_op_out) {
   float* fp32_kernel_buffer = (float*)xnn_allocate_memory(
       input_channels * output_channels * sizeof(float));
+  if (fp32_kernel_buffer == NULL) {
+    return xnn_status_out_of_memory;
+  }
   float* fp32_bias_buffer = NULL;
   float* fp32_bias_buffer_to_release = NULL;
   const xnn_float16* f16_kernel = (const xnn_float16*)kernel;
@@ -2453,6 +2550,10 @@ enum xnn_status xnn_create_fully_connected_nc_pf32_f16(
   if (bias && !(flags & XNN_FLAG_FP32_STATIC_BIASES)) {
     fp32_bias_buffer_to_release =
         (float*)xnn_allocate_memory(output_channels * sizeof(float));
+    if (fp32_bias_buffer_to_release == NULL) {
+      xnn_release_memory(fp32_kernel_buffer);
+      return xnn_status_out_of_memory;
+    }
     fp32_bias_buffer = fp32_bias_buffer_to_release;
     for (size_t i = 0; i < output_channels; ++i) {
       fp32_bias_buffer[i] = xnn_float16_to_float(f16_bias[i]);
@@ -3237,8 +3338,8 @@ enum xnn_status xnn_reshape_fully_connected_nc_qd8_f16_qc2w(
       batch_size,
       /*dynamic_quantization=*/true,
       /*log2_output_element_size=*/XNN_LOG2_SIZEOF_FLOAT16,
-      &fully_connected_op->params.f32_minmax,
-      sizeof(fully_connected_op->params.f32_minmax), workspace_size,
+      &fully_connected_op->params.f16_minmax,
+      sizeof(fully_connected_op->params.f16_minmax), workspace_size,
       threadpool);
 }
 
@@ -3250,8 +3351,8 @@ enum xnn_status xnn_reshape_fully_connected_nc_qdu8_f16_qc2w(
       batch_size,
       /*dynamic_quantization=*/true,
       /*log2_output_element_size=*/XNN_LOG2_SIZEOF_FLOAT16,
-      &fully_connected_op->params.f32_minmax,
-      sizeof(fully_connected_op->params.f32_minmax), workspace_size,
+      &fully_connected_op->params.f16_minmax,
+      sizeof(fully_connected_op->params.f16_minmax), workspace_size,
       threadpool);
 }
 

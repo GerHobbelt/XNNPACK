@@ -55,7 +55,6 @@ cc_test(
         "//litert/tensor/runners/xnnpack:runner",
         "//litert/tensor/utils:matchers",
         "@abseil-cpp//absl/status",
-        "@abseil-cpp//absl/types:span",
         "@com_google_googletest//:gtest_main",  # gunit
     ],
 )
@@ -69,6 +68,7 @@ cc_library(
         ":utils",
         "//:XNNPACK",
         "//litert/tensor",
+        "//litert/tensor:buffer",
         "//litert/tensor:datatypes",
         "//litert/tensor/internal:graph",
         "//litert/tensor/internal:graph_traversal",
@@ -77,7 +77,6 @@ cc_library(
         "@abseil-cpp//absl/base:no_destructor",
         "@abseil-cpp//absl/container:flat_hash_map",
         "@abseil-cpp//absl/container:flat_hash_set",
-        "@abseil-cpp//absl/hash",
         "@abseil-cpp//absl/status",
         "@abseil-cpp//absl/status:statusor",
         "@abseil-cpp//absl/strings",

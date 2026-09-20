@@ -4,7 +4,9 @@
 # LICENSE file in the root directory of this source tree.
 
 ADD_LIBRARY(ynnpack_subgraph_test_scheduler STATIC scheduler.cc)
-TARGET_LINK_LIBRARIES(ynnpack_subgraph_test_scheduler PUBLIC ynnpack ynnpack_base slinky_thread_pool_impl gtest)
+TARGET_LINK_LIBRARIES(ynnpack_subgraph_test_scheduler PUBLIC ynnpack ynnpack_base slinky_thread_pool_impl)
+
+IF(YNNPACK_BUILD_TESTS)
 
 ADD_LIBRARY(ynnpack_subgraph_test_builder STATIC subgraph_builder.cc)
 TARGET_LINK_LIBRARIES(ynnpack_subgraph_test_builder PUBLIC
@@ -34,6 +36,7 @@ YNN_ADD_SUBGRAPH_TEST(broadcast_like)
 YNN_ADD_SUBGRAPH_TEST(concatenate)
 YNN_ADD_SUBGRAPH_TEST(copy)
 YNN_ADD_SUBGRAPH_TEST(dynamic_quantization)
+YNN_ADD_SUBGRAPH_TEST(dynamically_quantized_dot)
 YNN_ADD_SUBGRAPH_TEST(errors)
 YNN_ADD_SUBGRAPH_TEST(even_split)
 YNN_ADD_SUBGRAPH_TEST(fuse_dim)
@@ -93,7 +96,20 @@ TARGET_LINK_LIBRARIES(ynnpack_subgraph_fusion_test
 )
 ADD_TEST(NAME ynnpack_subgraph_fusion_test COMMAND ynnpack_subgraph_fusion_test)
 
+ENDIF()  # YNNPACK_BUILD_TESTS
+
+
 IF(YNNPACK_BUILD_BENCHMARKS)
+  ADD_EXECUTABLE(ynnpack_subgraph_attention_bench attention_bench.cc attention_graph.cc)
+  TARGET_LINK_LIBRARIES(ynnpack_subgraph_attention_bench
+    ynnpack
+    ynnpack_base
+    ynnpack_subgraph
+    ynnpack_composites
+    ynnpack_subgraph_test_scheduler
+    benchmark::benchmark_main
+  )
+
   ADD_EXECUTABLE(ynnpack_subgraph_dot_bench dot_bench.cc)
   TARGET_LINK_LIBRARIES(ynnpack_subgraph_dot_bench ynnpack ynnpack_base ynnpack_subgraph_test_scheduler benchmark::benchmark)
 

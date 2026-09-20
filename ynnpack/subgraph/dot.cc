@@ -28,6 +28,7 @@
 #include "ynnpack/kernels/dot/schedule.h"
 #include "ynnpack/kernels/ternary/ternary.h"
 #include "ynnpack/subgraph/copy.h"
+#include "ynnpack/subgraph/dot.h"
 #include "ynnpack/subgraph/elementwise.h"
 #include "ynnpack/subgraph/runtime.h"
 #include "ynnpack/subgraph/slinky.h"
@@ -79,9 +80,32 @@ bool prefer_uint8_dot(ynn_type b_type) {
 
 namespace {
 
+bool is_layout_transform(const ynn_node& node) {
+  return std::holds_alternative<ynn_node::copy>(node.op) ||
+         std::holds_alternative<ynn_node::split_dim>(node.op) ||
+         std::holds_alternative<ynn_node::fuse_dim>(node.op) ||
+         std::holds_alternative<ynn_node::fuse_dims>(node.op) ||
+         std::holds_alternative<ynn_node::split_dims>(node.op) ||
+         std::holds_alternative<ynn_node::static_reshape>(node.op) ||
+         std::holds_alternative<ynn_node::static_broadcast>(node.op) ||
+         std::holds_alternative<ynn_node::static_slice>(node.op) ||
+         std::holds_alternative<ynn_node::static_transpose>(node.op);
+}
+
 bool try_dynamic_quantization_rewrite(ynn_subgraph& subgraph,
                                       uint32_t input_a_id) {
+  std::vector<uint32_t> path = {input_a_id};
+  // This rewrite assumes that there are no other users of these values. We
+  // can't check for that here, because we are in the middle of constructing the
+  // graph. Even if there are no other users now, there might be users later.
+  // We should be doing this kind of rewrite as part of `ynn_optimize_subgraph`,
+  // to fix this problem.
   ynn_node* producer_a = subgraph.get_producer(input_a_id);
+  while (producer_a && is_layout_transform(*producer_a)) {
+    input_a_id = producer_a->inputs[0];
+    path.push_back(input_a_id);
+    producer_a = subgraph.get_producer(input_a_id);
+  }
   if (!producer_a) return false;
 
   const ynn_node::ternary_elementwise* ternary =
@@ -106,7 +130,9 @@ bool try_dynamic_quantization_rewrite(ynn_subgraph& subgraph,
   // instead of int8.
   uint32_t scale_id = producer_a->inputs[1];
   dq_op->output_zero_point = 128;
-  subgraph.value(input_a_id).type = ynn_type_uint8;
+  for (uint32_t id : path) {
+    subgraph.value(id).type = ynn_type_uint8;
+  }
   ynn::define_ternary(subgraph, *producer_a, input_id, scale_id, zp_id,
                       input_a_id, ternary_op::quantize_uint8, kernel);
   return true;
@@ -215,6 +241,7 @@ bool maybe_rewrite_input_a_to_uint8(ynn_subgraph& subgraph,
 
 // TODO(dsharlet): This should probably be a parameter we learn based on cpuinfo
 // or other source of CPU metadata. This was determined experimentally.
+constexpr index_t cache_size_l1 = 32 * 1024;
 constexpr index_t cache_size_l2 = 128 * 1024;
 
 // When we want arithmetic to be consistent, we need to make all tiling
@@ -224,11 +251,14 @@ constexpr index_t consistent_block_n = 64;
 
 // The wrapper for the kernel we use when we actually want to run a dot kernel
 // on some buffers.
-auto make_dot_impl(dot_type type, bool consistent_arithmetic, bool transposed_a,
-                   bool pack_b, size_t num_k_dims) {
+auto make_dot_impl(dot_type type, bool consistent_arithmetic, bool symmetric_b,
+                   bool transposed_a, bool pack_b, size_t num_k_dims) {
   uint32_t kernel_flags = 0;
   if (consistent_arithmetic) {
     kernel_flags |= dot_flag::consistent_arithmetic;
+  }
+  if (symmetric_b) {
+    kernel_flags |= dot_flag::symmetric_b;
   }
   if (!pack_b) {
     kernel_flags |= dot_flag::unaligned_b;
@@ -272,6 +302,12 @@ auto make_dot_impl(dot_type type, bool consistent_arithmetic, bool transposed_a,
     const slinky::dim& b_no = b.dim(3);
     const slinky::dim& b_k2 = num_k_dims >= 2 ? b.dim(4) : dummy_dim;
     const slinky::dim& b_k3 = num_k_dims >= 3 ? b.dim(5) : dummy_dim;
+
+    if (c_n.empty()) {
+      // Most things below transparently handle empty dimensions, but n has some
+      // alignment requirements.
+      return 0;
+    }
 
     const int b_type_element_count = type_element_count(type.b);
     const index_t tile_k = b_k1i.extent() * b_type_element_count;
@@ -333,7 +369,7 @@ auto make_dot_impl(dot_type type, bool consistent_arithmetic, bool transposed_a,
       // values), then we don't care if the kernel is transposed or not.
       require_transpose_a = std::nullopt;
     }
-    dot_kernel kernel = get_dot_kernel(type, shape, &packed_shape, kernel_flags,
+    dot_kernel kernel = get_dot_kernel(type, shape, packed_shape, kernel_flags,
                                        require_transpose_a);
     assert(kernel.kernel);
     assert(tile_k == kernel.tile_k);
@@ -561,7 +597,7 @@ auto make_pack_impl(int elem_count) {
     (void)output_ki;
 
     input.slice(0, output_no.min() * block_n / elem_count);
-    input.slice(0, slinky::in_bounds{output_ko.min() * tile_k});
+    input.slice(0, output_ko.min() * tile_k);
     output.slice({0, 1, 2, 3});
 
     // Depending on the strides of the input, we might use either an interleave
@@ -600,35 +636,43 @@ auto make_pack_impl(int elem_count) {
 // b(n, k, ...) => b(k%tile_k, n%nr, k/tile_k, n/tile_n, ...)
 // where tile_n is a multiple of the kernel's tile_n, but not greater than the
 // kernel's block_n.
-uint32_t define_pack_b(ynn_subgraph_t subgraph, const dot_type& type,
+}  // namespace
+
+uint32_t define_pack_b(ynn_subgraph& subgraph, const dot_type& type,
                        const dot_kernel& kernel, size_t num_k_dims,
                        bool consistent_arithmetic, uint32_t input_b_id) {
-  const ynn_value& b = subgraph->value(input_b_id);
+  const ynn_value& b = subgraph.value(input_b_id);
 
-  ynn_value& packed_b = subgraph->new_internal_value();
+  ynn_value& packed_b = subgraph.new_internal_value();
   packed_b.type = b.type;
   uint32_t packed_b_id = packed_b.id;
-
-  const int element_count = type_element_count(b.type);
 
   slinky::expr n = b.extent(0);
   slinky::expr k1 = b.extent(1);
   slinky::expr k2 = num_k_dims >= 2 ? b.extent(2) : 1;
   slinky::expr k3 = num_k_dims >= 3 ? b.extent(3) : 1;
 
-  const index_t elem_size_bits = type_size_bytes(b.type) * 8 / element_count;
-  const index_t cache_elements = cache_size_l2 * 8 / elem_size_bits;
-
   // When choosing block_n, we have the following concerns:
   // - We want to make the block bigger than the kernel's `block_n`
   // - If we want consistent arithmetic: it should be independent of the kernel.
-  const index_t align_block_n =
-      consistent_arithmetic ? consistent_block_n : kernel.block_n;
+  const int align_block_n =
+      consistent_arithmetic ? consistent_block_n : kernel.max_block_n;
 
-  // - We want to maximize block_n if the block will fit in cache
-  slinky::expr cache_blocks_n = slinky::floor_div<slinky::expr>(
-      cache_elements, align_block_n * k1 * k2 * k3);
-  slinky::expr block_n = align_block_n * max(1, cache_blocks_n);
+  slinky::expr block_n;
+  if (type_size_bytes(b.type) <= 1) {
+    // We don't want the stride of the loads from B to be too big.
+    // TODO: b/543245536 - We should probably do this for all types, not just
+    // int8 or smaller. However, this uncovers an issue of uneven split factors
+    // in some cases, so as a workaround, we only do this for 8-bit or smaller
+    // types.
+    block_n = align_block_n;
+  } else {
+    // - We want to maximize block_n if the block will fit in cache
+    const int cache_elements = cache_size_l2 * 8 / type_size_bits(b.type);
+    slinky::expr cache_blocks_n = slinky::floor_div<slinky::expr>(
+        cache_elements, align_block_n * k1 * k2 * k3);
+    block_n = align_block_n * max(1, cache_blocks_n);
+  }
 
   // - We don't want the block to be bigger than n (the number of columns of B).
   // - We want it to be aligned to a multiple of the kernel's `tile_n`.
@@ -637,11 +681,11 @@ uint32_t define_pack_b(ynn_subgraph_t subgraph, const dot_type& type,
   // Make a global variable for the alignment, which is a messy expression,
   // but keep the max outside it, so slinky can learn bounds from it
   // (hacky...).
-  block_n = max(kernel.tile_n, subgraph->globals.get(block_n, "block_n"));
+  block_n = max(kernel.tile_n, subgraph.globals.get(block_n, "block_n"));
   slinky::expr tiles_k = slinky::ceil_div<slinky::expr>(k1, kernel.tile_k);
   slinky::expr blocks_n = slinky::ceil_div(n, block_n);
 
-  assert(kernel.tile_k % element_count == 0);
+  assert(kernel.tile_k % type_element_count(b.type) == 0);
   packed_b.extents = {kernel.tile_k, block_n, tiles_k, blocks_n};
   for (slinky::expr& i : packed_b.extents) {
     i = slinky::simplify(i);
@@ -725,9 +769,11 @@ uint32_t define_pack_b(ynn_subgraph_t subgraph, const dot_type& type,
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;
   };
-  subgraph->add_node(std::move(node));
+  subgraph.add_node(std::move(node));
   return packed_b_id;
 }
+
+namespace {
 
 // Make a kernel wrapper for packing the input of a dot kernel, i.e.
 // interleaving `tile_k` rows at a time.
@@ -858,7 +904,7 @@ uint32_t define_transpose_a(ynn_subgraph& subgraph, index_t tile_k,
 
 std::tuple<slinky::expr, slinky::expr, slinky::expr> choose_split_factors(
     ynn_runtime& runtime, slinky::expr m, slinky::expr n, slinky::expr k,
-    slinky::expr block_n) {
+    slinky::expr block_n, size_t a_elem_size = 0) {
   // We can only return a scalar from a slinky expression, so we pack the
   // splits into one integer.
   auto impl = [](const slinky::call* op, slinky::eval_context& ctx) {
@@ -878,8 +924,10 @@ std::tuple<slinky::expr, slinky::expr, slinky::expr> choose_split_factors(
     // use data we load from either side.
     // - Tasks shouldn't be too small, to avoid parallelism overhead.
     // - Tasks shouldn't be too large, so we get enough parallelism.
-    const index_t min_area =
+    const index_t min_area_2d =
         std::min<index_t>(m, 64) * std::min<index_t>(n, 64);
+    const index_t min_area_1d = 256;
+    const index_t min_area = std::max<index_t>(min_area_2d, min_area_1d);
     const index_t max_area = 256 * 256;
     // The maximum cost of a tile, according to the cost function (m + n) * k.
     const index_t max_cost = 1024 * 64;
@@ -921,10 +969,34 @@ std::tuple<slinky::expr, slinky::expr, slinky::expr> choose_split_factors(
   splits = runtime.globals.get(splits, "dot_splits");
   slinky::expr split_m = splits / 65536;
   slinky::expr split_n = splits % 65536;
-  // Align `split_k` to be a multiple of possible values of `tile_k`. We cannot
-  // use the value of `tile_k` directly since this varies by CPU, so we use 64
-  // as a heuristic.
-  slinky::expr split_k = slinky::select(k >= 64, slinky::align_up(k, 64), k);
+
+  // Trade-offs for splitting k:
+  // - Benefit: For very large values of k, splitting the reduction dimension
+  //   keeps the active working set of inputs A and B within the L1 cache,
+  //   preventing input cache lines from being evicted before they can be reused
+  //   across the m and n tile loops.
+  // - Cost: Splitting k across multiple serial iterations forces the
+  //   intermediate accumulator buffer C (m_tile x n_tile) to be written to
+  //   memory and reloaded for each k chunk, adding memory bandwidth and loop
+  //   overhead.
+  // - Data-type dependence: For narrow data types (e.g. INT8 with 1-byte input
+  //   and 4-byte INT32 accumulator, or BF16 with 2-byte input and 4-byte FP32
+  //   accumulator), the accumulator is 2-4x larger than the inputs, making
+  //   accumulator spilling much more expensive. Moreover, at k = 8192
+  //   (threshold for FP32), narrow inputs take only 8-16 KB (already fitting in
+  //   L1).
+  //
+  // Sizing rationale:
+  // - We set `k_threshold` so that k-splitting only triggers when a single
+  //   input slice along k reaches `cache_size_l1`.
+  // - We use half of `cache_size_l1` to set the split size so that both A and B
+  //   fit in L1.
+  assert(a_elem_size > 0);
+  const index_t k_threshold = cache_size_l1 / a_elem_size;
+  const index_t k_split_size = k_threshold / 2;
+  slinky::expr split_k =
+      slinky::select(k >= k_threshold, k_split_size,
+                     slinky::select(k >= 64, slinky::align_up(k, 64), k));
   split_m = runtime.globals.get(split_m, "split_m");
   split_n = runtime.globals.get(split_n, "split_n");
   split_k = runtime.globals.get(split_k, "split_k");
@@ -933,10 +1005,14 @@ std::tuple<slinky::expr, slinky::expr, slinky::expr> choose_split_factors(
 
 void learn_shape_from_b(dot_shape& shape, size_t num_k_dims,
                         const ynn_value& b) {
-  shape.n = as_constant(b.extent(0));
-  shape.k1 = as_constant(b.extent(1));
-  shape.k2 = num_k_dims >= 2 ? as_constant(b.extent(2)) : 1;
-  shape.k3 = num_k_dims >= 3 ? as_constant(b.extent(3)) : 1;
+  shape.n = as_constant(b.extent(0)).value_or(unknown_dot_extent);
+  shape.k1 = as_constant(b.extent(1)).value_or(unknown_dot_extent);
+  shape.k2 = num_k_dims >= 2
+                 ? as_constant(b.extent(2)).value_or(unknown_dot_extent)
+                 : 1;
+  shape.k3 = num_k_dims >= 3
+                 ? as_constant(b.extent(3)).value_or(unknown_dot_extent)
+                 : 1;
 }
 
 ynn_status always_alias_transpose(ynn_subgraph& subgraph, uint32_t& id) {
@@ -1098,12 +1174,16 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
   dot_shape shape;
   learn_shape_from_b(shape, num_k_dims, b);
   static constexpr dot_packed_shape no_tile_k = {0, 1};
-  const dot_packed_shape* packed_shape = nullptr;
+  static constexpr dot_packed_shape packed_shape = {};
+  const bool symmetric_b = (flags & YNN_NODE_FLAG_SYMMETRIC_B) != 0;
   const bool consistent_arithmetic =
       (!type_is_integral(a.type) || !type_is_integral(b.type)) &&
       (subgraph.flags & YNN_FLAG_CONSISTENT_ARITHMETIC) != 0;
   uint32_t kernel_flags =
       consistent_arithmetic ? dot_flag::consistent_arithmetic : 0;
+  if (symmetric_b) {
+    kernel_flags |= dot_flag::symmetric_b;
+  }
   dot_kernel kernel = get_dot_kernel(type, shape, packed_shape, kernel_flags);
   dot_kernel unpacked_kernel;
   if (b_transposed) {
@@ -1117,7 +1197,7 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
   } else {
     unpacked_kernel = kernel;
     if (kernel.tile_k != 1) {
-      unpacked_kernel = get_dot_kernel(type, shape, &no_tile_k,
+      unpacked_kernel = get_dot_kernel(type, shape, no_tile_k,
                                        kernel_flags | dot_flag::unaligned_b);
     }
   }
@@ -1133,7 +1213,7 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
     define_static_expand_dims(subgraph, node, input_b_id, &packed_b_id, 0b1001);
     subgraph.add_node(std::move(node));
   } else {
-    packed_b_id = define_pack_b(&subgraph, type, kernel, num_k_dims,
+    packed_b_id = define_pack_b(subgraph, type, kernel, num_k_dims,
                                 consistent_arithmetic, input_b_id);
   }
 
@@ -1213,9 +1293,9 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
                                    ? consistent_block_n
                                    : std::max(YNN_CACHE_LINE_SIZE / b_elem_size,
                                               unpacked_kernel.block_n);
-  node.create = [consistent_arithmetic, pack_b, transpose_a, block_n_unpacked,
-                 tile_k = kernel.tile_k](const ynn_node& node,
-                                         ynn_runtime& runtime) {
+  node.create = [consistent_arithmetic, symmetric_b, pack_b, transpose_a,
+                 block_n_unpacked, tile_k = kernel.tile_k](
+                    const ynn_node& node, ynn_runtime& runtime) {
     const ynn_node::dot& op = std::get<ynn_node::dot>(node.op);
     const size_t num_k_dims = op.num_k_dims;
     ynn_runtime_value& input_a = runtime.value(node.inputs[0]);
@@ -1354,15 +1434,15 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
       attrs.allow_in_place = (1 << 2);
     }
     dot_type dot_type = {input_a.type, packed_b.type, output.type};
-    auto func =
-        slinky::func::make(make_dot_impl(dot_type, consistent_arithmetic,
-                                         transpose_a, pack_b, num_k_dims),
-                           {{input_a.buffer, std::move(a_bounds)},
-                            {packed_b.buffer, std::move(b_bounds)},
-                            {input_c.buffer, std::move(c_bounds)}},
-                           {{output.buffer, output_dims},
-                            {reduction_buffer, std::move(reduction_dims)}},
-                           std::move(attrs));
+    auto func = slinky::func::make(
+        make_dot_impl(dot_type, consistent_arithmetic, symmetric_b, transpose_a,
+                      pack_b, num_k_dims),
+        {{input_a.buffer, std::move(a_bounds)},
+         {packed_b.buffer, std::move(b_bounds)},
+         {input_c.buffer, std::move(c_bounds)}},
+        {{output.buffer, output_dims},
+         {reduction_buffer, std::move(reduction_dims)}},
+        std::move(attrs));
 
     slinky::expr block_n = pack_b ? packed_b.extent(1) : block_n_unpacked;
     slinky::expr n = output.extent(0);
@@ -1375,12 +1455,30 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
     }
 
     slinky::expr split_n, split_m, split_k;
-    std::tie(split_n, split_m, split_k) =
-        choose_split_factors(runtime, m, n, k, block_n);
+    std::tie(split_n, split_m, split_k) = choose_split_factors(
+        runtime, m, n, k, block_n, type_size_bytes(input_a.type));
 
     const int rank = output.rank();
+    const bool is_split_k = slinky::prove_true(split_k < k);
     std::vector<int> loop_order;
-    if (rank >= 2 && pack_b && !packed_b.is_static()) {
+    const bool pack_b_outer = rank >= 2 && pack_b && !packed_b.is_static();
+    if (is_split_k) {
+      if (pack_b_outer) {
+        loop_order.push_back(num_k_dims + 1);  // m (innermost)
+        loop_order.push_back(num_k_dims);      // n
+      } else {
+        loop_order.push_back(num_k_dims);  // n (innermost)
+        if (rank >= 2) {
+          loop_order.push_back(num_k_dims + 1);  // m
+        }
+      }
+      for (size_t i = 0; i < num_k_dims; ++i) {
+        loop_order.push_back(i);  // k (outermost reduction loop)
+      }
+      for (size_t i = 2; i < rank; ++i) {
+        loop_order.push_back(num_k_dims + i);  // batch dims (outermost)
+      }
+    } else if (pack_b_outer) {
       loop_order.resize(num_k_dims + 2);
       for (size_t i = 0; i < loop_order.size(); ++i) {
         loop_order[i] = i;
@@ -1397,7 +1495,11 @@ ynn_status define_dot(ynn_subgraph& subgraph, size_t num_k_dims,
 
     // If output is rank >= 2, we want to split n, m, and k. Otherwise, we only
     // split n and k (e.g. fully-connected layers).
-    splits.push_back(split_k);
+    if (is_split_k) {
+      splits.push_back(split_k);
+    } else {
+      splits.push_back({});
+    }
     for (size_t i = 1; i < num_k_dims; ++i) {
       // Do not create loops for the remaining k dims.
       splits.push_back({});

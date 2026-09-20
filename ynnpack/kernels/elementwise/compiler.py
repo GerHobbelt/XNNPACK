@@ -529,6 +529,11 @@ def cos(value):
 
 
 @intrinsic
+def tan(value):
+  return Op(value.ty, "tan", [value])
+
+
+@intrinsic
 def cast(ty, value):
   """Casts value to a given type."""
   # This is no-op.
@@ -1059,6 +1064,7 @@ class Target:
         "log1p",
         "sin",
         "cos",
+        "tan",
     }
     self.infix_ops = {
         "add": "+",
@@ -1505,7 +1511,7 @@ class Target:
       if b is not None and b.ty.size < 8:
         byte_lanes = tile_width * b.ty.size // 8
         if is_rem_width:
-          str_args.append(f"ceil_div<size_t>(j * {b.ty.size}, 8)")
+          str_args.append(f"ceil_div(j * {b.ty.size}, 8)")
           str_args.append(f"simd::undef<{byte_lanes}>()")
         else:
           str_args.append(f"simd::vec<int8_t, {byte_lanes}>::N")

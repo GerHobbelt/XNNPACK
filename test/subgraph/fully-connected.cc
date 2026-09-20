@@ -404,6 +404,10 @@ void TestStaticB(xnn_datatype convert_to = xnn_datatype_invalid,
       GTEST_SKIP();
       return;
     }
+    // CreateRuntime may also fail with unsupported_parameter for configs that
+    // have no available microkernel. Assert success so we never proceed to
+    // reshape a null runtime, which segfaults
+    ASSERT_EQ(xnn_status_success, status);
 
     // Run the subgraph twice, with a different input/output shape each time
     // (except for the input/output channels, which are determined by the filter
@@ -575,6 +579,7 @@ TEST(FullyConnectedQD8F16QB4UW_F16, static_b) {
   TestStaticB<xnn_float16, qcuint4, float, xnn_float16, xnn_float16>(
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
 }
+#endif  // XNNPACK_USE_YNNPACK
 TEST(FullyConnectedQD8F16QB4W_BF16, static_b) {
   TestStaticB<xnn_float16, qcint4, float, xnn_float16, xnn_bfloat16>(
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
@@ -585,6 +590,7 @@ TEST(FullyConnectedQD8F16QB4W_F16, static_b) {
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
 }
 
+#ifndef XNNPACK_USE_YNNPACK
 TEST(FullyConnectedQD8F32QB4UW_BF16, static_b) {
   TestStaticB<float, qcuint4, float, float, xnn_bfloat16>(
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
@@ -593,6 +599,7 @@ TEST(FullyConnectedQD8F32QB4UW_F16, static_b) {
   TestStaticB<float, qcuint4, float, float, xnn_float16>(
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
 }
+#endif  // XNNPACK_USE_YNNPACK
 TEST(FullyConnectedQD8F32QB4W_BF16, static_b) {
   TestStaticB<float, qcint4, float, float, xnn_bfloat16>(
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
@@ -601,7 +608,12 @@ TEST(FullyConnectedQD8F32QB4W_F16, static_b) {
   TestStaticB<float, qcint4, float, float, xnn_float16>(
       /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
 }
-#endif  // XNNPACK_USE_YNNPACK
+// bf16 output only supports bf16-typed blockwise scales (there is no
+// qd8_bf16_qb4w_f16_scales create variant), so no _F16 counterpart here.
+TEST(FullyConnectedQD8BF16QB4W_BF16, static_b) {
+  TestStaticB<float, qcint4, float, xnn_bfloat16, xnn_bfloat16>(
+      /*convert_to=*/xnn_datatype_qdint8, /*block_size=*/32);
+}
 
 template <typename Input, typename Filter, typename Bias,
           typename Output = Input>
@@ -670,6 +682,10 @@ void TestDynamicB(xnn_datatype convert_to = xnn_datatype_invalid,
       GTEST_SKIP();
       return;
     }
+    // CreateRuntime may also fail with unsupported_parameter for configs that
+    // have no available microkernel. Assert success so we never proceed to
+    // reshape a null runtime, which segfaults
+    ASSERT_EQ(xnn_status_success, status);
 
     // Run the subgraph twice, with a different input/output shape each time.
     for (int reshape = 0; reshape < 2; ++reshape) {

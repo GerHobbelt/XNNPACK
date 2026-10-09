@@ -371,6 +371,14 @@ typedef void (*xnn_f32_dwconv_minmax_ukernel_fn)(
     size_t output_increment, size_t input_offset, size_t input_pixel_stride,
     const float* zero, const struct xnn_f32_minmax_params* params);
 
+typedef void (*xnn_kai_f32_dwconv_minmax_ukernel_fn)(
+    const void* input, const void* packed_weights, void* output,
+    size_t input_height_stride, size_t input_pixel_stride,
+    size_t output_height_stride, size_t output_pixel_stride,
+    size_t valid_input_rows, size_t valid_output_rows,
+    size_t input_padding_left, size_t input_padding_top, float padding_value,
+    float output_min, float output_max);
+
 typedef void (*xnn_qs8_dwconv_minmax_ukernel_fn)(
     size_t channels, size_t output_width, const int8_t** input,
     const void* weights, int8_t* output, intptr_t input_stride,
@@ -647,6 +655,11 @@ typedef void (*xnn_qs8_packw_gemm_gio_ukernel_fn)(
     size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
     size_t k_stride, const int8_t* k, const int32_t* b, const void* scale,
     int8_t* packed_weights, size_t extra_bytes, const void* params);
+
+typedef void (*xnn_qu8_packw_gemm_goi_ukernel_fn)(
+    size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,
+    size_t n_stride, const uint8_t* k, const int32_t* b, const void* scale,
+    void* packed_weights, size_t extra_bytes, const void* params);
 
 typedef void (*xnn_qs8_qc4w_packw_gemm_goi_ukernel_fn)(
     size_t g, size_t nc, size_t kc, size_t nr, size_t kr, size_t sr,

@@ -687,7 +687,7 @@ uint32_t define_pack_b(ynn_subgraph& subgraph, const dot_type& type,
   node.inputs = {input_b_id};
   node.outputs = {packed_b_id};
   node.op = ynn_node::pack_b{};
-  node.create = [num_k_dims](const ynn_node& node, ynn_runtime& runtime) {
+  node.create = [](const ynn_node& node, ynn_runtime& runtime) {
     const ynn_runtime_value& input = runtime.value(node.inputs[0]);
     ynn_runtime_value& output = runtime.value(node.outputs[0]);
 
@@ -740,13 +740,6 @@ uint32_t define_pack_b(ynn_subgraph& subgraph, const dot_type& type,
                               output.buffer->elem_size(), given_splits);
     sched->loop_splits[0].step_is_required = true;
     sched->loop_splits[1].step_is_required = true;
-
-    // TODO(vksnk): This is a temporary workaround to avoid recomputing packed
-    // buffer. The proper fix would probably involve adding a loop splits for
-    // the packing function and making scheduler match it.
-    if (num_k_dims > 1) {
-      sched->force_root = true;
-    }
 
     // The real bounds of the input's n dimension are blocks of size block_n
     // indexed by `no`, which breaks the scheduler's source region inference.
@@ -902,6 +895,30 @@ void define_transpose_a(ynn_subgraph& subgraph, ynn_node& node, index_t tile_m,
     auto func = slinky::func::make(make_transpose_a_impl(m_dim),
                                    {std::move(func_input)},
                                    {{output.buffer, dims}}, std::move(attrs));
+
+    // Pin ki, mi and the k dimensions to their full extents (the transpose
+    // kernel produces whole ki x mi tiles and all of ko at once), and let
+    // make_schedule pick splits and workers for the mo and batch dimensions.
+    // When it is fused, the splits don't require their steps, so they adopt
+    // the loops of the dot.
+    std::vector<slinky::expr> given_splits(m_dim + 2);
+    for (int i = 0; i < m_dim + 2; ++i) {
+      given_splits[i] = output.physical_extent(i);
+    }
+    auto sched =
+        runtime.make_schedule(dims, output.physical_extents(),
+                              output.buffer->elem_size(), given_splits);
+
+    // The real bounds of the input's m dimension are tiles of size tile_m
+    // indexed by `mo`, which breaks the scheduler's source region inference.
+    // Declare a virtual 1-to-1 mapping with `mo` instead, so producers of the
+    // input can be fused with loops derived from it.
+    sched->input_scheduler_bounds.resize(1);
+    sched->input_scheduler_bounds[0].resize(m_dim + 1);
+    sched->input_scheduler_bounds[0][m_dim] = slinky::point(mo);
+
+    func.user_data() = sched.get();
+    runtime.scheduling_info_storage.push_back(std::move(sched));
 
     runtime.funcs.push_back(std::move(func));
     return ynn_status_success;

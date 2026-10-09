@@ -687,7 +687,8 @@ absl::Status OpMixin<FullyConnectedOperation, XnnpackMixinTag>::ToXnnpack(
   auto input_info = graph::GetInfo(input);
   bool weights_are_quantized = false;
   if (weights_info.ok() && weights_info->quantization &&
-      (weights_info->type == Type::kI8 || weights_info->type == Type::kI4)) {
+      (weights_info->type == Type::kI8 || weights_info->type == Type::kI4 ||
+       weights_info->type == Type::kI2)) {
     if (auto pcq =
             weights_info->quantization->As<PerChannelAffineQuantization>();
         pcq.ok()) {
@@ -1116,6 +1117,16 @@ absl::Status OpMixin<ReshapeOperation, XnnpackMixinTag>::ToXnnpack(
   new_shape.reserve(op_data.new_shape.size());
   for (int dim : op_data.new_shape) {
     new_shape.push_back(static_cast<size_t>(dim));
+  }
+  if (op_data.inferred_axis >= 0) {
+    if (static_cast<size_t>(op_data.inferred_axis) >= new_shape.size()) {
+      return absl::InvalidArgumentError(absl::StrFormat(
+          "%s: inferred axis %d is out of range for a shape of rank %zu",
+          op_name, op_data.inferred_axis, new_shape.size()));
+    }
+    // XNNPACK recomputes the dimensions that are set to 0 from the number of
+    // elements the input holds when the runtime is reshaped.
+    new_shape[op_data.inferred_axis] = 0;
   }
 
   LRT_TENSOR_RETURN_IF_ERROR(xnn_define_static_reshape(
